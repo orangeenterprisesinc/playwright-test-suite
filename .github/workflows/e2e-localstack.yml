@@ -8,13 +8,22 @@ name: E2E (full local stack)
 # Stack brought up here: SQL Server (restored from .bak) + MinIO + Gotenberg +
 # Go API (:8080) + web dev server (:3000).
 #
-# Manual/on-demand only — this is heavy (minutes per run) and depends on a
-# private DB backup, so it must not gate every push.
+# Runs on push to main (plus manual/on-demand). This is heavy (minutes per run)
+# and depends on a private DB backup, so it is intentionally NOT run on every
+# branch/PR — only on commits that land on main.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   repository_dispatch:
     types:
       - run-e2e-localstack
+
+# Never run two heavy stacks at once; a newer push to main supersedes an
+# in-flight run.
+concurrency:
+  group: e2e-localstack-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
