@@ -72,8 +72,11 @@ jobs:
       #     never clobbers an already-set process env var, so these secrets win) ---
       TEST_ENV: local
       BASE_URL: http://localhost:3000
-      USER_NAME: ${{ secrets.PW_USER_NAME }}
-      PASSWORD: ${{ secrets.PW_PASSWORD }}
+      # Accept either secret naming scheme: the PW_-prefixed names this file
+      # documented originally, or the USERNAME/PASSWORD secrets that actually
+      # exist in the repo today.
+      USER_NAME: ${{ secrets.PW_USER_NAME || secrets.USERNAME }}
+      PASSWORD: ${{ secrets.PW_PASSWORD || secrets.PASSWORD }}
       # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
       #     'yes' and add the SMTP_*/EMAIL_* secrets to activate it. With the
       #     variable unset the reporter logs one line and does nothing. ---
