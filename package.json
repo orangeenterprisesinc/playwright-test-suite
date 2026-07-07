@@ -2,7 +2,18 @@
   "name": "playwright-pom-core",
   "version": "1.0.0",
   "description": "Playwright + TypeScript POM test framework for PET Tiger",
-  "scripts": {},
+  "scripts": {
+    "test": "cross-env TEST_ENV=local playwright test",
+    "test:dev": "cross-env TEST_ENV=dev playwright test",
+    "test:qa": "cross-env TEST_ENV=qa playwright test",
+    "test:headed": "cross-env TEST_ENV=local playwright test --project=chromium --headed",
+    "test:ui": "cross-env TEST_ENV=local playwright test --ui",
+    "test:debug": "cross-env TEST_ENV=local playwright test --project=chromium --debug",
+    "test:smoke": "cross-env TEST_ENV=local playwright test --grep=@Smoke",
+    "test:last-failed": "cross-env TEST_ENV=local playwright test --last-failed",
+    "test:report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
   "keywords": [],
   "license": "ISC",
   "devDependencies": {

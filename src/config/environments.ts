@@ -1,21 +1,20 @@
 /**
  * @fileoverview Environment configuration definitions and resolver.
  *
- * Defines per-environment settings (dev, stag, prod, qe) including application URLs,
+ * Defines per-environment settings (local, dev, qa) including application URLs,
  * API URLs, timeouts, and retry counts. Each environment's URLs are resolved from
- * environment-specific env vars (e.g., `DEV_APP_URL`, `STAG_API_URL`) with
- * sensible defaults for local development.
+ * environment-specific env vars (e.g., `DEV_APP_URL`, `QA_API_URL`) with
+ * sensible defaults.
  *
  * @module config/environments
- * @author Vicky
  * @since 1.0.0
  *
  * @example
  * ```typescript
  * import { getEnvironmentConfig } from '../config/environments';
  *
- * const devConfig = getEnvironmentConfig('dev');
- * console.log(devConfig.appUrl); // 'http://localhost:3000' (or DEV_APP_URL)
+ * const localConfig = getEnvironmentConfig('local');
+ * console.log(localConfig.appUrl); // 'http://localhost:3000' (or BASE_URL)
  * ```
  */
 import type {Environment, EnvironmentConfig} from '../types';
@@ -24,67 +23,59 @@ import type {Environment, EnvironmentConfig} from '../types';
  * Pre-defined configuration for each supported environment.
  *
  * URLs are resolved from environment-specific variables at module load time:
+ * - `local` → `BASE_URL` / `API_URL` (the same vars the env.local file sets)
  * - `dev` → `DEV_APP_URL` / `DEV_API_URL`
- * - `stag` → `STAG_APP_URL` / `STAG_API_URL`
- * - `prod` → `PROD_APP_URL` / `PROD_API_URL`
- * - `qe` → `QE_APP_URL` / `QE_API_URL`
+ * - `qa` → `QA_APP_URL` / `QA_API_URL`
  *
  * @const {Record<Environment, EnvironmentConfig>}
  * @private
  */
 const environments: Record<Environment, EnvironmentConfig> = {
-    dev: {
-        name: 'dev',
-        appUrl: process.env.DEV_APP_URL || 'http://localhost:3000',
-        apiUrl: process.env.DEV_API_URL || 'http://localhost:3001/api',
-        timeout: 60000,
+    local: {
+        name: 'local',
+        appUrl: process.env.BASE_URL || 'http://localhost:3000',
+        apiUrl: process.env.API_URL || 'http://localhost:8080/api',
+        timeout: 110000,
         retries: 0,
     },
-    stag: {
-        name: 'stag',
-        appUrl: process.env.STAG_APP_URL || 'https://staging.example.com',
-        apiUrl: process.env.STAG_API_URL || 'https://staging-api.example.com',
-        timeout: 30000,
+    dev: {
+        name: 'dev',
+        appUrl: process.env.DEV_APP_URL || 'https://dev.pet-tiger.example.com',
+        apiUrl: process.env.DEV_API_URL || 'https://dev.pet-tiger.example.com/api',
+        timeout: 110000,
         retries: 2,
     },
-    prod: {
-        name: 'prod',
-        appUrl: process.env.PROD_APP_URL || 'https://www.example.com',
-        apiUrl: process.env.PROD_API_URL || 'https://api.example.com',
-        timeout: 30000,
-        retries: 3,
-    },
-    qe: {
-        name: 'qe',
-        appUrl: process.env.QE_APP_URL || 'https://www.example.com',
-        apiUrl: process.env.QE_API_URL || 'https://api.example.com',
-        timeout: 30000,
-        retries: 3,
+    qa: {
+        name: 'qa',
+        appUrl: process.env.QA_APP_URL || 'https://qa.pet-tiger.example.com',
+        apiUrl: process.env.QA_API_URL || 'https://qa.pet-tiger.example.com/api',
+        timeout: 110000,
+        retries: 2,
     },
 };
 
 /**
  * Retrieves the configuration for a specific environment.
  *
- * Falls back to the `TEST_ENV` environment variable, then to `'qe'` if no
+ * Falls back to the `TEST_ENV` environment variable, then to `'local'` if no
  * argument is provided.
  *
- * @param {Environment} [env] - The target environment. Defaults to `process.env.TEST_ENV` or `'qe'`
+ * @param {Environment} [env] - The target environment. Defaults to `process.env.TEST_ENV` or `'local'`
  * @returns {EnvironmentConfig} The configuration for the requested environment
  * @throws {Error} If the requested environment is not defined in the environments map
  *
  * @example
  * ```typescript
  * // Explicit environment
- * const stagConfig = getEnvironmentConfig('stag');
- * console.log(stagConfig.timeout); // 30000
+ * const qaConfig = getEnvironmentConfig('qa');
+ * console.log(qaConfig.timeout); // 110000
  *
- * // Default from TEST_ENV or 'qe'
+ * // Default from TEST_ENV or 'local'
  * const defaultConfig = getEnvironmentConfig();
  * ```
  */
 export function getEnvironmentConfig(env ?: Environment): EnvironmentConfig {
-    const envName = env || (process.env.TEST_ENV as Environment) || 'qe';
+    const envName = env || (process.env.TEST_ENV as Environment) || 'local';
     const config = environments[envName];
     if (!config) {
         throw new Error(

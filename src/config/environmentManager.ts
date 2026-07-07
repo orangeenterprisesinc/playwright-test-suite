@@ -18,7 +18,7 @@
  * console.log(config.appUrl);
  *
  * // Switch environment at runtime
- * environmentManager.switchEnvironment('stag');
+ * environmentManager.switchEnvironment('qa');
  *
  * // Listen for changes
  * const unsubscribe = environmentManager.onEnvironmentChange((env) => {
@@ -73,7 +73,7 @@ export interface ValidationResult {
  */
 export class EnvironmentManager {
     private static instance: EnvironmentManager;
-    private currentEnvironment: Environment = 'qe';
+    private currentEnvironment: Environment = 'local';
     private environmentConfigs: Map<Environment, ExtendedEnvironmentConfig> = new Map();
     private customConfigs: Map<string, unknown> = new Map();
     private listeners: ((env: Environment) => void)[] = [];
@@ -97,7 +97,7 @@ export class EnvironmentManager {
 
     /**
      * Returns the currently active environment identifier.
-     * @returns {Environment} Current environment (e.g., `'dev'`, `'qe'`, `'stag'`, `'prod'`)
+     * @returns {Environment} Current environment (e.g., `'local'`, `'dev'`, `'qa'`)
      */
     getCurrentEnvironment(): Environment {
         return this.currentEnvironment;
@@ -144,7 +144,7 @@ export class EnvironmentManager {
      *
      * @example
      * ```typescript
-     * environmentManager.switchEnvironment('stag');
+     * environmentManager.switchEnvironment('qa');
      * ```
      */
     switchEnvironment(env: Environment): void {
@@ -283,19 +283,19 @@ export class EnvironmentManager {
 
     /**
      * Returns all available environment identifiers.
-     * @returns {Environment[]} Array of environment names (e.g., `['dev', 'stag', 'prod', 'qe']`)
+     * @returns {Environment[]} Array of environment names (e.g., `['local', 'dev', 'qa']`)
      */
     getAvailableEnvironments(): Environment[] {
         return Array.from(this.environmentConfigs.keys());
     }
 
     /**
-     * Resets the manager to its default state (`'qe'` environment, no custom configs).
+     * Resets the manager to its default state (`'local'` environment, no custom configs).
      */
     reset(): void {
-        this.currentEnvironment = 'qe';
+        this.currentEnvironment = 'local';
         this.customConfigs.clear();
-        process.env.TEST_ENV = 'qe';
+        process.env.TEST_ENV = 'local';
     }
 
     /**
@@ -303,12 +303,12 @@ export class EnvironmentManager {
      * @private
      */
     private initializeEnvironments(): void {
-        const environments: Environment[] = ['dev', 'stag', 'prod', 'qe'];
+        const environments: Environment[] = ['local', 'dev', 'qa'];
         environments.forEach((env) => {
             const config = getEnvironmentConfig(env);
             this.environmentConfigs.set(env, {...config});
         });
-        this.currentEnvironment = (process.env.TEST_ENV as Environment) || 'qe';
+        this.currentEnvironment = (process.env.TEST_ENV as Environment) || 'local';
     }
 
     /**

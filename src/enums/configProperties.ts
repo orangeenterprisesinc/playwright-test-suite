@@ -5,8 +5,11 @@
  * environment variable keys, providing type-safe access to framework configuration.
  * All properties are resolved via `process.env` at runtime.
  *
+ * Variable names follow the original demo framework's convention
+ * (`BASE_URL`, `USER_NAME`, `PASSWORD`) so the existing CI secrets keep
+ * working unchanged.
+ *
  * @module enums/configProperties
- * @author Vicky
  * @since 1.0.0
  *
  * @example
@@ -14,7 +17,7 @@
  * import { ConfigProperties, getConfigValue, getConfigBoolean } from '../enums/configProperties';
  *
  * const baseUrl = getConfigValue(ConfigProperties.APP_URL, 'http://localhost:3000');
- * const shouldRetry = getConfigBoolean(ConfigProperties.RETRY, false);
+ * const userName = getConfigValue(ConfigProperties.USER_NAME);
  * ```
  */
 
@@ -34,104 +37,21 @@ export enum ConfigProperties {
     /** Base URL for the API server (env: `API_URL`) */
     API_URL = 'API_URL',
 
-    APP_USERNAME = 'APP_USERNAME',
-    APP_PASSWORD = 'APP_PASSWORD',
+    /* ── Application Login ───────────────────────────── */
+
+    /** Application login username (env: `USER_NAME`) */
+    USER_NAME = 'USER_NAME',
+    /** Application login password (env: `PASSWORD`) */
+    PASSWORD = 'PASSWORD',
 
     /* ── Runtime Configuration ───────────────────────── */
 
-    /** Current environment identifier (env: `ENV`) */
-    ENV = 'ENV',
     /** Current test environment identifier (env: `TEST_ENV`) */
     TEST_ENV = 'TEST_ENV',
-    /** Execution mode — `'local'` or `'remote'` (env: `RUN_MODE`) */
-    RUN_MODE = 'RUN_MODE',
-    /** Whether to override existing report files — `'yes'` or `'no'` (env: `OVERRIDE_REPORTS`) */
-    OVERRIDE_REPORTS = 'OVERRIDE_REPORTS',
-    /** Whether to enable test retries (env: `RETRY`) */
+    /** Retry count override (env: `RETRY`) */
     RETRY = 'RETRY',
-    /** Whether to log API response bodies (env: `LOG_RESPONSE`) */
-    LOG_RESPONSE = 'LOG_RESPONSE',
-
-    /* ── Authentication ──────────────────────────────── */
-
-    /** Authentication type — e.g., `'oauth2'`, `'basic'`, `'apikey'` (env: `AUTH_TYPE`) */
-    AUTH_TYPE = 'AUTH_TYPE',
-    /** OAuth2 token endpoint URL (env: `ACCESS_TOKEN_URL`) */
-    ACCESS_TOKEN_URL = 'ACCESS_TOKEN_URL',
-    /** OAuth2 client ID (env: `CLIENT_ID`) */
-    CLIENT_ID = 'CLIENT_ID',
-    /** OAuth2 client secret (env: `CLIENT_SECRET`) */
-    CLIENT_SECRET = 'CLIENT_SECRET',
-    /** OAuth2 scope (env: `SCOPE`) */
-    SCOPE = 'SCOPE',
-    /** OAuth2 audience (env: `AUDIENCE`) */
-    AUDIENCE = 'AUDIENCE',
-    /** Authorization header prefix — e.g., `'Bearer'` (env: `AUTH_PREFIX`) */
-    AUTH_PREFIX = 'AUTH_PREFIX',
-    /** api login username (env: `USERNAME`) */
-    AUTH_USERNAME = 'AUTH_USERNAME',
-    /** api login password (env: `PASSWORD`) */
-    AUTH_PASSWORD = 'AUTH_PASSWORD',
-    /** API key for API key authentication (env: `API_KEY`) */
-    API_KEY = 'API_KEY',
-
-
-    BASIC_AUTH_USERNAME = 'BASIC_AUTH_USERNAME',    
-    BASIC_AUTH_PASSWORD = 'BASIC_AUTH_PASSWORD',
-    /* ── HTTP Headers ────────────────────────────────── */
-
-    /** Default Accept header value (env: `ACCEPT_HEADER`) */
-    ACCEPT_HEADER = 'ACCEPT_HEADER',
-    /** Default Content-Type header value (env: `CONTENT_TYPE_HEADER`) */
-    CONTENT_TYPE_HEADER = 'CONTENT_TYPE_HEADER',
-
-    /* ── Database ────────────────────────────────────── */
-
-    /** Path to the audit log SQLite database (env: `AUDIT_LOG_DB`) */
-    AUDIT_LOG_DB = 'AUDIT_LOG_DB',
-    /** Database host for remote connections (env: `DB_HOST`) */
-    DB_HOST = 'DB_HOST',
-    /** Database port for remote connections (env: `DB_PORT`) */
-    DB_PORT = 'DB_PORT',
-    /** Database username (env: `DB_USER`) */
-    DB_USER = 'DB_USER',
-    /** Database password (env: `DB_PASSWORD`) */
-    DB_PASSWORD = 'DB_PASSWORD',
-    /** Database name (env: `DB_NAME`) */
-    DB_NAME = 'DB_NAME',
-
-
-        /* ── Dev Database ─────────────────────────────────── */
-
-    /** Dev database host (env: `DEV_DB_HOST`) */
-    DEV_DB_HOST = 'DEV_DB_HOST',
-    /** Dev database port (env: `DEV_DB_PORT`) */
-    DEV_DB_PORT = 'DEV_DB_PORT',
-    /** Dev database username (env: `DEV_DB_USER`) */
-    DEV_DB_USER = 'DEV_DB_USER',
-    /** Dev database password (env: `DEV_DB_PASSWORD`) */
-    DEV_DB_PASSWORD = 'DEV_DB_PASSWORD',
-    /** Dev database schema name (env: `DEV_DB_NAME`) */
-    DEV_DB_NAME = 'DEV_DB_NAME',
-
-    /* ── Reporting & Integrations ────────────────────── */
-
-    /** Elasticsearch URL for ELK dashboard integration (env: `ELASTICSEARCH_URL`) */
-    ELASTICSEARCH_URL = 'ELASTICSEARCH_URL',
-    /** Whether to send results to ELK — `'yes'` or `'no'` (env: `SEND_RESULT_ELK`) */
-    SEND_RESULT_ELK = 'SEND_RESULT_ELK',
-
-    /* ── CI/CD ───────────────────────────────────────── */
-
-    /** CI pipeline identifier (env: `CI_PIPELINE_ID`) */
-    CI_PIPELINE_ID = 'CI_PIPELINE_ID',
-    /** CI commit branch/ref name (env: `CI_COMMIT_REF_NAME`) */
-    CI_COMMIT_REF_NAME = 'CI_COMMIT_REF_NAME',
-
-    /* ── Framework Metadata ──────────────────────────── */
-
-    /** Name of the service being tested (env: `SERVICE_NAME`) */
-    SERVICE_NAME = 'SERVICE_NAME',
+    /** Active test data source — `'json'` or `'csv'` (env: `TEST_DATA_SOURCE`) */
+    TEST_DATA_SOURCE = 'TEST_DATA_SOURCE',
 }
 
 /**
@@ -148,9 +68,6 @@ export enum ConfigProperties {
  * ```typescript
  * // Returns process.env.BASE_URL or 'http://localhost:3000' if not set
  * const appUrl = getConfigValue(ConfigProperties.APP_URL, 'http://localhost:3000');
- *
- * // Returns process.env.ENV or empty string if not set
- * const env = getConfigValue(ConfigProperties.ENV);
  * ```
  */
 export function getConfigValue(key: ConfigProperties, fallback: string = ''): string {
@@ -171,9 +88,6 @@ export function getConfigValue(key: ConfigProperties, fallback: string = ''): st
  * ```typescript
  * // Returns true if process.env.RETRY is 'yes', 'true', or '1'
  * const shouldRetry = getConfigBoolean(ConfigProperties.RETRY, false);
- *
- * // Returns true if process.env.SEND_RESULT_ELK is 'yes'
- * const sendToElk = getConfigBoolean(ConfigProperties.SEND_RESULT_ELK);
  * ```
  */
 export function getConfigBoolean(key: ConfigProperties, fallback: boolean = false): boolean {

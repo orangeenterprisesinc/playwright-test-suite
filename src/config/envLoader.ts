@@ -1,8 +1,9 @@
 /**
- * @fileoverview Environment file loader supporting env.qe/dev/prod/stag with OS-env precedence.
+ * @fileoverview Environment file loader supporting env.local/dev/qa with OS-env precedence.
  *
  * Loads a base `.env` (if present) and an environment-specific `env.<name>` file,
- * where name is resolved from `TEST_ENV` (preferred) or `ENV`. OS-level environment
+ * where name is resolved from `TEST_ENV` (preferred) or `ENV`, defaulting to
+ * `'local'`. OS-level environment
  * variables always take precedence.
  *
  * @module config/envLoader
@@ -13,7 +14,7 @@
  * ```typescript
  * import { loadEnvFiles } from '@config/envLoader';
  *
- * // Load env.qe (default)
+ * // Load env.local (default)
  * const result = loadEnvFiles();
  *
  * // Load env.dev explicitly
@@ -28,7 +29,7 @@ import dotenv from 'dotenv';
  * Result of loading environment files.
  *
  * @interface EnvLoadResult
- * @property {string} envName - Resolved environment name (e.g. `'qe'`, `'dev'`)
+ * @property {string} envName - Resolved environment name (e.g. `'local'`, `'dev'`)
  * @property {string[]} loadedFiles - Absolute paths of files that were loaded
  * @property {string[]} missingFiles - Absolute paths of files that were not found
  */
@@ -56,12 +57,12 @@ function parseIfExists(filePath: string): Record<string, string> {
  *
  * @private
  * @param {string} [explicitEnv] - Explicit environment name override
- * @returns {string} Normalised environment name (defaults to `'qe'`)
+ * @returns {string} Normalised environment name (defaults to `'local'`)
  */
 function resolveEnvName(explicitEnv?: string): string {
     const raw =
-        (explicitEnv || process.env.TEST_ENV || process.env.ENV || 'qe').toString().toLowerCase();
-    return raw === 'staging' ? 'stag' : raw;
+        (explicitEnv || process.env.TEST_ENV || process.env.ENV || 'local').toString().toLowerCase();
+    return raw;
 }
 
 /**

@@ -75,14 +75,13 @@ export type UserRole = 'provider' | 'nurse' | 'admin';
 /**
  * Supported deployment environments for the application.
  *
+ * - `'local'` — Local development stack (http://localhost:3000)
  * - `'dev'` — Development environment
- * - `'qe'` — Quality Engineering / QA environment
- * - `'stag'` — Staging / Pre-production environment
- * - `'prod'` — Production environment
+ * - `'qa'` — QA environment
  *
- * @typedef {('dev' | 'qe' | 'stag' | 'prod')} Environment
+ * @typedef {('local' | 'dev' | 'qa')} Environment
  */
-export type Environment = 'dev' | 'qe' | 'stag' | 'prod';
+export type Environment = 'local' | 'dev' | 'qa';
 
 /**
  * Configuration settings for a specific deployment environment.
