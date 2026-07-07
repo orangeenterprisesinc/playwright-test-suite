@@ -5,7 +5,7 @@
  * types via `dynamicTyping`, and apply {@link TypeCoercionHelper} transformations.
  *
  * @module utils/dataReaders/CsvDataReader
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

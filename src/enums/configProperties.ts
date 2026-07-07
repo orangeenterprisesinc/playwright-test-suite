@@ -52,6 +52,23 @@ export enum ConfigProperties {
     RETRY = 'RETRY',
     /** Active test data source — `'json'` or `'csv'` (env: `TEST_DATA_SOURCE`) */
     TEST_DATA_SOURCE = 'TEST_DATA_SOURCE',
+
+    /* ── Email Notification ──────────────────────────── */
+
+    /** Whether to email the run summary — `'yes'`/`'no'` (env: `SEND_EMAIL`) */
+    SEND_EMAIL = 'SEND_EMAIL',
+    /** SMTP server host (env: `SMTP_HOST`) */
+    SMTP_HOST = 'SMTP_HOST',
+    /** SMTP server port — 587 STARTTLS / 465 TLS (env: `SMTP_PORT`) */
+    SMTP_PORT = 'SMTP_PORT',
+    /** SMTP username (env: `SMTP_USER`) */
+    SMTP_USER = 'SMTP_USER',
+    /** SMTP password / app password (env: `SMTP_PASSWORD`) */
+    SMTP_PASSWORD = 'SMTP_PASSWORD',
+    /** Sender address (env: `EMAIL_FROM`) */
+    EMAIL_FROM = 'EMAIL_FROM',
+    /** Comma-separated recipient list (env: `EMAIL_TO`) */
+    EMAIL_TO = 'EMAIL_TO',
 }
 
 /**

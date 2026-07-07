@@ -5,7 +5,7 @@
  * canceling, reading title/content, and asserting modal state.
  *
  * @module components/ModalComponent
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

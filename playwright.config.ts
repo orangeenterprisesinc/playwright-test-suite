@@ -59,6 +59,9 @@ export default defineConfig({
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
         ['json', { outputFile: 'test-results/results.json' }],
         ['github'],
+        // Emails a run summary; self-gating — does nothing unless
+        // SEND_EMAIL=yes and the SMTP_* settings are present.
+        ['./src/reporting/emailReporter.ts'],
     ],
 
     // Output directory for test artifacts

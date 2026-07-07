@@ -10,7 +10,7 @@
  * optional numeric auto-conversion).
  *
  * @module utils/dataReaders/TypeCoercionHelper
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

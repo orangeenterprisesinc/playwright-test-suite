@@ -7,7 +7,7 @@
  * page-specific locators/methods.
  *
  * @module pages/BasePage
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

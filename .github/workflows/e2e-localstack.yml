@@ -74,6 +74,16 @@ jobs:
       BASE_URL: http://localhost:3000
       USER_NAME: ${{ secrets.PW_USER_NAME }}
       PASSWORD: ${{ secrets.PW_PASSWORD }}
+      # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
+      #     'yes' and add the SMTP_*/EMAIL_* secrets to activate it. With the
+      #     variable unset the reporter logs one line and does nothing. ---
+      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
     steps:
       # 1) Sources ---------------------------------------------------------------

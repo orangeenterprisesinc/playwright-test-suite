@@ -6,7 +6,7 @@
  * to that root — preventing selector collisions across the page.
  *
  * @module components/BaseComponent
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

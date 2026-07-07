@@ -6,7 +6,7 @@
  * written to daily-rotated JSON-lines log files under `logs/`.
  *
  * @module utils/logger
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

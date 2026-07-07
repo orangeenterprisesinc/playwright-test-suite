@@ -5,7 +5,7 @@
  * menu items, search, user menu (login/logout), and mobile/hamburger menu.
  *
  * @module components/NavigationComponent
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

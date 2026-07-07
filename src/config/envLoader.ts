@@ -7,7 +7,7 @@
  * variables always take precedence.
  *
  * @module config/envLoader
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

@@ -734,7 +734,7 @@ test.describe('Guarantor Account Note - UI to API Validation', () => {
 
         // Annotate for Allure reporting
         withAnnotation(testInfo, {
-            authors: ['Vicky'],
+            authors: ['Gukan'],
             categories: [CategoryType.REGRESSION, CategoryType.UI],
             description: `Search guarantor ${guarantorId}, add note, verify in History & API`,
         });

@@ -5,7 +5,7 @@
  * for convenient single-import usage.
  *
  * @module components
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

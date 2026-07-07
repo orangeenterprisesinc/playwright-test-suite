@@ -6,7 +6,7 @@
  * change-listener subscriptions.
  *
  * @module config/environmentManager
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

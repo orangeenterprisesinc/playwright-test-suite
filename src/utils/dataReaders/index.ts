@@ -1,7 +1,7 @@
 /**
  * @fileoverview Barrel export for all data reader implementations.
  * @module utils/dataReaders
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  */
 export {BaseDataReader} from './BaseDataReader';

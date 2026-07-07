@@ -7,7 +7,7 @@
  * - Objects with a `data` property
  *
  * @module utils/dataReaders/JsonDataReader
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

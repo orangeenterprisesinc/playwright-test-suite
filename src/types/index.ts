@@ -16,7 +16,7 @@
  * - **Data Reader Abstraction**: {@link IDataReader}, {@link DataSourceType}
  *
  * @module types
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example

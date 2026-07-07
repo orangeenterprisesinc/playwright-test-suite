@@ -6,7 +6,7 @@
  * form state (errors, success messages, field values).
  *
  * @module components/FormComponent
- * @author Vicky
+ * @author Gukan
  * @since 1.0.0
  *
  * @example
