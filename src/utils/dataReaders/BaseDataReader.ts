@@ -7,7 +7,7 @@
  * {@link BaseDataReader.parseData}.
  *
  * @module utils/dataReaders/BaseDataReader
- * @author Gukan
+ * @author Vicky
  * @since 1.0.0
  *
  * @example
