@@ -134,14 +134,10 @@ export abstract class BaseDataReader implements IDataReader {
     /**
      * Checks whether the underlying data source is accessible.
      *
-     * @returns {Promise<boolean>} `true` if the file exists (or DB is reachable)
+     * @returns {Promise<boolean>} `true` if the source file exists
      */
     async isAvailable(): Promise<boolean> {
         try {
-            if (this.sourceType === 'db') {
-                // Database availability check is handled by subclass
-                return true;
-            }
             return fs.existsSync(this.filePath);
         } catch {
             return false;

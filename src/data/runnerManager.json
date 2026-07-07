@@ -1,0 +1,74 @@
+{
+    "runnerManager": [
+        {
+            "id": "WF-001",
+            "testName": "CreateGuarantorAccountNote_UI_VerifyAPI",
+            "testTitle": "Verify user can create a Guarantor Account Note in Collections UI and validate it through API response",
+            "testDescription": "This test verifies that a user is able to create a new guarantor account note from the Collections module UI.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "API-001",
+            "testName": "CreateGuarantorAccountNote_API",
+            "testTitle": "Create a new guarantor account note via API and validate the response",
+            "testDescription": "This test verifies that a new guarantor account note can be created via POST API and the response contains the correct accountNote value.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "API-002",
+            "testName": "VerifyCreatedGuarantorNote_API",
+            "testTitle": "Verify the created note exists via GET call",
+            "testDescription": "This test verifies that the previously created guarantor account note is retrievable via GET API and the accountNote value matches.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "API-003",
+            "testName": "UpdateGuarantorAccountNote_API",
+            "testTitle": "Update the guarantor account note via PUT call",
+            "testDescription": "This test verifies that an existing guarantor account note can be updated via PUT API and the response contains the updated accountNote value.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "API-004",
+            "testName": "VerifyUpdatedGuarantorNote_API",
+            "testTitle": "Verify the updated note exists via GET call",
+            "testDescription": "This test verifies that the updated guarantor account note is retrievable via GET API and the accountNote value reflects the update.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "UI-001",
+            "testName": "LoginPageLoadsWithAllFormElements",
+            "testTitle": "Login page loads with all form elements",
+            "testDescription": "Verifies Keycloak login page renders heading, username, password fields and Sign In button, then validates successful login with valid credentials.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "UI-002",
+            "testName": "LoginFailsWithInvalidCredentials",
+            "testTitle": "Login fails with invalid credentials",
+            "testDescription": "Verifies login fails with invalid credentials and error message is shown on the login page.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        }
+    ]
+}

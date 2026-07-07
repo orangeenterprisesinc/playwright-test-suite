@@ -133,7 +133,7 @@ export class CsvDataReader extends BaseDataReader {
                     ) as T[];
 
                     this.logger.debug(
-                        `Converted ${transformedData.length} CSV rows to JSON format`,
+                        `Parsed ${results.data.length} CSV rows (in memory, no file conversion)`,
                     );
                     resolve(transformedData);
                 },

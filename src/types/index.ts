@@ -417,12 +417,10 @@ export interface MockRoute {
  *
  * - `'json'` — JSON file data source
  * - `'csv'` — CSV file data source
- * - `'excel'` — Excel (.xlsx) file data source
- * - `'db'` — SQLite database data source
  *
- * @typedef {('json' | 'csv' | 'excel' | 'db')} DataSourceType
+ * @typedef {('json' | 'csv')} DataSourceType
  */
-export type DataSourceType = 'json' | 'csv' | 'excel' | 'db';
+export type DataSourceType = 'json' | 'csv';
 
 
 /**
