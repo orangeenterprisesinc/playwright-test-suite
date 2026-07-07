@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { loadEnvFiles } from './src/config/envLoader';
 
 // Load environment variables from `.env` + `env.<TEST_ENV>`
-const { envName } = loadEnvFiles({ cwd: __dirname });
+loadEnvFiles({ cwd: __dirname });
 
 // Environment configuration
 const BASE_URL = process.env.BASE_URL || process.env.APP_URL;
@@ -58,25 +58,9 @@ export default defineConfig({
     // Reporter configuration
     reporter: [
         ['list'],
-        ['html', { outputFolder: 'playwright-report', open: "always" }],
+        ['html', { outputFolder: 'playwright-report', open: 'never' }],
         ['json', { outputFile: 'test-results/results.json' }],
-        ['junit', { outputFile: 'test-results/junit.xml' }],
-        // Custom email reporter — sends results + Playwright HTML report via email
-        ['./src/reporting/emailReporter.ts'],
-        // Allure reporter with screenshot attachments
-        ['allure-playwright', {
-            outputFolder: 'allure-results',
-            detail: true,
-            suiteTitle: true,
-            environmentInfo: {
-                node_version: process.version,
-                os_platform: process.platform,
-                test_env: envName || 'qe',
-                project: 'Playwright POM Framework',
-                branch: process.env.CI_COMMIT_REF_NAME || process.env.GITHUB_REF_NAME || 'local',
-                user: process.env.USERNAME || process.env.USER || 'Unknown',
-            },
-        }],
+        ['github'],
     ],
 
     // Output directory for test artifacts

@@ -1,12 +1,14 @@
 /**
- * @fileoverview Singleton data provider that unifies access to JSON, CSV, Excel,
- * and SQLite data sources via the {@link IDataReader} abstraction.
+ * @fileoverview Singleton data provider that unifies access to JSON and CSV
+ * data sources via the {@link IDataReader} abstraction.
  *
- * Also exposes {@link DataProvider.toRunnerData} for converting test data into
- * the `RunnerData` format (replacing the former RunnerManager class).
+ * Data is always read DIRECTLY from its source file — JSON runs from JSON,
+ * CSV runs from CSV. There is no conversion/preprocessing step.
+ *
+ * Also exposes {@link DataProvider.toRunnerData} for wrapping test data in
+ * the `RunnerData` format.
  *
  * @module utils/DataProvider
- * @author Vicky
  * @since 1.0.0
  *
  * @example
@@ -24,9 +26,8 @@
  */
 import type {DataProviderResult, DataSourceType, IDataReader, RunnerData, TestCaseData} from '../types';
 import {type DataSourceConfig, getDataSourceConfig} from '../config/dataSource.config';
-import {CsvDataReader, DatabaseDataReader, ExcelDataReader, JsonDataReader} from './dataReaders';
+import {CsvDataReader, JsonDataReader} from './dataReaders';
 import {Logger} from './logger';
-import path from 'path';
 
 /**
  * Singleton data provider that reads test data from multiple sources and
@@ -61,29 +62,11 @@ export class DataProvider {
     /**
      * Returns the shared singleton instance, creating it on the first call.
      *
-     * When the data preprocessing pipeline has run (indicated by
-     * `process.env.DATA_PREPROCESSED === 'true'`), the instance is
-     * **forced to consume JSON** regardless of the original
-     * `TEST_DATA_SOURCE` value.  This ensures every test reads from
-     * the unified `runnerManager.json` generated during global setup.
-     *
      * @returns {DataProvider} The singleton instance
      */
     static getInstance(): DataProvider {
         if (!DataProvider.instance) {
-            if (process.env.DATA_PREPROCESSED === 'true') {
-                const baseConfig = getDataSourceConfig();
-                DataProvider.instance = new DataProvider({
-                    ...baseConfig,
-                    type: 'json',
-                });
-                DataProvider.instance.logger.info(
-                    `Preprocessing active — forcing JSON reader ` +
-                    `(original source: ${process.env.DATA_PREPROCESSED_SOURCE ?? 'unknown'})`,
-                );
-            } else {
-                DataProvider.instance = new DataProvider();
-            }
+            DataProvider.instance = new DataProvider();
         }
         return DataProvider.instance;
     }
@@ -220,27 +203,21 @@ export class DataProvider {
                 return new JsonDataReader(this.config.jsonPath, this.config.sheetName);
             case 'csv':
                 return new CsvDataReader(this.config.csvPath);
-            case 'excel':
-                return new ExcelDataReader(this.config.excelPath, this.config.sheetName);
-            case 'db':
-                return new DatabaseDataReader(this.config.dbPath, this.config.sheetName);
             default:
-                this.logger.warn(`Unknown data source type: ${sourceType}, falling back to JSON`);
+                this.logger.warn(`Unsupported data source type: ${sourceType}, falling back to JSON`);
                 return new JsonDataReader(this.config.jsonPath);
         }
     }
 
     /**
-     * Resolves the file path for a given source type.
+     * Returns the raw configured path for the given source type. Data is read
+     * directly from this file — no converted copy exists.
      * @param {DataSourceType} sourceType - The data source type
-     * @returns {string} Resolved file path
+     * @returns {string} Raw source path from configuration
      * @private
      */
     private getResolvedFilePath(sourceType: DataSourceType): string {
-        if (sourceType === 'json') {
-            return this.config.jsonPath;
-        }
-        return this.getConvertedJsonPath(sourceType);
+        return this.getRawSourcePath(sourceType);
     }
 
     /**
@@ -253,27 +230,10 @@ export class DataProvider {
         switch (sourceType) {
             case 'csv':
                 return this.config.csvPath;
-            case 'excel':
-                return this.config.excelPath;
-            case 'db':
-                return this.config.dbPath;
             case 'json':
             default:
                 return this.config.jsonPath;
         }
-    }
-
-
-    /**
-     * Generates the path for a converted JSON file in the `test-results/converted/` directory.
-     * @param {DataSourceType} sourceType - The original data source type
-     * @returns {string} Path to the converted JSON file
-     * @private
-     */
-    private getConvertedJsonPath(sourceType: DataSourceType): string {
-        const projectRoot = path.resolve(__dirname, '..', '..');
-        const filename = `testdata.${sourceType}.json`;
-        return path.join(projectRoot, 'test-results', 'converted', filename);
     }
 
     /**

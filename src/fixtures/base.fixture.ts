@@ -7,13 +7,11 @@
  * - **form** — Pre-built {@link FormComponent} fixture
  * - **logger** — Per-test {@link Logger} instance
  * - **authenticatedPage** — Page with pre-loaded auth state from `.auth/user.json`
+ * - **apiRequest** — Standalone API request context
+ * - **testCaseId / testCaseName / testCaseData** — Data-driven lookup fixtures
  * - **workerLogger** — Per-worker logger (worker-scoped)
  *
- * Also sets up `beforeEach` / `afterEach` hooks for lifecycle management,
- * metrics collection, Allure reporting, DB audit logging, and ELK push.
- *
  * @module fixtures/base.fixture
- * @author Vicky
  * @since 1.0.0
  *
  * @example
@@ -33,13 +31,6 @@ import { ModalComponent } from '../components/ModalComponent';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
-import { attachPageStateOnFailure, attachScreenshotOnFailure, syncTestMetricsToAllure } from '../utils/allureHelper';
-import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
-import { TestMetrics } from '../context/testMetrics';
-import { ExecutionContext } from '../context/executionContext';
-import { TestRunContext, CurrentTestTracker } from '../context/testRunContext';
-import { logResult as dbLogResult } from '../reporting/databaseAuditLogger';
-import { pushTestMetricToElk } from '../utils/elkDashboard';
 import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
 import type { TestCaseData } from '../types';
 
@@ -69,31 +60,15 @@ type CustomFixtures = {
     testCaseId: string;
 
     /**
-     * Test case name for data-driven lookup by `testName` field (e.g. `'searchCriteriaFields'`).
-     * Set via `test.use({ testCaseName: 'searchCriteriaFields' })` in each describe block.
-     * When set, the {@link testCaseData} fixture auto-loads the matching record.
-     * Use this when the test needs to find a record by `testName` instead of `id`.
+     * Test case name for data-driven lookup by `testName` field.
+     * Set via `test.use({ testCaseName: 'searchCriteriaFields' })`.
      */
     testCaseName: string;
 
     /**
-     * Auto-resolved test case data from the unified data source.
-     *
-     * Handles all boilerplate internally:
-     * - Loads test case by `testCaseId` or `testCaseName`
-     * - Validates the record exists (throws if not found)
-     * - Logs test case info (`id`, `testTitle`)
-     * - Skips the test if `enabled === false`
-     *
-     * @example
-     * ```typescript
-     * test.use({ testCaseId: 'TC-AUTH-001' });
-     *
-     * test('my test', async ({ page, testCaseData, logger }) => {
-     *     // testCaseData is already loaded, validated, logged, and skip-checked
-     *     logger.info(`Expected count: ${testCaseData.expectedCount}`);
-     * });
-     * ```
+     * Auto-resolved test case data, read DIRECTLY from the configured data
+     * source (JSON or CSV — no conversion step). Validates the record exists
+     * and skips the test if `enabled === false`.
      */
     testCaseData: TestCaseData;
 };
@@ -214,55 +189,6 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         { scope: 'worker' },
     ],
 
-});
-
-test.beforeEach(async ({ }, testInfo) => {
-    if (process.env.EXECUTION_CONTEXT) {
-        try {
-            ExecutionContext.hydrate(process.env.EXECUTION_CONTEXT);
-        } catch {
-            /* already hydrated */
-        }
-    }
-    TestRunContext.setIterationFromRetry(testInfo.retry);
-    CurrentTestTracker.set(testInfo.title);
-    onTestStart(testInfo);
-});
-
-test.afterEach(async ({ page, logger }, testInfo) => {
-    // 1. Capture lifecycle end metrics
-    onTestEnd(testInfo);
-
-    // 2. Attach artifacts on failure
-    await attachScreenshotOnFailure(page, testInfo);
-    await attachPageStateOnFailure(page, testInfo);
-
-    // 3. Sync collected metrics to Allure
-    await syncTestMetricsToAllure();
-
-    const snapshot = TestMetrics.snapshot();
-    const ctx = ExecutionContext.snapshot();
-    dbLogResult({
-        runId: ctx.runId,
-        iterationId: testInfo.retry + 1,
-        serviceName: ctx.serviceName,
-        testCaseName: snapshot.testName,
-        status: snapshot.status,
-        environment: ctx.branch,
-        executionTime: new Date(),
-        responseTimeMs: snapshot.responseTimeMs,
-        httpStatusCode: snapshot.httpStatusCode,
-        buildVersion: ctx.buildVersion,
-        triggeredBy: ctx.triggeredBy,
-        errorMessage: snapshot.errorMessage ?? undefined,
-    }).catch((err) => {
-        logger.warn(`DB audit log failed: ${err instanceof Error ? err.message : String(err)}`);
-    });
-    pushTestMetricToElk(snapshot, ctx.runId, ctx.branch, ctx.branch).catch((err) => {
-        logger.warn(`ELK push failed: ${err instanceof Error ? err.message : String(err)}`);
-    });
-    TestRunContext.clear();
-    CurrentTestTracker.clear();
 });
 
 export { expect };
