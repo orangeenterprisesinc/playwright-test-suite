@@ -68,8 +68,9 @@ jobs:
       PT_IMPORT_WORKER_DISABLED: "true"
       PT_EXPORT_WORKER_DISABLED: "true"
       PT_EXPORT_SCHEDULER_DISABLED: "true"
-      # --- Playwright target (overrides env-files/.env.local; dotenv won't clobber
-      #     an already-set process env var) ---
+      # --- Playwright target (overrides env.local; the framework's envLoader
+      #     never clobbers an already-set process env var, so these secrets win) ---
+      TEST_ENV: local
       BASE_URL: http://localhost:3000
       USER_NAME: ${{ secrets.PW_USER_NAME }}
       PASSWORD: ${{ secrets.PW_PASSWORD }}
