@@ -1,0 +1,5 @@
+{
+    "wrong_password": "wrong-password-123",
+    "wrong_username": "nouser@example.com",
+    "invalid_credentials_error_message": "Invalid username or password."
+}

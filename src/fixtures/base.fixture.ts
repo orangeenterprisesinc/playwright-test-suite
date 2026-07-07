@@ -32,6 +32,8 @@ import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
 import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
+import { LoginPage } from '../pages/LoginPage';
+import { LeftNavigationPage } from '../pages/LeftNavigationPage';
 import type { TestCaseData } from '../types';
 
 /**
@@ -39,6 +41,12 @@ import type { TestCaseData } from '../types';
  * @typedef {object} CustomFixtures
  */
 type CustomFixtures = {
+    /** Page Object for the PET Tiger login page. */
+    loginPage: LoginPage;
+    /** Page Object for the authenticated shell's left navigation. */
+    leftNavigationPage: LeftNavigationPage;
+    /** Navigates to the login page before the test body runs. */
+    gotoUrl: void;
     /** Pre-built navigation component for the current page. */
     navigation: NavigationComponent;
     /** Pre-built modal component for the current page. */
@@ -87,6 +95,21 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     // ── Option fixtures (set via test.use) ──────────────────────────
     testCaseId: ['', { option: true }],
     testCaseName: ['', { option: true }],
+
+    // ── Page Object fixtures ────────────────────────────────────────
+    loginPage: async ({ page }, use) => {
+        await use(new LoginPage(page));
+    },
+
+    leftNavigationPage: async ({ page }, use) => {
+        await use(new LeftNavigationPage(page));
+    },
+
+    // Navigate to the login page before the test body runs.
+    gotoUrl: async ({ loginPage }, use) => {
+        await loginPage.gotoPetTiger();
+        await use();
+    },
 
     // ── Component fixtures ──────────────────────────────────────────
     navigation: async ({ page }, use) => {

@@ -1,121 +1,69 @@
 /**
- * @fileoverview Page Object for the Keycloak login page.
+ * @fileoverview Page Object for the PET Tiger login page.
  *
- * Encapsulates all locators and interactions for the Keycloak authentication
- * form used by the Patient Medical Records application. Supports valid/invalid
- * login flows, credential entry, form validation, and session timeout handling.
+ * Ported from the original demo framework — the locators and login flow
+ * below are proven against the PET Tiger web application.
  *
  * @module pages/LoginPage
- * @author Vicky
  * @since 1.0.0
  *
  * @example
  * ```typescript
- * import { LoginPage } from '../pages/LoginPage';
- *
  * const loginPage = new LoginPage(page);
  * await loginPage.navigate();
- * await loginPage.login('SWEET', 'myPassword');
- * await loginPage.assertLoginSuccess();
+ * await loginPage.loginPetTiger('su', 'password');
  * ```
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * Page Object representing the Keycloak sign-in page.
+ * Page Object representing the PET Tiger login page.
  *
  * @class LoginPage
- * @extends {BasePage}
+ * @extends BasePage
  */
 export class LoginPage extends BasePage {
-    /** @inheritdoc */
-    readonly pageUrl: string = '/app/billing/collections/account-review';
-    /** @inheritdoc */
-    readonly pageTitle: string | RegExp = /Sign in to your account/;
+    /** Relative URL of the login page. */
+    readonly pageUrl: string = '/login';
+    /** Title assertion is not used by the login suite; match anything. */
+    readonly pageTitle: string | RegExp = /.*/;
 
-    // ─── Locators ────────────────────────────────────────────
-
-    /** Sign-in page heading. */
-    readonly heading: Locator;
-    /** Username / email input field. */
-    readonly usernameInput: Locator;
+    /** The username field — labelled "Email" in PET Tiger, but the literal
+     *  "su" superuser identifier is also accepted here. */
+    readonly emailInput: Locator;
     /** Password input field. */
     readonly passwordInput: Locator;
-    /** Sign In submit button. */
-    readonly signInButton: Locator;
+    /** Submit button of the login form. */
+    readonly loginButton: Locator;
+    /** Error message shown for invalid credentials. */
+    readonly invalidCredentialsErrorMessage: Locator;
 
-    readonly errorMessage: Locator;
-
-    readonly accountReviewHeading: Locator;
-
-    /**
-     * Creates a new LoginPage instance.
-     * @param {Page} page - Playwright Page instance
-     */
     constructor(page: Page) {
         super(page);
-        this.heading = page.getByRole('heading', { name: 'Sign in to your account' });
-        this.usernameInput = page.getByRole('textbox', { name: 'Username or email' });
-        this.passwordInput = page.getByRole('textbox', { name: 'Password' });
-        this.signInButton = page.getByRole('button', { name: 'Sign In' });
-        this.errorMessage = page.getByText('Invalid username or password.');
-        this.accountReviewHeading = page.getByRole('tab', { name: 'Account Review', selected: true });
-    }
-
-    // ─── Actions ─────────────────────────────────────────────
-
-    /**
-     * Fills username and password fields and clicks Sign In.
-     *
-     * @param {string} username - The username or email to enter
-     * @param {string} password - The password to enter
-     */
-    async login(username: string, password: string): Promise<void> {
-        this.logger.info(`Logging in as: ${username}`);
-        await this.type(this.usernameInput, username);
-        await this.type(this.passwordInput, password);
-        await this.click(this.signInButton);
-    }
-
-
-    // ─── Assertions ──────────────────────────────────────────
-
-    /**
-     * Asserts the login page is loaded and visible.
-     */
-    async assertLoginPageLoaded(): Promise<void> {
-        this.logger.info('Asserting login page is loaded');
-        await this.assertVisible(this.heading);
-        await this.assertVisible(this.usernameInput);
-        await this.assertVisible(this.passwordInput);
+        this.emailInput = page.getByLabel('Email');
+        this.passwordInput = page.getByLabel('Password');
+        this.loginButton = page.getByRole('button', { name: 'Login' });
+        this.invalidCredentialsErrorMessage = page.getByText('Invalid username or password.');
     }
 
     /**
-     * Asserts that after a successful login the user is redirected
-     * to the Account Review page.
+     * Navigate to the PET Tiger login page (alias kept from the original
+     * demo framework; delegates to {@link BasePage.navigate}).
      */
-    async assertLoginSuccess(): Promise<void> {
-        this.logger.info('Asserting successful login redirect');
-        await this.assertVisible(this.accountReviewHeading);
+    async gotoPetTiger(): Promise<void> {
+        await this.navigate();
     }
 
     /**
-     * Asserts that the login form fields (username and password) are still editable.
-     *
-     * @returns {Promise<void>}
+     * Fill the credentials and submit the login form.
+     * @param email    the Email / "su" identifier
+     * @param password the password
      */
-    async assertFieldsEditable(): Promise<void> {
-        this.logger.info('Asserting form fields are still editable');
-        await this.isEditable(this.usernameInput);
-        await this.isEditable(this.passwordInput);
-    }
-
-
-    async assertLoginFailed(): Promise<void> {
-        this.logger.info('Asserting login failure — user remains on login page');
-        await this.assertVisible(this.heading);
-        await this.assertVisible(this.errorMessage);
+    async loginPetTiger(email: string, password: string): Promise<void> {
+        this.logger.info(`Logging in as: ${email}`);
+        await this.emailInput.fill(email);
+        await this.passwordInput.fill(password);
+        await this.loginButton.click();
     }
 }
-
