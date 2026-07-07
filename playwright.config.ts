@@ -1,119 +1,241 @@
 import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
+import { loadEnvFiles } from './src/config/envLoader';
+
+// Load environment variables from `.env` + `env.<TEST_ENV>`
+const { envName } = loadEnvFiles({ cwd: __dirname });
+
+// Environment configuration
+const BASE_URL = process.env.BASE_URL || process.env.APP_URL;
+
+// Dynamic retry: RETRY env/config > CI default (2) > local default (0)
+function resolveRetries(): number {
+    const raw = process.env.RETRY;
+    if (raw !== undefined && raw !== '') {
+        const parsed = parseInt(raw, 10);
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
+    }
+    return process.env.CI ? 2 : 0;
+}
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-
-
-dotenv.config({
-  path: process.env.ENV_NAME
-    ? `./env-files/.env.${process.env.ENV_NAME}`
-    : './env-files/.env.local'
-});
-
-
-
-
-/**
- * See https://playwright.dev/docs/test-configuration.
+ * Playwright Test Configuration
+ * Comprehensive setup demonstrating all major Playwright features
  */
 export default defineConfig({
-  testDir: './tests',
-  outputDir: 'test-results',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Auth state is shared across tests via storageState, so keep execution serial on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
- reporter: [
-  ['list'],
-  ['html', { open: 'never' }],
-  ['github']
-],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+    // Test directory
+    testDir: './tests',
 
-  timeout: 110000,
-  expect: {
-    timeout: 10000,
-  },
+    // Test file pattern
+    testMatch: '**/*.spec.ts',
 
-  use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
+    // Maximum time for a single test
+    timeout: 30 * 1000,
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
-  },
-
-  /* Configure projects for major browsers */
-  projects: [
-
-    {
-      name: 'setup',
-      testDir: '.',
-      testMatch: 'global.setup.ts',
-      use:{...devices['Desktop Chrome']}
+    // Maximum time for expect() assertions
+    expect: {
+        timeout: 10 * 1000,
+        toHaveScreenshot: {
+            maxDiffPixels: 100,
+            threshold: 0.2,
+        },
+        toMatchSnapshot: {
+            maxDiffPixelRatio: 0.1,
+        },
     },
 
-    {
-      name: 'chromium',
-      dependencies: ['setup'],
-      use:{...devices['Desktop Chrome'],
-        storageState: './playwright/.auth/storageState.json'
-      },
+    // Run tests in parallel
+    fullyParallel: true,
+
+    // Fail the build on CI if test.only is present
+    forbidOnly: !!process.env.CI,
+
+    // Retry failed tests (configurable via RETRY env variable)
+    retries: resolveRetries(),
+
+    // Number of parallel workers
+    workers: process.env.CI ? 2 : undefined,
+
+    // Reporter configuration
+    reporter: [
+        ['list'],
+        ['html', { outputFolder: 'playwright-report', open: "always" }],
+        ['json', { outputFile: 'test-results/results.json' }],
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+        // Custom email reporter — sends results + Playwright HTML report via email
+        ['./src/reporting/emailReporter.ts'],
+        // Allure reporter with screenshot attachments
+        ['allure-playwright', {
+            outputFolder: 'allure-results',
+            detail: true,
+            suiteTitle: true,
+            environmentInfo: {
+                node_version: process.version,
+                os_platform: process.platform,
+                test_env: envName || 'qe',
+                project: 'Playwright POM Framework',
+                branch: process.env.CI_COMMIT_REF_NAME || process.env.GITHUB_REF_NAME || 'local',
+                user: process.env.USERNAME || process.env.USER || 'Unknown',
+            },
+        }],
+    ],
+
+    // Output directory for test artifacts
+    outputDir: 'test-results/',
+
+    // Global setup/teardown
+    globalSetup: require.resolve('./src/fixtures/global-setup.ts'),
+    globalTeardown: require.resolve('./src/fixtures/global-teardown.ts'),
+
+    // Shared settings for all projects
+    use: {
+        // Base URL for navigation
+        baseURL: BASE_URL,
+
+        // Collect trace on first retry (attached to Allure)
+        trace: 'on-first-retry',
+
+        // Capture screenshot on failure (auto-attached to Allure)
+        screenshot: 'on',
+
+        // Record video on failure (attached to Allure)
+        video: 'on-first-retry',
+
+        // Full-screen viewport (works across all browsers including WebKit)
+        viewport: { width: 1920, height: 1080 },
+        launchOptions: {
+            args: ['--start-maximized'],
+        },
+
+        // Ignore HTTPS errors
+        ignoreHTTPSErrors: true,
+
+        // Action timeout
+        actionTimeout: 15 * 1000,
+
+        // Navigation timeout
+        navigationTimeout: 30 * 1000,
+
+        // Locale and timezone
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+
+        // Geolocation (for location-based tests)
+        geolocation: { longitude: -73.935242, latitude: 40.730610 },
+        permissions: ['geolocation'],
+
+        // Extra HTTP headers
+        extraHTTPHeaders: {
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
     },
 
-    // {
-    //   name: 'firefox',
-    //   dependencies: ['setup'],
-    //   use: { ...devices['Desktop Firefox'] ,
-    //     storageState: './playwright/.auth/storageState.json'},
-    // },
+    // Project configurations for different browsers and devices
+    projects: [
+        // Authentication setup project
+        {
+            name: 'auth-setup',
+            testMatch: /.*\.setup\.ts/,
+            use: { ...devices['Desktop Chrome'] },
+        },
 
-    // {
-    //   name: 'webkit',
-    //   dependencies: ['setup'],
-    //   use: { ...devices['Desktop Safari'] ,
-    //     storageState: './playwright/.auth/storageState.json'},
-    // },
+        // Desktop Browsers
+        {
+            name: 'chromium',
+            use: {
+                ...devices['Desktop Chrome'],
+                viewport: { width: 1920, height: 1080 },
+                storageState: '.auth/user.json',
+            },
+            dependencies: ['auth-setup'],
+        },
+        {
+            name: 'firefox',
+            use: {
+                ...devices['Desktop Firefox'],
+                viewport: { width: 1920, height: 1080 },
+                storageState: '.auth/user.json',
+            },
+            dependencies: ['auth-setup'],
+        },
+        {
+            name: 'webkit',
+            use: {
+                ...devices['Desktop Safari'],
+                viewport: { width: 1920, height: 1080 },
+                storageState: '.auth/user.json',
+            },
+            dependencies: ['auth-setup'],
+        },
 
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+        // // Mobile Devices
+        // {
+        //     name: 'mobile-chrome',
+        //     use: {
+        //         ...devices['Pixel 5'],
+        //         storageState: '.auth/user.json',
+        //     },
+        //     dependencies: ['auth-setup'],
+        // },
+        // {
+        //     name: 'mobile-safari',
+        //     use: {
+        //         ...devices['iPhone 12'],
+        //         storageState: '.auth/user.json',
+        //     },
+        //     dependencies: ['auth-setup'],
+        // },
 
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
-  ],
+        // // Tablet Devices
+        // {
+        //     name: 'tablet',
+        //     use: {
+        //         ...devices['iPad Pro 11'],
+        //         storageState: '.auth/user.json',
+        //     },
+        //     dependencies: ['auth-setup'],
+        // },
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+        // API Testing (no browser needed for pure API tests)
+        // {
+        //     name: 'api',
+        //     testMatch: /.*api.*\.spec\.ts/,
+        //     use: {
+        //         baseURL: process.env.API_URL || 'https://jsonplaceholder.typicode.com',
+        //     },
+        // },
+
+        // // Visual Regression Tests
+        // {
+        //     name: 'visual',
+        //     testMatch: /.*visual.*\.spec\.ts/,
+        //     use: {
+        //         ...devices['Desktop Chrome'],
+        //         // Consistent viewport for visual tests
+        //         viewport: { width: 1920, height: 1080 },
+        //     },
+        // },
+
+        // // Accessibility Tests
+        // {
+        //     name: 'accessibility',
+        //     testMatch: /.*a11y.*\.spec\.ts/,
+        //     use: { ...devices['Desktop Chrome'] },
+        // },
+
+        // // No-auth project — runs auth tests without pre-authenticated storageState
+        // {
+        //     name: 'no-auth',
+        //     testDir: './tests/auth',
+        //     use: { ...devices['Desktop Chrome'] },
+        // },
+
+    ],
+
+    // Web server configuration (optional - for local development)
+    // webServer: {
+    //   command: 'npm run start',
+    //   url: 'http://localhost:3000',
+    //   reuseExistingServer: !process.env.CI,
+    //   timeout: 120 * 1000,
+    // },
 });

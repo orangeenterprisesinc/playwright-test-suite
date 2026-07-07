@@ -1,0 +1,7 @@
+{
+  "selectQueries": {
+  },
+  "runnerListQueries": {
+    "testCaseLists": "SELECT * FROM open_collection_runner_manager;"
+  }
+}

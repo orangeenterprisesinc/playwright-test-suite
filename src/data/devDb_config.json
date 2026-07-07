@@ -1,0 +1,8 @@
+{
+  "DEV_DB_HOST": "d1rdb103-dev.cqkezfpvhepv.us-east-1.rds.amazonaws.com",
+  "DEV_DB_PORT": 3306,
+  "DEV_DB_USER": "masterdev",
+  "DEV_DB_PASSWORD": "0P!sExc1t3d",
+  "DEV_DB_NAME": "medical_001"
+}
+

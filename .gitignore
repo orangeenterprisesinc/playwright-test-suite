@@ -1,8 +1,24 @@
-
-# Playwright
+# Dependencies
 node_modules/
+
+# Playwright output
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Auth storage state (contains session cookies — never commit)
 /playwright/.auth/
+.auth/
+
+# Reporting output
+allure-results/
+allure-report/
+logs/
+
+# Claude Code — the shared .claude/ folder IS committed; only personal
+# local overrides are ignored.
+.claude/settings.local.json
+
+# NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
+# which requires it.

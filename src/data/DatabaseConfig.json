@@ -1,0 +1,7 @@
+{
+  "hostname": "d1rdb104-dev.cqkezfpvhepv.us-east-1.rds.amazonaws.com",
+  "port": 3306,
+  "schema": "service_automation_runner_manager",
+  "dbusername": "a2N0ZWNoYXV0b21hdGlvbg==",
+  "dbpassword": "clRRUHpUYTNjeHppdHdTR0d5S2g="
+}

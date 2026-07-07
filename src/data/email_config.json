@@ -1,0 +1,8 @@
+{
+  "FROM_EMAIL": "pkannan@opcontractor.com",
+  "EMAIL_PASSWORD": "uepe vyhd bxci wpqd",
+  "TO_EMAIL": "pkannan@opcontractor.com, akumaran@opcontractor.com",
+  "SMTP_HOST": "smtp.gmail.com",
+  "SMTP_PORT": 587
+}
+

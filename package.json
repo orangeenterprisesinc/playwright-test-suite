@@ -1,30 +1,43 @@
 {
-  "name": "playwrightwithtypescriptframework",
+  "name": "playwright-pom-core",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "cross-env ENV_NAME=local playwright test",
-    "test:dev": "cross-env ENV_NAME=dev playwright test",
-    "test:qa": "cross-env ENV_NAME=qa playwright test",
-    "test:headed": "cross-env ENV_NAME=local playwright test --project=chromium --headed",
-    "test:ui": "cross-env ENV_NAME=local playwright test --ui",
-    "test:debug": "cross-env ENV_NAME=local playwright test --project=chromium --debug",
-    "test:smoke": "cross-env ENV_NAME=local playwright test --grep=@Smoke",
-    "test:last-failed": "cross-env ENV_NAME=local playwright test --last-failed",
-    "test:report": "playwright show-report"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
-    "@types/node": "^25.9.1",
-    "typescript": "^6.0.3"
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "dotenv": "^17.2.4",
+    "eslint-plugin-playwright": "^2.5.1",
+    "@axe-core/playwright": "^4.8.0",
+    "@playwright/mcp": "^0.0.53",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/nodemailer": "^7.0.9",
+    "@types/papaparse": "^5.5.1",
+    "allure-commandline": "^2.36.0",
+    "allure-playwright": "^2.15.1",
+    "better-sqlite3": "^12.5.0",
+    "cross-env": "^10.1.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "nodemailer": "^8.0.1",
+    "papaparse": "^5.5.3",
+    "prettier": "^3.8.1",
+    "rimraf": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0",
+    "winston": "^3.11.0",
+    "xlsx": "^0.18.5"
   },
   "dependencies": {
-    "cross-env": "^10.1.0",
-    "dotenv": "^17.4.2"
+    "mysql2": "^3.16.3"
   }
 }
