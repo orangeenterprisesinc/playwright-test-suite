@@ -11,6 +11,10 @@ node_modules/
 /playwright/.auth/
 .auth/
 
+# Personal env overrides (SMTP credentials etc.) — loaded by envLoader as the
+# base file, never committed. Committed env.local/dev/qa hold no real secrets.
+.env
+
 # Reporting output
 allure-results/
 allure-report/
