@@ -19,28 +19,27 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
       "@pages/*": [
-        "src/pages/*"
+        "./src/pages/*"
       ],
       "@components/*": [
-        "src/components/*"
+        "./src/components/*"
       ],
       "@fixtures/*": [
-        "src/fixtures/*"
+        "./src/fixtures/*"
       ],
       "@utils/*": [
-        "src/utils/*"
+        "./src/utils/*"
       ],
       "@config/*": [
-        "src/config/*"
+        "./src/config/*"
       ],
       "@types/*": [
-        "src/types/*"
+        "./src/types/*"
       ],
       "@test-data/*": [
-        "test-data/*"
+        "./test-data/*"
       ]
     },
     "types": [

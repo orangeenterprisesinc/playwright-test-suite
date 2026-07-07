@@ -1,4 +1,22 @@
 {
+  "inputs": [
+    {
+      "id": "jira-url",
+      "type": "promptString",
+      "description": "Jira base URL (e.g. https://yourcompany.atlassian.net)"
+    },
+    {
+      "id": "jira-username",
+      "type": "promptString",
+      "description": "Jira username/email"
+    },
+    {
+      "id": "jira-api-token",
+      "type": "promptString",
+      "description": "Jira API token",
+      "password": true
+    }
+  ],
   "mcpServers": {
     "playwright-test": {
       "command": "node",
@@ -13,9 +31,9 @@
         "mcp-atlassian"
       ],
       "env": {
-        "JIRA_URL": "${JIRA_URL}",
-        "JIRA_USERNAME": "${JIRA_USERNAME}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+        "JIRA_URL": "${input:jira-url}",
+        "JIRA_USERNAME": "${input:jira-username}",
+        "JIRA_API_TOKEN": "${input:jira-api-token}"
       }
     }
   }
