@@ -8,12 +8,17 @@ name: E2E (full local stack)
 # Stack brought up here: SQL Server (restored from .bak) + MinIO + Gotenberg +
 # Go API (:8080) + web dev server (:3000).
 #
-# Runs on push to main (plus manual/on-demand). This is heavy (minutes per run)
-# and depends on a private DB backup, so it is intentionally NOT run on every
-# branch/PR — only on commits that land on main.
+# Runs on push to main, a daily 4pm IST schedule, plus manual/on-demand. This
+# is heavy (minutes per run) and depends on a private DB backup, so it is
+# intentionally NOT run on every branch/PR — only on commits that land on
+# main, plus the once-daily scheduled run.
 on:
   push:
     branches: [main]
+  schedule:
+    # 4:00 PM IST = 10:30 AM UTC (IST is UTC+5:30). GitHub's cron scheduler
+    # runs in UTC always — adjust this if IST's offset ever changes.
+    - cron: '30 10 * * *'
   workflow_dispatch:
   repository_dispatch:
     types:
