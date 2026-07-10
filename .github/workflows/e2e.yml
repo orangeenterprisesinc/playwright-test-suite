@@ -16,9 +16,13 @@ on:
     # runs in UTC always — adjust this if IST's offset ever changes.
     - cron: '30 10 * * *'
   workflow_dispatch:
+  # Must match the `event_type` the sending repo's workflow actually posts
+  # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
+  # to POST /repos/orangeenterprisesinc/playwright-test-suite/dispatches) — a
+  # mismatch here means GitHub accepts the dispatch but nothing fires, silently.
   repository_dispatch:
     types:
-      - run-e2e-localstack
+      - run-playwright
 
 concurrency:
   group: e2e-${{ github.ref }}
