@@ -35,6 +35,21 @@ import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
 import { LoginPage } from '../pages/LoginPage';
 import { LeftNavigationPage } from '../pages/LeftNavigationPage';
 import type { TestCaseData } from '../types';
+import { feature, severity, Severity } from 'allure-js-commons';
+import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
+import path from 'node:path';
+
+/**
+ * Derives an Allure "feature" label from a spec file's location under
+ * `tests/`, e.g. `tests/login/login-module.spec.ts` → "login". Files
+ * directly under `tests/` (like `auth.setup.ts`) fall back to their own
+ * basename with the `.spec`/`.setup` suffix stripped, e.g. "auth".
+ */
+function deriveFeature(specFile: string): string {
+    const relative = path.relative(path.join(process.cwd(), 'tests'), specFile);
+    const [firstSegment] = relative.split(path.sep);
+    return firstSegment.includes('.') ? firstSegment.replace(/\.(spec|setup)\.ts$/, '') : firstSegment;
+}
 
 /**
  * Per-test fixture types.
@@ -212,6 +227,16 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         { scope: 'worker' },
     ],
 
+});
+
+test.beforeEach(async ({ }, testInfo) => {
+    onTestStart(testInfo);
+    await feature(deriveFeature(testInfo.file));
+    await severity(testInfo.tags.includes('@Smoke') ? Severity.CRITICAL : Severity.NORMAL);
+});
+
+test.afterEach(async ({ }, testInfo) => {
+    onTestEnd(testInfo);
 });
 
 export { expect };

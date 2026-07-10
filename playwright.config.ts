@@ -59,8 +59,11 @@ export default defineConfig({
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
         ['json', { outputFile: 'test-results/results.json' }],
         ['github'],
+        ['allure-playwright', { outputFolder: 'allure-results', detail: true, suiteTitle: false }],
         // Emails a run summary; self-gating — does nothing unless
-        // SEND_EMAIL=yes and the SMTP_* settings are present.
+        // SEND_EMAIL=yes and the SMTP_* settings are present. Must stay last:
+        // it generates the Allure HTML report from allure-results/ above and
+        // needs every other reporter's output already flushed to disk.
         ['./src/reporting/emailReporter.ts'],
     ],
 
@@ -78,7 +81,7 @@ export default defineConfig({
 
         // Collect artifacts only when a test fails
         trace: 'retain-on-failure',
-        screenshot: 'only-on-failure',
+        screenshot: 'on',
         video: 'retain-on-failure',
     },
 

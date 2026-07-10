@@ -1,0 +1,22 @@
+# Mirrors .gitignore — plus node_modules, since the image installs its own
+# Linux-native copy via `npm ci` rather than reusing whatever's on the host.
+node_modules/
+
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+playwright/.auth/
+.auth/
+
+# Personal secrets — never bake these into an image layer.
+.env
+
+allure-results/
+allure-report/
+logs/
+
+.git/
+.github/
+.claude/

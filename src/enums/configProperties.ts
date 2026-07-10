@@ -69,6 +69,8 @@ export enum ConfigProperties {
     EMAIL_FROM = 'EMAIL_FROM',
     /** Comma-separated recipient list (env: `EMAIL_TO`) */
     EMAIL_TO = 'EMAIL_TO',
+    /** Max size (MB) per report zip attached to the email — larger ones are dropped, keeping only the link (env: `EMAIL_MAX_ATTACHMENT_MB`) */
+    EMAIL_MAX_ATTACHMENT_MB = 'EMAIL_MAX_ATTACHMENT_MB',
 }
 
 /**

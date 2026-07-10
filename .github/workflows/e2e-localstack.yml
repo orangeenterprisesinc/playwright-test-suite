@@ -107,6 +107,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Set up Java (for Allure report generation)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - uses: actions/setup-go@v5
         with:
           go-version-file: app/apps/api/go.mod
@@ -262,12 +267,41 @@ jobs:
         working-directory: test-suite
         run: npx playwright test
 
+      # Restores the previous run's trend data so the report's Trend/Graphs
+      # widgets extend instead of resetting on every run. Keyed by run id (so
+      # every run saves a fresh entry) with a branch-prefixed restore-keys
+      # fallback (so it picks up the most recent entry on that branch).
+      - name: Restore Allure history
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: test-suite/allure-report/history
+          key: allure-history-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            allure-history-${{ github.ref_name }}-
+
+      # The email reporter (when SEND_EMAIL=yes) already generates this from
+      # allure-results/ before attaching it, but regenerating here is cheap
+      # and idempotent — it guarantees the artifact below exists even when
+      # email is off, and regardless of whether the test step above failed.
+      - name: Generate Allure report
+        if: always()
+        working-directory: test-suite
+        run: node scripts/generate-allure-report.js
+
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: test-suite/playwright-report
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: test-suite/allure-report
 
       - name: Upload server logs
         if: always()
