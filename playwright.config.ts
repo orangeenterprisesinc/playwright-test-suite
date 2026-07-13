@@ -65,6 +65,9 @@ export default defineConfig({
         // it generates the Allure HTML report from allure-results/ above and
         // needs every other reporter's output already flushed to disk.
         ['./src/reporting/emailReporter.ts'],
+        // Posts a run summary to Slack via Incoming Webhook; self-gating —
+        // does nothing unless SEND_SLACK=yes and SLACK_WEBHOOK_URL is set.
+        ['./src/reporting/slackReporter.ts'],
     ],
 
     // Output directory for test artifacts
@@ -81,7 +84,7 @@ export default defineConfig({
 
         // Collect artifacts only when a test fails
         trace: 'retain-on-failure',
-        screenshot: 'on',
+        screenshot: 'only-on-failure',
         video: 'retain-on-failure',
     },
 

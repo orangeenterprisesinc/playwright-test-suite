@@ -71,6 +71,13 @@ export enum ConfigProperties {
     EMAIL_TO = 'EMAIL_TO',
     /** Max size (MB) per report zip attached to the email — larger ones are dropped, keeping only the link (env: `EMAIL_MAX_ATTACHMENT_MB`) */
     EMAIL_MAX_ATTACHMENT_MB = 'EMAIL_MAX_ATTACHMENT_MB',
+
+    /* ── Slack Notification ──────────────────────────── */
+
+    /** Whether to post the run summary to Slack — `'yes'`/`'no'` (env: `SEND_SLACK`) */
+    SEND_SLACK = 'SEND_SLACK',
+    /** Slack Incoming Webhook URL (env: `SLACK_WEBHOOK_URL`) */
+    SLACK_WEBHOOK_URL = 'SLACK_WEBHOOK_URL',
 }
 
 /**

@@ -49,6 +49,11 @@ jobs:
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      # --- Slack notification (opt-in): set the SEND_SLACK repo variable to
+      #     'yes' and add the SLACK_WEBHOOK_URL secret to activate it. With the
+      #     variable unset the reporter logs one line and does nothing. ---
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
       - name: Checkout test suite

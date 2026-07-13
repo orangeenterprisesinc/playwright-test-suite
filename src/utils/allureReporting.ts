@@ -6,25 +6,58 @@
  * Windows, and cmd.exe treats `&` as a command separator, which breaks when
  * the repo lives in a path containing one (see scripts/run-playwright.js).
  *
- * Two entry points:
- * - {@link generateAllureReport} — the normal multi-file report for CI
- *   artifacts / `npm run report:allure`, with every screenshot/video/trace
- *   and cross-run trend history. Writes to the repo (`allure-report/`).
+ * Both entry points strip screenshots/videos/traces before generating —
+ * this framework's Allure reports are pass/fail/steps/errors only, no media:
+ * - {@link generateAllureReport} — the multi-file report for CI artifacts /
+ *   `npm run report:allure`, with cross-run trend history. Writes to the
+ *   repo (`allure-report/`); the media-free intermediate copy of
+ *   allure-results/ lives under the OS temp dir and is cleaned up after.
  * - {@link prepareLeanEmailReport} — a single self-contained `index.html`
- *   with screenshots/videos/traces stripped out, for attaching to email
- *   (no zip — many mail gateways strip those). Written entirely under the
- *   OS temp dir so it never shows up as a folder in the repo tree; call the
- *   returned `cleanup()` once the email is sent.
+ *   for attaching to email (no zip — many mail gateways strip those).
+ *   Written entirely under the OS temp dir so it never shows up as a folder
+ *   in the repo tree; call the returned `cleanup()` once the email is sent.
  *
  * @module utils/allureReporting
  */
 import allureCommandline from 'allure-commandline';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+/**
+ * allure-commandline shells out to `java`, which only sees this process's
+ * `PATH`/`JAVA_HOME` — not whatever a later system-wide install (e.g. via
+ * winget) configured, since already-running terminals never pick that up
+ * automatically on Windows. Rather than requiring every terminal to be
+ * restarted, read the machine-level value straight from the registry (the
+ * same source `[System.Environment]::GetEnvironmentVariable(...,'Machine')`
+ * reads) and patch this process's own env before invoking allure.
+ */
+function ensureJavaOnPath(): void {
+    if (process.platform !== 'win32') return;
+    if (process.env.JAVA_HOME && fs.existsSync(path.join(process.env.JAVA_HOME, 'bin', 'java.exe'))) return;
+
+    try {
+        const output = execFileSync(
+            'reg',
+            ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment', '/v', 'JAVA_HOME'],
+            { encoding: 'utf-8' },
+        );
+        const javaHome = output.match(/JAVA_HOME\s+REG_\w+\s+(.+)/)?.[1]?.trim();
+        if (javaHome && fs.existsSync(path.join(javaHome, 'bin', 'java.exe'))) {
+            process.env.JAVA_HOME = javaHome;
+            process.env.PATH = `${path.join(javaHome, 'bin')};${process.env.PATH}`;
+        }
+    } catch {
+        // Best-effort — if the registry lookup fails, allure generate fails
+        // with its usual clear "JAVA_HOME is not set" error, same as before.
+    }
+}
+
 /** Runs `allure <args>` and resolves once the process exits successfully. */
 function runAllure(args: string[]): Promise<void> {
+    ensureJavaOnPath();
     return new Promise((resolve, reject) => {
         const proc = allureCommandline(args);
         proc.on('error', reject);
@@ -51,10 +84,21 @@ function preserveAllureHistory(resultsDir: string, reportDir: string): void {
     fs.cpSync(historySrc, historyDest, { recursive: true });
 }
 
-/** Generates the static multi-file Allure report. Requires a Java runtime on PATH. */
-export function generateAllureReport(resultsDir = 'allure-results', reportDir = 'allure-report'): Promise<void> {
-    preserveAllureHistory(resultsDir, reportDir);
-    return runAllure(['generate', resultsDir, '--clean', '-o', reportDir]);
+/**
+ * Generates the static multi-file Allure report (trend history preserved
+ * across runs). Requires a Java runtime on PATH. Generates from a media-free
+ * copy of `resultsDir` built under the OS temp dir — cleaned up afterwards —
+ * so `allure-report/` never gets screenshots/videos/traces attached.
+ */
+export async function generateAllureReport(resultsDir = 'allure-results', reportDir = 'allure-report'): Promise<void> {
+    const leanResultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'allure-lean-'));
+    try {
+        createLeanAllureResults(resultsDir, leanResultsDir);
+        preserveAllureHistory(leanResultsDir, reportDir);
+        await runAllure(['generate', leanResultsDir, '--clean', '-o', reportDir]);
+    } finally {
+        fs.rmSync(leanResultsDir, { recursive: true, force: true });
+    }
 }
 
 /** Serves the generated Allure report locally (blocks until Ctrl+C). */
