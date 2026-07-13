@@ -18,7 +18,7 @@
 import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 import fs from 'node:fs';
 import nodemailer from 'nodemailer';
-import { ConfigProperties, getConfigBoolean, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigBoolean, getConfigValue, getEnvLabel } from '../enums/configProperties';
 import { prepareLeanEmailReport } from '../utils/allureReporting';
 import { Logger } from '../utils/logger';
 
@@ -116,7 +116,7 @@ class EmailReporter implements Reporter {
 
     private buildSubject(result: FullResult): string {
         const { passed, failed, flaky, skipped } = this.counts();
-        const env = getConfigValue(ConfigProperties.TEST_ENV, 'local');
+        const env = getEnvLabel();
         const icon = result.status === 'passed' ? '✅' : '❌';
         return `${icon} Playwright [${env}] — ${result.status.toUpperCase()}: ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`;
     }
@@ -124,7 +124,7 @@ class EmailReporter implements Reporter {
     private buildHtml(result: FullResult, attachments: ReportAttachment[]): string {
         const { passed, failed, flaky, skipped } = this.counts();
         const durationSec = Math.round((Date.now() - this.startTime) / 1000);
-        const env = getConfigValue(ConfigProperties.TEST_ENV, 'local');
+        const env = getEnvLabel();
         const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
             ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
             : '';

@@ -121,3 +121,15 @@ export function getConfigBoolean(key: ConfigProperties, fallback: boolean = fals
     if (!raw) return fallback;
     return ['yes', 'true', '1'].includes(raw.toLowerCase());
 }
+
+/**
+ * Environment label for report headers — the resolved `TEST_ENV`, tagged
+ * `[ci]` when running under GitHub Actions. Distinguishes "ran against
+ * local on a laptop" from "ran against local in CI" — the latter usually
+ * means `TEST_ENV` wasn't set for the CI job and it fell back to the
+ * `local` default, which is worth surfacing rather than hiding.
+ */
+export function getEnvLabel(): string {
+    const env = getConfigValue(ConfigProperties.TEST_ENV, 'local');
+    return process.env.CI ? `${env} [ci]` : env;
+}

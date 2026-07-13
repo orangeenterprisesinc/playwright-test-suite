@@ -18,7 +18,7 @@
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import https from 'node:https';
-import { ConfigProperties, getConfigBoolean, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigBoolean, getConfigValue, getEnvLabel } from '../enums/configProperties';
 import { Logger } from '../utils/logger';
 
 /** Final state of one test, keyed by test id (retries overwrite). */
@@ -125,7 +125,7 @@ class SlackReporter implements Reporter {
     private buildPayload(result: FullResult): { text: string; blocks: unknown[] } {
         const { passed, failed, flaky, skipped } = this.counts();
         const durationSec = Math.round((Date.now() - this.startTime) / 1000);
-        const env = getConfigValue(ConfigProperties.TEST_ENV, 'local');
+        const env = getEnvLabel();
         const icon = result.status === 'passed' ? '✅' : '❌';
         const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
             ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
