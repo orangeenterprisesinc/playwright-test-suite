@@ -3,10 +3,12 @@
  *
  * All page components (forms, modals, navigation bars, etc.) extend this class.
  * Each component is scoped to a root locator, so all child queries are relative
- * to that root — preventing selector collisions across the page.
+ * to that root — preventing selector collisions across the page. Visibility
+ * checks/waits/assertions on the root aren't wrapped here — `this.root` is a
+ * plain `Locator`, so subclasses call `.isVisible()`, `.waitFor()`, or
+ * `expect(this.root)` directly.
  *
  * @module components/BaseComponent
- * @author Gukan
  * @since 1.0.0
  *
  * @example
@@ -22,13 +24,13 @@
  * }
  * ```
  */
-import {expect, Locator, Page} from '@playwright/test';
+import {Locator, Page} from '@playwright/test';
 import {Logger} from '../utils/logger';
 
 /**
  * Abstract base class for scoped UI components.
  *
- * Provides common visibility assertions, wait helpers, and scoped locator methods.
+ * Provides root-locator scoping and scoped locator finder methods.
  * Subclasses define component-specific selectors and interaction methods.
  *
  * @abstract
@@ -52,44 +54,6 @@ export abstract class BaseComponent {
         this.page = page;
         this.root = typeof rootSelector === 'string' ? page.locator(rootSelector) : rootSelector;
         this.logger = new Logger(this.constructor.name);
-    }
-
-    /**
-     * Checks whether the component root element is currently visible.
-     * @returns {Promise<boolean>} `true` if visible
-     */
-    async isVisible(): Promise<boolean> {
-        return await this.root.isVisible();
-    }
-
-    /**
-     * Waits until the component root becomes visible.
-     * @param {number} [timeout] - Maximum time to wait in milliseconds
-     */
-    async waitForVisible(timeout?: number): Promise<void> {
-        await this.root.waitFor({state: 'visible', timeout});
-    }
-
-    /**
-     * Waits until the component root becomes hidden.
-     * @param {number} [timeout] - Maximum time to wait in milliseconds
-     */
-    async waitForHidden(timeout?: number): Promise<void> {
-        await this.root.waitFor({state: 'hidden', timeout});
-    }
-
-    /**
-     * Asserts that the component root is visible (fails the test if not).
-     */
-    async assertVisible(): Promise<void> {
-        await expect(this.root).toBeVisible();
-    }
-
-    /**
-     * Asserts that the component root is hidden (fails the test if not).
-     */
-    async assertHidden(): Promise<void> {
-        await expect(this.root).toBeHidden();
     }
 
     /**

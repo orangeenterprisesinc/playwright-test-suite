@@ -78,6 +78,37 @@ export enum ConfigProperties {
     SEND_SLACK = 'SEND_SLACK',
     /** Slack Incoming Webhook URL (env: `SLACK_WEBHOOK_URL`) */
     SLACK_WEBHOOK_URL = 'SLACK_WEBHOOK_URL',
+
+    /* ── Allure Report ───────────────────────────────── */
+
+    /** "owner" label applied to every test in the Allure report (env: `ALLURE_OWNER`, default `QA`) */
+    ALLURE_OWNER = 'ALLURE_OWNER',
+
+    /* ── ELK Dashboard Notification ───────────────────── */
+
+    /** Whether to push the run summary to ELK — `'yes'`/`'no'` (env: `SEND_RESULT_ELK`) */
+    SEND_RESULT_ELK = 'SEND_RESULT_ELK',
+    /** Elasticsearch/ELK ingest endpoint URL (env: `ELK_URL`) */
+    ELK_URL = 'ELK_URL',
+
+    /* ── Authentication (OAuth2 / Basic / API Key) ───── */
+
+    /** API authentication strategy — `'oauth2'` | `'basic'` | `'apikey'` | `'none'` (env: `AUTH_TYPE`) */
+    AUTH_TYPE = 'AUTH_TYPE',
+    /** OAuth2 client-credentials token endpoint (env: `ACCESS_TOKEN_URL`) */
+    ACCESS_TOKEN_URL = 'ACCESS_TOKEN_URL',
+    /** OAuth2 client id (env: `CLIENT_ID`) */
+    CLIENT_ID = 'CLIENT_ID',
+    /** OAuth2 client secret (env: `CLIENT_SECRET`) */
+    CLIENT_SECRET = 'CLIENT_SECRET',
+    /** Basic auth username for API requests (env: `AUTH_USERNAME`) */
+    AUTH_USERNAME = 'AUTH_USERNAME',
+    /** Basic auth password for API requests (env: `AUTH_PASSWORD`) */
+    AUTH_PASSWORD = 'AUTH_PASSWORD',
+    /** API key value, sent via {@link API_KEY_HEADER} (env: `API_KEY`) */
+    API_KEY = 'API_KEY',
+    /** Header name the API key is sent under (env: `API_KEY_HEADER`) */
+    API_KEY_HEADER = 'API_KEY_HEADER',
 }
 
 /**

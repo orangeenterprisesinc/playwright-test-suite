@@ -14,6 +14,20 @@ const AUTH_DIR = '.auth';
 
 const USER_AUTH_FILE = path.join(AUTH_DIR, 'user.json');
 
+const ALLURE_RESULTS_DIR = 'allure-results';
+
+/**
+ * Allure defect categories — groups tests in the report's "Categories" tab by
+ * outcome. Written into `allure-results/categories.json`, which Allure reads by
+ * convention. Without it the Categories tab is empty.
+ */
+const ALLURE_CATEGORIES = [
+    { name: 'Ignored / skipped tests', matchedStatuses: ['skipped'] },
+    { name: 'Product defects', matchedStatuses: ['failed'] },
+    { name: 'Test defects (broken)', matchedStatuses: ['broken'] },
+    { name: 'Timeouts', matchedStatuses: ['broken'], messageRegex: '.*[Tt]imeout.*' },
+];
+
 /**
  * Global setup function
  *
@@ -58,6 +72,19 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     if (!fs.existsSync(screenshotsDir)) {
         fs.mkdirSync(screenshotsDir, { recursive: true });
     }
+
+    // Start every run from a CLEAN allure-results, so the report reflects THIS
+    // run only. Otherwise result files accumulate across runs and the report
+    // shows inflated counts and duplicated tests. Trend history is preserved
+    // separately (from the previous report's history/ folder at generate time),
+    // so cleaning here does not lose trends.
+    fs.rmSync(ALLURE_RESULTS_DIR, { recursive: true, force: true });
+    fs.mkdirSync(ALLURE_RESULTS_DIR, { recursive: true });
+    fs.writeFileSync(
+        path.join(ALLURE_RESULTS_DIR, 'categories.json'),
+        JSON.stringify(ALLURE_CATEGORIES, null, 2),
+    );
+    logger.info('Reset allure-results and wrote categories.json');
 
     logger.info('Global setup completed');
 }

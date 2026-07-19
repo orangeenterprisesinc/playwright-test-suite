@@ -35,21 +35,8 @@ import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
 import { LoginPage } from '../pages/LoginPage';
 import { LeftNavigationPage } from '../pages/LeftNavigationPage';
 import type { TestCaseData } from '../types';
-import { feature, severity, Severity } from 'allure-js-commons';
+import { applyAllureLabels, resolveCaseId } from '../utils/allureLabels';
 import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
-import path from 'node:path';
-
-/**
- * Derives an Allure "feature" label from a spec file's location under
- * `tests/`, e.g. `tests/login/login-module.spec.ts` → "login". Files
- * directly under `tests/` (like `auth.setup.ts`) fall back to their own
- * basename with the `.spec`/`.setup` suffix stripped, e.g. "auth".
- */
-function deriveFeature(specFile: string): string {
-    const relative = path.relative(path.join(process.cwd(), 'tests'), specFile);
-    const [firstSegment] = relative.split(path.sep);
-    return firstSegment.includes('.') ? firstSegment.replace(/\.(spec|setup)\.ts$/, '') : firstSegment;
-}
 
 /**
  * Per-test fixture types.
@@ -229,10 +216,19 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
 
 });
 
-test.beforeEach(async ({ }, testInfo) => {
+test.beforeEach(async ({ testCaseId }, testInfo) => {
     onTestStart(testInfo);
-    await feature(deriveFeature(testInfo.file));
-    await severity(testInfo.tags.includes('@Smoke') ? Severity.CRITICAL : Severity.NORMAL);
+
+    // Resolve the runner row for this test (from the testCaseId option or a
+    // { type: 'testCaseId' } annotation). A disabled row (enabled === false)
+    // skips the test — the runnerManager `enabled` flag controls execution.
+    const caseId = resolveCaseId(testInfo, testCaseId);
+    const row = caseId ? await getTestCaseById<TestCaseData>(caseId) : null;
+    if (row && row.enabled === false) {
+        test.skip(true, `Test case '${row.id}' is disabled in runnerManager (enabled=false)`);
+    }
+
+    await applyAllureLabels(testInfo, row);
 });
 
 test.afterEach(async ({ }, testInfo) => {

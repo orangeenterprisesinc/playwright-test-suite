@@ -1,51 +1,41 @@
 /**
- * @fileoverview Custom Playwright reporter that posts a run summary to Slack.
+ * @fileoverview Custom Playwright reporter that posts a rich run summary to Slack.
  *
  * Self-gating: it only posts when `SEND_SLACK=yes` AND `SLACK_WEBHOOK_URL` is
  * present — otherwise it logs one line and does nothing, so local runs and CI
  * runs without the webhook secret are unaffected.
  *
  * Uses a Slack Incoming Webhook (not a bot token) — no OAuth flow, just a URL
- * created in the target Slack workspace. See README for setup steps.
+ * created in the target Slack workspace. The run data (counts, pass rate,
+ * metadata, env badges, failures) comes from the shared
+ * {@link RunSummaryCollector}; this file only turns that into Slack Block Kit.
  *
  * Required environment variables when enabled:
  * - `SEND_SLACK=yes`
  * - `SLACK_WEBHOOK_URL` (from the workspace's Incoming Webhook app config)
  *
  * @module reporting/slackReporter
- * @author Gukan
  * @since 1.0.0
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import https from 'node:https';
-import { ConfigProperties, getConfigBoolean, getConfigValue, getEnvLabel } from '../enums/configProperties';
+import { ConfigProperties, getConfigBoolean, getConfigValue } from '../enums/configProperties';
 import { Logger } from '../utils/logger';
-
-/** Final state of one test, keyed by test id (retries overwrite). */
-interface TestRecord {
-    title: string;
-    outcome: 'expected' | 'unexpected' | 'flaky' | 'skipped';
-    error?: string;
-}
+import { RunSummaryCollector, statusColor, type RunSummary } from './runSummary';
 
 /** Slack caps a single text block at 3000 characters. */
 const MAX_FAILURE_LIST_CHARS = 2500;
 
 class SlackReporter implements Reporter {
     private readonly logger = new Logger('SlackReporter');
-    private readonly records = new Map<string, TestRecord>();
-    private startTime = 0;
+    private readonly collector = new RunSummaryCollector();
 
     onBegin(): void {
-        this.startTime = Date.now();
+        this.collector.onBegin();
     }
 
     onTestEnd(test: TestCase, result: TestResult): void {
-        this.records.set(test.id, {
-            title: test.titlePath().slice(2).join(' › '),
-            outcome: test.outcome(),
-            error: result.error?.message?.split('\n')[0],
-        });
+        this.collector.recordTest(test, result);
     }
 
     async onEnd(result: FullResult): Promise<void> {
@@ -61,7 +51,7 @@ class SlackReporter implements Reporter {
         }
 
         try {
-            const { status, body } = await this.post(webhookUrl, this.buildPayload(result));
+            const { status, body } = await this.post(webhookUrl, buildPayload(this.collector.build(result)));
             if (status < 200 || status >= 300) {
                 this.logger.error(`Slack notification failed: ${status} ${body}`);
                 return;
@@ -110,54 +100,52 @@ class SlackReporter implements Reporter {
     printsToStdio(): boolean {
         return false;
     }
+}
 
-    private counts() {
-        let passed = 0, failed = 0, flaky = 0, skipped = 0;
-        for (const r of this.records.values()) {
-            if (r.outcome === 'expected') passed++;
-            else if (r.outcome === 'unexpected') failed++;
-            else if (r.outcome === 'flaky') flaky++;
-            else skipped++;
+function buildPayload(summary: RunSummary): { text: string; attachments: unknown[] } {
+    const icon = summary.status === 'passed' ? '✅' : '❌';
+    const envLabel = summary.badges.map((b) => `\`${b.label}\``).join(' ');
+    const headerText = `${icon} Playwright — ${summary.status.toUpperCase()}`;
+
+    const blocks: unknown[] = [
+        { type: 'header', text: { type: 'plain_text', text: `${icon} Playwright — ${summary.status.toUpperCase()}`, emoji: true } },
+        {
+            type: 'section',
+            fields: [
+                { type: 'mrkdwn', text: `*Passed:*\n${summary.passed}` },
+                { type: 'mrkdwn', text: `*Failed:*\n${summary.failed}` },
+                { type: 'mrkdwn', text: `*Flaky:*\n${summary.flaky}` },
+                { type: 'mrkdwn', text: `*Skipped:*\n${summary.skipped}` },
+                { type: 'mrkdwn', text: `*Pass rate:*\n${summary.passRate}%` },
+                { type: 'mrkdwn', text: `*Duration:*\n${summary.durationText}` },
+            ],
+        },
+        {
+            type: 'context',
+            elements: [
+                { type: 'mrkdwn', text: `${envLabel}  •  *${summary.trigger}*  •  \`${summary.branch}@${summary.commit}\`  •  ${summary.projects}` },
+            ],
+        },
+    ];
+
+    if (summary.failures.length) {
+        let list = summary.failures.map((r) => `• *${r.title}*\n   \`${r.spec}\`${r.error ? `\n   ${r.error}` : ''}`).join('\n');
+        if (list.length > MAX_FAILURE_LIST_CHARS) {
+            list = `${list.slice(0, MAX_FAILURE_LIST_CHARS)}\n… (${summary.failures.length} total failures, truncated)`;
         }
-        return { passed, failed, flaky, skipped };
+        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*Failures:*\n${list}` } });
     }
 
-    private buildPayload(result: FullResult): { text: string; blocks: unknown[] } {
-        const { passed, failed, flaky, skipped } = this.counts();
-        const durationSec = Math.round((Date.now() - this.startTime) / 1000);
-        const env = getEnvLabel();
-        const icon = result.status === 'passed' ? '✅' : '❌';
-        const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
-            ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-            : '';
-
-        const headerText = `${icon} *Playwright [${env}] — ${result.status.toUpperCase()}*`;
-        const summaryText = `Passed: *${passed}*  Failed: *${failed}*  Flaky: *${flaky}*  Skipped: *${skipped}*  Duration: *${durationSec}s*`;
-
-        const blocks: unknown[] = [
-            { type: 'section', text: { type: 'mrkdwn', text: headerText } },
-            { type: 'section', text: { type: 'mrkdwn', text: summaryText } },
-        ];
-
-        const failures = [...this.records.values()].filter((r) => r.outcome === 'unexpected');
-        if (failures.length) {
-            let list = failures.map((r) => `• *${r.title}*${r.error ? `\n  \`${r.error}\`` : ''}`).join('\n');
-            if (list.length > MAX_FAILURE_LIST_CHARS) {
-                list = `${list.slice(0, MAX_FAILURE_LIST_CHARS)}\n… (${failures.length} total failures, truncated)`;
-            }
-            blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*Failures:*\n${list}` } });
-        }
-
-        if (runUrl) {
-            blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${runUrl}|Open the CI run>` } });
-        }
-
-        return {
-            // `text` is the fallback shown in notifications/unfurl previews.
-            text: `${headerText} — ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`,
-            blocks,
-        };
+    if (summary.runUrl) {
+        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${summary.runUrl}|Open the CI run →>  _(full video & trace in artifacts)_` } });
     }
+
+    return {
+        // `text` is the fallback shown in notifications / unfurl previews.
+        text: `${headerText} — ${summary.passed} passed, ${summary.failed} failed, ${summary.flaky} flaky, ${summary.skipped} skipped`,
+        // A coloured attachment wrapper gives the message a green/red side bar.
+        attachments: [{ color: statusColor(summary.status), blocks }],
+    };
 }
 
 export default SlackReporter;

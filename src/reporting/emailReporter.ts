@@ -1,9 +1,14 @@
 /**
- * @fileoverview Custom Playwright reporter that emails a run summary.
+ * @fileoverview Custom Playwright reporter that emails a rich run summary.
  *
  * Self-gating: it only sends when `SEND_EMAIL=yes` AND the SMTP settings
  * are present — otherwise it logs one line and does nothing, so local
  * runs and CI runs without SMTP secrets are unaffected.
+ *
+ * The run data (counts, pass rate, metadata, env badges, failures) comes from
+ * the shared {@link RunSummaryCollector}; this file only turns that into HTML.
+ * A screenshot-only single-file Allure report is attached (video/trace are
+ * dropped there — see {@link ../utils/allureHelper}).
  *
  * Required environment variables when enabled:
  * - `SEND_EMAIL=yes`
@@ -12,45 +17,38 @@
  * - `EMAIL_FROM`, `EMAIL_TO` (comma-separated recipients)
  *
  * @module reporting/emailReporter
- * @author Gukan
  * @since 1.0.0
  */
 import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 import fs from 'node:fs';
 import nodemailer from 'nodemailer';
-import { ConfigProperties, getConfigBoolean, getConfigValue, getEnvLabel } from '../enums/configProperties';
-import { prepareLeanEmailReport } from '../utils/allureReporting';
+import { ConfigProperties, getConfigBoolean, getConfigValue } from '../enums/configProperties';
+import { prepareLeanEmailReport } from '../utils/allureHelper';
 import { Logger } from '../utils/logger';
+import { RunSummaryCollector, statusColor, type EnvBadge, type RunSummary, type TestRecord } from './runSummary';
 
 interface ReportAttachment {
     filename: string;
     path: string;
 }
 
-/** Final state of one test, keyed by test id (retries overwrite). */
-interface TestRecord {
-    title: string;
-    outcome: 'expected' | 'unexpected' | 'flaky' | 'skipped';
-    error?: string;
-}
+const OUTCOME_COLORS = {
+    passed: '#22c55e',
+    failed: '#ef4444',
+    flaky: '#f59e0b',
+    skipped: '#6b7280',
+} as const;
 
 class EmailReporter implements Reporter {
     private readonly logger = new Logger('EmailReporter');
-    private readonly records = new Map<string, TestRecord>();
-    private startTime = 0;
+    private readonly collector = new RunSummaryCollector();
 
     onBegin(_config: FullConfig, _suite: Suite): void {
-        this.startTime = Date.now();
+        this.collector.onBegin();
     }
 
     onTestEnd(test: TestCase, result: TestResult): void {
-        // Later retries overwrite earlier entries, so the map ends up with
-        // each test's final outcome.
-        this.records.set(test.id, {
-            title: test.titlePath().slice(2).join(' › '),
-            outcome: test.outcome(),
-            error: result.error?.message?.split('\n')[0],
-        });
+        this.collector.recordTest(test, result);
     }
 
     async onEnd(result: FullResult): Promise<void> {
@@ -67,6 +65,7 @@ class EmailReporter implements Reporter {
             return;
         }
 
+        const summary = this.collector.build(result);
         const { attachments, cleanup } = await this.prepareAttachments();
 
         try {
@@ -84,8 +83,8 @@ class EmailReporter implements Reporter {
             await transporter.sendMail({
                 from,
                 to,
-                subject: this.buildSubject(result),
-                html: this.buildHtml(result, attachments),
+                subject: buildSubject(summary),
+                html: buildHtml(summary, attachments),
                 attachments,
             });
             this.logger.info(`Email notification sent to: ${to}${attachments.length ? ` with ${attachments.length} report attachment(s)` : ''}`);
@@ -103,65 +102,11 @@ class EmailReporter implements Reporter {
         return false;
     }
 
-    private counts() {
-        let passed = 0, failed = 0, flaky = 0, skipped = 0;
-        for (const r of this.records.values()) {
-            if (r.outcome === 'expected') passed++;
-            else if (r.outcome === 'unexpected') failed++;
-            else if (r.outcome === 'flaky') flaky++;
-            else skipped++;
-        }
-        return { passed, failed, flaky, skipped };
-    }
-
-    private buildSubject(result: FullResult): string {
-        const { passed, failed, flaky, skipped } = this.counts();
-        const env = getEnvLabel();
-        const icon = result.status === 'passed' ? '✅' : '❌';
-        return `${icon} Playwright [${env}] — ${result.status.toUpperCase()}: ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`;
-    }
-
-    private buildHtml(result: FullResult, attachments: ReportAttachment[]): string {
-        const { passed, failed, flaky, skipped } = this.counts();
-        const durationSec = Math.round((Date.now() - this.startTime) / 1000);
-        const env = getEnvLabel();
-        const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
-            ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-            : '';
-
-        const failures = [...this.records.values()]
-            .filter((r) => r.outcome === 'unexpected')
-            .map((r) => `<li><b>${escapeHtml(r.title)}</b>${r.error ? `<br><code>${escapeHtml(r.error)}</code>` : ''}</li>`)
-            .join('');
-
-        const attachmentNote = attachments.length
-            ? `<p>📎 Attached: ${attachments.map((a) => escapeHtml(a.filename)).join(', ')} (self-contained — open directly in a browser)</p>`
-            : '<p>The Allure report attachment was skipped (missing or too large) — see the CI run link below.</p>';
-
-        return `
-<h2>Playwright run — ${result.status.toUpperCase()}</h2>
-<table border="1" cellpadding="6" cellspacing="0">
-  <tr><td>Environment</td><td>${escapeHtml(env)}</td></tr>
-  <tr><td>Passed</td><td>${passed}</td></tr>
-  <tr><td>Failed</td><td>${failed}</td></tr>
-  <tr><td>Flaky</td><td>${flaky}</td></tr>
-  <tr><td>Skipped</td><td>${skipped}</td></tr>
-  <tr><td>Duration</td><td>${durationSec}s</td></tr>
-</table>
-${failures ? `<h3>Failures</h3><ul>${failures}</ul>` : ''}
-${attachmentNote}
-${runUrl ? `<p><a href="${runUrl}">Open the CI run (Playwright trace-viewer report is attached there as an artifact)</a></p>` : ''}
-`;
-    }
-
     /**
-     * Generates the lean single-file Allure report (screenshots/videos/traces
-     * stripped, no zip — many mail gateways strip those) and attaches its
-     * `index.html` directly. Built entirely under the OS temp dir, so
-     * `allure-results/` itself is untouched — the CI artifact and local
-     * `report:allure` still get the full multi-file report with every
-     * attachment. The Playwright HTML report has no single-file mode, so
-     * it's left out of email entirely; the CI artifact link covers it.
+     * Generates the screenshot-only single-file Allure report and attaches its
+     * `index.html`. Built entirely under the OS temp dir, so `allure-results/`
+     * itself is untouched. The Playwright HTML report has no single-file mode,
+     * so it's left out of email; the CI artifact link covers it.
      *
      * Always returns a `cleanup()` — call it once the email send settles.
      */
@@ -185,6 +130,101 @@ ${runUrl ? `<p><a href="${runUrl}">Open the CI run (Playwright trace-viewer repo
 
         return { attachments: [{ filename: 'allure-report.html', path: report.htmlPath }], cleanup: report.cleanup };
     }
+}
+
+function buildSubject(summary: RunSummary): string {
+    const envLabel = summary.badges.map((b) => b.label).join(' · ');
+    const icon = summary.status === 'passed' ? '✅' : '❌';
+    return `${icon} Playwright [${envLabel}] — ${summary.status.toUpperCase()}: ${summary.passed} passed, ${summary.failed} failed, ${summary.flaky} flaky, ${summary.skipped} skipped`;
+}
+
+function badgePill(badge: EnvBadge): string {
+    return `<span style="display:inline-block;background:${badge.color};color:#ffffff;font-size:12px;font-weight:700;letter-spacing:.5px;padding:3px 10px;border-radius:12px;margin-right:6px;">${escapeHtml(badge.label)}</span>`;
+}
+
+function statCell(label: string, value: number | string, color: string): string {
+    return `
+    <td align="center" style="padding:12px 8px;">
+      <div style="font-size:24px;font-weight:700;color:${color};line-height:1;">${value}</div>
+      <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;">${escapeHtml(label)}</div>
+    </td>`;
+}
+
+function metaRow(label: string, value: string): string {
+    return `
+    <tr>
+      <td style="padding:6px 12px;font-size:13px;color:#6b7280;white-space:nowrap;">${escapeHtml(label)}</td>
+      <td style="padding:6px 12px;font-size:13px;color:#111827;font-family:'SFMono-Regular',Consolas,monospace;">${escapeHtml(value)}</td>
+    </tr>`;
+}
+
+function failureCard(record: TestRecord): string {
+    return `
+    <div style="border-left:3px solid ${OUTCOME_COLORS.failed};background:#fef2f2;padding:10px 14px;margin:8px 0;border-radius:0 4px 4px 0;">
+      <div style="font-size:14px;font-weight:600;color:#991b1b;">${escapeHtml(record.title)}</div>
+      <div style="font-size:12px;color:#6b7280;font-family:'SFMono-Regular',Consolas,monospace;margin-top:2px;">${escapeHtml(record.spec)}${record.project ? ` · ${escapeHtml(record.project)}` : ''}</div>
+      ${record.error ? `<div style="font-size:12px;color:#7f1d1d;font-family:'SFMono-Regular',Consolas,monospace;margin-top:6px;white-space:pre-wrap;">${escapeHtml(record.error)}</div>` : ''}
+    </div>`;
+}
+
+function buildHtml(summary: RunSummary, attachments: ReportAttachment[]): string {
+    const banner = statusColor(summary.status);
+    const icon = summary.status === 'passed' ? '✅' : '❌';
+
+    const failuresSection = summary.failures.length
+        ? `<h3 style="font-size:15px;color:#111827;margin:20px 0 4px;">Failures (${summary.failures.length})</h3>${summary.failures.map(failureCard).join('')}`
+        : '';
+
+    const attachmentNote = attachments.length
+        ? `<p style="font-size:13px;color:#6b7280;margin:16px 0 0;">📎 Attached: ${attachments.map((a) => escapeHtml(a.filename)).join(', ')} — a self-contained Allure report (screenshots only; open directly in a browser). Full video &amp; trace are in the CI run artifacts.</p>`
+        : `<p style="font-size:13px;color:#6b7280;margin:16px 0 0;">The Allure report attachment was skipped (missing or too large) — see the CI run link below.</p>`;
+
+    const runLink = summary.runUrl
+        ? `<p style="margin:16px 0 0;"><a href="${summary.runUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;">Open the CI run →</a></p>`
+        : '';
+
+    return `
+<div style="background:#f3f4f6;padding:24px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="640" align="center" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+    <tr>
+      <td style="background:${banner};padding:20px 24px;">
+        <div style="font-size:20px;font-weight:700;color:#ffffff;">${icon} Playwright Run — ${escapeHtml(summary.status.toUpperCase())}</div>
+        <div style="margin-top:10px;">${summary.badges.map(badgePill).join('')}</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            ${statCell('Total', summary.total, '#111827')}
+            ${statCell('Passed', summary.passed, OUTCOME_COLORS.passed)}
+            ${statCell('Failed', summary.failed, OUTCOME_COLORS.failed)}
+            ${statCell('Flaky', summary.flaky, OUTCOME_COLORS.flaky)}
+            ${statCell('Skipped', summary.skipped, OUTCOME_COLORS.skipped)}
+            ${statCell('Pass rate', `${summary.passRate}%`, summary.passRate === 100 ? OUTCOME_COLORS.passed : '#111827')}
+            ${statCell('Duration', summary.durationText, '#111827')}
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 24px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;">
+          ${metaRow('Environment', summary.env)}
+          ${metaRow('Trigger', summary.trigger)}
+          ${metaRow('Branch', summary.branch)}
+          ${metaRow('Commit', summary.commit)}
+          ${metaRow('Projects', summary.projects)}
+          ${metaRow('Node', summary.nodeVersion)}
+          ${metaRow('Finished', summary.finishedAt)}
+        </table>
+        ${failuresSection}
+        ${attachmentNote}
+        ${runLink}
+      </td>
+    </tr>
+  </table>
+</div>`;
 }
 
 function escapeHtml(s: string): string {

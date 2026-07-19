@@ -1,5 +1,5 @@
-import { expect, test } from '../../src/fixtures/base.fixture';
-import loginModuleData from '../../src/data/login-module-data.json';
+import { expect, test } from '../../../src/fixtures/base.fixture';
+import loginModuleData from '../../../src/data/login-module-data.json';
 
 // The login module must always start from a logged-out state, so discard any
 // stored authentication for every test in this file.
@@ -13,7 +13,8 @@ test.use({
 test.describe('Login Tests', { tag: '@login' }, () => {
 
     test('[Login] Verify that the user cannot log on with an invalid password.', {
-        tag: ['@UI', '@Local']
+        tag: ['@UI', '@Local'],
+        annotation: { type: 'testCaseId', description: 'UI-002' }
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await loginPage.loginPetTiger(process.env.USER_NAME!, loginModuleData.wrong_password);
         await expect(loginPage.invalidCredentialsErrorMessage).toHaveText(loginModuleData.invalid_credentials_error_message);
@@ -21,7 +22,8 @@ test.describe('Login Tests', { tag: '@login' }, () => {
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username.', {
-        tag: ['@UI', '@Local']
+        tag: ['@UI', '@Local'],
+        annotation: { type: 'testCaseId', description: 'UI-003' }
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await loginPage.loginPetTiger(loginModuleData.wrong_username, process.env.PASSWORD!);
         await expect(loginPage.invalidCredentialsErrorMessage).toHaveText(loginModuleData.invalid_credentials_error_message);
@@ -29,7 +31,8 @@ test.describe('Login Tests', { tag: '@login' }, () => {
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username and password.', {
-        tag: ['@UI', '@Local']
+        tag: ['@UI', '@Local'],
+        annotation: { type: 'testCaseId', description: 'UI-004' }
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await loginPage.loginPetTiger(loginModuleData.wrong_username, loginModuleData.wrong_password);
         await expect(loginPage.invalidCredentialsErrorMessage).toHaveText(loginModuleData.invalid_credentials_error_message);
@@ -37,7 +40,8 @@ test.describe('Login Tests', { tag: '@login' }, () => {
     });
 
     test('[Login] Verify that the user can log in with valid username and password.', {
-        tag: ['@Smoke', '@Local']
+        tag: ['@Smoke', '@Local'],
+        annotation: { type: 'testCaseId', description: 'UI-001' }
     }, async ({ gotoUrl: _gotoUrl, loginPage, leftNavigationPage }) => {
         await loginPage.loginPetTiger(process.env.USER_NAME!, process.env.PASSWORD!);
         await expect(leftNavigationPage.searchMenu).toBeVisible();

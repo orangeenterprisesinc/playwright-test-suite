@@ -68,6 +68,9 @@ export default defineConfig({
         // Posts a run summary to Slack via Incoming Webhook; self-gating —
         // does nothing unless SEND_SLACK=yes and SLACK_WEBHOOK_URL is set.
         ['./src/reporting/slackReporter.ts'],
+        // Pushes a run summary to an ELK/Elasticsearch endpoint; self-gating —
+        // does nothing unless SEND_RESULT_ELK=yes and ELK_URL is set.
+        ['./src/reporting/dashboard.ts'],
     ],
 
     // Output directory for test artifacts
@@ -82,9 +85,14 @@ export default defineConfig({
         // Base URL for navigation
         baseURL: BASE_URL,
 
-        // Collect artifacts only when a test fails
+        // Screenshot on every test (pass or fail) so the Allure report always
+        // has visual context; video + trace only on failure, since they're the
+        // heavy artifacts. The Allure report embeds ONLY screenshots (see
+        // src/utils/allureHelper.ts) so it stays small — the full video/trace
+        // live in the Playwright HTML report (playwright-report/) and the raw
+        // test-results/ artifacts, neither of which has a size limit.
         trace: 'retain-on-failure',
-        screenshot: 'only-on-failure',
+        screenshot: 'on',
         video: 'retain-on-failure',
     },
 

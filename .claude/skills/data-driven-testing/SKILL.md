@@ -29,8 +29,9 @@ introduce one.
 
 ### Record shape (`TestCaseData`)
 
-`id`, `testName`, `testTitle`, `testDescription?`, `shouldComplete`,
-`expectedCount`, `tags?` (pipe-delimited string), `enabled`.
+`id`, `category` (`ui` | `api` | `workflow`), `testName`, `testTitle`,
+`testDescription?`, `shouldComplete`, `expectedCount`, `tags?` (pipe-delimited
+string), `enabled`.
 Rows with `enabled: false` are skipped automatically.
 
 ### Using a row in a spec

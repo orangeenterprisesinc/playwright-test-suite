@@ -5,7 +5,7 @@
 import type { TestInfo } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { TestMetrics } from '../context/testMetrics';
-import { getAnnotation } from '../annotations/frameworkAnnotation';
+import { CurrentTestTracker, TestRunContext } from '../context/testRunContext';
 
 const logger = new Logger('LifecycleManager');
 
@@ -42,14 +42,11 @@ export function onTestStart(testInfo: TestInfo): void {
     TestMetrics.retryCount = testInfo.retry;
     TestMetrics.startTime = new Date();
 
-    const annotation = getAnnotation(testInfo.title);
-    if (annotation) {
-        TestMetrics.authors = annotation.authors;
-        TestMetrics.categories = annotation.categories;
-    }
-
     const tagMatches = testInfo.titlePath.join(' ').match(/@[a-zA-Z0-9_-]+/g);
     if (tagMatches) TestMetrics.tags = tagMatches;
+
+    CurrentTestTracker.set({ title: testInfo.title, file: testInfo.file ?? '', retry: testInfo.retry });
+    TestRunContext.setIteration(testInfo.retry);
 
     logger.info(`▶ START: ${testInfo.title} [project=${testInfo.project.name}, retry=${testInfo.retry}]`);
 }
@@ -78,6 +75,8 @@ export function onTestEnd(testInfo: TestInfo): void {
             logger.warn(`⏭️  SKIP: ${testInfo.title}`);
             break;
     }
+
+    CurrentTestTracker.clear();
 }
 
 type TestMetricsStatus = 'passed' | 'failed' | 'skipped' | 'timedOut' | 'interrupted';

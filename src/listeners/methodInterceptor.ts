@@ -9,7 +9,7 @@
  */
 import fs from 'node:fs';
 import { Logger } from '../utils/logger';
-import { FrameworkConstants } from '../constants/frameworkConstants';
+import { FrameworkConstants } from '../core/frameworkConstants';
 
 const logger = new Logger('MethodInterceptor');
 

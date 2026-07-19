@@ -11,7 +11,7 @@
  * @example
  * ```typescript
  * const modal = new ModalComponent(page);
- * await modal.waitForVisible();
+ * await modal.getRoot().waitFor({ state: 'visible' });
  * await modal.assertTitle('Confirm Deletion');
  * await modal.confirm();
  * await modal.assertClosed();
@@ -64,21 +64,21 @@ export class ModalComponent extends BaseComponent {
     async close(): Promise<void> {
         this.logger.info('Closing modal');
         await this.closeButton.click();
-        await this.waitForHidden();
+        await this.root.waitFor({ state: 'hidden' });
     }
 
     /** Closes the modal by clicking the background overlay. */
     async closeByOverlay(): Promise<void> {
         this.logger.info('Closing modal by clicking overlay');
         await this.overlay.click({ position: { x: 10, y: 10 } });
-        await this.waitForHidden();
+        await this.root.waitFor({ state: 'hidden' });
     }
 
     /** Closes the modal by pressing the Escape key. */
     async closeByEscape(): Promise<void> {
         this.logger.info('Closing modal by pressing Escape');
         await this.page.keyboard.press('Escape');
-        await this.waitForHidden();
+        await this.root.waitFor({ state: 'hidden' });
     }
 
     /** Clicks the confirm/OK/Yes button. Does NOT wait for the modal to close. */
@@ -91,7 +91,7 @@ export class ModalComponent extends BaseComponent {
     async cancel(): Promise<void> {
         this.logger.info('Canceling modal');
         await this.cancelButton.click();
-        await this.waitForHidden();
+        await this.root.waitFor({ state: 'hidden' });
     }
 
     /**

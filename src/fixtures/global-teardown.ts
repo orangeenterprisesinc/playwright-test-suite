@@ -9,6 +9,7 @@ import { FullConfig } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const ALLURE_RESULTS_DIR = 'allure-results';
@@ -36,27 +37,36 @@ function writeAllureEnvironmentInfo(config: FullConfig): void {
 }
 
 /**
- * Writes `allure-results/executor.json` — Allure reads this file by
- * convention and renders it as the report's "Executor" panel. Only written
- * on GitHub Actions, where the run URL is actually meaningful; local runs
- * have nothing worth linking to.
+ * Writes `allure-results/executor.json` — Allure reads this file by convention
+ * and renders it as the report's "Executor" panel. On GitHub Actions it carries
+ * the run URL; locally it records a plain "Local" executor so the panel isn't
+ * empty.
  */
 function writeAllureExecutorInfo(): void {
     const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_RUN_NUMBER } = process.env;
-    if (!GITHUB_SERVER_URL || !GITHUB_REPOSITORY || !GITHUB_RUN_ID) return;
-
-    const buildUrl = `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
-    const executorInfo = {
-        name: 'GitHub Actions',
-        type: 'github',
-        buildOrder: GITHUB_RUN_NUMBER ? parseInt(GITHUB_RUN_NUMBER, 10) : undefined,
-        buildName: `Run #${GITHUB_RUN_NUMBER ?? GITHUB_RUN_ID}`,
-        buildUrl,
-        reportUrl: buildUrl,
-        reportName: 'Allure Report',
-    };
-
     fs.mkdirSync(ALLURE_RESULTS_DIR, { recursive: true });
+
+    let executorInfo: Record<string, unknown>;
+    if (GITHUB_SERVER_URL && GITHUB_REPOSITORY && GITHUB_RUN_ID) {
+        const buildUrl = `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
+        executorInfo = {
+            name: 'GitHub Actions',
+            type: 'github',
+            buildOrder: GITHUB_RUN_NUMBER ? parseInt(GITHUB_RUN_NUMBER, 10) : undefined,
+            buildName: `Run #${GITHUB_RUN_NUMBER ?? GITHUB_RUN_ID}`,
+            buildUrl,
+            reportUrl: buildUrl,
+            reportName: 'Allure Report',
+        };
+    } else {
+        executorInfo = {
+            name: `Local (${os.hostname()})`,
+            type: 'local',
+            buildName: `Local run — ${getConfigValue(ConfigProperties.TEST_ENV, 'local')}`,
+            reportName: 'Allure Report',
+        };
+    }
+
     fs.writeFileSync(path.join(ALLURE_RESULTS_DIR, 'executor.json'), JSON.stringify(executorInfo));
 }
 

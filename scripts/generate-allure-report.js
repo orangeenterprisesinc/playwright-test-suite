@@ -1,13 +1,12 @@
 /**
- * Generates the static Allure HTML report from allure-results/ — strips
- * screenshots/videos/traces first, so the report is pass/fail/steps/errors
- * only, no media.
+ * Generates the static Allure HTML report from allure-results/ — embeds ONLY
+ * screenshots (plus tiny step logs) and drops the heavy video/trace
+ * attachments first, so the report stays small. The full video/trace remain
+ * in the Playwright HTML report and raw test-results/ artifacts.
  *
- * Uses the same require('allure-commandline') JS API as
- * src/utils/allureReporting.ts (not compiled here, so this plain-JS copy
- * exists for use before/outside the TS build — e.g. from npm scripts and
- * CI, where ts-node isn't guaranteed to be available). Requires a Java
- * runtime on PATH.
+ * Keep this filter in sync with src/utils/allureHelper.ts — this plain-JS copy
+ * exists for use before/outside the TS build (npm scripts and CI, where
+ * ts-node isn't guaranteed to be available). Requires a Java runtime on PATH.
  *
  * Usage: node scripts/generate-allure-report.js [resultsDir] [reportDir]
  */
@@ -19,32 +18,66 @@ const path = require('node:path');
 
 const [resultsDir = 'allure-results', reportDir = 'allure-report'] = process.argv.slice(2);
 
-// Allure names attachment files `<uuid>-attachment.<ext>`; everything else
-// (result/container/env JSON) is kept.
-const ATTACHMENT_FILE_PATTERN = /-attachment\./;
+// Allure names attachment files `<uuid>-attachment.<ext>`; this captures the extension.
+const ATTACHMENT_FILE_PATTERN = /-attachment\.([a-z0-9]+)$/i;
 
-function stripAttachments(node) {
+// Kept attachment types: screenshots + tiny text/markdown step logs. Video
+// (.webm) and Playwright trace (.zip) are dropped — they're the multi-MB
+// attachments that bloat the report.
+const KEPT_ATTACHMENT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'md']);
+
+function isKeptAttachmentFile(name) {
+    const match = name.match(ATTACHMENT_FILE_PATTERN);
+    if (!match) return true; // not an attachment file — always kept
+    return KEPT_ATTACHMENT_EXTS.has(match[1].toLowerCase());
+}
+
+function isKeptAttachment(attachment) {
+    if (!attachment || typeof attachment !== 'object') return false;
+    const { source, type } = attachment;
+    if (type && (type.startsWith('video/') || type.includes('playwright-trace') || type === 'application/zip')) {
+        return false;
+    }
+    if (source) {
+        const match = source.match(ATTACHMENT_FILE_PATTERN);
+        if (match) return KEPT_ATTACHMENT_EXTS.has(match[1].toLowerCase());
+    }
+    return true;
+}
+
+function filterAttachments(node) {
     if (Array.isArray(node)) {
-        node.forEach(stripAttachments);
+        node.forEach(filterAttachments);
         return;
     }
     if (node && typeof node === 'object') {
-        if (Array.isArray(node.attachments)) node.attachments = [];
-        for (const value of Object.values(node)) stripAttachments(value);
+        if (Array.isArray(node.attachments)) node.attachments = node.attachments.filter(isKeptAttachment);
+        for (const value of Object.values(node)) filterAttachments(value);
     }
+}
+
+// The auth-setup project's results are infra, not real tests — drop them.
+function isAuthSetupResult(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.fullName && data.fullName.includes('.setup.ts')) return true;
+    return (data.labels || []).some((l) => l.name === 'parentSuite' && l.value === 'auth-setup');
 }
 
 function createLeanAllureResults(sourceDir, destDir) {
     fs.mkdirSync(destDir, { recursive: true });
     for (const name of fs.readdirSync(sourceDir)) {
-        if (ATTACHMENT_FILE_PATTERN.test(name)) continue;
-
         const srcPath = path.join(sourceDir, name);
         if (fs.statSync(srcPath).isDirectory()) continue;
 
+        if (ATTACHMENT_FILE_PATTERN.test(name)) {
+            if (isKeptAttachmentFile(name)) fs.copyFileSync(srcPath, path.join(destDir, name));
+            continue;
+        }
+
         if (name.endsWith('.json')) {
             const data = JSON.parse(fs.readFileSync(srcPath, 'utf-8'));
-            stripAttachments(data);
+            if (name.endsWith('-result.json') && isAuthSetupResult(data)) continue;
+            filterAttachments(data);
             fs.writeFileSync(path.join(destDir, name), JSON.stringify(data));
         } else {
             fs.copyFileSync(srcPath, path.join(destDir, name));

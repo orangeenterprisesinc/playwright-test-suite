@@ -1,60 +1,11 @@
 {
     "runnerManager": [
         {
-            "id": "WF-001",
-            "testName": "CreateGuarantorAccountNote_UI_VerifyAPI",
-            "testTitle": "Verify user can create a Guarantor Account Note in Collections UI and validate it through API response",
-            "testDescription": "This test verifies that a user is able to create a new guarantor account note from the Collections module UI.",
-            "shouldComplete": true,
-            "expectedCount": 1,
-            "tags": "smoke|high-level|regression",
-            "enabled": true
-        },
-        {
-            "id": "API-001",
-            "testName": "CreateGuarantorAccountNote_API",
-            "testTitle": "Create a new guarantor account note via API and validate the response",
-            "testDescription": "This test verifies that a new guarantor account note can be created via POST API and the response contains the correct accountNote value.",
-            "shouldComplete": true,
-            "expectedCount": 1,
-            "tags": "smoke|high-level|regression",
-            "enabled": true
-        },
-        {
-            "id": "API-002",
-            "testName": "VerifyCreatedGuarantorNote_API",
-            "testTitle": "Verify the created note exists via GET call",
-            "testDescription": "This test verifies that the previously created guarantor account note is retrievable via GET API and the accountNote value matches.",
-            "shouldComplete": true,
-            "expectedCount": 1,
-            "tags": "smoke|high-level|regression",
-            "enabled": true
-        },
-        {
-            "id": "API-003",
-            "testName": "UpdateGuarantorAccountNote_API",
-            "testTitle": "Update the guarantor account note via PUT call",
-            "testDescription": "This test verifies that an existing guarantor account note can be updated via PUT API and the response contains the updated accountNote value.",
-            "shouldComplete": true,
-            "expectedCount": 1,
-            "tags": "smoke|high-level|regression",
-            "enabled": true
-        },
-        {
-            "id": "API-004",
-            "testName": "VerifyUpdatedGuarantorNote_API",
-            "testTitle": "Verify the updated note exists via GET call",
-            "testDescription": "This test verifies that the updated guarantor account note is retrievable via GET API and the accountNote value reflects the update.",
-            "shouldComplete": true,
-            "expectedCount": 1,
-            "tags": "smoke|high-level|regression",
-            "enabled": true
-        },
-        {
             "id": "UI-001",
-            "testName": "LoginPageLoadsWithAllFormElements",
-            "testTitle": "Login page loads with all form elements",
-            "testDescription": "Verifies Keycloak login page renders heading, username, password fields and Sign In button, then validates successful login with valid credentials.",
+            "category": "ui",
+            "testName": "loginWithValidCredentials",
+            "testTitle": "Login succeeds with valid credentials",
+            "testDescription": "Verify a valid user logs in and reaches the authenticated shell — the search menu and welcome message are visible.",
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "smoke|high-level|regression",
@@ -62,13 +13,102 @@
         },
         {
             "id": "UI-002",
-            "testName": "LoginFailsWithInvalidCredentials",
-            "testTitle": "Login fails with invalid credentials",
-            "testDescription": "Verifies login fails with invalid credentials and error message is shown on the login page.",
+            "category": "ui",
+            "testName": "loginWithInvalidPassword",
+            "testTitle": "Login fails with an invalid password",
+            "testDescription": "Verify login is rejected when the username is valid but the password is wrong, and the invalid-credentials error is shown.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "UI-003",
+            "category": "ui",
+            "testName": "loginWithInvalidUsername",
+            "testTitle": "Login fails with an invalid username",
+            "testDescription": "Verify login is rejected when the username is invalid, and the invalid-credentials error is shown.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "UI-004",
+            "category": "ui",
+            "testName": "loginWithInvalidUsernameAndPassword",
+            "testTitle": "Login fails with invalid username and password",
+            "testDescription": "Verify login is rejected when both the username and password are invalid, and the invalid-credentials error is shown.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "regression",
+            "enabled": true
+        },
+        {
+            "id": "API-001",
+            "category": "api",
+            "testName": "apiSmokeExample",
+            "testTitle": "Example (smoke) — a core API endpoint responds 200",
+            "testDescription": "Template row for an API-only smoke test — replace with a real PET Tiger endpoint health check.",
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "smoke|high-level|regression",
-            "enabled": true
+            "enabled": false
+        },
+        {
+            "id": "API-002",
+            "category": "api",
+            "testName": "apiHighLevelExample",
+            "testTitle": "Example (high-level) — create a resource via POST returns 201",
+            "testDescription": "Template row for an API-only high-level test — replace with a real POST endpoint that returns 201 and the expected body.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": false
+        },
+        {
+            "id": "API-003",
+            "category": "api",
+            "testName": "apiRegressionExample",
+            "testTitle": "Example (regression) — an invalid payload returns 400",
+            "testDescription": "Template row for an API-only regression test — replace with a real endpoint that rejects an invalid payload with a 400 validation error.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "regression",
+            "enabled": false
+        },
+        {
+            "id": "WF-001",
+            "category": "workflow",
+            "testName": "workflowSmokeExample",
+            "testTitle": "Example (smoke) — create in UI, verify via API",
+            "testDescription": "Template row for a UI + API hybrid smoke test — replace with a real flow that creates a record in the UI and confirms it via the API.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": false
+        },
+        {
+            "id": "WF-002",
+            "category": "workflow",
+            "testName": "workflowHighLevelExample",
+            "testTitle": "Example (high-level) — update in UI, verify via API",
+            "testDescription": "Template row for a UI + API hybrid high-level test — replace with a real flow that updates a record in the UI and confirms the change via the API.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": false
+        },
+        {
+            "id": "WF-003",
+            "category": "workflow",
+            "testName": "workflowRegressionExample",
+            "testTitle": "Example (regression) — invalid UI submission blocked and absent via API",
+            "testDescription": "Template row for a UI + API hybrid regression test — replace with a real flow where an invalid UI submission is blocked and confirmed absent via the API.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "regression",
+            "enabled": false
         }
     ]
 }

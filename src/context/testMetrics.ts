@@ -2,8 +2,8 @@
  * @fileoverview Per-worker singleton test metrics collector.
  *
  * Tracks the currently-executing test's status, duration, API response time,
- * HTTP status code, retry count, and annotation metadata (authors/categories/tags).
- * Safe as a singleton because Playwright workers run one test at a time.
+ * HTTP status code, retry count, and tags. Safe as a singleton because
+ * Playwright workers run one test at a time.
  *
  * @module context/testMetrics
  */
@@ -17,8 +17,6 @@ export interface TestMetricSnapshot {
     httpStatusCode: number | null;
     errorMessage: string | null;
     retryCount: number;
-    authors: string[];
-    categories: string[];
     tags: string[];
     startTime: Date;
     endTime: Date | null;
@@ -34,8 +32,6 @@ class TestMetricsManager {
     httpStatusCode: number | null = null;
     errorMessage: string | null = null;
     retryCount = 0;
-    authors: string[] = [];
-    categories: string[] = [];
     tags: string[] = [];
     startTime: Date = new Date();
     endTime: Date | null = null;
@@ -51,8 +47,6 @@ class TestMetricsManager {
         this.httpStatusCode = null;
         this.errorMessage = null;
         this.retryCount = 0;
-        this.authors = [];
-        this.categories = [];
         this.tags = [];
         this.startTime = new Date();
         this.endTime = null;
@@ -70,8 +64,6 @@ class TestMetricsManager {
             httpStatusCode: this.httpStatusCode,
             errorMessage: this.errorMessage,
             retryCount: this.retryCount,
-            authors: [...this.authors],
-            categories: [...this.categories],
             tags: [...this.tags],
             startTime: this.startTime,
             endTime: this.endTime,

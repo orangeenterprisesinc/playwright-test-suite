@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body{margin:0;background:#e5e7eb;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;}
+  #capture{padding:24px;}
+  .wrap{max-width:640px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .banner{background:#ef4444;padding:20px 24px;}
+  .banner .t{font-size:20px;font-weight:700;color:#fff;}
+  .pill{display:inline-block;color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;padding:3px 10px;border-radius:12px;margin:10px 6px 0 0;}
+  table{border-collapse:collapse;}
+  .stats{width:100%;padding:8px 12px;}
+  .stats td{text-align:center;padding:12px 8px;}
+  .num{font-size:24px;font-weight:700;line-height:1;}
+  .lbl{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
+  .meta{width:100%;background:#f9fafb;border-radius:8px;margin:0 24px;}
+  .meta td{padding:6px 12px;font-size:13px;}
+  .meta .k{color:#6b7280;white-space:nowrap;}
+  .meta .v{color:#111827;font-family:Consolas,monospace;}
+  .sec{padding:0 24px;}
+  h3{font-size:15px;color:#111827;margin:20px 24px 4px;}
+  .fail{border-left:3px solid #ef4444;background:#fef2f2;padding:10px 14px;margin:8px 24px;border-radius:0 4px 4px 0;}
+  .fail .ft{font-size:14px;font-weight:600;color:#991b1b;}
+  .fail .fs{font-size:12px;color:#6b7280;font-family:Consolas,monospace;margin-top:2px;}
+  .fail .fe{font-size:12px;color:#7f1d1d;font-family:Consolas,monospace;margin-top:6px;}
+  .note{font-size:13px;color:#6b7280;margin:16px 24px 0;}
+  .btn{display:inline-block;background:#111827;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;margin:16px 24px 22px;}
+</style></head><body><div id="capture"><div class="wrap">
+  <div class="banner">
+    <div class="t">&#10060; Playwright Run &mdash; FAILED</div>
+    <span class="pill" style="background:#f59e0b;">DEV</span>
+    <span class="pill" style="background:#6b7280;">CI</span>
+  </div>
+  <table class="stats"><tr>
+    <td><div class="num" style="color:#111827;">32</div><div class="lbl">Total</div></td>
+    <td><div class="num" style="color:#22c55e;">28</div><div class="lbl">Passed</div></td>
+    <td><div class="num" style="color:#ef4444;">1</div><div class="lbl">Failed</div></td>
+    <td><div class="num" style="color:#f59e0b;">1</div><div class="lbl">Flaky</div></td>
+    <td><div class="num" style="color:#6b7280;">2</div><div class="lbl">Skipped</div></td>
+    <td><div class="num" style="color:#111827;">97%</div><div class="lbl">Pass rate</div></td>
+    <td><div class="num" style="color:#111827;">4m 12s</div><div class="lbl">Duration</div></td>
+  </tr></table>
+  <table class="meta">
+    <tr><td class="k">Environment</td><td class="v">dev</td></tr>
+    <tr><td class="k">Trigger</td><td class="v">push</td></tr>
+    <tr><td class="k">Branch</td><td class="v">main</td></tr>
+    <tr><td class="k">Commit</td><td class="v">a1b9f3c</td></tr>
+    <tr><td class="k">Projects</td><td class="v">chromium</td></tr>
+    <tr><td class="k">Node</td><td class="v">v22.5.0</td></tr>
+    <tr><td class="k">Finished</td><td class="v">2026-07-15T16:42:07.311Z</td></tr>
+  </table>
+  <h3>Failures (1)</h3>
+  <div class="fail">
+    <div class="ft">Login Tests &rsaquo; [Login] Verify that the user cannot log on with an invalid password.</div>
+    <div class="fs">tests/login/login-module.spec.ts &middot; chromium</div>
+    <div class="fe">expect(locator).toHaveText: Timeout 10000ms exceeded waiting for expect(invalidCredentialsErrorMessage)</div>
+  </div>
+  <div class="note">&#128206; Attached: allure-report.html &mdash; a self-contained Allure report (screenshots only; open directly in a browser). Full video &amp; trace are in the CI run artifacts.</div>
+  <a class="btn" href="#">Open the CI run &rarr;</a>
+</div></div></body></html>
