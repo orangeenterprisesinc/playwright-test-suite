@@ -12,8 +12,11 @@ name: E2E (localhost via Docker)
 # Windows account the process runs as. That's why the runner must stay
 # interactive (run.cmd under your own login), not installed as a service —
 # a service account wouldn't have SSPI access to PetData. This machine
-# already has Docker Desktop + Git Bash installed, so run steps below use
-# `shell: bash` throughout.
+# already has Docker Desktop + Git Bash installed, so run steps below default
+# to Git Bash explicitly (Windows also ships a WSL "bash" on PATH that wins
+# a bare `shell: bash` lookup and breaks path handling — pin the real one).
+# PowerShell-only steps use `shell: powershell` (Windows PowerShell 5.1,
+# built in) rather than `pwsh` (PowerShell Core), which isn't installed here.
 #
 # ── Setup required before this workflow will run ────────────────────────────
 # 1. Register this machine as a self-hosted runner: repo Settings > Actions >
@@ -43,7 +46,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        shell: bash
+        shell: 'C:\Program Files\Git\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
 
     env:
       TEST_ENV: local
@@ -83,7 +86,7 @@ jobs:
       # PID-file kill of the `go run` wrapper wouldn't reach it — killing by
       # listening port is what actually frees them, on both sides of the run.
       - name: Free ports 3000/8080 (leftover from a previous run)
-        shell: pwsh
+        shell: powershell
         run: |
           foreach ($port in 3000,8080) {
             Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
@@ -189,7 +192,7 @@ jobs:
 
       - name: Stop API + web
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           foreach ($port in 3000,8080) {
             Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
@@ -201,8 +204,10 @@ jobs:
 
       - name: Stop MinIO + Gotenberg
         if: always()
-        working-directory: app
-        run: docker compose -f compose.dev.yml down -v
+        run: |
+          if [ -f app/compose.dev.yml ]; then
+            (cd app && docker compose -f compose.dev.yml down -v)
+          fi
 
       - name: Generate Allure report
         if: always()
