@@ -1,0 +1,223 @@
+name: E2E (localhost via Docker)
+
+# Boots the real PET Tiger app (web-pet monorepo: apps/web + apps/api) on a
+# self-hosted runner, then runs this repo's Playwright suite against
+# http://localhost:3000. Counterpart to e2e.yml, which deliberately targets a
+# remote dev/QA/staging BASE_URL and boots nothing.
+#
+# Why self-hosted, not ubuntu-latest: the API connects to the dev SQL Server
+# Express instance running on THIS machine (localhost:1433, database PetData)
+# via Windows Integrated Authentication (SSPI) — see apps/api/.env in web-pet.
+# MSSQL_USER/MSSQL_PASSWORD are deliberately blank; the driver uses whichever
+# Windows account the process runs as. That's why the runner must stay
+# interactive (run.cmd under your own login), not installed as a service —
+# a service account wouldn't have SSPI access to PetData. This machine
+# already has Docker Desktop + Git Bash installed, so run steps below use
+# `shell: bash` throughout.
+#
+# ── Setup required before this workflow will run ────────────────────────────
+# 1. Register this machine as a self-hosted runner: repo Settings > Actions >
+#    Runners > New self-hosted runner > Windows > follow the generated
+#    download/config.cmd/run.cmd commands. Default labels (self-hosted,
+#    Windows, X64) are enough — no custom label needed, matches runs-on below.
+#    Run it via `run.cmd` interactively (done) — do NOT install as a service.
+# 2. Secrets (Settings > Secrets and variables > Actions > Secrets):
+#      APP_REPO_TOKEN — PAT (or fine-grained token) with read access to
+#                        orangeenterprisesinc/web-pet (private repo; the
+#                        default GITHUB_TOKEN can't check it out).
+#    USER_NAME/PASSWORD reuse the same PW_USER_NAME/PW_PASSWORD (or
+#    USERNAME/PASSWORD) secrets e2e.yml already uses. PASSWORD doubles as
+#    PT_SU_PASSWORD below so the freshly-started API's "su" login accepts it —
+#    keep that secret's value in sync with whatever your local apps/api/.env
+#    normally uses for PT_SU_PASSWORD, or the login step will 401.
+#
+# Manual trigger only — wire into push/schedule once a run has been confirmed
+# green end-to-end.
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e-local:
+    name: Playwright E2E (localhost)
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      TEST_ENV: local
+      BASE_URL: http://localhost:3000
+      API_URL: http://localhost:8080/api
+      # Dedicated to this workflow — deliberately NOT the PW_USER_NAME/PW_PASSWORD
+      # (or USERNAME/PASSWORD) secrets e2e.yml uses, since those point at a
+      # remote dev/QA account that has nothing to do with this machine's local
+      # "su" dev login.
+      USER_NAME: ${{ secrets.LOCAL_USER_NAME }}
+      PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # apps/api config — mirrors the local apps/api/.env in web-pet.
+      # MSSQL_SERVER/PORT/DB aren't secrets (no credentials involved at all —
+      # Windows Integrated Auth via whichever account this runner runs as).
+      API_PORT: '8080'
+      MSSQL_SERVER: localhost
+      MSSQL_PORT: '1433'
+      MSSQL_DB: PetData
+      MSSQL_ENCRYPT: 'false'
+      MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
+      PT_SU_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: pet-tiger-dev
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET: minioadmin
+      S3_USE_PATH_STYLE: 'true'
+      PT_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+
+    steps:
+      # This is a persistent machine (not a throwaway GitHub-hosted VM), so a
+      # crashed previous run can leave orphaned api/web processes still
+      # holding these ports. `go run` also spawns a child binary, so a plain
+      # PID-file kill of the `go run` wrapper wouldn't reach it — killing by
+      # listening port is what actually frees them, on both sides of the run.
+      - name: Free ports 3000/8080 (leftover from a previous run)
+        shell: pwsh
+        run: |
+          foreach ($port in 3000,8080) {
+            Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "Killing PID $($_.OwningProcess) on port $port"
+                Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+      - name: "Guard: required secrets present"
+        run: |
+          missing=()
+          [ -z "${{ secrets.APP_REPO_TOKEN }}" ] && missing+=("APP_REPO_TOKEN")
+          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("PW_PASSWORD or PASSWORD")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]} — see the comment header in e2e-local.yml"
+            exit 1
+          fi
+
+      - name: Checkout test suite
+        uses: actions/checkout@v4
+
+      - name: Checkout web-pet app
+        uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/web-pet
+          token: ${{ secrets.APP_REPO_TOKEN }}
+          path: app
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/apps/api/go.mod
+
+      - name: Set up Java (for Allure report generation)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install web-pet dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Install test-suite deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Start MinIO + Gotenberg (compose.dev.yml)
+        working-directory: app
+        run: docker compose -f compose.dev.yml up -d --wait
+
+      - name: Start API (background)
+        working-directory: app/apps/api
+        run: |
+          nohup go run ./cmd/server > "$GITHUB_WORKSPACE/api.log" 2>&1 &
+          disown
+
+      - name: Start web (background)
+        working-directory: app
+        run: |
+          nohup pnpm --filter @pet-tiger/web dev -- --port 3000 --strictPort \
+            > "$GITHUB_WORKSPACE/web.log" 2>&1 &
+          disown
+
+      - name: Wait for API on :8080
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/ > /dev/null && { echo "API up after ${i} attempt(s)"; exit 0; }
+            echo "Waiting for API... (${i}/30)"; sleep 2
+          done
+          echo "::error::API never became reachable on :8080"; cat api.log; exit 1
+
+      - name: Wait for web on :3000
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > /dev/null && { echo "Web up after ${i} attempt(s)"; exit 0; }
+            echo "Waiting for web... (${i}/30)"; sleep 2
+          done
+          echo "::error::Web never became reachable on :3000"; cat web.log; exit 1
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Dump app logs
+        if: always()
+        run: |
+          echo "── api.log ──"; cat api.log || true
+          echo "── web.log ──"; cat web.log || true
+
+      - name: Stop API + web
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($port in 3000,8080) {
+            Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "Killing PID $($_.OwningProcess) on port $port"
+                Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+      - name: Stop MinIO + Gotenberg
+        if: always()
+        working-directory: app
+        run: docker compose -f compose.dev.yml down -v
+
+      - name: Generate Allure report
+        if: always()
+        run: node scripts/generate-allure-report.js
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report

@@ -6,6 +6,10 @@ name: E2E
 # the single source of truth for the target URL. Point BASE_URL at a real
 # dev/QA/staging environment there, not in this workflow.
 #
+# Need to run against a real localhost instead? See e2e-local.yml, which
+# boots the app from a Docker image (APP_IMAGE repo variable) and runs the
+# suite against http://localhost:3000.
+#
 # Runs on push to main, a daily 4pm IST schedule, manual dispatch, and
 # repository_dispatch (fired externally, e.g. when the app repo pushes code).
 on:
