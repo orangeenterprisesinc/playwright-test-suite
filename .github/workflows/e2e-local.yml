@@ -18,6 +18,12 @@ name: E2E (localhost via Docker)
 # PowerShell-only steps use `shell: powershell` (Windows PowerShell 5.1,
 # built in) rather than `pwsh` (PowerShell Core), which isn't installed here.
 #
+# Fully automatic — no manual "start the app first" step. In exchange for
+# that, the API (apps/api/cmd/server/main.go) refuses to boot at all without
+# a live DB connection (os.Exit(1) on failure), so if SQL Server Express
+# isn't running as a Windows service, this whole workflow fails at the
+# "Wait for API on :8080" step — start the SQLEXPRESS01 Windows service if so.
+#
 # ── Setup required before this workflow will run ────────────────────────────
 # 1. Register this machine as a self-hosted runner: repo Settings > Actions >
 #    Runners > New self-hosted runner > Windows > follow the generated
@@ -28,11 +34,9 @@ name: E2E (localhost via Docker)
 #      APP_REPO_TOKEN — PAT (or fine-grained token) with read access to
 #                        orangeenterprisesinc/web-pet (private repo; the
 #                        default GITHUB_TOKEN can't check it out).
-#    USER_NAME/PASSWORD reuse the same PW_USER_NAME/PW_PASSWORD (or
-#    USERNAME/PASSWORD) secrets e2e.yml already uses. PASSWORD doubles as
-#    PT_SU_PASSWORD below so the freshly-started API's "su" login accepts it —
-#    keep that secret's value in sync with whatever your local apps/api/.env
-#    normally uses for PT_SU_PASSWORD, or the login step will 401.
+#      LOCAL_USER_NAME = su
+#      LOCAL_PASSWORD  = dev-local-su-password (must match PT_SU_PASSWORD in
+#                         your local apps/api/.env, or the login step 401s)
 #
 # Manual trigger only — wire into push/schedule once a run has been confirmed
 # green end-to-end.
@@ -100,7 +104,7 @@ jobs:
         run: |
           missing=()
           [ -z "${{ secrets.APP_REPO_TOKEN }}" ] && missing+=("APP_REPO_TOKEN")
-          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("PW_PASSWORD or PASSWORD")
+          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
           if [ ${#missing[@]} -ne 0 ]; then
             echo "::error::Missing required secrets: ${missing[*]} — see the comment header in e2e-local.yml"
             exit 1
@@ -129,12 +133,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: app/apps/api/go.mod
-
-      - name: Set up Java (for Allure report generation)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
 
       - name: Install web-pet dependencies
         working-directory: app
@@ -171,7 +169,7 @@ jobs:
             curl -sf http://localhost:8080/ > /dev/null && { echo "API up after ${i} attempt(s)"; exit 0; }
             echo "Waiting for API... (${i}/30)"; sleep 2
           done
-          echo "::error::API never became reachable on :8080"; cat api.log; exit 1
+          echo "::error::API never became reachable on :8080 — is the SQLEXPRESS01 Windows service running?"; cat api.log; exit 1
 
       - name: Wait for web on :3000
         run: |
@@ -208,6 +206,13 @@ jobs:
           if [ -f app/compose.dev.yml ]; then
             (cd app && docker compose -f compose.dev.yml down -v)
           fi
+
+      - name: Set up Java (for Allure report generation)
+        if: always()
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Generate Allure report
         if: always()
