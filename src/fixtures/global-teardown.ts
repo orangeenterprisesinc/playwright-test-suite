@@ -8,6 +8,8 @@
 import { FullConfig } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { isDbCleanupEnabled, runSql, sqlLiteral } from '../utils/db/sqlClient';
+import userSetupData from '../data/user-setup-data.json';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -105,6 +107,24 @@ async function globalTeardown(config: FullConfig): Promise<void> {
 
     writeAllureEnvironmentInfo(config);
     writeAllureExecutorInfo();
+
+    // Safety-net sweep: soft-delete any leftover users the UI suites created
+    // (e.g. from an interrupted run) so they never accumulate. Per-test cleanup
+    // already removes the happy-path users; this catches the rest.
+    if (isDbCleanupEnabled()) {
+        const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
+        const masterDb = getConfigValue(ConfigProperties.DB_MASTER);
+        const pattern = sqlLiteral(`${userSetupData.test_user_prefix}%`);
+        runSql(
+            'SET NOCOUNT ON; ' +
+            `UPDATE tm SET tm.Deleted = 1 FROM [${masterDb}].dbo.Users tm ` +
+            `JOIN [${clientDb}].dbo.Users u ON u.UsersCounter = tm.PoolUsersCounter ` +
+            `WHERE u.Name LIKE '${pattern}' AND tm.Deleted = 0; ` +
+            `UPDATE [${clientDb}].dbo.Users SET Deleted = 1 ` +
+            `WHERE Name LIKE '${pattern}' AND Deleted = 0;`,
+            `leftover-sweep ${userSetupData.test_user_prefix}%`,
+        );
+    }
 
     logger.info('Global teardown completed');
 }

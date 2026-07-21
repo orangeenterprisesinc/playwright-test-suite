@@ -1,0 +1,40 @@
+{
+    "test_user_prefix": "QA User ",
+    "roles": [
+        "Clerk",
+        "Administrator",
+        "Field Supervisor",
+        "Field Man",
+        "Time Card Clerk",
+        "Manager",
+        "Scan Screens Only",
+        "Report Viewer",
+        "Report Viewer Limited",
+        "Input Clerk",
+        "Crew Supervisor",
+        "Employee Setup Clerk",
+        "Analyst",
+        "Crew Reviewer",
+        "Warehouse Supervisor",
+        "Shortcuts Only",
+        "Device Administrator"
+    ],
+    "defaults": {
+        "all_fields_role": "Administrator",
+        "required_only_role": "Clerk",
+        "creatable_role": "Report Viewer",
+        "password": "Passw0rd!23",
+        "language": "__none__"
+    },
+    "personal_info": {
+        "first_name": "Journey",
+        "middle_name": "A1",
+        "last_name": "Tester",
+        "title": "HR Manager"
+    },
+    "messages": {
+        "user_created": "User created",
+        "initials_in_use": "Already in use",
+        "fix_errors": "Fix errors to save"
+    }
+}

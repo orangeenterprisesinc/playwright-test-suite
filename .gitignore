@@ -24,5 +24,9 @@ logs/
 # local overrides are ignored.
 .claude/settings.local.json
 
+#Testing context
+Testing video/
+
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
 # which requires it.
+

@@ -5,9 +5,8 @@
  * environment variable keys, providing type-safe access to framework configuration.
  * All properties are resolved via `process.env` at runtime.
  *
- * Variable names follow the original demo framework's convention
- * (`BASE_URL`, `USER_NAME`, `PASSWORD`) so the existing CI secrets keep
- * working unchanged.
+ * Variable names use the standard convention (`BASE_URL`, `USER_NAME`,
+ * `PASSWORD`) that the CI secrets are configured against.
  *
  * @module enums/configProperties
  * @since 1.0.0
@@ -90,6 +89,25 @@ export enum ConfigProperties {
     SEND_RESULT_ELK = 'SEND_RESULT_ELK',
     /** Elasticsearch/ELK ingest endpoint URL (env: `ELK_URL`) */
     ELK_URL = 'ELK_URL',
+
+    /* ── Database (test-data cleanup) ────────────────── */
+
+    /** SQL Server host[,port] for test-data cleanup (env: `DB_SERVER`, e.g. `localhost,1433`) */
+    DB_SERVER = 'DB_SERVER',
+    /** Client (tenant) database that holds the app's Users (env: `DB_CLIENT`) */
+    DB_CLIENT = 'DB_CLIENT',
+    /** Global/master database holding the cross-tenant Users rows (env: `DB_MASTER`) */
+    DB_MASTER = 'DB_MASTER',
+    /** Use Windows integrated auth (`sqlcmd -E`) — `'yes'`/`'no'` (env: `DB_TRUSTED`) */
+    DB_TRUSTED = 'DB_TRUSTED',
+    /** SQL-auth username when not using trusted auth (env: `DB_USER`) */
+    DB_USER = 'DB_USER',
+    /** SQL-auth password when not using trusted auth (env: `DB_PASSWORD`) */
+    DB_PASSWORD = 'DB_PASSWORD',
+    /** Path to the `sqlcmd` executable; defaults to `sqlcmd` on PATH (env: `SQLCMD_PATH`) */
+    SQLCMD_PATH = 'SQLCMD_PATH',
+    /** Master switch for DB-based test-user cleanup — `'yes'`/`'no'` (env: `DB_CLEANUP`) */
+    DB_CLEANUP = 'DB_CLEANUP',
 
     /* ── Authentication (OAuth2 / Basic / API Key) ───── */
 

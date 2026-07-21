@@ -5,9 +5,8 @@
  * session to `.auth/user.json`, which every browser project loads as its
  * storageState so authenticated tests skip the login UI.
  *
- * Ported from the original demo framework's global.setup.ts — the redirect
- * wait and sidebar landmark assertion below were debugged against the real
- * app; keep their ordering.
+ * The redirect wait and sidebar landmark assertion below confirm the login
+ * actually succeeded before the session is saved; keep their ordering.
  */
 import { expect, test as setup } from '../src/fixtures/base.fixture';
 

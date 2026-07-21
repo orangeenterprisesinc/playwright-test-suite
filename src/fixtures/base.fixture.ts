@@ -34,6 +34,7 @@ import { Logger } from '../utils/logger';
 import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
 import { LoginPage } from '../pages/LoginPage';
 import { LeftNavigationPage } from '../pages/LeftNavigationPage';
+import { UsersPage } from '../pages/UsersPage';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../utils/allureLabels';
 import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
@@ -47,6 +48,8 @@ type CustomFixtures = {
     loginPage: LoginPage;
     /** Page Object for the authenticated shell's left navigation. */
     leftNavigationPage: LeftNavigationPage;
+    /** Page Object for the Users administration screen and New User form. */
+    usersPage: UsersPage;
     /** Navigates to the login page before the test body runs. */
     gotoUrl: void;
     /** Pre-built navigation component for the current page. */
@@ -105,6 +108,10 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
 
     leftNavigationPage: async ({ page }, use) => {
         await use(new LeftNavigationPage(page));
+    },
+
+    usersPage: async ({ page }, use) => {
+        await use(new UsersPage(page));
     },
 
     // Navigate to the login page before the test body runs.

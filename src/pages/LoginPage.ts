@@ -1,8 +1,8 @@
 /**
  * @fileoverview Page Object for the PET Tiger login page.
  *
- * Ported from the original demo framework — the locators and login flow
- * below are proven against the PET Tiger web application.
+ * Encapsulates the login page locators and the login flow for the PET Tiger
+ * web application.
  *
  * @module pages/LoginPage
  * @since 1.0.0
@@ -48,8 +48,8 @@ export class LoginPage extends BasePage {
     }
 
     /**
-     * Navigate to the PET Tiger login page (alias kept from the original
-     * demo framework; delegates to {@link BasePage.navigate}).
+     * Navigate to the PET Tiger login page (semantic alias that delegates to
+     * {@link BasePage.navigate}).
      */
     async gotoPetTiger(): Promise<void> {
         await this.navigate();

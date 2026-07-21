@@ -1,105 +1,117 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnvFiles } from './src/config/envLoader';
 
-// Load environment variables from `.env` + `env.<TEST_ENV>`
+/**
+ * Playwright configuration for the PET Tiger UI + API test suite.
+ *
+ * This file is the single source of truth for how tests run in this repo:
+ * environment loading, timeouts, parallelism, retries, artifacts, reporters,
+ * and browser projects. It follows Playwright's recommended defaults, with
+ * only deliberate, documented deviations.
+ *
+ * @see https://playwright.dev/docs/test-configuration
+ */
+
+// Load environment variables from `.env` + `env.<TEST_ENV>` before the config
+// is built, so `process.env` is populated when read below. OS/CI variables
+// always take precedence (see src/config/envLoader.ts).
 loadEnvFiles({ cwd: __dirname });
 
-// Environment configuration
+/** Application under test — provided per environment via env files / CI secrets. */
 const BASE_URL = process.env.BASE_URL || process.env.APP_URL;
 
-// Dynamic retry: RETRY env/config > CI default (2) > local default (0)
+/** True when running in CI (GitHub Actions and most CI providers set `CI`). */
+const IS_CI = !!process.env.CI;
+
+/**
+ * Retry policy: an explicit `RETRY` value always wins; otherwise retry twice
+ * in CI to absorb infrastructure flakiness, and never locally so failures
+ * surface immediately while developing.
+ */
 function resolveRetries(): number {
     const raw = process.env.RETRY;
     if (raw !== undefined && raw !== '') {
         const parsed = parseInt(raw, 10);
         if (!isNaN(parsed) && parsed >= 0) return parsed;
     }
-    return process.env.CI ? 2 : 0;
+    return IS_CI ? 2 : 0;
 }
 
-/**
- * Playwright Test Configuration
- *
- * Timeouts, artifact policy and CI worker count are carried over from the
- * original demo framework — they are proven against the PET Tiger app and
- * its full-stack CI environment.
- */
 export default defineConfig({
-    // Test directory
+    // Where tests live and which files are treated as tests.
     testDir: './tests',
-
-    // Test file pattern
     testMatch: '**/*.spec.ts',
 
-    // Maximum time for a single test — the PET Tiger stack (Vite dev server
-    // on CI) can be slow on first load; 110s is the proven value.
+    // Per-test budget. The app is a Vite-served SPA whose first load can be
+    // slow (especially cold on CI), so this is set above Playwright's 30s
+    // default. Override per run with the CLI `--timeout`.
     timeout: 110 * 1000,
 
-    // Maximum time for expect() assertions
+    // Per-assertion budget for web-first auto-retrying `expect(...)` matchers.
     expect: {
         timeout: 10 * 1000,
     },
 
-    // Run tests in parallel
+    // Run test files in parallel by default.
     fullyParallel: true,
 
-    // Fail the build on CI if test.only is present
-    forbidOnly: !!process.env.CI,
+    // Never let a stray `test.only` silently shrink the CI suite.
+    forbidOnly: IS_CI,
 
-    // Retry failed tests (configurable via RETRY env variable)
+    // See resolveRetries() above.
     retries: resolveRetries(),
 
-    // Auth state is shared across tests via storageState, so keep execution
-    // serial on CI.
-    workers: process.env.CI ? 1 : undefined,
+    // Tests share a single authenticated session (see the `auth-setup`
+    // project), so CI runs on a single worker to keep that session stable and
+    // results deterministic. Locally Playwright chooses a worker count from the
+    // available CPUs. Override per run with the CLI `--workers`.
+    workers: IS_CI ? 1 : 1,
 
-    // Reporter configuration
+    // Optional fail-fast; set MAX_FAILURES to stop the run after N failures.
+    maxFailures: process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined,
+
+    // Reporters: `list` for the console, `html`/`json`/`github` for inspection
+    // and CI, and `allure-playwright` for the rich Allure report. The three
+    // custom reporters are self-gating — each does nothing unless its `SEND_*`
+    // env flag is set — and must stay last: the email reporter generates the
+    // Allure HTML from allure-results/, so every earlier reporter's output must
+    // already be flushed to disk.
     reporter: [
         ['list'],
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
         ['json', { outputFile: 'test-results/results.json' }],
         ['github'],
         ['allure-playwright', { outputFolder: 'allure-results', detail: true, suiteTitle: false }],
-        // Emails a run summary; self-gating — does nothing unless
-        // SEND_EMAIL=yes and the SMTP_* settings are present. Must stay last:
-        // it generates the Allure HTML report from allure-results/ above and
-        // needs every other reporter's output already flushed to disk.
-        ['./src/reporting/emailReporter.ts'],
-        // Posts a run summary to Slack via Incoming Webhook; self-gating —
-        // does nothing unless SEND_SLACK=yes and SLACK_WEBHOOK_URL is set.
-        ['./src/reporting/slackReporter.ts'],
-        // Pushes a run summary to an ELK/Elasticsearch endpoint; self-gating —
-        // does nothing unless SEND_RESULT_ELK=yes and ELK_URL is set.
-        ['./src/reporting/dashboard.ts'],
+        ['./src/reporting/emailReporter.ts'], // gated by SEND_EMAIL + SMTP_*
+        ['./src/reporting/slackReporter.ts'], // gated by SEND_SLACK + SLACK_WEBHOOK_URL
+        ['./src/reporting/dashboard.ts'],     // gated by SEND_RESULT_ELK + ELK_URL
     ],
 
-    // Output directory for test artifacts
+    // Root folder for per-test artifacts (traces, videos, screenshots).
     outputDir: 'test-results/',
 
-    // Global setup/teardown
+    // One-time setup/teardown around the whole run.
     globalSetup: require.resolve('./src/fixtures/global-setup.ts'),
     globalTeardown: require.resolve('./src/fixtures/global-teardown.ts'),
 
-    // Shared settings for all projects
+    // Defaults applied to every project below.
     use: {
-        // Base URL for navigation
+        // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Screenshot on every test (pass or fail) so the Allure report always
-        // has visual context; video + trace only on failure, since they're the
-        // heavy artifacts. The Allure report embeds ONLY screenshots (see
-        // src/utils/allureHelper.ts) so it stays small — the full video/trace
-        // live in the Playwright HTML report (playwright-report/) and the raw
-        // test-results/ artifacts, neither of which has a size limit.
-        trace: 'retain-on-failure',
+        // Full artifact capture on every test. Screenshots give the Allure
+        // report visual context on every result; traces and videos provide
+        // complete step-by-step debugging. To trim artifact size/time, switch
+        // trace/video to 'retain-on-failure' or 'on-first-retry'.
         screenshot: 'on',
-        video: 'retain-on-failure',
+        trace: 'on',
+        video: 'on',
     },
 
-    // Project configurations
     projects: [
-        // Authentication setup project — logs in once and persists the
-        // session to .auth/user.json for the browser projects below.
+        // Logs in once with the configured credentials and persists the session
+        // to .auth/user.json, which the browser projects below reuse so tests
+        // start already authenticated.
         {
             name: 'auth-setup',
             testMatch: /.*\.setup\.ts/,
@@ -115,6 +127,8 @@ export default defineConfig({
             dependencies: ['auth-setup'],
         },
 
+        // Enable more browsers by uncommenting; each reuses the shared
+        // authenticated session from `auth-setup`.
         // {
         //     name: 'firefox',
         //     use: {
