@@ -164,7 +164,19 @@ jobs:
 
       - name: Start MinIO + Gotenberg (compose.dev.yml)
         working-directory: app
-        run: docker compose -f compose.dev.yml up -d --wait
+        run: docker compose -f compose.dev.yml up -d
+
+      - name: Wait for MinIO + Gotenberg
+        run: |
+          for i in $(seq 1 30); do
+            minio_ok=$(curl -sf http://localhost:9000/minio/health/live > /dev/null && echo yes || echo no)
+            gotenberg_ok=$(curl -sf http://localhost:3010/health > /dev/null && echo yes || echo no)
+            if [ "$minio_ok" = "yes" ] && [ "$gotenberg_ok" = "yes" ]; then
+              echo "MinIO + Gotenberg healthy after ${i} attempt(s)"; exit 0
+            fi
+            echo "Waiting for MinIO/Gotenberg... (${i}/30) minio=$minio_ok gotenberg=$gotenberg_ok"; sleep 2
+          done
+          echo "::error::MinIO/Gotenberg never became healthy"; exit 1
 
       - name: Start API (background)
         working-directory: app/apps/api
