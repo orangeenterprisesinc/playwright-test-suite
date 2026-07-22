@@ -178,10 +178,14 @@ jobs:
           done
           echo "::error::MinIO/Gotenberg never became healthy"; exit 1
 
+      - name: Build API
+        working-directory: app/apps/api
+        run: go build -o "$GITHUB_WORKSPACE/api-server.exe" ./cmd/server
+
       - name: Start API (background)
         working-directory: app/apps/api
         run: |
-          nohup go run ./cmd/server > "$GITHUB_WORKSPACE/api.log" 2>&1 &
+          nohup "$GITHUB_WORKSPACE/api-server.exe" > "$GITHUB_WORKSPACE/api.log" 2>&1 &
           disown
 
       - name: Start web (background)
