@@ -193,8 +193,11 @@ jobs:
 
       - name: Wait for API on :8080
         run: |
+          # /api/health, not / — this API 404s at root by design (it's a REST
+          # API, not a page server), which made this check fail against an
+          # already-healthy server before this was found and fixed.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:8080/ > /dev/null && { echo "API up after ${i} attempt(s)"; exit 0; }
+            curl -sf http://localhost:8080/api/health > /dev/null && { echo "API up after ${i} attempt(s)"; exit 0; }
             echo "Waiting for API... (${i}/30)"; sleep 2
           done
           echo "::error::API never became reachable on :8080 — is the SQLEXPRESS01 Windows service running?"; cat api.log; exit 1
