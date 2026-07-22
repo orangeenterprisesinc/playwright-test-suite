@@ -48,24 +48,23 @@ async function createUser(usersPage: UsersPage, base: NewUserData): Promise<NewU
 test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     // Users created by a test, soft-deleted in SQL after it. PET Tiger has no
-    // UI delete and soft-deletes (Deleted=1); creating a user writes a client
-    // row and a linked master row, so both are flipped. DB names come from
-    // config; sqlClient owns the connection. The query lives here on purpose,
-    // so it's visible and debuggable per test.
+    // UI delete and soft-deletes (Deleted=1). We scope cleanup to the client
+    // DB only (USE DelLlano) — the Users screen reads from there, so this
+    // removes the user and frees its Name/Initials — and deliberately leave the
+    // shared TigerMaster DB untouched. Emails are unique per run, so the
+    // leftover global row never blocks re-creation. DB name comes from config;
+    // sqlClient owns the connection. The query lives here on purpose, so it's
+    // visible and debuggable per test.
     const createdUsers: NewUserData[] = [];
     const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
-    const masterDb = getConfigValue(ConfigProperties.DB_MASTER);
 
     test.afterEach(() => {
         while (createdUsers.length) {
             const user = createdUsers.pop()!;
             const name = sqlLiteral(user.name);
             runSql(
-                'SET NOCOUNT ON; ' +
-                `UPDATE tm SET tm.Deleted = 1 FROM [${masterDb}].dbo.Users tm ` +
-                `JOIN [${clientDb}].dbo.Users u ON u.UsersCounter = tm.PoolUsersCounter ` +
-                `WHERE u.Name LIKE '${name}' AND tm.Deleted = 0; ` +
-                `UPDATE [${clientDb}].dbo.Users SET Deleted = 1 ` +
+                `USE [${clientDb}]; SET NOCOUNT ON; ` +
+                `UPDATE dbo.Users SET Deleted = 1 ` +
                 `WHERE Name LIKE '${name}' AND Deleted = 0;`,
                 user.name,
             );
@@ -74,6 +73,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that an administrator user can be created with all fields populated and appears in the Users list.', {
         tag: ['@UI', '@Smoke', '@Local'],
+        annotation: { type: 'testCaseId', description: 'USR-001' },
     }, async ({ usersPage }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.all_fields_role,
@@ -99,6 +99,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that a user can be created with only the required fields.', {
         tag: ['@UI', '@Local'],
+        annotation: { type: 'testCaseId', description: 'USR-002' },
     }, async ({ usersPage }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.required_only_role,
@@ -116,6 +117,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that every Role option is selectable and a user can be created with a non-administrator role.', {
         tag: ['@UI', '@Local'],
+        annotation: { type: 'testCaseId', description: 'USR-003' },
     }, async ({ usersPage }) => {
         await usersPage.gotoUsersList();
         await usersPage.openNewUserForm();
@@ -154,6 +156,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that creating a user with an Initials value already in use is rejected.', {
         tag: ['@UI', '@Local', '@negative'],
+        annotation: { type: 'testCaseId', description: 'USR-004' },
     }, async ({ page, usersPage }) => {
         // Seed a user so we have a known, in-use Initials value.
         const seed = await createUser(usersPage, makeUser({ role: userData.defaults.all_fields_role }));

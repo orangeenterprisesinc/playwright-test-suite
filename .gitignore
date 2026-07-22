@@ -30,3 +30,8 @@ Testing video/
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
 # which requires it.
 
+
+# Local SQL Server backup (12.9GB real client data — never commit)
+db backup/
+*.bak
+docker-e2e/.env

@@ -1,4 +1,4 @@
-name: E2E (localhost via Docker)
+name: E2E (localhost, self-hosted)
 
 # Boots the real PET Tiger app (web-pet monorepo: apps/web + apps/api) on a
 # self-hosted runner, then runs this repo's Playwright suite against
@@ -6,12 +6,13 @@ name: E2E (localhost via Docker)
 # remote dev/QA/staging BASE_URL and boots nothing.
 #
 # Why self-hosted, not ubuntu-latest: the API connects to the dev SQL Server
-# Express instance running on THIS machine (localhost:1433, database PetData)
+# Express instance running on THIS machine (localhost:1433, database DelLlano)
 # via Windows Integrated Authentication (SSPI) — see apps/api/.env in web-pet.
 # MSSQL_USER/MSSQL_PASSWORD are deliberately blank; the driver uses whichever
-# Windows account the process runs as. That's why the runner must stay
-# interactive (run.cmd under your own login), not installed as a service —
-# a service account wouldn't have SSPI access to PetData. This machine
+# Windows account the process runs as. That's why the runner runs as a Windows
+# service under your OWN Windows account (.\Gukapriyan), NOT LocalSystem — a
+# LocalSystem service has no SSPI access to the DB, and the machine must stay
+# logged into your Windows session. This machine
 # already has Docker Desktop + Git Bash installed. Windows also ships a WSL
 # "bash" on PATH that wins a bare `shell: bash` lookup and mangles paths, so
 # the first step below prepends Git's bin dir to PATH before anything else
@@ -30,7 +31,8 @@ name: E2E (localhost via Docker)
 #    Runners > New self-hosted runner > Windows > follow the generated
 #    download/config.cmd/run.cmd commands. Default labels (self-hosted,
 #    Windows, X64) are enough — no custom label needed, matches runs-on below.
-#    Run it via `run.cmd` interactively (done) — do NOT install as a service.
+#    Install it as a Windows service running as your OWN account (not
+#    LocalSystem), so it keeps SSPI access to the DB (done).
 # 2. Secrets (Settings > Secrets and variables > Actions > Secrets):
 #      APP_REPO_TOKEN — PAT (or fine-grained token) with read access to
 #                        orangeenterprisesinc/web-pet (private repo; the
@@ -44,11 +46,17 @@ name: E2E (localhost via Docker)
 on:
   workflow_dispatch:
 
+# Single persistent machine + one runner: serialize runs so a second dispatch
+# queues instead of racing the first over ports 3000/8080 and the shared DB.
+concurrency:
+  group: e2e-local
+  cancel-in-progress: false
+
 jobs:
   e2e-local:
     name: Playwright E2E (localhost)
     runs-on: [self-hosted, Windows, X64]
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -72,7 +80,12 @@ jobs:
       API_PORT: '8080'
       MSSQL_SERVER: localhost
       MSSQL_PORT: '1433'
-      MSSQL_DB: PetData
+      # DelLlano is this machine's client DB (holds the app Users the tests
+      # create). Test-user cleanup runs against the SAME DB — env.local supplies
+      # DB_CLIENT=DelLlano / DB_CLEANUP=yes / DB_TRUSTED=yes, and sqlcmd uses the
+      # runner service's own Windows account for auth. Keep this in sync with
+      # env.local's DB_CLIENT so create and cleanup never target different DBs.
+      MSSQL_DB: DelLlano
       MSSQL_ENCRYPT: 'false'
       MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
       PT_SU_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
@@ -129,8 +142,14 @@ jobs:
             exit 1
           fi
 
+      # clean: false — this is a persistent self-hosted machine, so keeping
+      # node_modules and the go/pnpm build caches between runs avoids
+      # re-downloading everything every time. First run is still cold; every
+      # run after is much faster.
       - name: Checkout test suite
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       - name: Checkout web-pet app
         uses: actions/checkout@v4
@@ -138,6 +157,7 @@ jobs:
           repository: orangeenterprisesinc/web-pet
           token: ${{ secrets.APP_REPO_TOKEN }}
           path: app
+          clean: false
 
       - uses: pnpm/action-setup@v4
         with:

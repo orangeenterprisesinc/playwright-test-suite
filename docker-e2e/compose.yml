@@ -1,0 +1,159 @@
+# Fully-containerized PET Tiger E2E stack (Option B).
+#
+# Everything runs in Linux/Ubuntu containers — SQL Server 2025, the app
+# (API + web), MinIO, Gotenberg, and the Playwright test suite. Built to run on
+# the self-hosted runner (the 12GB client-data backup must stay local, so this
+# cannot run on GitHub-hosted runners).
+#
+# Bring up incrementally while developing:
+#   docker compose -f docker-e2e/compose.yml up -d sqlserver
+#   docker compose -f docker-e2e/compose.yml run --rm db-restore
+#   ... then api, web, tests
+#
+# WEBPET_DIR (in docker-e2e/.env) points at the web-pet checkout used to build
+# the api/web images. Backups are read from ../db backup (mounted into the
+# sqlserver container, which is what actually reads them during RESTORE).
+
+name: pet-tiger-e2e
+
+services:
+  # ── SQL Server 2025 (matches the backup's source version) ───────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      # RESTORE reads these from sqlserver's own fs. BACKUP_DIR is an absolute
+      # host path (set in .env) so it works regardless of where the repo is
+      # checked out — critical in CI, where the runner's checkout dir differs
+      # from where the 12GB backups live. The mssql_data named volume persists
+      # the restored DBs across runs, so restore.sh only does the slow 12GB
+      # restore once (it skips when both DBs already exist).
+      - "${BACKUP_DIR}:/backup:ro"
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${SA_PASSWORD}", "-C", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  # ── One-shot: restore TigerMaster + DelLlano, repoint ClientMaster ──────────
+  db-restore:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: "${SA_PASSWORD}"
+    volumes:
+      - ./restore.sh:/restore.sh:ro
+    entrypoint: ["/usr/bin/env", "bash", "/restore.sh"]
+    restart: "no"
+
+  # ── MinIO (S3) + bucket init + Gotenberg (PDF) ──────────────────────────────
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 minioadmin minioadmin &&
+        mc mb --ignore-existing local/pet-tiger-dev &&
+        echo 'Bucket pet-tiger-dev ready.'
+      "
+    restart: "no"
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── App API (Go) — built from web-pet ───────────────────────────────────────
+  api:
+    build:
+      context: "${WEBPET_DIR}/apps/api"
+      dockerfile: Dockerfile
+    environment:
+      API_PORT: "8080"
+      MSSQL_SERVER: sqlserver
+      MSSQL_PORT: "1433"
+      MSSQL_DB: DelLlano            # the only client in ClientMaster
+      MSSQL_USER: sa
+      MSSQL_PASSWORD: "${SA_PASSWORD}"
+      MSSQL_ENCRYPT: "false"
+      MSSQL_TRUST_SERVER_CERTIFICATE: "true"
+      PT_SU_PASSWORD: dev-local-su-password
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: pet-tiger-dev
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET: minioadmin
+      S3_USE_PATH_STYLE: "true"
+      GOTENBERG_URL: http://gotenberg:3000
+      PT_ALLOWED_ORIGINS: "http://localhost,http://web"
+      # Quieten the import/export workers (they spewed S3 404s in earlier runs)
+      PT_IMPORT_WORKER_DISABLED: "true"
+      PT_EXPORT_WORKER_DISABLED: "true"
+      PT_EXPORT_SCHEDULER_DISABLED: "true"
+    depends_on:
+      db-restore:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+
+  # ── App web (Caddy :80, serves SPA + proxies /api to api:8080) ──────────────
+  web:
+    build:
+      context: "${WEBPET_DIR}"
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "8090:80"     # host:8090 for manual poke; tests hit http://web inside the net
+
+  # ── Playwright suite — built from THIS repo (Ubuntu Noble base) ─────────────
+  tests:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      TEST_ENV: local
+      BASE_URL: http://web
+      API_URL: http://web/api
+      USER_NAME: su
+      PASSWORD: dev-local-su-password
+      CI: "true"
+    volumes:
+      - ../playwright-report:/app/playwright-report
+      - ../allure-results:/app/allure-results
+      - ../test-results:/app/test-results
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  mssql_data:
+  minio_data:

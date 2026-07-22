@@ -96,7 +96,11 @@ if (fs.existsSync(historySrc)) {
     fs.cpSync(historySrc, historyDest, { recursive: true });
 }
 
-ensureJavaOnPath();
+if (!ensureJavaOnPath()) {
+    fs.rmSync(leanResultsDir, { recursive: true, force: true });
+    console.error('Allure report skipped: no Java runtime found (install a JDK/JRE or set JAVA_HOME) — Allure needs a JVM.');
+    process.exit(0);
+}
 const generation = allureCommandline(['generate', leanResultsDir, '--clean', '-o', reportDir]);
 generation.on('exit', (code) => {
     fs.rmSync(leanResultsDir, { recursive: true, force: true });

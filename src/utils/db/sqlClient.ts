@@ -34,8 +34,7 @@ export function isDbCleanupEnabled(): boolean {
     if (!getConfigBoolean(ConfigProperties.DB_CLEANUP, false)) return false;
     return Boolean(
         getConfigValue(ConfigProperties.DB_SERVER) &&
-        getConfigValue(ConfigProperties.DB_CLIENT) &&
-        getConfigValue(ConfigProperties.DB_MASTER),
+        getConfigValue(ConfigProperties.DB_CLIENT),
     );
 }
 

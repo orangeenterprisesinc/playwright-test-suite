@@ -45,6 +45,50 @@
             "enabled": true
         },
         {
+            "id": "USR-001",
+            "category": "ui",
+            "testName": "createUserWithAllFields",
+            "testTitle": "Create a user with all fields populated",
+            "testDescription": "Verify that an administrator user can be created with all fields populated and appears in the Users list.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "USR-002",
+            "category": "ui",
+            "testName": "createUserWithRequiredFieldsOnly",
+            "testTitle": "Create a user with only the required fields",
+            "testDescription": "Verify that a user can be created with only the required fields.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "USR-003",
+            "category": "ui",
+            "testName": "everyRoleSelectableCreateNonAdmin",
+            "testTitle": "Every Role option is selectable and a non-administrator user can be created",
+            "testDescription": "Verify that every Role option is selectable and a user can be created with a non-administrator role.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "high-level|regression",
+            "enabled": true
+        },
+        {
+            "id": "USR-004",
+            "category": "ui",
+            "testName": "rejectDuplicateInitials",
+            "testTitle": "Creating a user with an Initials value already in use is rejected",
+            "testDescription": "Verify that creating a user with an Initials value already in use is rejected.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "regression",
+            "enabled": true
+        },
+        {
             "id": "API-001",
             "category": "api",
             "testName": "apiSmokeExample",

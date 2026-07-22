@@ -1,9 +1,14 @@
 /**
- * @fileoverview Runner-list-based test filter.
+ * @fileoverview Runner-list-based test filter (optional, NOT the primary control surface).
  *
- * Loads a JSON runner list that controls which tests are active — tests marked
- * `execute: "yes"` are active, everything else is skipped. Ships as `{}` (no
- * filtering, everything runs) until you populate `src/data/runnerList.json`.
+ * Execution is controlled by the runnerManager `enabled` flag (resolved per
+ * test in base.fixture via the `testCaseId` option / annotation) — that is the
+ * single source of truth for whether a test runs. This runner list is a
+ * separate, opt-in name-based filter that is NOT wired into the run path; it
+ * ships as `{}` (no filtering, everything runs) and stays inert until you
+ * populate `src/data/runnerList.json` and explicitly consume `getGrepPattern()`.
+ *
+ * Prefer toggling `enabled` in runnerManager.json / runnerManager.csv over this.
  *
  * @module listeners/methodInterceptor
  */

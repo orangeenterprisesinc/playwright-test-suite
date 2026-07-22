@@ -113,15 +113,11 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     // already removes the happy-path users; this catches the rest.
     if (isDbCleanupEnabled()) {
         const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
-        const masterDb = getConfigValue(ConfigProperties.DB_MASTER);
         const pattern = sqlLiteral(`${userSetupData.test_user_prefix}%`);
+        // Client DB only (USE DelLlano) — leave the shared TigerMaster untouched.
         runSql(
-            'SET NOCOUNT ON; ' +
-            `UPDATE tm SET tm.Deleted = 1 FROM [${masterDb}].dbo.Users tm ` +
-            `JOIN [${clientDb}].dbo.Users u ON u.UsersCounter = tm.PoolUsersCounter ` +
-            `WHERE u.Name LIKE '${pattern}' AND tm.Deleted = 0; ` +
-            `UPDATE [${clientDb}].dbo.Users SET Deleted = 1 ` +
-            `WHERE Name LIKE '${pattern}' AND Deleted = 0;`,
+            `USE [${clientDb}]; SET NOCOUNT ON; ` +
+            `UPDATE dbo.Users SET Deleted = 1 WHERE Name LIKE '${pattern}' AND Deleted = 0;`,
             `leftover-sweep ${userSetupData.test_user_prefix}%`,
         );
     }
