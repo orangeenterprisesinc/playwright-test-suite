@@ -96,6 +96,11 @@ jobs:
       S3_SECRET: minioadmin
       S3_USE_PATH_STYLE: 'true'
       PT_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      # npm install resilience — this box has hit transient ECONNRESETs mid-
+      # download; give npm more (and longer-spaced) retries on registry fetches.
+      npm_config_fetch_retries: '5'
+      npm_config_fetch_retry_mintimeout: '20000'
+      npm_config_fetch_retry_maxtimeout: '120000'
 
     steps:
       # Windows ships a "bash" (System32\bash.exe, launches WSL) that sits
@@ -177,10 +182,29 @@ jobs:
           HUSKY: 0
 
       - name: Install test-suite deps
-        run: npm ci
+        # Persistent runner: clean:false keeps the on-disk npm cache, so prefer
+        # it (--prefer-offline) and retry to ride out transient ECONNRESETs from
+        # the registry. The EPERM "cleanup" warnings on a failed attempt are npm
+        # rolling back a partial install (locked files under node_modules);
+        # succeeding from cache avoids re-hitting the network, so they clear.
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --prefer-offline --no-audit --no-fund && exit 0
+            echo "::warning::npm ci attempt ${attempt} failed — retrying in 15s"
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts (see log above)"; exit 1
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # Browser binaries download from the Playwright CDN — same transient-
+        # network exposure, so retry here too.
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps && exit 0
+            echo "::warning::playwright install attempt ${attempt} failed — retrying in 15s"
+            sleep 15
+          done
+          echo "::error::playwright install failed after 3 attempts"; exit 1
 
       - name: Start MinIO + Gotenberg (compose.dev.yml)
         working-directory: app
