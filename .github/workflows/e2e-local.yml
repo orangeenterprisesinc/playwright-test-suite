@@ -136,15 +136,12 @@ jobs:
         with:
           package_json_file: app/package.json
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: app/apps/api/go.mod
+      # No actions/setup-node, actions/setup-go, or actions/setup-java here —
+      # this is a persistent self-hosted machine that already has Node, Go,
+      # and Java installed (you use them daily for local dev). Those actions
+      # would just redundantly download fresh toolchains on every run — with
+      # no GitHub-hosted tool-cache to speed that up, that download is what
+      # was actually stalling the job for 8+ minutes on setup-go.
 
       - name: Install web-pet dependencies
         working-directory: app
