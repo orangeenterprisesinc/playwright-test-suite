@@ -122,6 +122,13 @@ jobs:
             exit 1
           fi
 
+      - name: "Guard: Docker Desktop must be running"
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker Desktop isn't running on this machine. Start it, wait for it to finish starting, then re-run this workflow."
+            exit 1
+          fi
+
       - name: Checkout test suite
         uses: actions/checkout@v4
 
