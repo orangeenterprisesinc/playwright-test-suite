@@ -41,9 +41,22 @@ name: E2E (localhost, self-hosted)
 #      LOCAL_PASSWORD  = dev-local-su-password (must match PT_SU_PASSWORD in
 #                         your local apps/api/.env, or the login step 401s)
 #
-# Manual trigger only — wire into push/schedule once a run has been confirmed
-# green end-to-end.
+# Auto-triggers — no fixed schedule; runs whenever there's actually a new
+# build/change to validate:
+#   1. repository_dispatch (run-playwright) — fired by the web-pet app repo when
+#      it pushes/builds. This is the SAME event_type e2e.yml already listens
+#      for, so one app-side dispatch fans out to BOTH the remote (e2e.yml) and
+#      the self-hosted localhost (this) suite, with no change on the app repo.
+#      The two run on different runners (ubuntu-latest vs self-hosted), so they
+#      don't contend for this machine.
+#   2. push to this test repo's main — so test-suite changes self-validate.
+#   3. workflow_dispatch — manual runs from the Actions tab.
 on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types:
+      - run-playwright
   workflow_dispatch:
 
 # Single persistent machine + one runner: serialize runs so a second dispatch
@@ -71,7 +84,17 @@ jobs:
       # "su" dev login.
       USER_NAME: ${{ secrets.LOCAL_USER_NAME }}
       PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      # Reporting is opt-in via repo variables (shared with e2e.yml): set
+      # SEND_EMAIL / SEND_SLACK to 'yes' once and both workflows report. The
+      # reporters run inside Playwright's onEnd (see playwright.config.ts), so
+      # no extra send step is needed — they just need these env vars present.
       SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       # apps/api config — mirrors the local apps/api/.env in web-pet.
