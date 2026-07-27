@@ -58,6 +58,14 @@ jobs:
       #     variable unset the reporter logs one line and does nothing. ---
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
+      #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
+      #     With SEND_S3 unset, every AWS step below is skipped and the Slack
+      #     message shows no S3 link. Uses a report bucket distinct from the
+      #     app's MinIO S3_BUCKET. ---
+      SEND_S3: ${{ vars.SEND_S3 || 'no' }}
+      S3_REPORT_BUCKET: ${{ vars.S3_REPORT_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
     steps:
       - name: Checkout test suite
@@ -78,6 +86,17 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      # Computed BEFORE the test run so the Playwright process — and thus the
+      # Slack reporter (which posts in its onEnd, before the sync step below) —
+      # sees REPORT_S3_URL. The path is deterministic, so the link is valid once
+      # the "Upload test-results to S3" step finishes seconds later.
+      - name: Compute S3 report location
+        if: env.SEND_S3 == 'yes'
+        run: |
+          PREFIX="automation-reports/tiger-web/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
+          echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
+          echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
 
       - name: Run Playwright tests
         run: npx playwright test
@@ -116,3 +135,19 @@ jobs:
         with:
           name: allure-report
           path: allure-report
+
+      # Publish the raw test-results (traces, videos, screenshots, results.json)
+      # to a public S3 bucket so a Slack reader can open them directly, without
+      # logging into the Actions UI. Deterministic per-run prefix; bucket must
+      # allow public read on automation-reports/* (bucket policy, not ACLs).
+      - name: Configure AWS credentials
+        if: always() && env.SEND_S3 == 'yes'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload test-results to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync test-results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress

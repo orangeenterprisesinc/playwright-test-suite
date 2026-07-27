@@ -32,6 +32,7 @@ async function createUser(usersPage: UsersPage, base: NewUserData): Promise<NewU
     await usersPage.gotoUsersList();
     await usersPage.openNewUserForm();
     await usersPage.fillGeneral(user);
+    await usersPage.fillPermissions(user);
     await usersPage.fillPersonalInfo(user);
 
     let outcome = await usersPage.submit();
@@ -58,17 +59,64 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
     const createdUsers: NewUserData[] = [];
     const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
 
+    // Hard-delete (Deleted=1) a user in the client DB — a true delete that frees
+    // the Name/Initials/Email. The Users screen reads from this DB, so the user
+    // also disappears from the list. Used both as the explicit delete step in
+    // the end-to-end test and as the afterEach safety-net cleanup.
+    function hardDeleteUser(name: string): void {
+        runSql(
+            `USE [${clientDb}]; SET NOCOUNT ON; ` +
+            `UPDATE dbo.Users SET Deleted = 1 ` +
+            `WHERE Name LIKE '${sqlLiteral(name)}' AND Deleted = 0;`,
+            name,
+        );
+    }
+
     test.afterEach(() => {
         while (createdUsers.length) {
-            const user = createdUsers.pop()!;
-            const name = sqlLiteral(user.name);
-            runSql(
-                `USE [${clientDb}]; SET NOCOUNT ON; ` +
-                `UPDATE dbo.Users SET Deleted = 1 ` +
-                `WHERE Name LIKE '${name}' AND Deleted = 0;`,
-                user.name,
-            );
+            hardDeleteUser(createdUsers.pop()!.name);
         }
+    });
+
+    test('[User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.', {
+        tag: ['@UI', '@E2E', '@Smoke', '@Local'],
+        annotation: { type: 'testCaseId', description: 'USR-000' },
+    }, async ({ usersPage }) => {
+        // ── Create a new user with all fields (as in the reference video) ──
+        // createUser walks the real sidebar menu (File ▸ Administration ▸ Users)
+        // and fills General, Permissions and Personal Info, so the recording
+        // captures the same workflow as the video.
+        const user = await createUser(usersPage, makeUser({
+            role: userData.defaults.all_fields_role,
+            firstName: userData.personal_info.first_name,
+            middleName: userData.personal_info.middle_name,
+            lastName: userData.personal_info.last_name,
+            title: userData.personal_info.title,
+            additionalAccess: userData.permissions.additional_access,
+            accessToReverse: userData.defaults.access_to_reverse,
+        }));
+        createdUsers.push(user); // afterEach safety net if a later step fails
+        await expect(usersPage.userCreatedToast).toBeVisible();
+
+        // ── Verify the new user appears in the Users list ───────────
+        await usersPage.gotoUsersList();
+        await usersPage.filterByName(user.name);
+        const row = usersPage.userRow(user.name);
+        await expect(row).toBeVisible();
+        await expect(row).toContainText(user.initials);
+        await expect(row).toContainText(user.role);
+        await expect(row).toContainText(user.email);
+
+        // ── Open Edit and confirm the form loads the created user's info ──
+        await usersPage.openEditUser(user.name);
+        await expect(usersPage.nameInput).toHaveValue(user.name);
+
+        // ── Delete the new user and confirm it's gone from the list ──
+        // PET Tiger has no UI delete, so removal is done in SQL; the user then
+        // disappears from the list (which reads the client DB).
+        hardDeleteUser(user.name);
+        createdUsers.splice(createdUsers.indexOf(user), 1); // already removed
+        await usersPage.expectAbsentFromList(user.name);
     });
 
     test('[User Setup] Verify that an administrator user can be created with all fields populated and appears in the Users list.', {
@@ -81,6 +129,8 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
             middleName: userData.personal_info.middle_name,
             lastName: userData.personal_info.last_name,
             title: userData.personal_info.title,
+            additionalAccess: userData.permissions.additional_access,
+            accessToReverse: userData.defaults.access_to_reverse,
         }));
         createdUsers.push(user);
 
@@ -175,7 +225,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         await expect(usersPage.initialsAlreadyInUseError).toBeVisible();
         await expect(usersPage.errorSummaryButton).toBeVisible();
         await expect(usersPage.saveButton).toBeDisabled();
-        await expect(page).toHaveURL(/\/settings\/users\/new$/);
+        await expect(page).toHaveURL(/\/settings\/users\/new(\?|$)/);
     });
 
 });

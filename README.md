@@ -132,7 +132,8 @@ playwright-test-suite/
 │   ├── pages/                         # Page Objects
 │   │   ├── BasePage.ts                #   Abstract base — navigation, waits, actions, assertions
 │   │   ├── LoginPage.ts               #   Keycloak login page
-│   │   └── LeftNavigationPage.ts      #   Authenticated shell's left navigation
+│   │   ├── LeftNavigationPage.ts      #   Authenticated shell's left navigation
+│   │   └── UsersPage.ts               #   Users administration screen + New User form
 │   │
 │   ├── reporting/                     # Custom reporters
 │   │   ├── emailReporter.ts           #   Email report with lean Allure HTML attachment
@@ -147,13 +148,19 @@ playwright-test-suite/
 │       ├── logger.ts                  #   Structured logger (file + console)
 │       ├── networkHelper.ts           #   Route mocking, blocking, capture, HAR
 │       ├── allureHelper.ts            #   Allure report generation (CI + lean email variant)
+│       ├── allureLabels.ts            #   Applies Allure labels + resolves runner row id
 │       ├── apiMockServer.ts           #   API mock server for stubbing
-│       ├── apiResponseUtils.ts        #   JSON key-value verification
+│       ├── apiResponseUtils.ts        #   JSON key-value verification (verifyJsonKeyValues)
 │       ├── softAssertions.ts          #   Soft assertion utilities
 │       ├── visualRegression.ts        #   Visual diff/regression testing
 │       ├── performanceMonitor.ts      #   Performance metrics collection
 │       ├── customAssertions.ts        #   Extended assertion library
 │       ├── retryHelper.ts             #   Retry-with-backoff helper
+│       ├── testData/                  #   Run-unique test-data factories
+│       │   ├── userFactory.ts         #   makeUser(overrides) → unique NewUserData
+│       │   └── random.ts              #   randomInitials(), uid()
+│       ├── db/                        #   Direct SQL access for setup/cleanup
+│       │   └── sqlClient.ts           #   runSql(), sqlLiteral()
 │       └── dataReaders/               #   Data reader implementations
 │           ├── BaseDataReader.ts      #   Shared caching/filtering/availability logic
 │           ├── JsonDataReader.ts
@@ -163,12 +170,12 @@ playwright-test-suite/
 ├── tests/                             # Test specifications — 3 categories
 │   ├── auth.setup.ts                  #   Keycloak login → storageState (auth-setup project)
 │   ├── seed.spec.ts
-│   ├── api/                           #   API-only tests (api.fixture)
+│   ├── api/                           #   API-only tests (api.fixture) — runs in the browserless `api` project
 │   ├── ui/                            #   UI e2e tests (base.fixture + POM)
-│   │   └── login/login-module.spec.ts
-│   └── workflow/                      #   UI + API hybrid tests
+│   │   ├── login/login-module.spec.ts #     logged-out login module
+│   │   └── user-setup.spec.ts         #     Users administration journey (create/list/edit)
+│   └── workflow/                      #   UI + API hybrid tests (base.fixture + apiRequest)
 │
-
 ├── scripts/                           # npm-script helpers (plain JS, no ts-node dependency)
 ├── test-data/                         # External test data
 └── logs/                              # Runtime log output (app-<date>.log)
@@ -298,7 +305,7 @@ import { getDataSourceConfig } from '@config/dataSource.config';
 │  base.fixture / api.fixture → beforeEach/afterEach → Lifecycle  │
 ├─────────────────────────────────────────────────────────────────┤
 │  L5 — Page Object Model & Components                           │
-│  BasePage → LoginPage, LeftNavigationPage                       │
+│  BasePage → LoginPage, LeftNavigationPage, UsersPage            │
 │  BaseComponent → Navigation, Modal, Form                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  L6 — Data Layer                                               │
@@ -385,18 +392,23 @@ test('example', async ({
     page,              // Standard Playwright page
     loginPage,         // LoginPage instance
     leftNavigationPage,// LeftNavigationPage instance
+    usersPage,         // UsersPage instance (Users admin + New User form)
+    gotoUrl,           // Activation fixture — navigates to the login page before the body
     navigation,        // NavigationComponent instance
     modal,             // ModalComponent instance
     form,              // FormComponent instance
     logger,            // Per-test Logger instance
     authenticatedPage, // Page with pre-loaded auth state
-    apiRequest,        // API request context for REST calls
+    apiRequest,        // API request context for REST calls (baseURL = API_URL)
     testCaseId,        // Test case ID (set via test.use)
     testCaseName,      // Test case name (set via test.use)
     testCaseData,      // Auto-loaded test data by testCaseId/testCaseName
 }) => {
     // Your test code here
 });
+// A worker-scoped `workerLogger` fixture is also available for per-worker logging.
+// Destructure only the fixtures a test uses — the tsconfig fails the build on
+// unused parameters, so alias an unused activation fixture as `gotoUrl: _gotoUrl`.
 ```
 
 **For API-only tests**, use the API fixture:
@@ -425,7 +437,7 @@ Managed by `src/listeners/testLifecycleManager.ts` via `base.fixture.ts`'s `befo
 **afterEach:**
 1. Records pass/fail/skip and duration in `TestMetrics`
 2. Clears `CurrentTestTracker`
-3. Playwright's own config handles screenshot/video/trace capture on failure
+3. Playwright's own config handles screenshot/video/trace capture (the config sets `screenshot`/`trace`/`video` to `'on'`, i.e. captured for every test)
 
 ### 5. Data-Driven Testing
 
@@ -440,28 +452,38 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 
 | Field | Description |
 |-------|-------------|
-| `id` | Unique test case ID (e.g., `TC-AUTH-001`) |
+| `id` | Unique test case ID (e.g., `UI-001`, `USR-001`) |
 | `category` | Test category — `ui` \| `api` \| `workflow` (maps to the `tests/` folder) |
 | `testName` | Programmatic test name |
 | `testTitle` | Human-readable test title |
 | `testDescription` | Detailed description |
 | `shouldComplete` | Whether the test should run to completion |
 | `expectedCount` | Expected result count |
-| `tags` | Tags array |
+| `tags` | Pipe-delimited tag string (e.g. `smoke\|high-level\|regression`) |
 | `enabled` | `true`/`false` — controls test execution |
 
 **How it works:**
 
 1. `DataProvider.getInstance()` reads the configured source (`TEST_DATA_SOURCE`) directly — a JSON source reads the `.json` file, a CSV source reads the `.csv` file
-2. Per-test → set `testCaseId` (or `testCaseName`) via `test.use()`; the `testCaseData` fixture auto-loads and validates the matching record, skipping the test if it's missing or `enabled: false`
+2. Per-test → bind a runner row by `id`, then destructure the `testCaseData` fixture, which auto-loads and validates the matching record, skipping the test if it's missing or `enabled: false`
+
+A row is bound either via a per-test **annotation** (the live pattern in `tests/ui/user-setup.spec.ts`) or via `test.use({ testCaseId })` — both resolve the same way:
 
 ```typescript
-test.describe('Login Tests', () => {
-    test.use({ testCaseId: 'TC-AUTH-001' });
+// Live pattern — annotation on the test options
+test('[User Setup] Verify that ... appears in the Users list.', {
+    tag: ['@UI', '@Smoke', '@Local'],
+    annotation: { type: 'testCaseId', description: 'USR-001' },
+}, async ({ usersPage, testCaseData }) => {
+    // testCaseData is the USR-001 row: { id: 'USR-001', testName: 'createUserWithAllFields', ... }
+});
 
-    test('verify login page loads', async ({ page, testCaseData }) => {
-        console.log(testCaseData);
-        // { id: 'TC-AUTH-001', testName: 'loginPageLoad', ... }
+// Equivalent — bind the id for a whole describe block
+test.describe('Login Tests', () => {
+    test.use({ testCaseId: 'UI-001' });
+
+    test('verify valid login', async ({ testCaseData }) => {
+        // testCaseData → { id: 'UI-001', testName: 'loginWithValidCredentials', ... }
     });
 });
 ```
@@ -485,9 +507,10 @@ The framework supports multiple **API** authentication strategies (independent o
 ```typescript
 import { executeWithAuthRetry } from '../src/auth/requestBuilder';
 
+// `url` is relative to API_URL — replace this with a real PET Tiger endpoint.
 const response = await executeWithAuthRetry(
     apiRequest, 'GET',
-    './guarantor/28114/notes?page=1&pageSize=10',
+    'users?page=1&pageSize=10',
     {}, testInfo,
 );
 expect(response.status()).toBe(200);
@@ -519,6 +542,9 @@ Filter runs with `--grep`, e.g. `npx playwright test --grep @Smoke`.
 ## 📝 How to Create a Test Script
 
 ### Step-by-Step Guide
+
+> The example below uses a generic `ProductPage` as a **template** — swap in your
+> real screen (see `src/pages/UsersPage.ts` for a live reference).
 
 #### Step 1: Create a Page Object (if needed)
 
@@ -556,21 +582,36 @@ export class ProductPage extends BasePage {
 }
 ```
 
-#### Step 2: Create the Test Spec File
+#### Step 2: Register the Page Object as a Fixture
 
-Test files go in the `tests/` directory and must match `**/*.spec.ts`.
+Page objects are consumed **as fixtures**, never `new`-ed in the test body. Add
+the new one to `src/fixtures/base.fixture.ts`, following the existing `usersPage`
+pattern:
 
 ```typescript
-// tests/products/product-add-to-cart.spec.ts
-import { test, expect } from '../../src/fixtures/base.fixture';
-import { ProductPage } from '../../src/pages/ProductPage';
+// In CustomFixtures:
+productPage: ProductPage;
+
+// In base.extend({ ... }):
+productPage: async ({ page }, use) => {
+    await use(new ProductPage(page));
+},
+```
+
+#### Step 3: Create the Test Spec File
+
+Test files go in the `tests/` directory and must match `**/*.spec.ts`. Consume the
+page object as a fixture:
+
+```typescript
+// tests/ui/products/product-add-to-cart.spec.ts
+import { test } from '../../../src/fixtures/base.fixture';
 
 test.describe('Product Cart Functionality', () => {
-    test.use({ testCaseId: 'TC-PROD-001' });
-
-    test('verifyUserCanAddProductToCart', { tag: ['@Regression', '@UI'] }, async ({ page }) => {
-        const productPage = new ProductPage(page);
-
+    test('verifyUserCanAddProductToCart', {
+        tag: ['@Regression', '@UI'],
+        annotation: { type: 'testCaseId', description: 'PROD-001' }, // must exist in runnerManager
+    }, async ({ productPage }) => {
         await productPage.navigate();
         await productPage.selectProduct('Widget Pro');
         await productPage.addToCart();
@@ -579,18 +620,18 @@ test.describe('Product Cart Functionality', () => {
 });
 ```
 
-#### Step 3: Run the Test
+#### Step 4: Run the Test
 
 ```bash
-npx playwright test tests/products/product-add-to-cart.spec.ts
-npx playwright test tests/products/product-add-to-cart.spec.ts --project=chromium
+npx playwright test tests/ui/products/product-add-to-cart.spec.ts
+npx playwright test tests/ui/products/product-add-to-cart.spec.ts --project=chromium
 ```
 
 ---
 
 ## 📚 Examples
 
-### Example 1: Real-World UI + API Validation Test
+### Example 1: UI Login Test (starts logged out)
 
 ```typescript
 // tests/ui/login/login-module.spec.ts
@@ -616,17 +657,18 @@ test.describe('Login Tests', { tag: '@login' }, () => {
 
 ```typescript
 // tests/api/user-api.spec.ts
-import { test } from '../../src/fixtures/api.fixture';
+import { test, expect } from '../../src/fixtures/api.fixture';
 
-test.describe('User API Tests', () => {
-    test('GET /users returns 200', async ({ api }) => {
+test.describe('User API Tests', { tag: '@API' }, () => {
+    test('[Users API] Verify that GET /users returns 200', async ({ api }) => {
+        // `url` is relative to API_URL — swap for a real PET Tiger endpoint.
         const response = await api.get<{ id: number; name: string }[]>('users');
         api.assertStatus(response, 200);
         expect(response.data.length).toBeGreaterThan(0);
     });
 
-    test('authenticated GET with auto-retry', async ({ api }) => {
-        const response = await api.authGet('guarantor/28114/notes?page=1&pageSize=1');
+    test('[Users API] Verify an authenticated GET with auto-retry', async ({ api }) => {
+        const response = await api.authGet('users?page=1&pageSize=1');
         api.assertStatus(response, 200);
     });
 });
@@ -652,40 +694,43 @@ test('mock API response', async ({ page }) => {
 });
 ```
 
-### Example 4: Verifying a UI Action via the API
+### Example 4: Workflow — Create in the UI, Verify via the API
+
+A UI + API hybrid: act through Page Objects, then confirm the result through the
+REST API in the same test. Import from `base.fixture` (it provides `apiRequest`).
 
 ```typescript
-// tests/collection/guarantor/collections-guarantor-note-create.spec.ts
-import { test, expect } from '../../../src/fixtures/base.fixture';
-import { executeWithAuthRetry } from '../../../src/auth/requestBuilder';
-import { verifyJsonKeyValues } from '../../../src/utils/apiResponseUtils';
+// tests/workflow/user-create-verify.spec.ts
+import { test, expect } from '../../src/fixtures/base.fixture';
+import { executeWithAuthRetry } from '../../src/auth/requestBuilder';
+import { verifyJsonKeyValues } from '../../src/utils/apiResponseUtils';
+import { makeUser } from '../../src/utils/testData';
 
-const NOTE_TEXT = 'test';
+test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
+    test('[User Setup] Verify that a user created in the UI is retrievable via the API',
+        async ({ usersPage, apiRequest }, testInfo) => {
+            // ── Act — create the user through the New User form ──
+            const user = makeUser({ role: 'Administrator' });
+            await usersPage.gotoUsersList();
+            await usersPage.openNewUserForm();
+            await usersPage.fillGeneral(user);
+            expect(await usersPage.submit()).toBe('created');
+            await expect(usersPage.userCreatedToast).toBeVisible();
 
-test.describe('Guarantor Account Note - UI to API Validation', () => {
-    test.use({ testCaseId: 'TC-AUTH-002' });
-
-    test('verifyUserCanCreateGuarantorAccountNote_AndValidateInAPI', {
-        tag: ['@Regression', '@UI'],
-    }, async ({ page, apiRequest, testCaseData }, testInfo) => {
-        const guarantorId = testCaseData.testName; // resolved from test data, not a live DB query
-
-        // UI flow — add the note, then confirm it shows in the app
-        // (page-object calls specific to the guarantor account page go here)
-
-        // API validation — verify the note exists via the REST endpoint
-        const response = await executeWithAuthRetry(
-            apiRequest, 'GET',
-            `guarantor/${guarantorId}/notes?page=1&pageSize=1&order=DESC&sort=createdDate`,
-            {}, testInfo,
-        );
-        expect(
-            await verifyJsonKeyValues(response, { accountNote: NOTE_TEXT }),
-            `Expected accountNote to contain "${NOTE_TEXT}"`,
-        ).toBeTruthy();
-    });
+            // ── Verify — resolve the user by a field (never a hardcoded id) ──
+            // `url` is relative to API_URL — replace with the real users endpoint.
+            const response = await executeWithAuthRetry(
+                apiRequest, 'GET', 'users?filter=' + encodeURIComponent(user.email),
+                {}, testInfo,
+            );
+            expect(response.status()).toBe(200);
+            expect(await verifyJsonKeyValues(response, { email: user.email })).toBeTruthy();
+        });
 });
 ```
+
+> Prefer `/api-script-generator` and `/workflow-script-generator` (repo skills) to
+> generate `tests/api/` and `tests/workflow/` specs that follow these conventions.
 
 ---
 
@@ -709,12 +754,20 @@ npm run test:debug
 # Smoke tests only
 npm run test:smoke
 
+# API-only specs (browserless `api` project — no auth-setup, no browser)
+npm run test:api
+
+# Workflow (UI + API hybrid) specs
+npm run test:workflow
+
 # Re-run only what failed last time
 npm run test:last-failed
 
 # Raw Playwright CLI (any flag)
 npx playwright test --grep "@Smoke"
 npx playwright test --project=chromium
+npx playwright test --project=api          # API-only specs, no browser
+npx playwright test --grep "@Workflow"
 npx playwright test --workers=4
 npx playwright test --retries=2
 ```
@@ -744,17 +797,21 @@ npm run report:allure:open
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the suite on push to `main`, a daily schedule, manual dispatch, and `repository_dispatch` (triggered externally by the app repo).
+`.github/workflows/e2e.yml` runs the suite on push to `main`, a daily schedule, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It runs against whatever `BASE_URL` the repo's env files / CI secrets resolve to — it does **not** boot an app (see `e2e-local.yml` for the localhost-in-Docker variant).
 
 ```yaml
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '30 10 * * *'   # 4:00 PM IST
+    - cron: '30 10 * * *'   # 4:00 PM IST (10:30 AM UTC)
   workflow_dispatch:
   repository_dispatch:
     types: [run-playwright]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -769,17 +826,23 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps
       - run: npx playwright test
+      - uses: actions/cache@v4              # Allure trend history (keeps graphs across runs)
+        if: always()
+        with: { path: allure-report/history, key: allure-history-${{ github.ref_name }}-${{ github.run_id }} }
       - run: node scripts/generate-allure-report.js
         if: always()
       - uses: actions/upload-artifact@v4    # playwright-report/ and allure-report/
         if: always()
+      # Opt-in (SEND_S3=yes): sync test-results/ (traces, videos, results.json) to S3
+      - run: aws s3 sync test-results "s3://.../test-results" --no-progress
+        if: always() && env.SEND_S3 == 'yes'
 ```
 
 **CI-specific behavior:**
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
-- Email/Slack/ELK notifications stay off unless their repo variables (`SEND_EMAIL`, `SEND_SLACK`, `SEND_RESULT_ELK`) are explicitly set to `yes`
+- Notifications & artifact upload are all opt-in: **Email** (`SEND_EMAIL=yes` + SMTP secrets), **Slack** (`SEND_SLACK=yes` + `SLACK_WEBHOOK_URL`), and **S3 report upload** (`SEND_S3=yes` + AWS secrets). Unset → each step logs a line and does nothing.
 
 ---
 
@@ -796,10 +859,12 @@ jobs:
 | **Slack** | Incoming Webhook | Self-gating (`SEND_SLACK=yes`); posts pass/fail/flaky/skipped summary |
 | **ELK Dashboard** | HTTP POST to `ELK_URL` | Self-gating (`SEND_RESULT_ELK=yes`); pushes a JSON run summary |
 
-**Automatic artifacts on failure:**
+**Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
 - 📸 Screenshot capture
-- 🎥 Video recording (on first retry)
-- 📋 Trace file (on first retry)
+- 🎥 Video recording
+- 📋 Trace file
+
+> To trim artifact size/time, switch `trace`/`video` to `'retain-on-failure'` or `'on-first-retry'` in `playwright.config.ts`.
 
 ---
 
@@ -809,15 +874,21 @@ jobs:
 
 ```typescript
 import {
-    mockRoute,           // Mock API responses
-    blockResources,      // Block images/fonts/css for speed
-    captureRequests,     // Capture network requests during action
-    addLatency,          // Simulate network delays
-    mockMultipleRoutes,  // Mock multiple endpoints at once
-    interceptAndModify,  // Intercept and modify requests/responses
-    waitForApiResponse,  // Wait for specific API response
-    recordHar,           // Record HAR file for replay
-    replayHar,           // Replay recorded HAR file
+    mockRoute,           // Mock a single route's response
+    mockRoutes,          // Mock multiple endpoints at once
+    mockApiError,        // Fulfill a route with an error status/body
+    blockResources,      // Block images/fonts/css/scripts/media for speed
+    interceptRequest,    // Intercept and modify outgoing request headers/body
+    waitForRequest,      // Wait for a specific request
+    waitForResponse,     // Wait for a specific response
+    waitForNetworkIdle,  // Wait for the network to go idle
+    captureRequests,     // Capture requests emitted during an action
+    captureResponses,    // Capture responses received during an action
+    simulateSlowNetwork, // Add latency to every route
+    goOffline,           // Set the context offline
+    goOnline,            // Restore connectivity
+    recordHar,           // Record a HAR file for replay
+    replayFromHar,       // Replay a recorded HAR file
 } from '../src/utils/networkHelper';
 ```
 
