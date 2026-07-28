@@ -3,8 +3,8 @@ UI-001,ui,loginWithValidCredentials,Login succeeds with valid credentials,"Verif
 UI-002,ui,loginWithInvalidPassword,Login fails with an invalid password,"Verify login is rejected when the username is valid but the password is wrong, and the invalid-credentials error is shown.",1,1,high-level|regression,1
 UI-003,ui,loginWithInvalidUsername,Login fails with an invalid username,"Verify login is rejected when the username is invalid, and the invalid-credentials error is shown.",1,1,high-level|regression,1
 UI-004,ui,loginWithInvalidUsernameAndPassword,Login fails with invalid username and password,"Verify login is rejected when both the username and password are invalid, and the invalid-credentials error is shown.",1,1,regression,1
-USR-001,ui,createUserWithAllFields,Create a user with all fields populated,Verify that an administrator user can be created with all fields populated and appears in the Users list.,1,1,smoke|high-level|regression,1
-USR-002,ui,createUserWithRequiredFieldsOnly,Create a user with only the required fields,Verify that a user can be created with only the required fields.,1,1,high-level|regression,1
-USR-003,ui,everyRoleSelectableCreateNonAdmin,Every Role option is selectable and a non-administrator user can be created,Verify that every Role option is selectable and a user can be created with a non-administrator role.,1,1,high-level|regression,1
-USR-004,ui,rejectDuplicateInitials,Creating a user with an Initials value already in use is rejected,Verify that creating a user with an Initials value already in use is rejected.,1,1,regression,1
+USR-001,ui,createUserWithAllFields,Create a user with all fields populated,Verify that an administrator user can be created with all fields populated and appears in the Users list.,1,1,smoke|high-level|regression,0
+USR-002,ui,createUserWithRequiredFieldsOnly,Create a user with only the required fields,Verify that a user can be created with only the required fields.,1,1,high-level|regression,0
+USR-003,ui,everyRoleSelectableCreateNonAdmin,Every Role option is selectable and a non-administrator user can be created,Verify that every Role option is selectable and a user can be created with a non-administrator role.,1,1,high-level|regression,0
+USR-004,ui,rejectDuplicateInitials,Creating a user with an Initials value already in use is rejected,Verify that creating a user with an Initials value already in use is rejected.,1,1,regression,0
 
