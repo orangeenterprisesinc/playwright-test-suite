@@ -1,5 +1,5 @@
 import { expect, test } from '../../../src/fixtures/base.fixture';
-import loginModuleData from '../../../src/data/login-module-data.json';
+import { loginModuleData } from '../../../src/data/loginModuleData';
 
 // The login module must always start from a logged-out state, so discard any
 // stored authentication for every test in this file.

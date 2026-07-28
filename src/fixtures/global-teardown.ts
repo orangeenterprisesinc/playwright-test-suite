@@ -9,7 +9,7 @@ import { FullConfig } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import { isDbCleanupEnabled, runSql } from '../utils/db/sqlClient';
-import userSetupData from '../data/user-setup-data.json';
+import { userSetupData } from '../data/userSetupData';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';

@@ -112,10 +112,11 @@ playwright-test-suite/
 │   │   └── errorHandler.decorator.ts  #   @HandleError decorator
 │   │
 │   ├── data/                          # Test data files
-│   │   ├── runnerManager.json         #   JSON test data
-│   │   ├── runnerManager.csv          #   CSV test data
-│   │   ├── login-module-data.json     #   Login spec fixture data
-│   │   └── runnerList.json            #   Optional execute:"yes"/"no" test filter
+│   │   ├── runnerManager.json         #   Runner rows (JSON) — active when TEST_DATA_SOURCE=json
+│   │   ├── runnerManager.csv          #   Runner rows (CSV)  — active when TEST_DATA_SOURCE=csv
+│   │   ├── runnerList.json            #   Runtime override, by row id (ships as {})
+│   │   ├── userSetupData.ts           #   User Setup value bag (typed)
+│   │   └── loginModuleData.ts         #   Login spec value bag (typed)
 │   │
 │   ├── enums/                         # Enumerations
 │   │   └── configProperties.ts        #   ConfigProperties enum + getConfigValue()
@@ -637,7 +638,7 @@ npx playwright test tests/ui/products/product-add-to-cart.spec.ts --project=chro
 ```typescript
 // tests/ui/login/login-module.spec.ts
 import { expect, test } from '../../src/fixtures/base.fixture';
-import loginModuleData from '../../src/data/login-module-data.json';
+import { loginModuleData } from '../../src/data/loginModuleData';
 
 test.use({
     storageState: { cookies: [], origins: [] },

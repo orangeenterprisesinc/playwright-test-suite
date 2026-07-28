@@ -45,6 +45,17 @@
             "enabled": true
         },
         {
+            "id": "USR-000",
+            "category": "ui",
+            "testName": "endToEndCreateVerifyEditDeleteUser",
+            "testTitle": "End-to-end: create a user, verify it in the Users list, edit it, then delete it",
+            "testDescription": "Verify the full user lifecycle — create a user with all fields, confirm it is listed, open it for edit, then delete it and confirm it is gone.",
+            "shouldComplete": true,
+            "expectedCount": 1,
+            "tags": "smoke|high-level|regression",
+            "enabled": false
+        },
+        {
             "id": "USR-001",
             "category": "ui",
             "testName": "createUserWithAllFields",

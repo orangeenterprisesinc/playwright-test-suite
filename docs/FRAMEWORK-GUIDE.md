@@ -47,7 +47,7 @@ Reference: [`tests/ui/user-setup.spec.ts`](../tests/ui/user-setup.spec.ts). A sp
 
 ```ts
 import { expect, test } from '../../src/fixtures/base.fixture';    // NOT @playwright/test
-import userData from '../../src/data/user-setup-data.json';         // module data bag
+import { userSetupData as userData } from '../../src/data/userSetupData'; // module data bag
 import { makeUser, randomInitials } from '../../src/utils/testData';// data factories
 import { runSql } from '../../src/utils/db/sqlClient';               // cleanup helper
 ```
@@ -123,11 +123,17 @@ clicks. Workflow methods return semantic outcomes (e.g. `submit()` → `'created
 
 Three kinds:
 
-- **Module value bags** — [`src/data/user-setup-data.json`](../src/data/user-setup-data.json),
-  [`src/data/login-module-data.json`](../src/data/login-module-data.json). Static strings
-  (role lists, expected messages, defaults). Loaded by a plain ESM `import` into the spec.
-- **Runner rows** — [`src/data/runnerManager.json`](../src/data/runnerManager.json). One row
-  per managed test case (see §6). Loaded through `DataProvider`.
+- **Module value bags** — [`src/data/userSetupData.ts`](../src/data/userSetupData.ts),
+  [`src/data/loginModuleData.ts`](../src/data/loginModuleData.ts). Static strings (role lists,
+  expected messages, defaults), exported as typed consts and imported directly by the spec.
+  TypeScript rather than JSON because `test_user_prefix` is shared by `userFactory` (which
+  *names* test users) and `global-teardown` (which *sweeps* them) — a drift between those two
+  would silently orphan test users, so it is single-source and compile-checked.
+- **Runner rows** — [`src/data/runnerManager.json`](../src/data/runnerManager.json) or
+  [`.csv`](../src/data/runnerManager.csv), selected by `TEST_DATA_SOURCE` (exactly one is read;
+  no conversion step). One row per managed test case (see §6). Loaded through `DataProvider`.
+- **Runtime overrides** — [`src/data/runnerList.json`](../src/data/runnerList.json). Ships as
+  `{}`. See §6 for how it overrides the runner rows.
 - **Generated data** — [`src/utils/testData/`](../src/utils/testData/): `makeUser(overrides)`
   builds a run-unique New-User payload; `random.ts` provides `uid()`, `randomInitials()`,
   `randomEmail()`, etc. (not seeded, so parallel create-flows never collide).
@@ -153,7 +159,7 @@ one-explicit-test-per-row bound by `testCaseId`.
 | `apiRequest` | an `APIRequestContext` scoped to `API_URL` (for mixed UI+API specs) |
 | `logger` / `workerLogger` | per-test / per-worker `Logger`, auto-logs start & end |
 | `testCaseId` / `testCaseName` | option fixtures set via `test.use({...})` |
-| `testCaseData` | auto-loads the runner row and **skips** the test if missing or `enabled === false` |
+| `testCaseData` | auto-loads the runner row for the spec body; **skips** if missing or `enabled === false`. Note this fixture is lazy — the `beforeEach` gate in §6 is what governs every test, whether or not the body destructures this |
 
 Its `beforeEach` resolves the runner row from the `testCaseId` annotation, applies the
 enable/skip gate, and stamps Allure labels.
@@ -214,22 +220,38 @@ reuses so no test re-logs-in.
   "enabled": true, "shouldComplete": true, "expectedCount": 1 }
 ```
 
-- **`enabled` is the single source of truth for whether a test runs.** It does *not* generate
-  tests — specs are hand-written and each declares the row it maps to via
-  `annotation: { type: 'testCaseId', description: 'UI-001' }`.
-- At runtime the fixture's `beforeEach` calls `resolveCaseId()` → `getTestCaseById()` → if
-  `enabled === false`, `test.skip()`. To disable a test suite-wide, flip `enabled` in the
-  JSON — no code change.
+- **`enabled` is the baseline for whether a test runs**, overridable only by `runnerList.json`
+  (below). It does *not* generate tests — specs are hand-written and each declares the row it
+  maps to via `annotation: { type: 'testCaseId', description: 'UI-001' }`.
 - Other fields feed **Allure reporting** (`id`, `testDescription`, `tags`, `category` →
   Epic/severity). `shouldComplete`/`expectedCount` are metadata only, not enforced.
-- Source is JSON by default; `TEST_DATA_SOURCE=csv` switches the reader to
-  `runnerManager.csv` (paths resolved in [`src/config/dataSource.config.ts`](../src/config/dataSource.config.ts)).
-  The `.csv` counterpart does not exist yet — CSV mode requires creating it with matching columns.
+- **Source is JSON or CSV**, chosen by `TEST_DATA_SOURCE` (default `json`); exactly one is read,
+  and there is no conversion or generation step — both files are hand-maintained and committed.
+  Paths resolve in [`src/config/dataSource.config.ts`](../src/config/dataSource.config.ts). Keep
+  the two in sync: a stale copy would silently apply different toggles if the source is switched.
 
-> There is a second, unrelated file [`src/data/runnerList.json`](../src/data/runnerList.json)
-> read by [`methodInterceptor.ts`](../src/listeners/methodInterceptor.ts). It is an **inert**
-> opt-in `--grep` filter shipping as `{}` and is not wired into the run path.
-> `runnerManager.json` is the one that matters.
+### The two-layer execution gate
+
+The fixture's `beforeEach` resolves the row, then applies two layers in order:
+
+| Layer | File | Effect |
+|---|---|---|
+| 1 | [`runnerList.json`](../src/data/runnerList.json) | Matched on row `id`. **Wins outright** — `execute: "yes"` runs a test even when its row says `enabled: false`; `execute: "no"` skips it even when enabled. |
+| 2 | `runnerManager.json` / `.csv` | Applies when the id is absent from `runnerList`: skips if `enabled === false`, or if the id has **no row at all**. |
+
+Override is **per-entry, not a whitelist** — an id missing from `runnerList` falls through to
+its runnerManager row, so adding one entry cannot silently disable everything else.
+`runnerList.json` ships as `{}`, meaning "runnerManager governs everything"; keep it that way
+for normal runs, since `execute: "yes"` can resurrect a test that was deliberately switched off.
+
+A `testCaseId` with **no matching row is skipped**, not run. That is deliberate: the gate used to
+check only `enabled === false`, so an unknown id fell through and executed ungoverned — USR-000
+ran in CI and burned both retries for exactly that reason. Adding a spec with a new `testCaseId`
+therefore requires adding its row too; the skip reason names the missing id.
+
+> Unannotated tests (e.g. [`tests/auth.setup.ts`](../tests/auth.setup.ts)) resolve to an empty
+> id and are exempt from both layers — they must always run, or the browser projects lose the
+> shared session they depend on.
 
 ---
 

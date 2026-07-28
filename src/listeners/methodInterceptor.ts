@@ -1,14 +1,36 @@
 /**
- * @fileoverview Runner-list-based test filter (optional, NOT the primary control surface).
+ * @fileoverview Runtime override list — the final say on whether a test runs.
  *
- * Execution is controlled by the runnerManager `enabled` flag (resolved per
- * test in base.fixture via the `testCaseId` option / annotation) — that is the
- * single source of truth for whether a test runs. This runner list is a
- * separate, opt-in name-based filter that is NOT wired into the run path; it
- * ships as `{}` (no filtering, everything runs) and stays inert until you
- * populate `src/data/runnerList.json` and explicitly consume `getGrepPattern()`.
+ * Two layers decide execution, and this is the upper one:
  *
- * Prefer toggling `enabled` in runnerManager.json / runnerManager.csv over this.
+ *   1. **runnerManager.json / .csv** — the baseline. `enabled` per row is the
+ *      normal way to turn a test on or off. Which file is read comes from
+ *      `TEST_DATA_SOURCE` (json | csv); exactly one is active at a time.
+ *   2. **runnerList.json (this module)** — a runtime *override*, matched on the
+ *      runnerManager row `id` (the same id the spec declares via its
+ *      `testCaseId` annotation). An entry here **wins outright** over
+ *      runnerManager for that id.
+ *
+ * Override is per-entry, not a whitelist: an id listed here is decided here, and
+ * any id *not* listed falls through to its runnerManager `enabled` flag. So
+ * adding one entry cannot silently disable everything else.
+ *
+ * Because `execute: "yes"` overrides `enabled: false`, this list can resurrect a
+ * test that was deliberately switched off. Keep it empty (`{}`) for normal runs —
+ * that is the shipped state and means "runnerManager governs everything".
+ *
+ * Shape — category → group → entries:
+ *
+ * ```json
+ * {
+ *   "ui": {
+ *     "userSetup": [
+ *       { "id": "USR-001", "execute": "no" },
+ *       { "id": "UI-001",  "execute": "yes" }
+ *     ]
+ *   }
+ * }
+ * ```
  *
  * @module listeners/methodInterceptor
  */
@@ -19,9 +41,11 @@ import { FrameworkConstants } from '../core/frameworkConstants';
 const logger = new Logger('MethodInterceptor');
 
 export interface RunnerListEntry {
-    testcasename: string;
+    /** runnerManager row id this entry governs, e.g. 'USR-001'. */
+    id: string;
+    /** `"yes"` to force the test to run, `"no"` to force it to skip. */
+    execute: string;
     testdescription?: string;
-    execute: string; // "yes" | "no"
     priority?: number;
     [key: string]: unknown;
 }
@@ -65,17 +89,30 @@ export function getActiveTests(): RunnerListEntry[] {
     return activeTests;
 }
 
-/** Whether a test should run. Returns `true` for everyone when the runner list is empty. */
-export function isTestActive(testName: string): boolean {
-    const active = getActiveTests();
-    if (active.length === 0) return true;
-    return active.some((t) => t.testcasename.toLowerCase() === testName.toLowerCase());
-}
+/**
+ * The runner list's verdict for a runnerManager row id.
+ *
+ * Returns `true` to force the test to run, `false` to force it to skip, and
+ * `null` when the list has no entry for this id — in which case the caller must
+ * fall back to the runnerManager `enabled` flag. `null` is also returned for an
+ * empty or missing runnerList.json, which is the normal shipped state.
+ *
+ * Replaces the previous name-based `isTestActive()` / `getGrepPattern()` pair:
+ * matching on `id` keeps a single join key between spec annotation,
+ * runnerManager row, and this list, and a `--grep` pattern was never viable
+ * because ids do not appear in test titles.
+ *
+ * @param id runnerManager row id, e.g. `'USR-001'`
+ */
+export function getRunnerListDecision(id: string): boolean | null {
+    const entries = loadRunnerList();
+    if (entries.length === 0) return null;
 
-/** Pipe-separated grep pattern of active test names, for `--grep`. */
-export function getGrepPattern(): string {
-    const active = getActiveTests();
-    return active.length === 0 ? '' : active.map((t) => t.testcasename).join('|');
+    const wanted = id.toLowerCase();
+    const entry = entries.find((e) => String(e.id ?? '').toLowerCase() === wanted);
+    if (!entry) return null;
+
+    return String(entry.execute ?? '').toLowerCase() === 'yes';
 }
 
 /** Clears the cached runner list, forcing a reload on the next call. */

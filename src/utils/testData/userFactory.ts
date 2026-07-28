@@ -3,7 +3,11 @@
  *
  * Builds a {@link NewUserData} object with run-unique Name/Initials/Email (the
  * Name and Email share one token for traceability), sourcing the prefix and
- * defaults from `src/data/user-setup-data.json`. Any field can be overridden.
+ * defaults from `src/data/userSetupData.ts`. Any field can be overridden.
+ *
+ * The `test_user_prefix` used for the Name is the same constant
+ * `global-teardown.ts` sweeps on — see that module's note on why it is shared
+ * rather than duplicated.
  *
  * @module utils/testData/userFactory
  * @since 1.0.0
@@ -16,7 +20,7 @@
  * const minimal = makeUser();               // defaults from the data file
  * ```
  */
-import userData from '../../data/user-setup-data.json';
+import { userSetupData as userData } from '../../data/userSetupData';
 import type { NewUserData } from '../../pages/UsersPage';
 import { randomInitials, uid } from './random';
 

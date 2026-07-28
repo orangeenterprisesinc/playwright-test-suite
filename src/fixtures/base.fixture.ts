@@ -32,6 +32,7 @@ import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
 import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
+import { getRunnerListDecision } from '../listeners/methodInterceptor';
 import { LoginPage } from '../pages/LoginPage';
 import { LeftNavigationPage } from '../pages/LeftNavigationPage';
 import { UsersPage } from '../pages/UsersPage';
@@ -227,13 +228,38 @@ test.beforeEach(async ({ testCaseId }, testInfo) => {
     onTestStart(testInfo);
 
     // Resolve the runner row for this test (from the testCaseId option or a
-    // { type: 'testCaseId' } annotation). A disabled row (enabled === false)
-    // skips the test — the runnerManager `enabled` flag controls execution.
+    // { type: 'testCaseId' } annotation), then apply the two-layer gate:
+    // runnerList.json overrides, runnerManager `enabled` is the baseline.
     const caseId = resolveCaseId(testInfo, testCaseId);
     const row = caseId ? await getTestCaseById<TestCaseData>(caseId) : null;
-    if (row && row.enabled === false) {
-        test.skip(true, `Test case '${row.id}' is disabled in runnerManager (enabled=false)`);
+
+    // Layer 1 — runnerList.json wins outright for any id it lists, including
+    // re-enabling a row whose `enabled` is false. Per-entry, so an id absent from
+    // the list falls through to runnerManager rather than being implicitly
+    // excluded — adding one entry must not silently disable everything else.
+    // Normally runnerList.json is `{}` and this is always null.
+    const override = caseId ? getRunnerListDecision(caseId) : null;
+
+    if (override === false) {
+        test.skip(true, `Test case '${caseId}' is disabled in runnerList (execute=no)`);
+    } else if (override === null) {
+        // Layer 2 — no override, so runnerManager governs.
+        //
+        // A test that claims a testCaseId with no matching row is a configuration
+        // error, and it must NOT run: previously this gate only checked
+        // `row && row.enabled === false`, so an unknown ID fell through and executed
+        // completely ungoverned — USR-000 ran (and burned both CI retries) for exactly
+        // this reason while every other user-setup case was correctly disabled. The
+        // `caseId &&` guard is load-bearing: unannotated tests such as auth.setup.ts
+        // resolve to '' and must still run, or every browser project loses its session.
+        if (caseId && !row) {
+            test.skip(true, `Test case '${caseId}' has no runnerManager row — add one (enabled true/false) or remove the annotation.`);
+        }
+        if (row && row.enabled === false) {
+            test.skip(true, `Test case '${row.id}' is disabled in runnerManager (enabled=false)`);
+        }
     }
+    // override === true → runs regardless of runnerManager, by design.
 
     await applyAllureLabels(testInfo, row);
 });

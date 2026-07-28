@@ -15,7 +15,7 @@
  * exist.
  */
 import { expect, test } from '../../src/fixtures/base.fixture';
-import userData from '../../src/data/user-setup-data.json';
+import { userSetupData as userData } from '../../src/data/userSetupData';
 import { runSql } from '../../src/utils/db/sqlClient';
 import { makeUser, randomInitials } from '../../src/utils/testData';
 import { ConfigProperties, getConfigValue } from '../../src/enums/configProperties';
