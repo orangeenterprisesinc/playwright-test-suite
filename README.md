@@ -64,6 +64,7 @@ The framework implements the **Page Object Model (POM)** design pattern with a *
 | [PapaParse](https://www.papaparse.com/) | ^5.5.3 | CSV parsing |
 | [Nodemailer](https://nodemailer.com/) | ^9.0.3 | Email report delivery |
 | [dotenv](https://github.com/motdotla/dotenv) | ^17.2.4 | Environment variable management |
+| [mssql](https://github.com/tediousjs/node-mssql) | ^12.7.0 | SQL Server test-data cleanup (pure JS via `tedious`) |
 
 Logging is a custom in-repo `Logger` (no external logging library), and Slack/ELK notifications use Node's built-in `https` module directly (no SDK dependency).
 
@@ -797,7 +798,9 @@ npm run report:allure:open
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the suite on push to `main`, a daily schedule, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It runs against whatever `BASE_URL` the repo's env files / CI secrets resolve to — it does **not** boot an app (see `e2e-local.yml` for the localhost-in-Docker variant).
+`.github/workflows/e2e.yml` runs the suite against the **dev staging** deployment twice a day, plus on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+
+The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA). The password comes from the `PW_PASSWORD` secret and is never committed.
 
 ```yaml
 on:
@@ -805,6 +808,7 @@ on:
     branches: [main]
   schedule:
     - cron: '30 10 * * *'   # 4:00 PM IST (10:30 AM UTC)
+    - cron: '30 12 * * *'   # 6:00 PM IST (12:30 PM UTC)
   workflow_dispatch:
   repository_dispatch:
     types: [run-playwright]
@@ -842,6 +846,7 @@ jobs:
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
+- Test-user cleanup: PET Tiger has no delete-user action in either the UI or the API, so tests that create users remove them in SQL (`DB_CLEANUP=yes`). `DB_TRUSTED` selects the transport — `no` uses the `mssql` driver (pure JS, arrives with `npm ci`, works on GitHub-hosted runners), `yes` uses the `sqlcmd` CLI with Windows integrated auth (local and self-hosted). The remaining requirement is a network route: `DB_SERVER` must accept connections from GitHub runner IPs. `global-setup.ts` probes the connection once at the start of every run and emits a CI error annotation if it fails, because cleanup that skips silently leaves test users behind in a shared database while the run still reports green.
 - Notifications & artifact upload are all opt-in: **Email** (`SEND_EMAIL=yes` + SMTP secrets), **Slack** (`SEND_SLACK=yes` + `SLACK_WEBHOOK_URL`), and **S3 report upload** (`SEND_S3=yes` + AWS secrets). Unset → each step logs a line and does nothing.
 
 ---

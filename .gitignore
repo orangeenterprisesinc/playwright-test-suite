@@ -26,6 +26,7 @@ logs/
 
 #Testing context
 Testing video/
+Reference project/
 
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
 # which requires it.

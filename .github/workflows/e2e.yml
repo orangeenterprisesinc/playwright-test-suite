@@ -1,24 +1,29 @@
 name: E2E
 
-# Runs the Playwright suite against whatever BASE_URL resolves to via the
-# framework's own env loading (env.<TEST_ENV> + .env — see src/config/envLoader.ts).
-# No app is booted here: this repo's own env.<name> files (or CI secrets) are
-# the single source of truth for the target URL. Point BASE_URL at a real
-# dev/QA/staging environment there, not in this workflow.
+# Runs the Playwright suite against the DEV STAGING deployment (app.ptdev.xyz).
+# No app is booted here — TEST_ENV=dev is pinned in the job env below, so the
+# framework's env loading (env.dev + .env — see src/config/envLoader.ts) supplies
+# BASE_URL/API_URL, and the PW_PASSWORD secret supplies the login password.
 #
-# Need to run against a real localhost instead? See e2e-local.yml, which
-# boots the app from a Docker image (APP_IMAGE repo variable) and runs the
-# suite against http://localhost:3000.
+# Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
+# and loads env.local, pointing the suite at http://localhost:3000 on a
+# GitHub-hosted runner where nothing is listening.
 #
-# Runs on push to main, a daily 4pm IST schedule, manual dispatch, and
+# Need to run against a real localhost instead? See e2e-local.yml, which builds
+# the app from a web-pet source checkout on a self-hosted Windows runner and runs
+# the suite against http://localhost:3000.
+#
+# Runs twice daily on a schedule, on push to main, on manual dispatch, and on
 # repository_dispatch (fired externally, e.g. when the app repo pushes code).
 on:
   push:
     branches: [main]
   schedule:
-    # 4:00 PM IST = 10:30 AM UTC (IST is UTC+5:30). GitHub's cron scheduler
-    # runs in UTC always — adjust this if IST's offset ever changes.
-    - cron: '30 10 * * *'
+    # IST is UTC+5:30 and GitHub's cron scheduler always runs in UTC — adjust
+    # both entries if IST's offset ever changes. GitHub can also start a
+    # scheduled run several minutes late under load; that's expected.
+    - cron: '30 10 * * *'   # 4:00 PM IST
+    - cron: '30 12 * * *'   # 6:00 PM IST
   workflow_dispatch:
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
@@ -39,10 +44,40 @@ jobs:
     timeout-minutes: 15
 
     env:
+      # Selects env.dev (BASE_URL=https://app.ptdev.xyz,
+      # API_URL=https://api.ptdev.xyz/api — the API is a separate host from the
+      # static SPA). Applies to every trigger above, so the repository_dispatch
+      # the app repo fires also targets dev staging; localhost coverage lives in
+      # e2e-local.yml.
+      TEST_ENV: dev
       # Accept either secret naming scheme: PW_-prefixed, or the plain
       # USERNAME/PASSWORD secrets that actually exist in the repo today.
-      USER_NAME: ${{ secrets.PW_USER_NAME || secrets.USERNAME }}
+      #
+      # The trailing 'su' default is deliberate and NOT redundant with env.dev's
+      # USER_NAME=su. Actions exports a job-level env entry even when the
+      # expression resolves to empty, and envLoader only falls back to a file
+      # value when the OS variable is undefined — not when it is an empty string
+      # (src/config/envLoader.ts:98). Without the default, an unset secret would
+      # blank out USER_NAME instead of deferring to env.dev.
+      USER_NAME: ${{ secrets.PW_USER_NAME || secrets.USERNAME || 'su' }}
       PASSWORD: ${{ secrets.PW_PASSWORD || secrets.PASSWORD }}
+      # --- Test-user cleanup via SQL. env.dev sets DB_CLEANUP=yes and
+      #     DB_TRUSTED=no, which makes sqlClient.ts use the `mssql` driver rather
+      #     than the sqlcmd CLI — a GitHub-hosted runner has neither a Windows
+      #     identity to authenticate with nor sqlcmd installed. No SQLCMD_PATH
+      #     needed; the driver arrives with npm ci.
+      #
+      #     DB_SERVER must be reachable from GitHub's runner IP ranges. The
+      #     connectivity probe in global-setup.ts reports it up front rather than
+      #     letting cleanup fail silently mid-run.
+      #
+      #     With DB_SERVER or DB_CLIENT unset, isDbCleanupEnabled() returns false
+      #     and every cleanup call skips with a logged warning — the suite still
+      #     passes, it just leaves its test users behind. ---
+      DB_SERVER: ${{ secrets.DB_SERVER }}
+      DB_CLIENT: ${{ vars.DB_CLIENT }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
       #     'yes' and add the SMTP_*/EMAIL_* secrets to activate it. With the
       #     variable unset the reporter logs one line and does nothing. ---
@@ -68,6 +103,16 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
     steps:
+      # Without this, a missing password surfaces ~4 minutes later as an opaque
+      # browser-login timeout in auth-setup, which then fails every test in the
+      # run. Fail in seconds with the actual cause instead.
+      - name: "Guard: login password secret present"
+        run: |
+          if [ -z "$PASSWORD" ]; then
+            echo "::error::No login password configured — add a PW_PASSWORD (or PASSWORD) repository secret. Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
       - name: Checkout test suite
         uses: actions/checkout@v4
 
@@ -86,6 +131,13 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      # No sqlcmd install step: test-user cleanup goes through the `mssql` driver
+      # (pure JS, comes from npm ci) because env.dev sets DB_TRUSTED=no. The
+      # connectivity check lives in src/fixtures/global-setup.ts, which reuses the
+      # same runSql() the tests use and emits a ::error:: annotation when the
+      # database is unreachable — so a blocked port shows up on the run summary
+      # without a separate step duplicating the connection logic here.
 
       # Computed BEFORE the test run so the Playwright process — and thus the
       # Slack reporter (which posts in its onEnd, before the sync step below) —

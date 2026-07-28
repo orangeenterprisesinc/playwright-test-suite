@@ -16,7 +16,7 @@
  */
 import { expect, test } from '../../src/fixtures/base.fixture';
 import userData from '../../src/data/user-setup-data.json';
-import { runSql, sqlLiteral } from '../../src/utils/db/sqlClient';
+import { runSql } from '../../src/utils/db/sqlClient';
 import { makeUser, randomInitials } from '../../src/utils/testData';
 import { ConfigProperties, getConfigValue } from '../../src/enums/configProperties';
 import type { NewUserData } from '../../src/pages/UsersPage';
@@ -46,6 +46,29 @@ async function createUser(usersPage: UsersPage, base: NewUserData): Promise<NewU
     return user;
 }
 
+/**
+ * Find a user the way the recording does — type the name into the grid's Name
+ * filter — and assert the filtered grid shows exactly that one user, with the
+ * details it was created with.
+ *
+ * Searching by filter rather than scanning the full list keeps the assertion
+ * independent of how many other users exist, so it holds whatever state the
+ * database is in.
+ */
+async function expectUserListed(usersPage: UsersPage, user: NewUserData): Promise<void> {
+    await usersPage.filterByName(user.name);
+
+    // The filter narrows the grid to this user alone: one matching row, and the
+    // grid's own "Total N rows" footer agrees.
+    const row = usersPage.userRow(user.name);
+    await expect(row).toHaveCount(1);
+    await expect.poll(() => usersPage.totalRowCount()).toBe(1);
+
+    await expect(row).toContainText(user.initials);
+    await expect(row).toContainText(user.role);
+    await expect(row).toContainText(user.email);
+}
+
 test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     // Users created by a test, soft-deleted in SQL after it. PET Tiger has no
@@ -63,18 +86,22 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
     // the Name/Initials/Email. The Users screen reads from this DB, so the user
     // also disappears from the list. Used both as the explicit delete step in
     // the end-to-end test and as the afterEach safety-net cleanup.
-    function hardDeleteUser(name: string): void {
-        runSql(
+    //
+    // The name is bound as @name rather than interpolated: sqlClient binds it as
+    // a real parameter on the driver path and escapes it on the sqlcmd path.
+    async function hardDeleteUser(name: string): Promise<void> {
+        await runSql(
             `USE [${clientDb}]; SET NOCOUNT ON; ` +
             `UPDATE dbo.Users SET Deleted = 1 ` +
-            `WHERE Name LIKE '${sqlLiteral(name)}' AND Deleted = 0;`,
+            `WHERE Name LIKE @name AND Deleted = 0;`,
             name,
+            { name },
         );
     }
 
-    test.afterEach(() => {
+    test.afterEach(async () => {
         while (createdUsers.length) {
-            hardDeleteUser(createdUsers.pop()!.name);
+            await hardDeleteUser(createdUsers.pop()!.name);
         }
     });
 
@@ -100,12 +127,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
         // ── Verify the new user appears in the Users list ───────────
         await usersPage.gotoUsersList();
-        await usersPage.filterByName(user.name);
-        const row = usersPage.userRow(user.name);
-        await expect(row).toBeVisible();
-        await expect(row).toContainText(user.initials);
-        await expect(row).toContainText(user.role);
-        await expect(row).toContainText(user.email);
+        await expectUserListed(usersPage, user);
 
         // ── Open Edit and confirm the form loads the created user's info ──
         await usersPage.openEditUser(user.name);
@@ -114,7 +136,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         // ── Delete the new user and confirm it's gone from the list ──
         // PET Tiger has no UI delete, so removal is done in SQL; the user then
         // disappears from the list (which reads the client DB).
-        hardDeleteUser(user.name);
+        await hardDeleteUser(user.name);
         createdUsers.splice(createdUsers.indexOf(user), 1); // already removed
         await usersPage.expectAbsentFromList(user.name);
     });
@@ -139,12 +161,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
         // The new user is listed with the expected details.
         await usersPage.gotoUsersList();
-        await usersPage.filterByName(user.name);
-        const row = usersPage.userRow(user.name);
-        await expect(row).toBeVisible();
-        await expect(row).toContainText(user.initials);
-        await expect(row).toContainText(user.role);
-        await expect(row).toContainText(user.email);
+        await expectUserListed(usersPage, user);
     });
 
     test('[User Setup] Verify that a user can be created with only the required fields.', {
@@ -157,12 +174,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         createdUsers.push(user);
 
         await usersPage.gotoUsersList();
-        await usersPage.filterByName(user.name);
-        const row = usersPage.userRow(user.name);
-        await expect(row).toBeVisible();
-        await expect(row).toContainText(user.initials);
-        await expect(row).toContainText(user.role);
-        await expect(row).toContainText(user.email);
+        await expectUserListed(usersPage, user);
     });
 
     test('[User Setup] Verify that every Role option is selectable and a user can be created with a non-administrator role.', {
@@ -172,10 +184,14 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         await usersPage.gotoUsersList();
         await usersPage.openNewUserForm();
 
-        // Every documented Role option is present and selectable.
+        // Exactly the documented Role options, in order, and every one of them
+        // selectable. Asserting the whole list at once also catches an option
+        // that was added, removed or reordered — which a per-option visibility
+        // loop cannot.
         await usersPage.openRoleDropdown();
+        await expect(usersPage.roleOptions).toHaveText(userData.roles);
         for (const role of userData.roles) {
-            await expect(usersPage.roleOption(role)).toBeVisible();
+            await expect(usersPage.roleOption(role)).toBeEnabled();
         }
 
         // Select a non-administrator role and create the user.
@@ -198,10 +214,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         await expect(usersPage.userCreatedToast).toBeVisible();
 
         await usersPage.gotoUsersList();
-        await usersPage.filterByName(user.name);
-        const row = usersPage.userRow(user.name);
-        await expect(row).toBeVisible();
-        await expect(row).toContainText(userData.defaults.creatable_role);
+        await expectUserListed(usersPage, user);
     });
 
     test('[User Setup] Verify that creating a user with an Initials value already in use is rejected.', {

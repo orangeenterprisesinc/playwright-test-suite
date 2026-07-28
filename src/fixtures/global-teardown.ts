@@ -8,7 +8,7 @@
 import { FullConfig } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
-import { isDbCleanupEnabled, runSql, sqlLiteral } from '../utils/db/sqlClient';
+import { isDbCleanupEnabled, runSql } from '../utils/db/sqlClient';
 import userSetupData from '../data/user-setup-data.json';
 import fs from 'fs';
 import os from 'os';
@@ -113,12 +113,15 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     // already removes the happy-path users; this catches the rest.
     if (isDbCleanupEnabled()) {
         const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
-        const pattern = sqlLiteral(`${userSetupData.test_user_prefix}%`);
+        const pattern = `${userSetupData.test_user_prefix}%`;
         // Client DB only (USE DelLlano) — leave the shared TigerMaster untouched.
-        runSql(
+        // The LIKE pattern is bound as @pattern, so sqlClient parameterises it on
+        // the driver path and escapes it on the sqlcmd path.
+        await runSql(
             `USE [${clientDb}]; SET NOCOUNT ON; ` +
-            `UPDATE dbo.Users SET Deleted = 1 WHERE Name LIKE '${pattern}' AND Deleted = 0;`,
-            `leftover-sweep ${userSetupData.test_user_prefix}%`,
+            `UPDATE dbo.Users SET Deleted = 1 WHERE Name LIKE @pattern AND Deleted = 0;`,
+            `leftover-sweep ${pattern}`,
+            { pattern },
         );
     }
 

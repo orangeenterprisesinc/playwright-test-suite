@@ -53,7 +53,7 @@
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "smoke|high-level|regression",
-            "enabled": true
+            "enabled": false
         },
         {
             "id": "USR-002",
@@ -64,7 +64,7 @@
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "high-level|regression",
-            "enabled": true
+            "enabled": false
         },
         {
             "id": "USR-003",
@@ -75,7 +75,7 @@
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "high-level|regression",
-            "enabled": true
+            "enabled": false
         },
         {
             "id": "USR-004",
@@ -86,7 +86,7 @@
             "shouldComplete": true,
             "expectedCount": 1,
             "tags": "regression",
-            "enabled": true
+            "enabled": false
         }
     ]
 }

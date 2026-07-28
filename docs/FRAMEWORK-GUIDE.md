@@ -49,7 +49,7 @@ Reference: [`tests/ui/user-setup.spec.ts`](../tests/ui/user-setup.spec.ts). A sp
 import { expect, test } from '../../src/fixtures/base.fixture';    // NOT @playwright/test
 import userData from '../../src/data/user-setup-data.json';         // module data bag
 import { makeUser, randomInitials } from '../../src/utils/testData';// data factories
-import { runSql, sqlLiteral } from '../../src/utils/db/sqlClient';  // cleanup helper
+import { runSql } from '../../src/utils/db/sqlClient';               // cleanup helper
 ```
 
 **(2) `describe` + `test`** with tags and a `testCaseId` annotation, destructuring only the
@@ -184,7 +184,7 @@ env/executor files and run a safety-net SQL sweep of leftover test users.
 | [`apiMockServer.ts`](../src/utils/apiMockServer.ts) | register a set of stubs and `applyTo(page)` |
 | [`allureHelper.ts`](../src/utils/allureHelper.ts) | generate Allure reports via JS API; `prepareLeanEmailReport` (screenshot-only single file) |
 | [`allureLabels.ts`](../src/utils/allureLabels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
-| [`db/sqlClient.ts`](../src/utils/db/sqlClient.ts) | `runSql`, `sqlLiteral` — SQL Server via `sqlcmd`, for test-user cleanup |
+| [`db/sqlClient.ts`](../src/utils/db/sqlClient.ts) | `runSql` (async, `@name` bound params) — test-user cleanup over the `mssql` driver or `sqlcmd`, chosen by `DB_TRUSTED` |
 | [`testData/`](../src/utils/testData/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
 
 ### `src/auth/` — API auth (separate from browser login)
@@ -260,7 +260,7 @@ The mechanism spans four pieces:
 | Where | How env is selected |
 |---|---|
 | **Local** | `npm test` → local · `npm run test:dev` → dev · `npm run test:qa` → qa. The launcher pins `TEST_ENV`; envLoader loads `env.<name>`. |
-| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, remote target) | `TEST_ENV` not pinned; `BASE_URL` resolves from secrets/env files. Report tags the env `[ci]`. |
+| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
 | **CI — [`e2e-local.yml`](../.github/workflows/e2e-local.yml)** (self-hosted, localhost) | Hard-sets `TEST_ENV=local`, `BASE_URL=http://localhost:3000`, `API_URL=...:8080/api` as job env — OS-env precedence makes these win over env files. |
 
 ---
@@ -270,15 +270,26 @@ The mechanism spans four pieces:
 Two complementary workflows, both listening for the same external `repository_dispatch`
 (`run-playwright`) so one app-side build fans out to both.
 
-**[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (remote target)**
-- Triggers: push to `main`, daily cron (4pm IST), manual dispatch, external `repository_dispatch`.
+**[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
+- Triggers: **twice-daily cron — 4pm IST (`30 10 * * *`) and 6pm IST (`30 12 * * *`)** — plus
+  push to `main`, manual dispatch, and external `repository_dispatch`.
 - Runner: `ubuntu-latest` (GitHub-hosted), 15-min timeout.
-- Does **not** boot an app — targets whatever `BASE_URL` resolves to.
-- Steps: checkout → Node 22 → Java 21 (Allure) → `npm ci` → `npx playwright install
-  --with-deps` → compute deterministic `REPORT_S3_URL` → `npx playwright test` → generate
-  Allure report → upload artifacts → optional `aws s3 sync`.
-- Secrets: `USER_NAME`/`PASSWORD` (accepts either naming scheme); reporting
-  (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
+- Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
+  `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
+  at a `localhost:3000` that doesn't exist on the runner.
+- Steps: guard that the password secret exists → checkout → Node 22 → Java 21 (Allure) →
+  `npm ci` → `npx playwright install --with-deps` → compute deterministic `REPORT_S3_URL` →
+  `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
+- Secrets: `PW_PASSWORD` (or `PASSWORD`) is **required**; `USER_NAME` is optional and
+  defaults to `su`. Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
+- Test-user cleanup runs over SQL, same as everywhere else — `env.dev` sets `DB_CLEANUP=yes`
+  and `DB_TRUSTED=no`, with `DB_SERVER`/`DB_USER`/`DB_PASSWORD` as secrets and `DB_CLIENT` as
+  a repo variable. `DB_TRUSTED=no` selects the `mssql` driver rather than the `sqlcmd` CLI,
+  so no CLI install step is needed — the transport table is in
+  [`sqlClient.ts`](../src/utils/db/sqlClient.ts)'s module docs. The one thing
+  `ubuntu-latest` still can't provide is a network route to the database; the connectivity
+  probe in `global-setup.ts` turns a blocked port into an explicit `::error::` annotation
+  instead of a silently-skipped cleanup that leaves users behind.
 
 **[`e2e-local.yml`](../.github/workflows/e2e-local.yml) — "E2E (localhost, self-hosted)"**
 - Runner: `[self-hosted, Windows, X64]`, 30-min timeout. Self-hosted because the Go API uses
