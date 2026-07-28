@@ -280,8 +280,12 @@ Two complementary workflows, both listening for the same external `repository_di
 - Steps: guard that the password secret exists → checkout → Node 22 → Java 21 (Allure) →
   `npm ci` → `npx playwright install --with-deps` → compute deterministic `REPORT_S3_URL` →
   `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
-- Secrets: `PW_PASSWORD` (or `PASSWORD`) is **required**; `USER_NAME` is optional and
-  defaults to `su`. Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
+- Credentials: the `DEV_PASSWORD` **secret** is required and has no fallback — a generic
+  `PASSWORD` secret is deliberately *not* consulted, because a stale localhost one silently
+  authenticated against the wrong environment. The username is the `DEV_USER_NAME`
+  **variable** (not a secret — a login name isn't a credential, and masking a short value
+  like `su` mangles unrelated words in the log), defaulting to `su`.
+  Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
 - Test-user cleanup runs over SQL, same as everywhere else — `env.dev` sets `DB_CLEANUP=yes`
   and `DB_TRUSTED=no`, with `DB_SERVER`/`DB_USER`/`DB_PASSWORD` as secrets and `DB_CLIENT` as
   a repo variable. `DB_TRUSTED=no` selects the `mssql` driver rather than the `sqlcmd` CLI,

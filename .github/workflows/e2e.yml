@@ -3,7 +3,9 @@ name: E2E
 # Runs the Playwright suite against the DEV STAGING deployment (app.ptdev.xyz).
 # No app is booted here — TEST_ENV=dev is pinned in the job env below, so the
 # framework's env loading (env.dev + .env — see src/config/envLoader.ts) supplies
-# BASE_URL/API_URL, and the PW_PASSWORD secret supplies the login password.
+# BASE_URL/API_URL and USER_NAME, and the DEV_PASSWORD secret supplies the
+# login password (dev-staging only — see the env block for why there is no
+# fallback to a generic PASSWORD secret).
 #
 # Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
 # and loads env.local, pointing the suite at http://localhost:3000 on a
@@ -50,17 +52,29 @@ jobs:
       # the app repo fires also targets dev staging; localhost coverage lives in
       # e2e-local.yml.
       TEST_ENV: dev
-      # Accept either secret naming scheme: PW_-prefixed, or the plain
-      # USERNAME/PASSWORD secrets that actually exist in the repo today.
+      # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
+      # secret. A login name is not a credential, and Actions masks every literal
+      # occurrence of a secret's value — so storing a short value like 'su' as a
+      # secret mangles unrelated words throughout the log (playwright-test-***ite,
+      # allure-re***lts, Report ***ccessfully). Variables are not masked, so the
+      # log stays readable. Set DEV_USER_NAME when dev staging's account changes;
+      # leave it unset and the default below applies.
       #
-      # The trailing 'su' default is deliberate and NOT redundant with env.dev's
-      # USER_NAME=su. Actions exports a job-level env entry even when the
-      # expression resolves to empty, and envLoader only falls back to a file
-      # value when the OS variable is undefined — not when it is an empty string
-      # (src/config/envLoader.ts:98). Without the default, an unset secret would
-      # blank out USER_NAME instead of deferring to env.dev.
-      USER_NAME: ${{ secrets.PW_USER_NAME || secrets.USERNAME || 'su' }}
-      PASSWORD: ${{ secrets.PW_PASSWORD || secrets.PASSWORD }}
+      # The 'su' default is required, NOT redundant with env.dev's USER_NAME=su:
+      # Actions exports a job-level env entry even when the expression resolves
+      # empty, and envLoader only defers to the file value when the OS variable is
+      # undefined — not when it is '' (src/config/envLoader.ts:98). Keep this
+      # default in sync with env.dev.
+      USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
+      #
+      # DEV_PASSWORD is dev-staging only, with NO fallback — mirroring
+      # LOCAL_PASSWORD in e2e-local.yml so the two environments stay visibly
+      # separate. The previous `PW_PASSWORD || PASSWORD` chain silently picked up
+      # a stale localhost PASSWORD secret and authenticated against the wrong
+      # environment, which surfaced only as an opaque 20s waitForURL timeout in
+      # auth-setup. An unset secret must fail loudly (see the guard step below)
+      # rather than log in as somewhere else.
+      PASSWORD: ${{ secrets.DEV_PASSWORD }}
       # --- Test-user cleanup via SQL. env.dev sets DB_CLEANUP=yes and
       #     DB_TRUSTED=no, which makes sqlClient.ts use the `mssql` driver rather
       #     than the sqlcmd CLI — a GitHub-hosted runner has neither a Windows
@@ -109,7 +123,7 @@ jobs:
       - name: "Guard: login password secret present"
         run: |
           if [ -z "$PASSWORD" ]; then
-            echo "::error::No login password configured — add a PW_PASSWORD (or PASSWORD) repository secret. Settings > Secrets and variables > Actions."
+            echo "::error::No login password configured — add a DEV_PASSWORD repository secret holding the dev-staging 'su' password. Settings > Secrets and variables > Actions."
             exit 1
           fi
 

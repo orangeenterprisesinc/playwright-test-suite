@@ -78,10 +78,11 @@ jobs:
       TEST_ENV: local
       BASE_URL: http://localhost:3000
       API_URL: http://localhost:8080/api
-      # Dedicated to this workflow — deliberately NOT the PW_USER_NAME/PW_PASSWORD
-      # (or USERNAME/PASSWORD) secrets e2e.yml uses, since those point at a
-      # remote dev/QA account that has nothing to do with this machine's local
-      # "su" dev login.
+      # Dedicated to this workflow — deliberately NOT the DEV_PASSWORD secret
+      # e2e.yml uses, since that points at the remote dev-staging account, which
+      # has nothing to do with this machine's local "su" dev login. Keeping the
+      # names distinct is load-bearing: a shared/generic PASSWORD secret once
+      # leaked the localhost password into the dev-staging run.
       USER_NAME: ${{ secrets.LOCAL_USER_NAME }}
       PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
       # Reporting is opt-in via repo variables (shared with e2e.yml): set

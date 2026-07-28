@@ -800,7 +800,9 @@ npm run report:allure:open
 
 `.github/workflows/e2e.yml` runs the suite against the **dev staging** deployment twice a day, plus on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
 
-The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA). The password comes from the `PW_PASSWORD` secret and is never committed.
+The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
+
+Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names: `e2e-local.yml` uses its own `LOCAL_USER_NAME`/`LOCAL_PASSWORD`, and an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with localhost credentials.
 
 ```yaml
 on:
