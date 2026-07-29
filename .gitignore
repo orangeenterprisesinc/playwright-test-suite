@@ -7,6 +7,14 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 
+# Debug screenshots from the migrated web-pet specs (select-smoke.spec.ts,
+# mobile-tab-labels.spec.ts). They hardcode a relative 'e2e/.screenshots/...'
+# path, which resolved under apps/web/ in the source repo but resolves to this
+# repo's root here — so the specs create a stray top-level e2e/ folder. Nothing
+# asserts on these; they are eyeball aids. The source repo ignores the same
+# output (its .gitignore: apps/web/e2e/.screenshots/).
+/e2e/
+
 # Auth storage state (contains session cookies — never commit)
 /playwright/.auth/
 .auth/
