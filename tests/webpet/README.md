@@ -104,6 +104,10 @@ Expected dev-failure classes are listed in the header of
 `webpet-e2e-dev.yml`; disable dev-incompatible tests via the runner file after
 the first baseline runs.
 
+**First dev baseline (2026-07-29): 319 passed / 47 failed / 22 skipped /
+19 did-not-run (56.5 m)** — full categorized failure list in
+[DEV-BASELINE-2026-07-29.md](DEV-BASELINE-2026-07-29.md).
+
 ## Migration notes (every deviation from the source repo)
 
 Byte-identical: 50 of 56 specs, `data-factory.ts`, `parent-picker-helpers.ts`,
