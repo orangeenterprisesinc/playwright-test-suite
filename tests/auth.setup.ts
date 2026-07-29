@@ -42,19 +42,51 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
         );
     }
 
+    // Registered before the click, or the response can arrive before anyone is
+    // listening. The predicate matches only a FAILED login, so this promise
+    // stays pending on a successful one and never competes with the redirect.
+    const failedLogin = page.waitForResponse(
+        (response) =>
+            /\/auth\/login\/?$/.test(new URL(response.url()).pathname) && !response.ok(),
+        { timeout: REDIRECT_TIMEOUT_MS },
+    );
+
     await loginPage.gotoPetTiger();
     await loginPage.loginPetTiger(userName, password);
 
-    // Wait for the redirect out of /login into the authenticated app shell —
-    // but race it against the app's own rejection message, because the two
-    // failures are indistinguishable from a bare navigation wait. Wrong
-    // credentials leave the browser sitting on /login exactly like a slow app
-    // does, so a plain waitForURL reports "Timeout ... waiting for navigation"
-    // for both, and a bad CI secret gets triaged as flakiness for hours.
+    // Clicking Login has three possible outcomes and only one is success, so
+    // watch for all of them. A bare waitForURL cannot tell them apart: wrong
+    // credentials, a 500 from the API, and a genuinely slow app all leave the
+    // browser sitting on /login, and all three report the same useless
+    // "Timeout ... waiting for navigation". That cost a CI run 4 minutes of
+    // retries to say nothing, when the API had already answered HTTP 500 in 4ms
+    // and the reason was sitting in its log.
     const redirected = page.waitForURL((url) => !url.toString().includes('/login'), {
         timeout: REDIRECT_TIMEOUT_MS,
     });
-    const rejected = loginPage.invalidCredentialsErrorMessage
+
+    // The HTTP status is the authoritative signal — it distinguishes "the app
+    // said no" from "the app broke" without depending on UI copy.
+    const apiRejected = failedLogin.then(async (response) => {
+        const status = response.status();
+        const body = (await response.text().catch(() => '')).trim().slice(0, 300);
+        const diagnosis =
+            status === 401 || status === 403
+                ? `The API rejected these credentials. Check USER_NAME/PASSWORD in your .env (locally) or ` +
+                  `the CI secrets for this environment.`
+                : `The API itself failed — this is NOT a test or credential problem. Check the API's own log ` +
+                  `(api.log in the runner workspace on CI, or the apps/api console locally); a schema mismatch ` +
+                  `between the app build and the local databases surfaces exactly like this.`;
+        throw new Error(
+            `Login POST returned HTTP ${status} for user "${userName}" ` +
+                `(TEST_ENV=${process.env.TEST_ENV || 'local'}). ${diagnosis}` +
+                (body ? ` Response body: ${body}` : ''),
+        );
+    });
+
+    // Kept as a backstop for an app that renders a rejection without failing the
+    // request, which no status check would catch.
+    const uiRejected = loginPage.invalidCredentialsErrorMessage
         .waitFor({ state: 'visible', timeout: REDIRECT_TIMEOUT_MS })
         .then(() => {
             throw new Error(
@@ -64,14 +96,14 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
             );
         });
 
-    // Whichever settles first decides the outcome. The loser stays pending and
-    // rejects later (on its own timeout, or when the context closes), so give
-    // both a no-op handler — Promise.race leaves the loser's rejection
-    // unhandled, which crashes the worker with an unhandled rejection.
-    redirected.catch(() => {});
-    rejected.catch(() => {});
+    // Whichever settles first decides the outcome. The losers stay pending and
+    // reject later (on their own timeout, or when the context closes), so give
+    // each a no-op handler — Promise.race leaves a loser's rejection unhandled,
+    // which crashes the worker.
+    const outcomes = [redirected, apiRejected, uiRejected];
+    for (const outcome of outcomes) outcome.catch(() => {});
 
-    await Promise.race([redirected, rejected]);
+    await Promise.race(outcomes);
 
     // Confirm a post-login landmark before persisting the session, so a session
     // that redirected but never actually rendered the shell is not saved.
