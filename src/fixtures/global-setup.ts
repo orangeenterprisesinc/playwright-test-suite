@@ -5,7 +5,7 @@
  * @since 1.0.0
  */
 
-import { FullConfig } from '@playwright/test';
+import { FullConfig, request } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
 import { isDbCleanupEnabled, runSql } from '../utils/db/sqlClient';
@@ -13,6 +13,18 @@ import fs from 'fs';
 import path from 'path';
 
 const AUTH_DIR = '.auth';
+
+/**
+ * Total budget for the warm-up probe, per target. Set `WARMUP_TIMEOUT_MS=0` to
+ * skip warm-up entirely (e.g. when pointing at an already-hot environment).
+ */
+const WARMUP_TIMEOUT_MS = Number(process.env.WARMUP_TIMEOUT_MS ?? 90_000);
+
+/** Per-attempt request budget — a cold app pool can sit on a socket for a while. */
+const WARMUP_ATTEMPT_TIMEOUT_MS = 15_000;
+
+/** Pause between probes, so a slow-starting server is not hammered. */
+const WARMUP_RETRY_DELAY_MS = 2_000;
 
 const USER_AUTH_FILE = path.join(AUTH_DIR, 'user.json');
 
@@ -88,9 +100,112 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     );
     logger.info('Reset allure-results and wrote categories.json');
 
+    await warmUpTargets(logger);
     await verifyDbReachable(logger);
 
     logger.info('Global setup completed');
+}
+
+/**
+ * Wait for the app (and the API, when it lives on another host) to actually
+ * answer before any test starts.
+ *
+ * A cold environment charges its start-up cost to whichever request arrives
+ * first, and that request is the auth-setup login. A CI run has been seen where
+ * `goto('/login')` alone took 28s and the login POST then blew the redirect
+ * wait, while the retry — against the now-warm app — loaded the same page in
+ * under a second. Paying that cost here instead means the cost lands on setup,
+ * where it is visible and harmless, rather than on a test with a deadline.
+ *
+ * Deliberately never throws: the probe is an optimisation, and a URL that
+ * answers oddly (or not at all) should not discard the run before the tests
+ * have had their say. auth-setup remains the real gate — it now reports a
+ * credential rejection distinctly from a slow app, so a genuine outage still
+ * fails loudly with an accurate message.
+ */
+async function warmUpTargets(logger: Logger): Promise<void> {
+    if (!Number.isFinite(WARMUP_TIMEOUT_MS) || WARMUP_TIMEOUT_MS <= 0) {
+        logger.info('Warm-up disabled (WARMUP_TIMEOUT_MS=0) — skipping the readiness probe');
+        return;
+    }
+
+    const candidates = [
+        { label: 'App', url: getConfigValue(ConfigProperties.APP_URL) },
+        { label: 'API', url: getConfigValue(ConfigProperties.API_URL) },
+    ];
+
+    // The SPA and the API can share a host (local) or be split across two
+    // (dev: S3 SPA + api.*), so probe by distinct origin — one GET per host is
+    // enough to wake it, and probing the same origin twice just wastes time.
+    const seenOrigins = new Set<string>();
+    const targets: Array<{ label: string; url: string }> = [];
+    for (const candidate of candidates) {
+        if (!candidate.url) continue;
+        let origin: string;
+        try {
+            origin = new URL(candidate.url).origin;
+        } catch {
+            logger.warn(`${candidate.label} URL is not parseable, skipping warm-up: ${candidate.url}`);
+            continue;
+        }
+        if (seenOrigins.has(origin)) continue;
+        seenOrigins.add(origin);
+        targets.push({ label: candidate.label, url: candidate.url });
+    }
+
+    if (targets.length === 0) {
+        logger.warn('No BASE_URL/API_URL configured — skipping the readiness probe');
+        return;
+    }
+
+    for (const target of targets) {
+        await probeUntilReady(logger, target.label, target.url);
+    }
+}
+
+/**
+ * Poll one URL until the server answers, or until the warm-up budget runs out.
+ *
+ * ANY HTTP status counts as ready — a 302 to /login, a 401, even a 404 on an
+ * API root all prove the server is listening and no longer cold, which is the
+ * only thing being established here. Redirects are followed on purpose: that
+ * lands on the login page and warms it too.
+ */
+async function probeUntilReady(logger: Logger, label: string, url: string): Promise<void> {
+    const context = await request.newContext({ ignoreHTTPSErrors: true });
+    const startedAt = Date.now();
+    const deadline = startedAt + WARMUP_TIMEOUT_MS;
+    let attempts = 0;
+    let lastError = 'none';
+
+    try {
+        while (Date.now() < deadline) {
+            attempts++;
+            try {
+                const response = await context.get(url, { timeout: WARMUP_ATTEMPT_TIMEOUT_MS });
+                const elapsed = Date.now() - startedAt;
+                // Log the elapsed time even on success: a multi-second number
+                // here is the cold-start signature, and seeing it is how you
+                // know the warm-up earned its keep on this run.
+                logger.info(
+                    `${label} ready in ${elapsed} ms (HTTP ${response.status()}, attempt ${attempts}) — ${url}`,
+                );
+                return;
+            } catch (error) {
+                lastError = error instanceof Error ? error.message.split('\n')[0] : String(error);
+                if (Date.now() + WARMUP_RETRY_DELAY_MS >= deadline) break;
+                await new Promise((resolve) => setTimeout(resolve, WARMUP_RETRY_DELAY_MS));
+            }
+        }
+
+        const detail = `${label} at ${url} did not answer within ${WARMUP_TIMEOUT_MS} ms (${attempts} attempt(s), last error: ${lastError}) — tests will run, but expect login/navigation timeouts`;
+        logger.warn(detail);
+        if (process.env.CI) {
+            console.log(`::warning::${detail}`);
+        }
+    } finally {
+        await context.dispose();
+    }
 }
 
 /**
