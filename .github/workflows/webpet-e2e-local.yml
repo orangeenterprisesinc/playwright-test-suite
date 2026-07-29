@@ -7,9 +7,8 @@ name: WebPet E2E (localhost, self-hosted)
 #   - the webpet Playwright projects are opt-in (playwright.config.ts only
 #     materializes them when WEBPET=1 / --project=webpet), so the existing
 #     e2e-local.yml run stays byte-identical and inside its 30-min budget;
-#   - this suite needs its own budget (timeout-minutes: 90) and cadence
-#     (nightly + manual — NOT on every push, and deliberately NOT on the
-#     run-playwright repository_dispatch the other two workflows share);
+#   - this suite needs its own budget (timeout-minutes: 90) and is manual-only
+#     (no schedule, no push, no repository_dispatch);
 #   - it shares the `e2e-local` concurrency group with e2e-local.yml so the
 #     two can never fight over ports 3000/8080 or the shared DelLlano DB on
 #     this single persistent machine.
@@ -21,13 +20,14 @@ name: WebPet E2E (localhost, self-hosted)
 #   See tests/webpet/README.md for the parity contract and triage docs.
 #
 # Secrets: reuses e2e-local.yml's APP_REPO_TOKEN / LOCAL_USER_NAME /
-# LOCAL_PASSWORD — nothing new to provision. LOCAL_PASSWORD must equal the
-# local API's PT_SU_PASSWORD or the webpet-setup admin login 401s.
+# LOCAL_PASSWORD — nothing new to provision. su's credential (WEBPET-1463,
+# 2026-07-25 retired the shared PT_SU_PASSWORD login secret) is reset directly
+# against TigerMaster.dbo.Users by the "Reset su's TigerMaster credential" step
+# below, same as e2e-local.yml — do NOT reintroduce an env-secret login path.
+# Manual-only: no schedule, no push, no repository_dispatch — only runs when
+# someone clicks "Run workflow" on the Actions tab (same posture as
+# e2e-local.yml, which it shares this machine/concurrency group with).
 on:
-  schedule:
-    # 2:00 AM IST nightly (GitHub cron is UTC; IST = UTC+5:30). Clear of
-    # e2e.yml's 10:30/12:30 UTC slots so reporting doesn't interleave.
-    - cron: '30 20 * * *'
   workflow_dispatch:
     inputs:
       grep:
@@ -38,8 +38,8 @@ on:
 # SAME group as e2e-local.yml — one persistent machine, one runner: a dispatch
 # of either workflow queues behind the other instead of racing it over ports
 # 3000/8080 and the DB. Note GitHub keeps at most one QUEUED run per group, so
-# a queued nightly can be superseded while another run is already waiting —
-# acceptable at this cadence; re-dispatch manually if it matters.
+# a second manual dispatch can supersede one still waiting in the queue —
+# re-dispatch manually if that happens and you still want it run.
 concurrency:
   group: e2e-local
   cancel-in-progress: false
@@ -86,7 +86,6 @@ jobs:
       MSSQL_DB: DelLlano
       MSSQL_ENCRYPT: 'false'
       MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
-      PT_SU_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
       # S3_ENDPOINT doubles as the gate for tests/webpet/employee-documents.spec.ts
       # (the spec only checks the var is non-empty) — part of the 362-pass baseline.
       S3_ENDPOINT: http://localhost:9000
@@ -122,7 +121,7 @@ jobs:
         run: |
           missing=()
           [ -z "${{ secrets.APP_REPO_TOKEN }}" ] && missing+=("APP_REPO_TOKEN")
-          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
+          [ -z "${{ env.PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
           if [ ${#missing[@]} -ne 0 ]; then
             echo "::error::Missing required secrets: ${missing[*]} — see the comment header in e2e-local.yml"
             exit 1
@@ -225,6 +224,20 @@ jobs:
             echo "Waiting for API... (${i}/30)"; sleep 2
           done
           echo "::error::API never became reachable on :8080 — is the SQLEXPRESS01 Windows service running?"; cat api.log; exit 1
+
+      # See e2e-local.yml for the full rationale (WEBPET-1463 retired the
+      # shared PT_SU_PASSWORD login secret) — this mirrors that step so su's
+      # credential can't drift out of sync with LOCAL_PASSWORD here either.
+      - name: Reset su's TigerMaster credential
+        shell: powershell
+        run: |
+          $password = "${{ secrets.LOCAL_PASSWORD }}".Replace("'", "''")
+          $query = "UPDATE TigerMaster.dbo.Users SET Password = '$password', PasswordHash = NULL, Salt = NULL, UpdateTime = GETDATE() WHERE Name = 'su' AND Deleted = 0;"
+          sqlcmd -S localhost,1433 -d master -C -b -l 10 -E -Q $query
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to reset su's TigerMaster credential (sqlcmd exit $LASTEXITCODE)"
+            exit 1
+          }
 
       - name: Wait for web on :3000
         run: |
