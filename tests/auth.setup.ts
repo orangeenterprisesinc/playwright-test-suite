@@ -42,16 +42,28 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
         );
     }
 
-    // Registered before the click, or the response can arrive before anyone is
-    // listening. The predicate matches only a FAILED login, so this promise
-    // stays pending on a successful one and never competes with the redirect.
+    await loginPage.gotoPetTiger();
+
+    // Registered after the page is up but BEFORE the click, so the response
+    // cannot land before anyone is listening.
+    //
+    // `timeout: 0` is load-bearing. This watcher is a notification, not a
+    // deadline — the redirect wait below owns the deadline. With a timeout of
+    // its own it can expire while the login form is still rendering, and since
+    // its handler is not attached until after loginPetTiger() returns, that
+    // rejection is unhandled and aborts the whole test with a phantom
+    // "waitForResponse timeout" that hides what was actually happening. A cold
+    // CI run did exactly that: the Email field took ~47s to appear and the
+    // real 500 never got a chance to be reported.
     const failedLogin = page.waitForResponse(
         (response) =>
             /\/auth\/login\/?$/.test(new URL(response.url()).pathname) && !response.ok(),
-        { timeout: REDIRECT_TIMEOUT_MS },
+        { timeout: 0 },
     );
+    // On a successful login this stays pending and then rejects when the
+    // context closes, so it needs a handler from the moment it exists.
+    failedLogin.catch(() => {});
 
-    await loginPage.gotoPetTiger();
     await loginPage.loginPetTiger(userName, password);
 
     // Clicking Login has three possible outcomes and only one is success, so
