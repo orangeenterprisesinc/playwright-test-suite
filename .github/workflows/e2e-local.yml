@@ -49,11 +49,15 @@ name: E2E (localhost, self-hosted)
 #      the self-hosted localhost (this) suite, with no change on the app repo.
 #      The two run on different runners (ubuntu-latest vs self-hosted), so they
 #      don't contend for this machine.
-#   2. push to this test repo's main — so test-suite changes self-validate.
+#   2. push to this test repo's main — so test-suite changes self-validate —
+#      and to dry-run, the staging branch for validating suite changes on the
+#      real runner before they reach main. A `push:` trigger is read from the
+#      pushed branch's own copy of this file, so dry-run has to be listed here
+#      (on that branch) or pushing to it silently runs nothing.
 #   3. workflow_dispatch — manual runs from the Actions tab.
 on:
   push:
-    branches: [main]
+    branches: [main, dry-run]
   repository_dispatch:
     types:
       - run-playwright
