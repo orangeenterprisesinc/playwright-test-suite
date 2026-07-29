@@ -58,6 +58,15 @@ on:
     types:
       - run-playwright
   workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only run tests matching this tag/pattern (e.g. @JourneyA, @A1, @Smoke). Blank = whole suite.'
+        required: false
+        default: ''
+      scope:
+        description: 'Customer scope from src/data/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
+        required: false
+        default: ''
 
 # Single persistent machine + one runner: serialize runs so a second dispatch
 # queues instead of racing the first over ports 3000/8080 and the shared DB.
@@ -282,8 +291,28 @@ jobs:
           done
           echo "::error::Web never became reachable on :3000"; cat web.log; exit 1
 
+      # Fails in seconds on a runner-data problem that would otherwise show up as a
+      # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
+      # spec claims, a category that disagrees with the spec's folder, an unknown
+      # segment or module, or a JSON mirror that has drifted from its CSV.
+      - name: Validate runner data and types
+        run: |
+          npm run runner:check
+          npm run typecheck
+
       - name: Run Playwright tests
-        run: npx playwright test
+        env:
+          # Narrow the run when dispatched with inputs; both are empty for
+          # scheduled/push/dispatch runs, which therefore behave exactly as before.
+          GREP: ${{ github.event.inputs.grep }}
+          TEST_SCOPE: ${{ github.event.inputs.scope }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtering to: $GREP"
+            npx playwright test --grep "$GREP"
+          else
+            npx playwright test
+          fi
 
       - name: Dump app logs
         if: always()

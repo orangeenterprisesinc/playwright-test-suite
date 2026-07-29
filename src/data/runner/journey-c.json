@@ -1,0 +1,215 @@
+{
+    "runnerManager": [
+        {
+            "id": "C1-001",
+            "workflow": "C1",
+            "journey": "C",
+            "category": "api",
+            "testName": "kioskClockIn",
+            "testTitle": "Kiosk clock-in",
+            "testDescription": "A worker clocks in at a fixed biometric kiosk that identifies them by iris, face, or finger, with badge or card fallback. Kiosks sit at fixed points such as a packing-house door or nursery entrance.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C2-001",
+            "workflow": "C2",
+            "journey": "C",
+            "category": "api",
+            "testName": "kioskClockOut",
+            "testTitle": "Kiosk clock-out",
+            "testDescription": "A worker clocks out at the kiosk by the same identification, closing the work period. On request they can be shown their day's recorded times and pieces.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C3-001",
+            "workflow": "C3",
+            "journey": "C",
+            "category": "api",
+            "testName": "mealStartAndEndWithEnforcement",
+            "testTitle": "Meal start and end with enforcement",
+            "testDescription": "The kiosk records the unpaid meal's start and mandatory return and prevents an early return, since a short or late meal owes a penalty hour. This is the highest-compliance kiosk interaction.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C4-001",
+            "workflow": "C4",
+            "journey": "C",
+            "category": "api",
+            "testName": "multiKioskMealHandoff",
+            "testTitle": "Multi-kiosk meal handoff",
+            "testDescription": "A worker who starts a meal at one kiosk and ends it at another is reconciled because the kiosks exchange the pair directly through the device mailbox, not via the server. Packing houses have the steady connectivity this relies on.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Connectivity",
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C5-001",
+            "workflow": "C5",
+            "journey": "C",
+            "category": "api",
+            "testName": "buddyPunchPrevention",
+            "testTitle": "Buddy-punch prevention",
+            "testDescription": "Biometric identity at the punch stops ghost and buddy punches; where a worker cannot enroll and uses a card, the kiosk captures a photo instead. The photo-capture fallback needs Picture Verification.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C6-001",
+            "workflow": "C6",
+            "journey": "C",
+            "category": "api",
+            "testName": "subCrewTablesCapture",
+            "testTitle": "Sub-crew (\"tables\") capture",
+            "testDescription": "Workers in a large crew are grouped into tables of three to five under a shared supervisor, and output can be reported per table or rolled to the crew. A table is a reporting grouping, not a separate data structure.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C7-001",
+            "workflow": "C7",
+            "journey": "C",
+            "category": "api",
+            "testName": "pieceBySizeCaptureAtLine",
+            "testTitle": "Piece-by-size capture at line",
+            "testDescription": "Packed pieces are recorded against jobs that differentiate size or grade, so pay and output break down by pack type. Each size or grade is its own job.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C8-001",
+            "workflow": "C8",
+            "journey": "C",
+            "category": "api",
+            "testName": "caseToEmployeeStickerLink",
+            "testTitle": "Case-to-employee sticker link",
+            "testDescription": "Scanning a packed case's sticker links that case to the employee who packed it, the traceability backbone at the line. Pallet-level linkage (case to pallet) is a separate capability the product does not yet close.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C9-001",
+            "workflow": "C9",
+            "journey": "C",
+            "category": "api",
+            "testName": "timeoutQuestionsAtKiosk",
+            "testTitle": "Timeout questions at kiosk",
+            "testDescription": "At clock-out the kiosk asks compliance and safety questions; an unexpected answer emails the crew's notification user and leaves a signed acknowledgment. Same mechanism as the field timeout questions (B12), at a fixed kiosk.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Time Card Questions",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "C10-001",
+            "workflow": "C10",
+            "journey": "C",
+            "category": "api",
+            "testName": "kioskButtonModeHandling",
+            "testTitle": "Kiosk button-mode handling",
+            "testDescription": "Kiosks run a 2-, 4-, or 6-button layout; the minimal 2-button layout forces workers to treat Start Lunch as End Work, which generates office corrections. Four buttons is the recommended default.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        }
+    ]
+}

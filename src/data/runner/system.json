@@ -1,0 +1,56 @@
+{
+    "runnerManager": [
+        {
+            "id": "UI-001",
+            "category": "ui",
+            "testName": "loginWithValidCredentials",
+            "testTitle": "Login succeeds with valid credentials",
+            "testDescription": "Verify a valid user logs in and reaches the authenticated shell — the search menu and welcome message are visible.",
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "UI-002",
+            "category": "ui",
+            "testName": "loginWithInvalidPassword",
+            "testTitle": "Login fails with an invalid password",
+            "testDescription": "Verify login is rejected when the username is valid but the password is wrong, and the invalid-credentials error is shown.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "UI-003",
+            "category": "ui",
+            "testName": "loginWithInvalidUsername",
+            "testTitle": "Login fails with an invalid username",
+            "testDescription": "Verify login is rejected when the username is invalid, and the invalid-credentials error is shown.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "UI-004",
+            "category": "ui",
+            "testName": "loginWithInvalidUsernameAndPassword",
+            "testTitle": "Login fails with invalid username and password",
+            "testDescription": "Verify login is rejected when both the username and password are invalid, and the invalid-credentials error is shown.",
+            "tags": [
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": true
+        }
+    ]
+}

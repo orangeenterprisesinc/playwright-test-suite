@@ -20,8 +20,8 @@
  * const minimal = makeUser();               // defaults from the data file
  * ```
  */
-import { userSetupData as userData } from '../../data/userSetupData';
-import type { NewUserData } from '../../pages/UsersPage';
+import { userSetupData as userData } from '../../data/journey-a/userSetupData';
+import type { NewUserData } from '../../pages/admin/UsersPage';
 import { randomInitials, uid } from './random';
 
 /**

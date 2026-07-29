@@ -17,9 +17,23 @@ const path = require('node:path');
 const [envName = 'local', ...args] = process.argv.slice(2);
 const cli = path.join(__dirname, '..', 'node_modules', '@playwright', 'test', 'cli.js');
 
+// The migrated web-pet projects are conditional in playwright.config.ts
+// (see WEBPET_ENABLED). The runner process would detect `--project=webpet`
+// on its own argv, but worker processes re-load the config with a different
+// argv — exporting WEBPET=1 keeps the project list identical everywhere.
+const wantsWebpet = args.some(
+    (arg, i) =>
+        arg.startsWith('--project=webpet') ||
+        (arg === '--project' && (args[i + 1] ?? '').startsWith('webpet')),
+);
+
 const result = spawnSync(process.execPath, [cli, 'test', ...args], {
     stdio: 'inherit',
-    env: { ...process.env, TEST_ENV: process.env.TEST_ENV || envName },
+    env: {
+        ...process.env,
+        TEST_ENV: process.env.TEST_ENV || envName,
+        ...(wantsWebpet ? { WEBPET: '1' } : {}),
+    },
 });
 
 process.exit(result.status === null ? 1 : result.status);

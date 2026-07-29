@@ -24,6 +24,23 @@ When the user pastes a scenario into chat, make the **smallest runnable change s
 
 If the live code and older documentation disagree, trust the **live code**.
 
+### Catalog workflows — folder, id and tags
+
+This suite automates the PET Tiger Workflow Catalog (69 workflows, journeys A–F).
+Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
+generating anything, and follow the conventions in the `ui-script-generator` skill's
+"Catalog workflows" section — they apply to every category:
+
+- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
+  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
+  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
+  Copy `segments` and `modules` onto the row from the catalog entry — they drive
+  `TEST_SCOPE` filtering.
+- **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
+- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Finish with**: `npm run runner:sync && npm run runner:check`.
+
 ### Repository structure
 
 - API specs: `tests/api/*.spec.ts` (import from `src/fixtures/api.fixture`)
@@ -31,8 +48,8 @@ If the live code and older documentation disagree, trust the **live code**.
 - Auth layer: `src/auth/*` — `authContextFactory.ts` (`buildAuthContextOptions()`), `requestBuilder.ts` (`executeWithAuthRetry`, `HttpMethod`, `RequestOptions`), `authorizationManager.ts` (token cache)
 - Response assertions: `src/utils/apiResponseUtils.ts` (`verifyJsonKeyValues`)
 - Config/env access: `src/enums/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
-- Runner test data (data-driven rows): `src/data/runnerManager.json` / `src/data/runnerManager.csv`
-- Module test data (small per-module values): `src/data/<module>-data.json`
+- Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
+- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts`
 - Environments: `env.local` / `env.dev` / `env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
 
 ### Test structure rules — standard Playwright only
@@ -99,7 +116,7 @@ Preferred sources of values, in order:
 
 1. the user's scenario
 2. existing nearby specs in `tests/api`
-3. the module data file (`src/data/<module>-data.json`) for module-specific values
+3. the module data file (`src/data/journey-<x>/<name>Data.ts`) for module-specific values
 4. `testCaseData` for data-driven values
 5. `getConfigValue(...)` / `process.env` for environment and auth values
 6. neutral placeholders in examples when showing structure only
@@ -112,9 +129,9 @@ Same three mutually-exclusive modes as the rest of the suite:
 
 - ID that maps to a row `id` → `test.use({ testCaseId: 'API-00X' })`
 - logical name that maps to `testName` → `test.use({ testCaseName: '...' })`
-- otherwise non-data-driven; put small values in `src/data/<module>-data.json` and import directly
+- otherwise non-data-driven; put small values in `src/data/journey-<x>/<name>Data.ts` and import directly
 
-Only when a `testCaseId`/`testCaseName` option is set may a spec destructure `testCaseData` (from `api.fixture` too — the option fixtures are inherited). Runner rows live in `src/data/runnerManager.json` **and** `src/data/runnerManager.csv` — keep both in sync, use `category: "api"` and an `API-00X` id, tags are pipe-delimited, and set `enabled: true`. Add a real row for the spec you generate (follow the existing `UI-*`/`USR-*` rows as the shape reference).
+Only when a `testCaseId`/`testCaseName` option is set may a spec destructure `testCaseData` (from `api.fixture` too — the option fixtures are inherited). Runner rows live in `src/data/runner/journey-<x>.csv` (authored; run `npm run runner:sync` to regenerate the `.json` mirror) — keep both in sync, use `category: "api"` and an `API-00X` id, tags are pipe-delimited, and set `enabled: true`. Add a real row for the spec you generate (follow the existing `A1-*` rows in `src/data/runner/journey-a.csv` as the shape reference).
 
 ### Running
 
@@ -145,7 +162,7 @@ Return only these sections (write `None` where unused):
 - spec lives under `tests/api/`, imports from `api.fixture`, tagged `@API`
 - correct auth path chosen (`authGet`/`authPost`/`executeWithAuthRetry` vs plain calls) for the endpoint
 - `url` is relative to `API_URL`; no host, no hardcoded ids/secrets
-- `testCaseId`/`testCaseName`/non-data-driven choice is correct; `testCaseData` only used when a row is selected; runnerManager JSON and CSV kept in sync
+- `testCaseId`/`testCaseName`/non-data-driven choice is correct; `testCaseData` only used when a row is selected; `npm run runner:check` passes (it proves the JSON mirror matches the CSV)
 - `verifyJsonKeyValues` used with a raw `APIResponse`, not the `ApiHelper` result
 - no unused destructured fixtures (`tsc --noEmit` stays clean)
 - generated code runs without manual correction (`npm run typecheck`, `npx playwright test --project=api --list`)

@@ -26,7 +26,7 @@
  */
 import type {DataProviderResult, DataSourceType, IDataReader, RunnerData, TestCaseData} from '../types';
 import {type DataSourceConfig, getDataSourceConfig} from '../config/dataSource.config';
-import {CsvDataReader, JsonDataReader} from './dataReaders';
+import {CsvDataReader, JsonDataReader, MultiFileDataReader} from './dataReaders';
 import {Logger} from './logger';
 
 /**
@@ -198,6 +198,13 @@ export class DataProvider {
      * @private
      */
     private getDirectReader(sourceType: DataSourceType): IDataReader {
+        // Normal path: the per-journey files under src/data/runner/ read as one
+        // combined set. A DATA_FILE_PATH_* override clears `useRunnerDir` and
+        // falls through to the single-file readers below.
+        if (this.config.useRunnerDir) {
+            return new MultiFileDataReader(this.config.runnerDir, sourceType, this.config.sheetName);
+        }
+
         switch (sourceType) {
             case 'json':
                 return new JsonDataReader(this.config.jsonPath, this.config.sheetName);

@@ -1,0 +1,303 @@
+name: WebPet E2E (localhost, self-hosted)
+
+# Runs the MIGRATED web-pet suite (tests/webpet — 406 tests, ~48 min at
+# workers:1) against a locally-booted PET Tiger stack, using the exact same
+# boot machinery as e2e-local.yml. Kept as a separate workflow on purpose:
+#
+#   - the webpet Playwright projects are opt-in (playwright.config.ts only
+#     materializes them when WEBPET=1 / --project=webpet), so the existing
+#     e2e-local.yml run stays byte-identical and inside its 30-min budget;
+#   - this suite needs its own budget (timeout-minutes: 90) and cadence
+#     (nightly + manual — NOT on every push, and deliberately NOT on the
+#     run-playwright repository_dispatch the other two workflows share);
+#   - it shares the `e2e-local` concurrency group with e2e-local.yml so the
+#     two can never fight over ports 3000/8080 or the shared DelLlano DB on
+#     this single persistent machine.
+#
+# Localhost acceptance baseline (from the source repo, apps/web/e2e):
+#   362 passed / 18 skipped / 26 failed. The 26 failures and 18 skips are the
+#   suite's own known state (seed gaps, deferred features, opt-in equiv specs)
+#   — treat DELTAS from that baseline as regressions, not the raw red count.
+#   See tests/webpet/README.md for the parity contract and triage docs.
+#
+# Secrets: reuses e2e-local.yml's APP_REPO_TOKEN / LOCAL_USER_NAME /
+# LOCAL_PASSWORD — nothing new to provision. LOCAL_PASSWORD must equal the
+# local API's PT_SU_PASSWORD or the webpet-setup admin login 401s.
+on:
+  schedule:
+    # 2:00 AM IST nightly (GitHub cron is UTC; IST = UTC+5:30). Clear of
+    # e2e.yml's 10:30/12:30 UTC slots so reporting doesn't interleave.
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only run webpet tests matching this pattern (e.g. employee, "Billing Center"). Blank = whole suite.'
+        required: false
+        default: ''
+
+# SAME group as e2e-local.yml — one persistent machine, one runner: a dispatch
+# of either workflow queues behind the other instead of racing it over ports
+# 3000/8080 and the DB. Note GitHub keeps at most one QUEUED run per group, so
+# a queued nightly can be superseded while another run is already waiting —
+# acceptable at this cadence; re-dispatch manually if it matters.
+concurrency:
+  group: e2e-local
+  cancel-in-progress: false
+
+jobs:
+  webpet-e2e-local:
+    name: WebPet Playwright E2E (localhost)
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      TEST_ENV: local
+      BASE_URL: http://localhost:3000
+      API_URL: http://localhost:8080/api
+      # The framework's own credentials (auth-setup is not part of this run,
+      # but global setup/teardown and env plumbing expect them present).
+      USER_NAME: ${{ secrets.LOCAL_USER_NAME }}
+      PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      # The migrated suite's admin login (tests/webpet/support/provision.ts and
+      # notifications.spec.ts read these directly — same values as above).
+      E2E_ADMIN_USER: ${{ secrets.LOCAL_USER_NAME }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      # Materializes the webpet projects in every process (runner + workers).
+      # Belt-and-braces with the --project=webpet CLI flag below.
+      WEBPET: '1'
+      # Reporting is opt-in via repo variables (shared with the other workflows).
+      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # apps/api config — mirrors e2e-local.yml (Windows Integrated Auth to the
+      # local SQL Server Express; MinIO + Gotenberg via compose.dev.yml).
+      API_PORT: '8080'
+      MSSQL_SERVER: localhost
+      MSSQL_PORT: '1433'
+      MSSQL_DB: DelLlano
+      MSSQL_ENCRYPT: 'false'
+      MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
+      PT_SU_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
+      # S3_ENDPOINT doubles as the gate for tests/webpet/employee-documents.spec.ts
+      # (the spec only checks the var is non-empty) — part of the 362-pass baseline.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: pet-tiger-dev
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET: minioadmin
+      S3_USE_PATH_STYLE: 'true'
+      PT_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      npm_config_fetch_retries: '5'
+      npm_config_fetch_retry_mintimeout: '20000'
+      npm_config_fetch_retry_maxtimeout: '120000'
+
+    steps:
+      # See e2e-local.yml for the full rationale on each boot step — this file
+      # deliberately mirrors it so fixes land in both.
+      - name: Ensure Git Bash (not WSL) wins PATH resolution
+        shell: powershell
+        run: '"C:\Program Files\Git\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append'
+
+      - name: Free ports 3000/8080 (leftover from a previous run)
+        shell: powershell
+        run: |
+          foreach ($port in 3000,8080) {
+            Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "Killing PID $($_.OwningProcess) on port $port"
+                Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+      - name: "Guard: required secrets present"
+        run: |
+          missing=()
+          [ -z "${{ secrets.APP_REPO_TOKEN }}" ] && missing+=("APP_REPO_TOKEN")
+          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]} — see the comment header in e2e-local.yml"
+            exit 1
+          fi
+
+      - name: "Guard: Docker Desktop must be running"
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker Desktop isn't running on this machine. Start it, wait for it to finish starting, then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Checkout test suite
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Checkout web-pet app
+        uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/web-pet
+          token: ${{ secrets.APP_REPO_TOKEN }}
+          path: app
+          clean: false
+
+      # The suite's data assumptions (crew names, department clones, module
+      # rows…) live in tests/webpet/seed/delllano-e2e-seed.sql — idempotent and
+      # safe to re-apply every run (it opens with USE DelLlano). Without it,
+      # ~27 extra failures appear after any DelLlano refresh. -b fails the step
+      # loudly on any SQL error; sqlcmd authenticates as the runner service's
+      # own Windows account, same as the framework's SQL cleanup.
+      - name: Apply DelLlano e2e seed (idempotent)
+        run: sqlcmd -S localhost -b -i "$GITHUB_WORKSPACE/tests/webpet/seed/delllano-e2e-seed.sql"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+
+      - name: Install web-pet dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Install test-suite deps
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --prefer-offline --no-audit --no-fund && exit 0
+            echo "::warning::npm ci attempt ${attempt} failed — retrying in 15s"
+            sleep 15
+          done
+          echo "::error::npm ci failed after 3 attempts (see log above)"; exit 1
+
+      - name: Install Playwright browsers
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps && exit 0
+            echo "::warning::playwright install attempt ${attempt} failed — retrying in 15s"
+            sleep 15
+          done
+          echo "::error::playwright install failed after 3 attempts"; exit 1
+
+      - name: Start MinIO + Gotenberg (compose.dev.yml)
+        working-directory: app
+        run: docker compose -f compose.dev.yml up -d
+
+      - name: Wait for MinIO + Gotenberg
+        run: |
+          for i in $(seq 1 30); do
+            minio_ok=$(curl -sf http://localhost:9000/minio/health/live > /dev/null && echo yes || echo no)
+            gotenberg_ok=$(curl -sf http://localhost:3010/health > /dev/null && echo yes || echo no)
+            if [ "$minio_ok" = "yes" ] && [ "$gotenberg_ok" = "yes" ]; then
+              echo "MinIO + Gotenberg healthy after ${i} attempt(s)"; exit 0
+            fi
+            echo "Waiting for MinIO/Gotenberg... (${i}/30) minio=$minio_ok gotenberg=$gotenberg_ok"; sleep 2
+          done
+          echo "::error::MinIO/Gotenberg never became healthy"; exit 1
+
+      - name: Build API
+        working-directory: app/apps/api
+        run: go build -o "$GITHUB_WORKSPACE/api-server.exe" ./cmd/server
+
+      - name: Start API (background)
+        working-directory: app/apps/api
+        run: |
+          nohup "$GITHUB_WORKSPACE/api-server.exe" > "$GITHUB_WORKSPACE/api.log" 2>&1 &
+          disown
+
+      - name: Start web (background)
+        working-directory: app
+        run: |
+          nohup pnpm --filter @pet-tiger/web dev -- --port 3000 --strictPort \
+            > "$GITHUB_WORKSPACE/web.log" 2>&1 &
+          disown
+
+      - name: Wait for API on :8080
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/api/health > /dev/null && { echo "API up after ${i} attempt(s)"; exit 0; }
+            echo "Waiting for API... (${i}/30)"; sleep 2
+          done
+          echo "::error::API never became reachable on :8080 — is the SQLEXPRESS01 Windows service running?"; cat api.log; exit 1
+
+      - name: Wait for web on :3000
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > /dev/null && { echo "Web up after ${i} attempt(s)"; exit 0; }
+            echo "Waiting for web... (${i}/30)"; sleep 2
+          done
+          echo "::error::Web never became reachable on :3000"; cat web.log; exit 1
+
+      # Non-blocking drift alarm: the gate is fail-open by design (an unknown
+      # test runs rather than skips), so drift never eats coverage — but it
+      # should be visible. webpet:runner:sync regenerates the file.
+      - name: Validate webpet runner data (drift alarm)
+        continue-on-error: true
+        run: npm run webpet:runner:check
+
+      - name: Run webpet Playwright tests
+        env:
+          GREP: ${{ github.event.inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtering to: $GREP"
+            npx playwright test --project=webpet --grep "$GREP"
+          else
+            npx playwright test --project=webpet
+          fi
+
+      - name: Dump app logs
+        if: always()
+        run: |
+          echo "── api.log ──"; cat api.log || true
+          echo "── web.log ──"; cat web.log || true
+
+      - name: Stop API + web
+        if: always()
+        shell: powershell
+        run: |
+          foreach ($port in 3000,8080) {
+            Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "Killing PID $($_.OwningProcess) on port $port"
+                Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+      - name: Stop MinIO + Gotenberg
+        if: always()
+        run: |
+          if [ -f app/compose.dev.yml ]; then
+            (cd app && docker compose -f compose.dev.yml down -v)
+          fi
+
+      - name: Set up Java (for Allure report generation)
+        if: always()
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Generate Allure report
+        if: always()
+        run: node scripts/generate-allure-report.js
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webpet-playwright-report
+          path: playwright-report
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webpet-allure-report
+          path: allure-report

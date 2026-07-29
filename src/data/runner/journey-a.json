@@ -1,0 +1,395 @@
+{
+    "runnerManager": [
+        {
+            "id": "A1-001",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "endToEndCreateVerifyEditDeleteUser",
+            "testTitle": "End-to-end: create a user, verify it in the Users list, edit it, then delete it",
+            "testDescription": "Verify the full user lifecycle — create a user with all fields, confirm it is listed, open it for edit, then delete it and confirm it is gone.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A1-002",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createUserWithAllFields",
+            "testTitle": "Create a user with all fields populated",
+            "testDescription": "Verify that an administrator user can be created with all fields populated and appears in the Users list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A1-003",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createUserWithRequiredFieldsOnly",
+            "testTitle": "Create a user with only the required fields",
+            "testDescription": "Verify that a user can be created with only the required fields.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A1-004",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "everyRoleSelectableCreateNonAdmin",
+            "testTitle": "Every Role option is selectable and a non-administrator user can be created",
+            "testDescription": "Verify that every Role option is selectable and a user can be created with a non-administrator role.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A1-005",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "rejectDuplicateInitials",
+            "testTitle": "Creating a user with an Initials value already in use is rejected",
+            "testDescription": "Verify that creating a user with an Initials value already in use is rejected.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A2-001",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ranchFieldCropAndVarietySetup",
+            "testTitle": "Ranch, field, crop, and variety setup",
+            "testDescription": "Build the ranch and field location hierarchy that field capture, pay, and reporting hang off, along with the crop and variety records jobs reference. Every setup record carries a database-unique barcode and an accounting export identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A3-001",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "jobSetupAndEarningCodes",
+            "testTitle": "Job setup and earning codes",
+            "testDescription": "Define each job's payment type, rates, overtime rule, and the earning codes the payroll export depends on. Payment type drives which fields are active and how the job pays.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A4-001",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "crewSetup",
+            "testTitle": "Crew setup",
+            "testDescription": "Define each crew with its department, supervisor, badge color, defaults, and the auto-break, exercise, and notification behavior that shapes capture and pay. Crew-level settings override global preferences.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A5-001",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "employeeSetup",
+            "testTitle": "Employee setup",
+            "testDescription": "Create each employee with identity, badges, home crew, pay, meal waivers, and compliance data; the employee record is the most linked record in the system and the anchor for traceability. The record itself is core, while specific compliance fields unlock with their modules.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A6-001",
+            "workflow": "A6",
+            "journey": "A",
+            "category": "api",
+            "testName": "biometricEnrollment",
+            "testTitle": "Biometric enrollment",
+            "testDescription": "Enroll employees on iris or face (preferred) or fingerprint so kiosks can identify them, with card or badge fallback for those who cannot enroll. The detailed enrollment-capture sequence is library-limited.",
+            "segments": [
+                "pack-house",
+                "nursery",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Bio-Identification",
+                "Connectivity"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A7-001",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "scanDeviceRegistrationAndDataScoping",
+            "testTitle": "Scan device registration and data scoping",
+            "testDescription": "Create the device record, set its type and login, push setup to it, and scope which crews, employees, fields, and jobs it receives.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A8-001",
+            "workflow": "A8",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gpsFieldBoundaryMapping",
+            "testTitle": "GPS field boundary mapping",
+            "testDescription": "Draw each field's boundary so it displays on maps and dashboards and so the captured area and a GPS stamp are available. Mapping is a separately licensed module.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Mapping"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A9-001",
+            "workflow": "A9",
+            "journey": "A",
+            "category": "ui",
+            "testName": "pieceOutAndStickerRollConfiguration",
+            "testTitle": "Piece-out and sticker-roll configuration",
+            "testDescription": "Configure the office-side settings that make field piece capture work: the piece method (sticker roll versus badge) and the piece-out preferences that bound each scan. The day-start sticker-roll assignment itself is a field action (see B4).",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment",
+                "Electronic Token",
+                "Traceability - Stickers"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A10-001",
+            "workflow": "A10",
+            "journey": "A",
+            "category": "ui",
+            "testName": "overtimeComplianceAndPenaltyRuleSetup",
+            "testTitle": "Overtime, compliance, and penalty rule setup",
+            "testDescription": "Configure the overtime rules and the meal and break penalty rule that drive compliant pay, selected from templates during the setup interview.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A11-001",
+            "workflow": "A11",
+            "journey": "A",
+            "category": "ui",
+            "testName": "preferencesConfiguration",
+            "testTitle": "Preferences configuration",
+            "testDescription": "Set the program preferences that govern capture and calculation, including decimal precision and the accounting export format; these are deep, precedence-ordered settings best left support-gated.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A12-001",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "equipmentSetup",
+            "testTitle": "Equipment setup",
+            "testDescription": "Register equipment for cost accounting, contractor billing, and hours-of-use tracking; this is asset tracking, not payroll.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A13-001",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "employeeOnboardingFormsConfiguration",
+            "testTitle": "Employee onboarding forms configuration",
+            "testDescription": "Configure the government and company forms employees complete and sign at hire, and the form sets that apply per situation. Included for catalog completeness; parked for Anthony.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "A14-001",
+            "workflow": "A14",
+            "journey": "A",
+            "category": "ui",
+            "testName": "deviceInterfaceAndBehaviorConfiguration",
+            "testTitle": "Device interface and behavior configuration",
+            "testDescription": "Tune what a device shows and how it behaves: button labels via alias sets, device preferences, and the clock-out questions that route to a notification user.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Notification",
+                "Time Card Questions"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        }
+    ]
+}

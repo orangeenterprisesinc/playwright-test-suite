@@ -1,5 +1,5 @@
-import { expect, test } from '../../../src/fixtures/base.fixture';
-import { loginModuleData } from '../../../src/data/loginModuleData';
+import { expect, test } from '@fixtures/base.fixture';
+import { loginModuleData } from '@data/system/loginModuleData';
 
 // The login module must always start from a logged-out state, so discard any
 // stored authentication for every test in this file.
@@ -10,7 +10,10 @@ test.use({
     }
 });
 
-test.describe('Login Tests', { tag: '@login' }, () => {
+// Login is not a catalog workflow — it is the gate every journey starts behind
+// (catalog A1 step 5, "Verify login"), so it lives under tests/ui/system/ and
+// carries `@System` rather than a journey tag.
+test.describe('Login Tests', { tag: ['@System', '@login'] }, () => {
 
     test('[Login] Verify that the user cannot log on with an invalid password.', {
         tag: ['@UI', '@Local'],

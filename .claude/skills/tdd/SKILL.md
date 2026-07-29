@@ -23,7 +23,7 @@ acceptance criteria; page objects and fixtures are built to make it pass.
      because the page object doesn't exist yet).
 
 2. **Green — implement the minimum**
-   - Create the page object in `src/pages/`, extending `BasePage` with
+   - Create the page object in `src/pages/<area>/`, extending `SetupScreenPage` for a list+form screen or `BasePage` otherwise, with
      `pageUrl`, `pageTitle`, semantic locators, and the methods the spec
      needs — nothing more.
    - Register it as a fixture in `src/fixtures/base.fixture.ts` (follow the
@@ -45,8 +45,26 @@ acceptance criteria; page objects and fixtures are built to make it pass.
   page object or raise the discrepancy with the user.
 - Authenticated flows start from storageState (`.auth/user.json`); only
   login-module tests reset storage state to logged-out.
-- Data values come from `src/data/<module>-data.json` or runnerManager
+- Data values come from `src/data/journey-<x>/<name>Data.ts` or runnerManager
   rows — never hardcoded into the spec (see /data-driven-testing).
 - Verification gates before declaring done: `npm run typecheck`,
   `npx playwright test --list`, and a real run of the new spec against
   the local stack when it is available.
+
+### Catalog workflows — folder, id and tags
+
+This suite automates the PET Tiger Workflow Catalog (69 workflows, journeys A–F).
+Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
+generating anything, and follow the conventions in the `ui-script-generator` skill's
+"Catalog workflows" section — they apply to every category:
+
+- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
+  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
+  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
+  Copy `segments` and `modules` onto the row from the catalog entry — they drive
+  `TEST_SCOPE` filtering.
+- **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
+- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Finish with**: `npm run runner:sync && npm run runner:check`.
+

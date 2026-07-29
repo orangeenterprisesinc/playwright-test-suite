@@ -1,0 +1,1772 @@
+{
+    "source": "PET-Tiger-Workflow-Catalog.docx",
+    "journeys": [
+        {
+            "id": "A",
+            "title": "Setup and configuration (office)"
+        },
+        {
+            "id": "B",
+            "title": "Field harvest day (mobile field capture)"
+        },
+        {
+            "id": "C",
+            "title": "Pack-house day (fixed-site kiosk capture)"
+        },
+        {
+            "id": "D",
+            "title": "Daily office processing (the engine)"
+        },
+        {
+            "id": "E",
+            "title": "Weekly payroll close and export"
+        },
+        {
+            "id": "F",
+            "title": "Analysis and monitoring"
+        }
+    ],
+    "modules": [
+        "Anonymous Workers",
+        "Batch Processing",
+        "Bio-Identification",
+        "Bonus Payment",
+        "Bulk Data Entry",
+        "Connectivity",
+        "Contract Labor",
+        "Cost Accounting",
+        "Department",
+        "Document",
+        "Driver Tracking",
+        "Electronic Token",
+        "Equipment",
+        "Field Printer",
+        "Fuel",
+        "GIS API",
+        "Grower Billing",
+        "H2A",
+        "Harvest",
+        "Human Resources",
+        "Inventory",
+        "Irrigation",
+        "Load",
+        "Mapping",
+        "Measurement",
+        "Network",
+        "Non Labor Time Cards",
+        "Notification",
+        "Office Attendance",
+        "Onboarding",
+        "Paid Sick",
+        "Paid Vacation",
+        "Packing",
+        "Pallet Tracking",
+        "Picture Verification",
+        "Piece Payment",
+        "Piece Removal",
+        "Real Time",
+        "Real Time Dashboard",
+        "Scale",
+        "Schedule",
+        "Signature",
+        "Time Card Questions",
+        "Time Sheet Entry",
+        "Traceability - Crew",
+        "Traceability - Items",
+        "Traceability - Stickers",
+        "Training",
+        "Verification",
+        "Windows",
+        "Windows Scanning",
+        "Work Order",
+        "Yard Load"
+    ],
+    "segments": [
+        "grower",
+        "perennial-grower",
+        "pack-house",
+        "nursery",
+        "flc"
+    ],
+    "workflows": [
+        {
+            "id": "A1",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "License, serial number, and user setup",
+            "surface": "ui",
+            "summary": "Stand up the instance with the correct serial and module set, then create office users and roles and confirm support access. The serial governs which modules are enabled and the ceilings on users, devices, databases, and personal devices.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "steps": [
+                "Provision the instance and database.",
+                "Apply the serial (the PET Setup generator encodes concurrent users, handheld devices, databases, personal devices, and module flags) so the right modules and limits are active.",
+                "Confirm enabled modules and limits, noting licensed users are office staff only while field workers are covered by device licenses.",
+                "Create users under File → Administration → Users, assign Administrator or limited roles, and grant per-user permissions (employee rates, multi-edit, multi-delete, modify locked job cards, view SSN or I9).",
+                "Verify login."
+            ],
+            "variations": "serial generation today runs through the legacy PET Setup (Delphi) tool.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A2",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Ranch, field, crop, and variety setup",
+            "surface": "ui",
+            "summary": "Build the ranch and field location hierarchy that field capture, pay, and reporting hang off, along with the crop and variety records jobs reference. Every setup record carries a database-unique barcode and an accounting export identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Create each ranch (name, department, export identifier) under Input → Setup → Ranch.",
+                "Create crops and varieties, each with its own export identifier, under Input → Setup → Crop/Variety or inline by double-clicking the dropdown.",
+                "Add fields under each ranch (name, state which can link a state minimum-wage record, acres, crop, variety) under Input → Setup → Field.",
+                "Capture the field GPS boundary where Mapping is licensed (see A8).",
+                "Confirm each barcode auto-assigns (at least 4 digits, no leading zero, unique across the whole database) and that records sync to devices."
+            ],
+            "variations": "perennial-grower fields are multi-year blocks (vines, trees) not replanted seasonally; a pack-house location may be a facility or a line. Only one record should exist with the given Name in each screen. Barcode should be unique throughout the database. Multiple Field records with the same name can exist assigned to different Ranches. Multiple Variety records with the same name can exist assigned to different Crops.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A3",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Job setup and earning codes",
+            "surface": "ui",
+            "summary": "Define each job's payment type, rates, overtime rule, and the earning codes the payroll export depends on. Payment type drives which fields are active and how the job pays.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "steps": [
+                "Create the job (name plus optional Spanish alias for device display) under Input → Setup → Jobs.",
+                "Set payment type (time, piece, time and piece, idle, non-labor, bonus); piece fields lock for time-only jobs and the reverse.",
+                "Set hourly rate (zero means use minimum wage), or piece rate and minimum pieces per hour.",
+                "Set the required overtime rule and the \"consider employee rate\" option.",
+                "Enter earning codes (comma-separated RT,RP,OT,OP,DT,DP, leaving positions empty for unused piece codes) so the export matches the accounting system.",
+                "Assign crop and job group; job groups, created under Input → Setup → Job Group, also drive which jobs a device receives."
+            ],
+            "variations": "grower and perennial-grower use piece jobs for harvest; pack-house uses piece-by-size jobs plus hourly line jobs.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A4",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Crew setup",
+            "surface": "ui",
+            "summary": "Define each crew with its department, supervisor, badge color, defaults, and the auto-break, exercise, and notification behavior that shapes capture and pay. Crew-level settings override global preferences.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "steps": [
+                "Create the crew (name, barcode, department, supervisor, badge color for printed badges, default job, ranch, and field) under Input → Setup → Crew.",
+                "Set auto-break (all jobs, piece-only, or time-only) and the auto-return-from-break duration.",
+                "Set the auto exercise rule (a short exercise period that Transfer splits off the first job card).",
+                "Set break and meal notification thresholds and the notification user emailed on a missed break.",
+                "Set the day-start definition for crews whose shift spans midnight."
+            ],
+            "variations": "pack-house crews split into sub-crews (\"tables\").",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A5",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Employee setup",
+            "surface": "ui",
+            "summary": "Create each employee with identity, badges, home crew, pay, meal waivers, and compliance data; the employee record is the most linked record in the system and the anchor for traceability. The record itself is core, while specific compliance fields unlock with their modules.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Create the employee (name, gender, date of birth, home crew, export identifier, hire, release, and authorized-until dates) under Input → Setup → Employee.",
+                "Set the Rate tab (hourly rate when above minimum, pay frequency) and the Time-card-defaults tab (default job, ranch, field).",
+                "Set Agreements-tab meal waivers (first meal waivable at six hours or less, second at twelve or less).",
+                "Record badges (barcode or RFID, language) and the Iris-tab biometric enrollment status; an employee may hold several badge types at once.",
+                "Capture Additional-tab W4 and I9 (and H2A or paid-sick fields) where those modules are enabled.",
+                "Confirm day-start and earliest-start time (which blocks early clock-ins) and that the new record syncs to devices via the Post Office."
+            ],
+            "variations": "seasonal operations deactivate and later reactivate the workforce, which preserves badge assignments; W4 and I9 capture and field hiring require Onboarding, Human Resources, and Document (see A13).",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A6",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Biometric enrollment",
+            "surface": "device",
+            "summary": "Enroll employees on iris or face (preferred) or fingerprint so kiosks can identify them, with card or badge fallback for those who cannot enroll. The detailed enrollment-capture sequence is library-limited.",
+            "segments": [
+                "pack-house",
+                "nursery",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Bio-Identification",
+                "Connectivity"
+            ],
+            "steps": [
+                "Open enrollment on a biometric or onboarding device.",
+                "Capture iris or face (preferred: faster, no hand positioning, less worker hesitation) or fingerprint.",
+                "Confirm the enrollment status on the employee Iris tab.",
+                "Issue an RFID card or barcode badge as fallback where enrollment fails, and enable photo capture to deter buddy punching.",
+                "Verify recognition, siting kiosks away from direct or changing light."
+            ],
+            "variations": "none.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A7",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Scan device registration and data scoping",
+            "surface": "ui",
+            "summary": "Create the device record, set its type and login, push setup to it, and scope which crews, employees, fields, and jobs it receives.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "steps": [
+                "Create the device under File → Administration → Scan Devices and Boards (Name, a 3-character reference prefix that tags time-card references, and a web mail that serves as the device username and initial password with the company as domain).",
+                "Never reuse a web mail across devices, which causes data loss.",
+                "Set the device type (pocket crew device, personal device, finger, face or iris, or onboarding).",
+                "Push setup with Export to Device, or in bulk via Connectivity → Export → Setup to Scan Devices, and set an Auto-initialize time for a daily automatic push.",
+                "Scope the device's data (all or selected crews, employees, fields, and jobs by job group)."
+            ],
+            "variations": "personal devices go to individual workers (drivers, irrigators); pocket devices serve a checker scanning many workers.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A8",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "GPS field boundary mapping",
+            "surface": "ui",
+            "summary": "Draw each field's boundary so it displays on maps and dashboards and so the captured area and a GPS stamp are available. Mapping is a separately licensed module.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Mapping"
+            ],
+            "steps": [
+                "From the field setup screen, click Capture to open the map.",
+                "Draw a rectangle with the square tool, or click boundary points for an irregular shape.",
+                "Click Save Region; the GPS coordinates and computed area save to the field record.",
+                "Confirm the boundary displays on the map dashboard."
+            ],
+            "variations": "none.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A9",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Piece-out and sticker-roll configuration",
+            "surface": "ui",
+            "summary": "Configure the office-side settings that make field piece capture work: the piece method (sticker roll versus badge) and the piece-out preferences that bound each scan. The day-start sticker-roll assignment itself is a field action (see B4).",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment",
+                "Electronic Token",
+                "Traceability - Stickers"
+            ],
+            "steps": [
+                "Enable the piece modules (Piece Payment, plus Electronic Token and Traceability - Stickers for sticker rolls).",
+                "Set piece-out global preferences: default pieces per scan (typically 1), with maximum and minimum per scan to block fat-finger entries.",
+                "Choose the piece method per operation (sticker roll for throughput, or badge scan).",
+                "Confirm piece-eligible jobs exist (payment type piece or time and piece, see A3) so each piece-out matches a job card."
+            ],
+            "variations": "there is no separate office sticker-range screen; ranges are established by the day-start assignment in the field (B4); pack-house assigns at the line.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A10",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Overtime, compliance, and penalty rule setup",
+            "surface": "ui",
+            "summary": "Configure the overtime rules and the meal and break penalty rule that drive compliant pay, selected from templates during the setup interview.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department"
+            ],
+            "steps": [
+                "Select the overtime template for the customer's state or states (for example California daily at eight and ten plus weekly at forty, or California and Nevada).",
+                "Create the meal and break penalty rule under File → Administration → Setup Penalty Rule (name, penalty job, required net hours).",
+                "Create the penalty job (payment type Non Labor, with an earning code, or the export fails).",
+                "Enable the rule under Preferences → Jobs.",
+                "Apply overtime rules via the job or department and validate against a sample."
+            ],
+            "variations": "multi-state operators apply per-state rules through Department; a weekly exception can apply to part-time employees.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A11",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Preferences configuration",
+            "surface": "ui",
+            "summary": "Set the program preferences that govern capture and calculation, including decimal precision and the accounting export format; these are deep, precedence-ordered settings best left support-gated.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Open File → Administration → Preferences.",
+                "Set capture and calculation options (decimal precision of two, three, or four places; the highlight color for manually edited records; time-card colors).",
+                "Set the Accounting-tab export format and summary level (daily versus detailed).",
+                "Save and sync to devices, remembering crew-level settings override general preferences."
+            ],
+            "variations": "cloud recommendation is to lock preferences from customers (support-gated).",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A12",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Equipment setup",
+            "surface": "ui",
+            "summary": "Register equipment for cost accounting, contractor billing, and hours-of-use tracking; this is asset tracking, not payroll.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "steps": [
+                "Create the equipment record under Input → Setup → Equipment.",
+                "Attach a barcode, NFC, or RFID tag.",
+                "Use the record for asset depreciation, farm-labor-contractor billing, or hours-of-use reporting."
+            ],
+            "variations": "none.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A13",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Employee onboarding forms configuration",
+            "surface": "ui",
+            "summary": "Configure the government and company forms employees complete and sign at hire, and the form sets that apply per situation. Included for catalog completeness; parked for Anthony.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "steps": [
+                "Confirm company data on Global Preferences → Company and employer data on the user account, both of which pre-populate forms.",
+                "Select the form set (New, Reinstatement, or state-specific) and the government forms (W4, I9, DE4) and company forms (policies, safety, Notice to Employee).",
+                "Request any custom form field-mappings from support, since customers cannot edit forms directly.",
+                "Export forms to the onboarding device; signed forms store on the employee Documents tab."
+            ],
+            "variations": "returning employees use a reduced reinstatement set.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "A14",
+            "journey": "A",
+            "journeyTitle": "Setup and configuration (office)",
+            "title": "Device interface and behavior configuration",
+            "surface": "ui",
+            "summary": "Tune what a device shows and how it behaves: button labels via alias sets, device preferences, and the clock-out questions that route to a notification user.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Notification",
+                "Time Card Questions"
+            ],
+            "steps": [
+                "Build an alias set (duplicate a default, hide buttons by setting their alias to \"none\", add Spanish labels), assign it to the device, and export.",
+                "Set device preferences: activate-all-items-in-scan-mode, allow-edit-date-and-time, barcode scanner type, record-time-card-coordinates (needs Mapping), verify-minimum-meal-length, and biometric picture verification (needs Picture Verification).",
+                "Configure the clock-out question set (allowed responses, required answer, optional signature); an unexpected answer emails the crew's notification user.",
+                "Use multi-edit to apply changes across many devices, then bulk-export."
+            ],
+            "variations": "kiosks commonly run a 4-button layout; a 2-button layout causes meal-versus-work ambiguity (see C10).",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B1",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Crew time-in",
+            "surface": "device",
+            "summary": "A supervisor clocks an entire crew into a field and job from one screen, unchecking anyone absent. This is the fast path for the bulk of field workers at the start of the day.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "core"
+            ],
+            "steps": [
+                "On the device, select field, job, and crew.",
+                "The device lists the crew roster.",
+                "Uncheck any members who are absent.",
+                "Record the crew time-in; time, GPS, assignment, and the participating roster are captured.",
+                "Data syncs to the office."
+            ],
+            "variations": "individuals not on the crew, or late arrivals, are clocked in individually (B3).",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B2",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Crew move and job change",
+            "surface": "device",
+            "summary": "Move the whole crew to a new field or job mid-day with one action, carrying everyone who moved. The prior job is automatically closed for those members.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "steps": [
+                "Select the new field or job and the work crew.",
+                "The device lists the crew; uncheck anyone who did not move.",
+                "Save; the move is recorded and the prior job is auto-timed-out for moved members."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B3",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Individual time-in and duplicate-range correction",
+            "surface": "device",
+            "summary": "Clock in a single worker by badge or biometric (start of day, late arrival, or a fix), with same-scan correction inside the duplicate range. A rescan with corrected data within the window overwrites rather than duplicates.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "steps": [
+                "Scan the employee badge or use biometric, with field and job selected.",
+                "If a corrected rescan (for example the right job) lands within the duplicate range, it overwrites the prior record.",
+                "Outside the range, a new record is created instead."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B4",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Sticker-roll assignment at day start",
+            "surface": "device",
+            "summary": "Link an employee to the sticker number range they will use for the day so later case scans attribute to them. The checker scans the roll's first sticker, then the badge.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers"
+            ],
+            "steps": [
+                "The employee places the first sticker of their roll on the back of their badge.",
+                "The checker scans the first sticker, then the employee badge.",
+                "A confirmation tone saves the link; the employee owns that sticker prefix, and the rest of each number identifies the case."
+            ],
+            "variations": "pack-house assigns at the line.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B5",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Sticker piece-out",
+            "surface": "device",
+            "summary": "The checker scans completed-case stickers to record each piece and attribute it to the employee by sticker prefix. Workers keep moving rather than queueing at the checker.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment",
+                "Traceability - Stickers"
+            ],
+            "steps": [
+                "The worker attaches the next sequential sticker to a finished case.",
+                "The checker scans the case sticker.",
+                "One piece records for the employee linked to that prefix, bounded by the default, minimum, and maximum pieces-per-scan preferences, with a confirmation tone."
+            ],
+            "variations": "pack-house scans at the line; the device can show running counts by employee, field, or job.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B6",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Badge piece-out",
+            "surface": "device",
+            "summary": "Record a piece by scanning the employee's badge when stickers are not used, which is lower throughput because the worker waits at the checker.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "steps": [
+                "The worker brings a finished case to the checker.",
+                "The checker scans the badge.",
+                "A piece records; a second scan of the same badge within the duplicate range is ignored."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B7",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Undefined-employee reconciliation",
+            "surface": "device",
+            "summary": "Stickers scanned on a different device than the one that assigned them record as undefined, then attribute to the employee by sticker prefix at sync. Records still undefined after sync need manual office correction.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers",
+                "Piece Payment"
+            ],
+            "steps": [
+                "A second checker scans case stickers with no employee context (recorded as undefined).",
+                "On sync, the server matches each sticker prefix to that day's assignment.",
+                "Pieces attribute to the right employee; any still-undefined records are flagged for the office."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B8",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Crew piece-out",
+            "surface": "device",
+            "summary": "Record a single piece total for a crew whose output is counted collectively (for example a machine line with ground pickers), with per-person distribution deferred. The split to individuals happens at Transfer to Job Card.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "steps": [
+                "Record the crew's total pieces (time cards show the crew total).",
+                "Distribution to individual members is deferred to Transfer to Job Card (D9)."
+            ],
+            "variations": "pack-house uses this for machine crews supported by ground pickers.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B9",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Paid break (rest and recovery)",
+            "surface": "device",
+            "summary": "Capture a paid rest break, which by law records that the break was given but needs no return punch. The program supplies the configured length and returns the worker to the prior job.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "steps": [
+                "Record the break start.",
+                "The program applies the configured break length (typically 10 minutes) from the crew record or preference.",
+                "The worker is auto-returned to the prior job with no return punch required."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B10",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Meal start and end (field)",
+            "surface": "device",
+            "summary": "Capture an unpaid meal, which by law requires both a start and a return punch and a minimum length. Devices can enforce the minimum so an early return does not trigger a penalty.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "steps": [
+                "Record the meal start.",
+                "Record the meal end; the return punch is mandatory.",
+                "Where verify-minimum-meal-length is set, an early return (under 30 minutes) is blocked or flagged."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B11",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Crew-out to individual time-outs",
+            "surface": "device",
+            "summary": "One crew-out at end of day expands into an individual time-out for every active member. Workers who left early were already timed out individually.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "steps": [
+                "The supervisor records a single crew-out.",
+                "The program creates an individual time-out for each still-active member (the reference shows CO).",
+                "Early leavers are unaffected, having timed out earlier."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B12",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Time-out questions to notification",
+            "surface": "device",
+            "summary": "At clock-out the worker answers compliance and safety questions; an unexpected answer emails the crew's notification user and leaves a signed acknowledgment. The question set and expected answers are configured in device setup (A7, A14).",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Time Card Questions",
+                "Notification",
+                "Signature"
+            ],
+            "steps": [
+                "The worker answers the timeout questions.",
+                "An answer outside the expected response is flagged during import.",
+                "The real-time service emails the designated notification user and records the signed acknowledgment."
+            ],
+            "variations": "none",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B13",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Field receipt printing",
+            "surface": "device",
+            "summary": "Print an in-field receipt of a worker's recorded time or pieces; rarely used in practice. Requires a field printer and token paper.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Field Printer",
+                "Electronic Token"
+            ],
+            "steps": [
+                "Select display or print for the worker.",
+                "Print the receipt."
+            ],
+            "variations": "rarely used.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B14",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Real-time field dashboard",
+            "surface": "ui",
+            "summary": "Watch live crew productivity and cost in the field on a web dashboard built from a report. The page refreshes on an interval and opens on a phone or browser.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time Dashboard",
+                "Real Time"
+            ],
+            "steps": [
+                "Open the dashboard link.",
+                "View pieces, speed, and cost, refreshed at the configured interval."
+            ],
+            "variations": "none",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "B15",
+            "journey": "B",
+            "journeyTitle": "Field harvest day (mobile field capture)",
+            "title": "Device sync and offline operation",
+            "surface": "device",
+            "summary": "Devices capture all day without connectivity and reconcile with the office by syncing, a core differentiator for low-coverage fields. End-of-day sync clears the device, so it is done only when recording is finished.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "steps": [
+                "The device records time cards and pieces locally, working with no cell coverage.",
+                "When connected, each record can export in real time; otherwise it holds.",
+                "At end of day, Sync exports all records, imports setup, and clears the device.",
+                "Mid-day, Import pulls setup updates (new employees, jobs) without clearing time cards.",
+                "The office pulls the queued data via the Post Office (D1)."
+            ],
+            "variations": "kiosks and packing houses, with steadier connectivity, sync more often.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C1",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Kiosk clock-in",
+            "surface": "device",
+            "summary": "A worker clocks in at a fixed biometric kiosk that identifies them by iris, face, or finger, with badge or card fallback. Kiosks sit at fixed points such as a packing-house door or nursery entrance.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "steps": [
+                "The worker presents iris, face, or finger at the kiosk (or scans a badge or card).",
+                "The kiosk identifies the worker and records the time-in.",
+                "Confirmation feedback plays."
+            ],
+            "variations": "lighting affects iris and face, so site kiosks out of direct or changing light.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C2",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Kiosk clock-out",
+            "surface": "device",
+            "summary": "A worker clocks out at the kiosk by the same identification, closing the work period. On request they can be shown their day's recorded times and pieces.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "steps": [
+                "The worker is identified biometrically (or by badge or card).",
+                "The kiosk records the time-out.",
+                "On request, a supervisor uses Display plus a badge scan to show the worker their times and pieces."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C3",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Meal start and end with enforcement",
+            "surface": "device",
+            "summary": "The kiosk records the unpaid meal's start and mandatory return and prevents an early return, since a short or late meal owes a penalty hour. This is the highest-compliance kiosk interaction.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "steps": [
+                "The worker records the meal start.",
+                "The kiosk blocks or flags a return before the 30-minute minimum.",
+                "The worker records the meal end, with the return punch mandatory."
+            ],
+            "variations": "paid rest breaks, where used, are captured on the break buttons of a 6-button layout and need no return punch.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C4",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Multi-kiosk meal handoff",
+            "surface": "device",
+            "summary": "A worker who starts a meal at one kiosk and ends it at another is reconciled because the kiosks exchange the pair directly through the device mailbox, not via the server. Packing houses have the steady connectivity this relies on.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Connectivity",
+                "Bio-Identification"
+            ],
+            "steps": [
+                "Set to No the preference Server Notifies Other Devices.",
+                "Create a Scan Device Group that includes all the devices where the employee can use to start and end lunches.",
+                "The worker records meal start on kiosk A.",
+                "The worker records meal end on kiosk B.",
+                "The kiosks reconcile the start-and-end pair through the mailbox so the meal is complete."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C5",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Buddy-punch prevention",
+            "surface": "device",
+            "summary": "Biometric identity at the punch stops ghost and buddy punches; where a worker cannot enroll and uses a card, the kiosk captures a photo instead. The photo-capture fallback needs Picture Verification.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "steps": [
+                "The kiosk requires biometric identity at each punch.",
+                "If a worker uses an RFID card instead, the kiosk captures a photo to deter buddy punching."
+            ],
+            "variations": "photo capture requires Picture Verification; biometric identity alone needs only Bio-Identification.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C6",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Sub-crew (\"tables\") capture",
+            "surface": "device",
+            "summary": "Workers in a large crew are grouped into tables of three to five under a shared supervisor, and output can be reported per table or rolled to the crew. A table is a reporting grouping, not a separate data structure.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Assign workers to a table under a supervisor.",
+                "Capture time and pieces by table.",
+                "Report by table or roll up to the full crew via a report parameter."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C7",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Piece-by-size capture at line",
+            "surface": "device",
+            "summary": "Packed pieces are recorded against jobs that differentiate size or grade, so pay and output break down by pack type. Each size or grade is its own job.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "steps": [
+                "Define size and grade jobs (see A3).",
+                "Capture pieces by size at the line.",
+                "Pay by piece at each size's rate; the device can group counts by packing size or job."
+            ],
+            "variations": "none",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C8",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Case-to-employee sticker link",
+            "surface": "device",
+            "summary": "Scanning a packed case's sticker links that case to the employee who packed it, the traceability backbone at the line. Pallet-level linkage (case to pallet) is a separate capability the product does not yet close.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers"
+            ],
+            "steps": [
+                "Assign a sticker range to the employee (see B4).",
+                "Scan each case sticker at the line.",
+                "The case links to the employee by sticker prefix, recorded in the traceability table with crop, grade, and size where used."
+            ],
+            "variations": "pallet-level linkage (associating cases to a pallet to pinpoint the employee) requires Pallet Tracking and Packing and is not yet a closed link.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C9",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Timeout questions at kiosk",
+            "surface": "device",
+            "summary": "At clock-out the kiosk asks compliance and safety questions; an unexpected answer emails the crew's notification user and leaves a signed acknowledgment. Same mechanism as the field timeout questions (B12), at a fixed kiosk.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Time Card Questions",
+                "Notification"
+            ],
+            "steps": [
+                "The worker answers the questions at clock-out.",
+                "An answer outside the expected response is flagged on import.",
+                "The real-time service emails the notification user and stores the signed acknowledgement."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "C10",
+            "journey": "C",
+            "journeyTitle": "Pack-house day (fixed-site kiosk capture)",
+            "title": "Kiosk button-mode handling",
+            "surface": "device",
+            "summary": "Kiosks run a 2-, 4-, or 6-button layout; the minimal 2-button layout forces workers to treat Start Lunch as End Work, which generates office corrections. Four buttons is the recommended default.",
+            "segments": [
+                "pack-house",
+                "nursery"
+            ],
+            "modules": [
+                "Bio-Identification"
+            ],
+            "steps": [
+                "Configure the button layout (2, 4, or 6) via the alias set (see A14).",
+                "Workers capture in and out, and meal or break, on the configured buttons.",
+                "The office corrects the in-and-out ambiguity a 2-button layout creates."
+            ],
+            "variations": "4-button is recommended; 6-button adds Start and End Break for paid breaks.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D1",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Post Office sync",
+            "surface": "ui",
+            "summary": "Pull the day's field and kiosk records into the office instance through the Orange Post Office before any processing. Confirm every device has reported so no crew is missing from the transfer.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "steps": [
+                "Devices export their records to the Post Office (real time through the day, or a full end-of-day sync).",
+                "In the office, run Connectivity → Import Internet to pull the queued data.",
+                "Confirm each expected device and crew has reported before transferring."
+            ],
+            "variations": "a mid-day Import pulls new records without waiting for end of day.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D2",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Exception review",
+            "surface": "ui",
+            "summary": "Open the Transfer to Job Card screen and review the day's cached time cards for flagged exceptions before committing anything. Nothing is written to the database yet, so errors can be caught and fixed first.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Open Input → Transfer to Job Card and select the crew (the end date defaults to the last untransferred day).",
+                "On the Time Cards tab, review records where exceptions are highlighted (for example a first record that is a piece-out, no job, a missing meal return, an unknown employee, or a duplicate).",
+                "Reorder columns to surface patterns and scan for anomalies the program did not flag."
+            ],
+            "variations": "a configured customer also sees a start date, which risks skipping a day.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D3",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Add missing time-in and correct time card",
+            "surface": "ui",
+            "summary": "Fix the flagged exceptions on the time card tab, most commonly a missing time-in ahead of a piece-out. Corrections are made on time cards, never on job cards, so they survive a later re-transfer.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Select the record showing the exception (for example the first piece-out).",
+                "Right-click and choose Add Time In; the new record inherits crew, date, and employee as a template.",
+                "Set the time and any missing field or job, and save.",
+                "Confirm the exception clears."
+            ],
+            "variations": "other fixes include adding a missing job, adding a meal return, or deleting a duplicate.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D4",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Transfer to Job Card",
+            "surface": "ui",
+            "summary": "Run the transfer to convert the reviewed time cards into job cards and compute gross pay, one crew at a time, every day. This is the heart of the program and the basis for all pay and analysis.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "With exceptions cleared, run the transfer for the selected crew.",
+                "The program builds job cards (periods of time) from the time cards (points of time) and calculates gross pay.",
+                "Review the Job Cards tab totals (gross and net time, regular, overtime, double time, pieces, amounts) for wrong totals or missing employees.",
+                "Commit."
+            ],
+            "variations": "night-shift work spanning midnight can be forced to start a new day where the program wrongly treats it as a continuation; a user-defined report can be displayed from this screen.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D5",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Reverse and redo",
+            "surface": "ui",
+            "summary": "Reverse a committed transfer to return job cards to time cards, fix the underlying data, then re-transfer. Use this when the time card data itself is wrong, not when only a rate changed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Click Reverse on the Transfer screen; the job cards are deleted and the records return to time cards.",
+                "Correct the time cards (not the job cards).",
+                "Re-run the transfer."
+            ],
+            "variations": "legitimate triggers include a late-found missing time card, a wrong crew job, an export-identifier mismatch, or a bad group piece-out distribution.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D6",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Recalculate after setup change",
+            "surface": "ui",
+            "summary": "Recalculate existing job cards to pick up a rate or setup change made after they were created, without deleting them. This differs from reverse, which throws the job cards away.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Change the pay rate or setup record (for example a piece rate from one dollar to two).",
+                "Run Recalculate; the program revisits the records that feed the calculation and updates the existing job cards.",
+                "Confirm the new totals."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D7",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Multi-edit",
+            "surface": "ui",
+            "summary": "Change one field across many records at once, for example reassigning the job on a batch of cards. Permissions gate who can multi-edit.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Select the records or set a filter (for example a job, an employee, or a time range).",
+                "Apply the multi-edit change.",
+                "Confirm; the change writes across all matching records."
+            ],
+            "variations": "also used to toggle the exported-to-payroll flag in bulk.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D8",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Delete to recycle and restore",
+            "surface": "ui",
+            "summary": "Deleted records are soft-deleted to a recycle bin, excluded from reports but recoverable, so a mistaken delete is reversible. A separate multi-delete restore protects against an interrupted bulk delete.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Delete a record; it is flagged deleted (a field set true), kept in the database, and excluded from reports.",
+                "To recover, open File → Administration → Switch to Deleted Records Restore Mode and restore the record (one at a time).",
+                "Never interrupt a multi-delete, which writes a restore file used to recover the batch."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D9",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Group piece-out distribution",
+            "surface": "calc",
+            "summary": "A crew piece-out captured as one total is distributed to individual members during the transfer. If the split is wrong, reverse and redistribute.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "steps": [
+                "The transfer reads the crew piece-out total (from B8).",
+                "It distributes the pieces across the participating crew members.",
+                "If the distribution is wrong (wrong count or a missing member), reverse, correct the pieces, and re-transfer."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "D10",
+            "journey": "D",
+            "journeyTitle": "Daily office processing (the engine)",
+            "title": "Exercise and auto-break split",
+            "surface": "calc",
+            "summary": "The transfer auto-splits the first job card into a short exercise segment plus the remaining work, and supplies a break job card when only a break start was recorded, both per the crew record. These rules turn one field record into the correct paid segments.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "The transfer detects the crew's first-job exercise rule and splits the first time-in into an exercise job card plus the work job card.",
+                "Where only a break start exists, it creates a break job card of the configured length (typically 10 minutes) and returns the worker to the prior job.",
+                "The resulting decimal-hour rounding is reconciled at close (see E6)."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E1",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Weekly regular-rate averaging",
+            "surface": "calc",
+            "summary": "Compute each employee's regular rate, the weekly average hourly rate across all hours worked, which is the base for overtime and paid-break pay. For piece-rate workers it differs per person and changes every day as pieces accumulate.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Sum the week's total pay and total hours worked, excluding the overtime premium itself.",
+                "Divide to get the regular rate.",
+                "Recompute any pay that depends on it (paid breaks, the overtime premium) as the week's totals change."
+            ],
+            "variations": "piece-rate workers each have a distinct rate that shifts daily; fixed-hourly workers are stable.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E2",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "California daily overtime",
+            "surface": "calc",
+            "summary": "Apply California daily overtime: time-and-a-half after 8 hours and double time after 10 in a workday, computed on the regular rate. The two overtime types must be tagged distinctly for the export.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Compute the day's net hours.",
+                "Pay the first 8 at regular, hours 8 to 10 at 1.5x the regular rate, and beyond 10 at 2x.",
+                "Tag federal-daily overtime separately from state-weekly overtime for the export, since only federal-daily may be income-tax-exempt."
+            ],
+            "variations": "state-specific thresholds apply via Department; the prior California rule (overtime only after 10) is superseded.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E3",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Weekly overtime",
+            "surface": "calc",
+            "summary": "Apply weekly overtime after 40 regular hours in the workweek, alongside the daily rule. The two interact so hours are not counted twice.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Total the week's regular hours.",
+                "Pay hours beyond 40 at the overtime rate where not already counted as daily overtime."
+            ],
+            "variations": "a weekly exception can apply different treatment to part-time employees.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E4",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Break-premium recalculation",
+            "surface": "calc",
+            "summary": "Recompute paid-break pay as the weekly average rate moves through the week, since breaks are paid at that average. This is circular: a new day's pieces change the average, which changes prior breaks, which changes the weekly total.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "On each day's calculation, revisit the week's prior paid breaks.",
+                "Re-price them at the updated weekly average rate.",
+                "Iterate until the totals stabilize."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E5",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Weekly minimum-wage guarantee on piece",
+            "surface": "calc",
+            "summary": "Guarantee that piece-rate earnings meet at least minimum wage averaged across the week, topping up if they fall short. A single day below minimum is acceptable if the week as a whole clears it.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment",
+                "Windows"
+            ],
+            "steps": [
+                "Total the week's piece pay and hours worked.",
+                "Compare the implied hourly to the applicable minimum wage.",
+                "Add a make-up amount where the weekly average falls below minimum."
+            ],
+            "variations": "minimum wage can be overridden per field via a state-specific wage record.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E6",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Decimal-rounding reconciliation",
+            "surface": "calc",
+            "summary": "Reconcile the day's minute total to decimal hours so a full 8-hour day reads 8.00, not 7.99, since minutes convert to repeating decimals. The fix adjusts the day's last job card.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Sum the day's worked minutes and, separately, the decimal hours across that day's job cards.",
+                "Where the two differ, apply the small correction to the last job card.",
+                "Set decimal precision (2, 3, or 4 places) in preferences to reduce visible drift."
+            ],
+            "variations": "multiple jobs in a day make placement of the correction more involved.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E7",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Meal-penalty calculation",
+            "surface": "calc",
+            "summary": "Detect short, late, or missed meals against the California thresholds and add a one-hour penalty on a Non Labor penalty job, honoring any waivers. The penalty job carries its own earning code so it exports cleanly.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Evaluate each day's meals against the rule (one meal for 5 to 10 net hours, a second for 10 to 15; meals at least 30 minutes; first meal due before the fifth hour).",
+                "Trigger a penalty for a short (under 30), late (after 5 hours), or missing meal, unless a valid waiver applies (first meal waivable at six hours or less, second at twelve or less, never both past the enforced threshold).",
+                "Add a one-hour penalty job card with its earning code and record the reason in the calculation description."
+            ],
+            "variations": "a parallel break rule covers paid rest breaks (one for 3.5 to 6 hours, two beyond 6).",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E8",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Finalize gross pay",
+            "surface": "ui",
+            "summary": "Confirm every crew has transferred cleanly for the week and treat the job cards as the payroll basis. The payroll summary report is the usual final check.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Confirm all crews and days are transferred with no open exceptions.",
+                "Review the payroll summary (net regular, overtime, double time, pieces, paid pieces, amounts) by employee and day.",
+                "Treat the week's job cards as final for export."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E9",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Payroll export file",
+            "surface": "ui",
+            "summary": "Generate the payroll file in the customer's accounting format and hand it to the accounting system, which runs its own paycheck calculation. Always preview with a test file first to catch missing earning codes.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Set the format and summary level under Preferences → Accounting (Famous, ADP, DataTech, QuickBooks, Paychex, or Compute; daily or detailed).",
+                "Open Export to Accounting, select the last start date, and filter by employee, crew, department, or ranch.",
+                "Run the Test File and fix any flagged gaps (for example a penalty job missing a regular-time earning code).",
+                "Export; the file is written for the accounting admin to import."
+            ],
+            "variations": "format and earning codes differ per customer; a database backup before a large export is recommended.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E10",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Export-identifier matching",
+            "surface": "ui",
+            "summary": "Ensure every job's export identifier matches a phase or cost center in the accounting system, the single most common export failure. A mismatch rejects that job's records.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Confirm each job's export identifier matches the accounting code, not the job name.",
+                "On a rejection, either fix the identifier in Pet Tiger and reverse-then-re-export, or add the missing code in the accounting system first.",
+                "Re-run the test file before re-exporting."
+            ],
+            "variations": "if job cards were already transferred with a bad identifier, reverse the job cards, fix, re-transfer, then export.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E11",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Reverse export",
+            "surface": "ui",
+            "summary": "Undo a completed export so its job cards can be corrected and re-exported, distinct from simply re-sending the same file. Reversing un-marks the cards; re-sending just pushes the file again.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Open File → Restore → Reverse Export to Accounting and select the export by date and user.",
+                "Confirm; every job card in that export returns to exported-to-payroll = no.",
+                "Correct the data and export again."
+            ],
+            "variations": "a network or wrong-folder failure needs only a re-send, not a reverse.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E12",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "H2A offered-hours reporting",
+            "surface": "calc",
+            "summary": "Track and report offered versus worked hours for H2A visa workers separately, as their guarantee requires. Parked for Anthony (H2A module off).",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "H2A"
+            ],
+            "steps": [
+                "Capture offered hours alongside hours actually worked.",
+                "Report the two separately for H2A workers, including for the accounting export."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "E13",
+            "journey": "E",
+            "journeyTitle": "Weekly payroll close and export",
+            "title": "Department and multi-state overtime split",
+            "surface": "calc",
+            "summary": "Apply different overtime rules and group results by department, which is how multi-state operators run per-state rules. Anthony uses departments even within a single state.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Department"
+            ],
+            "steps": [
+                "Assign jobs and crews to departments.",
+                "Apply each department's overtime rule during calculation.",
+                "Group and report results by department."
+            ],
+            "variations": "multi-state operators map each state to a department; confirm single-state applicability with the account.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F1",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Real-time productivity dashboard",
+            "surface": "ui",
+            "summary": "Turn a report into a live web dashboard of crew output, speed, and cost that refreshes on an interval. Managers keep it open on a phone or browser to watch the day unfold.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Real Time Dashboard",
+                "Real Time"
+            ],
+            "steps": [
+                "Select or build the underlying report (for example pieces and cost by crew).",
+                "Configure it as a dashboard and set the refresh interval (as often as every minute).",
+                "Open or share the generated web-page URL; it auto-refreshes."
+            ],
+            "variations": "numeric or map-based presentation (the map needs Mapping, see F2).",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F2",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Map-based dashboard",
+            "surface": "ui",
+            "summary": "Show a live map of labor, equipment, and productivity by field, drawn from the field boundaries captured in setup. Useful for seeing where crews are and how each field is progressing.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Mapping",
+                "Real Time Dashboard"
+            ],
+            "steps": [
+                "Enable the map dashboard.",
+                "View labor, equipment, and output positioned by field.",
+                "Refresh on the configured interval."
+            ],
+            "variations": "requires field boundaries captured in A8.",
+            "demo": true,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F3",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Cost-versus-price analysis",
+            "surface": "ui",
+            "summary": "Compare accumulating labor cost against the crop's market price to decide whether to keep harvesting, stop, or move fields. This is the owner's profitability view. Parked for Anthony (Cost Accounting off).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Cost Accounting",
+                "Real Time"
+            ],
+            "steps": [
+                "Pull live labor cost against expected revenue or market price.",
+                "Read the per-field margin.",
+                "Decide to continue, stop for the day, or move the crew to another field."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F4",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Daily notification",
+            "surface": "ui",
+            "summary": "Schedule any report to email a recipient at a set time each day, for example who showed up in the field. The same report engine that feeds dashboards feeds these emails.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Notification"
+            ],
+            "steps": [
+                "Select the report.",
+                "Set the recipient addresses and the daily send time.",
+                "The report generates and emails automatically each day."
+            ],
+            "variations": "a clock-out-question alert is a separate, event-driven notification (see B12, C9).",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F5",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Dashboard link sharing",
+            "surface": "ui",
+            "summary": "Share a live dashboard's web link with managers so they can open it in any browser or pin it on a phone. No app or login flow is needed beyond the link.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Real Time Dashboard"
+            ],
+            "steps": [
+                "Generate the dashboard link.",
+                "Share it to a browser or phone.",
+                "The page auto-refreshes at its interval."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F6",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Season-over-season comparison",
+            "surface": "ui",
+            "summary": "Compare results across seasons or years for the same field or crop to judge yield and productivity trends. This is the historical analysis the captured data enables.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Select the periods or seasons to compare.",
+                "Run the comparison report by field, crop, or crew.",
+                "Read the trend across seasons."
+            ],
+            "variations": "none",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        },
+        {
+            "id": "F7",
+            "journey": "F",
+            "journeyTitle": "Analysis and monitoring",
+            "title": "Report generation and export",
+            "surface": "ui",
+            "summary": "Run any of the system's reports with parameters and send the output to screen, printer, file, or Excel, the everyday analysis and payroll-review surface. The payroll summary and the meal-exceptions report are the most used.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "steps": [
+                "Pick the report and set its parameters (grouping by crew, supervisor, or table; totals-only versus detail; date range).",
+                "Choose the output: screen, printer, file, Spreadsheet, or Spreadsheet Data Only (cleaner Excel).",
+                "Run it; for transfer-screen reports the selection is bounded by the current job-card view.",
+                "Request a new report or parameter from support where an existing one falls short."
+            ],
+            "variations": "reports are built in Crystal Reports today; the payroll summary distinguishes total versus paid pieces, and \"In Out with Meal Exceptions\" flags late and short meals before export.",
+            "demo": false,
+            "jira": "",
+            "status": "draft"
+        }
+    ]
+}

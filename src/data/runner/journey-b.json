@@ -1,0 +1,334 @@
+{
+    "runnerManager": [
+        {
+            "id": "B1-001",
+            "workflow": "B1",
+            "journey": "B",
+            "category": "api",
+            "testName": "crewTimeIn",
+            "testTitle": "Crew time-in",
+            "testDescription": "A supervisor clocks an entire crew into a field and job from one screen, unchecking anyone absent. This is the fast path for the bulk of field workers at the start of the day.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "core"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B2-001",
+            "workflow": "B2",
+            "journey": "B",
+            "category": "api",
+            "testName": "crewMoveAndJobChange",
+            "testTitle": "Crew move and job change",
+            "testDescription": "Move the whole crew to a new field or job mid-day with one action, carrying everyone who moved. The prior job is automatically closed for those members.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B3-001",
+            "workflow": "B3",
+            "journey": "B",
+            "category": "api",
+            "testName": "individualTimeInAndDuplicateRangeCorrection",
+            "testTitle": "Individual time-in and duplicate-range correction",
+            "testDescription": "Clock in a single worker by badge or biometric (start of day, late arrival, or a fix), with same-scan correction inside the duplicate range. A rescan with corrected data within the window overwrites rather than duplicates.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B4-001",
+            "workflow": "B4",
+            "journey": "B",
+            "category": "api",
+            "testName": "stickerRollAssignmentAtDayStart",
+            "testTitle": "Sticker-roll assignment at day start",
+            "testDescription": "Link an employee to the sticker number range they will use for the day so later case scans attribute to them. The checker scans the roll's first sticker, then the badge.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B5-001",
+            "workflow": "B5",
+            "journey": "B",
+            "category": "api",
+            "testName": "stickerPieceOut",
+            "testTitle": "Sticker piece-out",
+            "testDescription": "The checker scans completed-case stickers to record each piece and attribute it to the employee by sticker prefix. Workers keep moving rather than queueing at the checker.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment",
+                "Traceability - Stickers"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B6-001",
+            "workflow": "B6",
+            "journey": "B",
+            "category": "api",
+            "testName": "badgePieceOut",
+            "testTitle": "Badge piece-out",
+            "testDescription": "Record a piece by scanning the employee's badge when stickers are not used, which is lower throughput because the worker waits at the checker.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B7-001",
+            "workflow": "B7",
+            "journey": "B",
+            "category": "api",
+            "testName": "undefinedEmployeeReconciliation",
+            "testTitle": "Undefined-employee reconciliation",
+            "testDescription": "Stickers scanned on a different device than the one that assigned them record as undefined, then attribute to the employee by sticker prefix at sync. Records still undefined after sync need manual office correction.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Traceability - Stickers",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B8-001",
+            "workflow": "B8",
+            "journey": "B",
+            "category": "api",
+            "testName": "crewPieceOut",
+            "testTitle": "Crew piece-out",
+            "testDescription": "Record a single piece total for a crew whose output is counted collectively (for example a machine line with ground pickers), with per-person distribution deferred. The split to individuals happens at Transfer to Job Card.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B9-001",
+            "workflow": "B9",
+            "journey": "B",
+            "category": "api",
+            "testName": "paidBreakRestAndRecovery",
+            "testTitle": "Paid break (rest and recovery)",
+            "testDescription": "Capture a paid rest break, which by law records that the break was given but needs no return punch. The program supplies the configured length and returns the worker to the prior job.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B10-001",
+            "workflow": "B10",
+            "journey": "B",
+            "category": "api",
+            "testName": "mealStartAndEndField",
+            "testTitle": "Meal start and end (field)",
+            "testDescription": "Capture an unpaid meal, which by law requires both a start and a return punch and a minimum length. Devices can enforce the minimum so an early return does not trigger a penalty.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B11-001",
+            "workflow": "B11",
+            "journey": "B",
+            "category": "api",
+            "testName": "crewOutToIndividualTimeOuts",
+            "testTitle": "Crew-out to individual time-outs",
+            "testDescription": "One crew-out at end of day expands into an individual time-out for every active member. Workers who left early were already timed out individually.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B12-001",
+            "workflow": "B12",
+            "journey": "B",
+            "category": "api",
+            "testName": "timeOutQuestionsToNotification",
+            "testTitle": "Time-out questions to notification",
+            "testDescription": "At clock-out the worker answers compliance and safety questions; an unexpected answer emails the crew's notification user and leaves a signed acknowledgment. The question set and expected answers are configured in device setup (A7, A14).",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Time Card Questions",
+                "Notification",
+                "Signature"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B13-001",
+            "workflow": "B13",
+            "journey": "B",
+            "category": "api",
+            "testName": "fieldReceiptPrinting",
+            "testTitle": "Field receipt printing",
+            "testDescription": "Print an in-field receipt of a worker's recorded time or pieces; rarely used in practice. Requires a field printer and token paper.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Field Printer",
+                "Electronic Token"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B14-001",
+            "workflow": "B14",
+            "journey": "B",
+            "category": "ui",
+            "testName": "realTimeFieldDashboard",
+            "testTitle": "Real-time field dashboard",
+            "testDescription": "Watch live crew productivity and cost in the field on a web dashboard built from a report. The page refreshes on an interval and opens on a phone or browser.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time Dashboard",
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "B15-001",
+            "workflow": "B15",
+            "journey": "B",
+            "category": "api",
+            "testName": "deviceSyncAndOfflineOperation",
+            "testTitle": "Device sync and offline operation",
+            "testDescription": "Devices capture all day without connectivity and reconcile with the office by syncing, a core differentiator for low-coverage fields. End-of-day sync clears the device, so it is done only when recording is finished.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        }
+    ]
+}

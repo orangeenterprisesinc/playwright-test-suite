@@ -29,6 +29,7 @@ import {
     feature,
     story,
     suite,
+    subSuite,
     owner,
     severity,
     Severity,
@@ -122,9 +123,23 @@ export async function applyAllureLabels(testInfo: TestInfo, row: TestCaseData | 
     await severity(severityFromTags(testInfo.tags));
     await owner(getConfigValue(ConfigProperties.ALLURE_OWNER, 'QA'));
 
+    // With one spec file per catalog workflow, the file name is the workflow —
+    // so it becomes the sub-suite, giving journey ▸ workflow ▸ describe instead
+    // of collapsing every workflow in a journey into one flat suite.
+    const specName = stripSpecSuffix(path.basename(testInfo.file));
+    if (specName !== module) await subSuite(specName);
+
     if (row) {
         await allureTestCaseId(row.id);
         await parameter('Test Case ID', row.id);
         if (row.testDescription) await description(row.testDescription);
+
+        // The catalog metadata the row carries, surfaced as report parameters so a
+        // reader can see which journey/workflow a result belongs to and why a
+        // scope filter would include or exclude it.
+        if (row.workflow) await parameter('Workflow', row.workflow);
+        if (row.journey) await parameter('Journey', row.journey);
+        if (row.segments?.length) await parameter('Segments', row.segments.join(', '));
+        if (row.modules?.length) await parameter('Modules', row.modules.join(', '));
     }
 }

@@ -27,6 +27,15 @@ on:
     - cron: '30 10 * * *'   # 4:00 PM IST
     - cron: '30 12 * * *'   # 6:00 PM IST
   workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only run tests matching this tag/pattern (e.g. @JourneyA, @A1, @Smoke). Blank = whole suite.'
+        required: false
+        default: ''
+      scope:
+        description: 'Customer scope from src/data/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
+        required: false
+        default: ''
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
   # to POST /repos/orangeenterprisesinc/playwright-test-suite/dispatches) — a
@@ -164,8 +173,28 @@ jobs:
           echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
           echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
 
+      # Fails in seconds on a runner-data problem that would otherwise show up as a
+      # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
+      # spec claims, a category that disagrees with the spec's folder, an unknown
+      # segment or module, or a JSON mirror that has drifted from its CSV.
+      - name: Validate runner data and types
+        run: |
+          npm run runner:check
+          npm run typecheck
+
       - name: Run Playwright tests
-        run: npx playwright test
+        env:
+          # Narrow the run when dispatched with inputs; both are empty for
+          # scheduled/push/dispatch runs, which therefore behave exactly as before.
+          GREP: ${{ github.event.inputs.grep }}
+          TEST_SCOPE: ${{ github.event.inputs.scope }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtering to: $GREP"
+            npx playwright test --grep "$GREP"
+          else
+            npx playwright test
+          fi
 
       # Restores the previous run's trend data so the report's Trend/Graphs
       # widgets extend instead of resetting on every run. Keyed by run id (so

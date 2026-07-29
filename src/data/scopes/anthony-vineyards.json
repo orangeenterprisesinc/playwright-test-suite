@@ -1,0 +1,42 @@
+{
+    "name": "anthony-vineyards",
+    "description": "Beta scope for Anthony Vineyards. Selects the workflows whose segments include one of the customer's and whose required modules are all within the enabled set.",
+    "confirmed": false,
+    "segments": [
+        "grower",
+        "perennial-grower"
+    ],
+    "modules": [
+        "Windows",
+        "Network",
+        "Real Time",
+        "Connectivity",
+        "Department",
+        "Notification",
+        "Piece Payment",
+        "Electronic Token",
+        "Traceability - Stickers",
+        "Time Card Questions",
+        "Mapping",
+        "Equipment",
+        "Real Time Dashboard",
+        "Bio-Identification"
+    ],
+    "excluded": {
+        "Onboarding": "A13 parked for Anthony (employee onboarding forms)",
+        "Human Resources": "A13 parked for Anthony",
+        "Document": "A13 parked for Anthony",
+        "Signature": "A13 parked for Anthony; also excludes the signed acknowledgement in B12/C9",
+        "H2A": "E12 parked for Anthony (H2A module off)",
+        "Cost Accounting": "F3 parked for Anthony (cost-versus-price analysis off)",
+        "Field Printer": "B13 field receipt printing — catalog notes it is rarely used in practice",
+        "Packing": "pack-house only; outside the grower / perennial-grower segments",
+        "Pallet Tracking": "pack-house only; catalog notes case-to-pallet is not a closed link yet",
+        "Picture Verification": "kiosk photo fallback; pack-house / nursery only"
+    },
+    "notes": [
+        "confirmed=false — this is derived from the catalog's Anthony notes, not from a signed module list. Confirm the enabled modules with the account before treating a skip here as authoritative.",
+        "The catalog states Anthony uses departments even within a single state, so Department is enabled.",
+        "Set TEST_SCOPE=anthony-vineyards to apply this scope; leave it unset to run every workflow."
+    ]
+}

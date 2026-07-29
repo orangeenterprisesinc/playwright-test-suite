@@ -8,8 +8,8 @@
 import { FullConfig } from '@playwright/test';
 import { Logger } from '../utils/logger';
 import { ConfigProperties, getConfigValue } from '../enums/configProperties';
-import { isDbCleanupEnabled, runSql } from '../utils/db/sqlClient';
-import { userSetupData } from '../data/userSetupData';
+import { isDbCleanupEnabled } from '../utils/db/sqlClient';
+import { sweepLeftovers } from '../utils/db/cleanupRegistry';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -108,21 +108,13 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     writeAllureEnvironmentInfo(config);
     writeAllureExecutorInfo();
 
-    // Safety-net sweep: soft-delete any leftover users the UI suites created
+    // Safety-net sweep: soft-delete any leftover test records the suites created
     // (e.g. from an interrupted run) so they never accumulate. Per-test cleanup
-    // already removes the happy-path users; this catches the rest.
+    // already removes the happy-path records; this catches the rest. Driven by
+    // src/data/shared/cleanupTargets.ts, so a new entity is swept by adding a row
+    // there rather than by editing this file.
     if (isDbCleanupEnabled()) {
-        const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
-        const pattern = `${userSetupData.test_user_prefix}%`;
-        // Client DB only (USE DelLlano) — leave the shared TigerMaster untouched.
-        // The LIKE pattern is bound as @pattern, so sqlClient parameterises it on
-        // the driver path and escapes it on the sqlcmd path.
-        await runSql(
-            `USE [${clientDb}]; SET NOCOUNT ON; ` +
-            `UPDATE dbo.Users SET Deleted = 1 WHERE Name LIKE @pattern AND Deleted = 0;`,
-            `leftover-sweep ${pattern}`,
-            { pattern },
-        );
+        await sweepLeftovers();
     }
 
     logger.info('Global teardown completed');

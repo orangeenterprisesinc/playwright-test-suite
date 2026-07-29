@@ -93,13 +93,15 @@ playwright-test-suite/
 │   │   ├── BaseComponent.ts          #   Abstract base — all child queries relative to root
 │   │   ├── NavigationComponent.ts    #   Header/nav bar interactions
 │   │   ├── ModalComponent.ts         #   Dialog/modal interactions
-│   │   └── FormComponent.ts          #   Form field interactions
+│   │   ├── FormComponent.ts          #   Form field interactions
+│   │   └── DataGridComponent.ts      #   The PET Tiger list grid (filters, rows, totals)
 │   │
 │   ├── config/                       # Configuration management
 │   │   ├── envLoader.ts              #   Loads env.local/dev/qa files
 │   │   ├── environmentManager.ts     #   Singleton for runtime env switching
 │   │   ├── environments.ts           #   Environment definitions
-│   │   └── dataSource.config.ts      #   JSON/CSV data path resolution
+│   │   ├── dataSource.config.ts      #   Runner directory / JSON+CSV path resolution
+│   │   └── scope.ts                   #   TEST_SCOPE segment + module filtering
 │   │
 │   ├── context/                       # Execution & test context
 │   │   ├── executionContext.ts        #   Run-level metadata (runId, branch, CI trigger)
@@ -111,18 +113,32 @@ playwright-test-suite/
 │   │   ├── frameworkExceptions.ts     #   FrameworkError and subclasses
 │   │   └── errorHandler.decorator.ts  #   @HandleError decorator
 │   │
-│   ├── data/                          # Test data files
-│   │   ├── runnerManager.json         #   Runner rows (JSON) — active when TEST_DATA_SOURCE=json
-│   │   ├── runnerManager.csv          #   Runner rows (CSV)  — active when TEST_DATA_SOURCE=csv
-│   │   ├── runnerList.json            #   Runtime override, by row id (ships as {})
-│   │   ├── userSetupData.ts           #   User Setup value bag (typed)
-│   │   └── loginModuleData.ts         #   Login spec value bag (typed)
+│   ├── data/                          # Test data
+│   │   ├── catalog/
+│   │   │   └── workflow-catalog.json  #   The 69 catalog workflows (npm run catalog:import)
+│   │   ├── runner/                    #   Runner rows — one file per journey
+│   │   │   ├── journey-a.csv          #     authored (Excel-friendly)
+│   │   │   ├── journey-a.json         #     generated mirror (npm run runner:sync)
+│   │   │   ├── journey-b..f.{csv,json}
+│   │   │   └── system.{csv,json}      #     login/auth — not catalog workflows
+│   │   ├── scopes/                    #   Per-customer segments + modules (TEST_SCOPE)
+│   │   │   └── anthony-vineyards.json
+│   │   ├── shared/                    #   Cross-journey constants
+│   │   │   ├── modules.ts             #     PetTigerModule union + core expansion
+│   │   │   ├── segments.ts            #     Segment union + all expansion
+│   │   │   └── cleanupTargets.ts      #     Table-driven test-data cleanup
+│   │   ├── journey-a/                 #   Per-journey typed value bags
+│   │   │   └── userSetupData.ts
+│   │   ├── system/
+│   │   │   └── loginModuleData.ts
+│   │   └── runnerList.json            #   Runtime override, by row id (ships as {})
 │   │
 │   ├── enums/                         # Enumerations
 │   │   └── configProperties.ts        #   ConfigProperties enum + getConfigValue()
 │   │
 │   ├── fixtures/                      # Playwright test fixtures & lifecycle
-│   │   ├── base.fixture.ts            #   UI test fixtures + beforeEach/afterEach hooks
+│   │   ├── base.fixture.ts            #   UI fixtures + the 3-layer execution gate
+│   │   ├── pages.fixture.ts           #   Lazy `pages` accessor for every page object
 │   │   ├── api.fixture.ts             #   API-only test fixtures + ApiHelper class
 │   │   ├── global-setup.ts            #   One-time setup (auth dir, results dirs)
 │   │   └── global-teardown.ts         #   Cleanup (Allure env/executor metadata, summary log)
@@ -131,11 +147,16 @@ playwright-test-suite/
 │   │   ├── testLifecycleManager.ts    #   onTestStart/onTestEnd, pass/fail/skip tracking
 │   │   └── methodInterceptor.ts       #   Runner-list-based test filtering
 │   │
-│   ├── pages/                         # Page Objects
-│   │   ├── BasePage.ts                #   Abstract base — navigation, waits, actions, assertions
-│   │   ├── LoginPage.ts               #   Keycloak login page
-│   │   ├── LeftNavigationPage.ts      #   Authenticated shell's left navigation
-│   │   └── UsersPage.ts               #   Users administration screen + New User form
+│   ├── pages/                         # Page Objects — grouped by app menu area
+│   │   ├── BasePage.ts                #   Abstract base — navigation, waits, screenshots
+│   │   ├── SetupScreenPage.ts         #   Shared list+form base: grid, on-blur save, edit bar
+│   │   ├── shell/                     #   LoginPage, LeftNavigationPage
+│   │   ├── admin/                     #   File > Administration — UsersPage, ...
+│   │   ├── setup/                     #   Input > Setup — Ranch, Field, Crop, Job, Crew, ...
+│   │   ├── processing/                #   Input > Transfer to Job Card, Multi-edit
+│   │   ├── payroll/                   #   Export to Accounting, Reverse Export
+│   │   ├── connectivity/              #   Import Internet (Post Office)
+│   │   └── analysis/                  #   Reports, dashboards
 │   │
 │   ├── reporting/                     # Custom reporters
 │   │   ├── emailReporter.ts           #   Email report with lean Allure HTML attachment
@@ -162,24 +183,42 @@ playwright-test-suite/
 │       │   ├── userFactory.ts         #   makeUser(overrides) → unique NewUserData
 │       │   └── random.ts              #   randomInitials(), uid()
 │       ├── db/                        #   Direct SQL access for setup/cleanup
-│       │   └── sqlClient.ts           #   runSql(), sqlLiteral()
+│       │   ├── sqlClient.ts           #   runSql(), sqlLiteral()
+│       │   └── cleanupRegistry.ts     #   `cleanup` fixture + end-of-run sweep
 │       └── dataReaders/               #   Data reader implementations
 │           ├── BaseDataReader.ts      #   Shared caching/filtering/availability logic
 │           ├── JsonDataReader.ts
 │           ├── CsvDataReader.ts
+│           ├── MultiFileDataReader.ts #   Reads the per-journey runner directory as one set
 │           └── TypeCoercionHelper.ts  #   Coerces CSV string fields to typed values
 │
-├── tests/                             # Test specifications — 3 categories
+├── tests/                             # Specs — category first, journey second
 │   ├── auth.setup.ts                  #   Keycloak login → storageState (auth-setup project)
 │   ├── seed.spec.ts
-│   ├── api/                           #   API-only tests (api.fixture) — runs in the browserless `api` project
-│   ├── ui/                            #   UI e2e tests (base.fixture + POM)
-│   │   ├── login/login-module.spec.ts #     logged-out login module
-│   │   └── user-setup.spec.ts         #     Users administration journey (create/list/edit)
-│   └── workflow/                      #   UI + API hybrid tests (base.fixture + apiRequest)
+│   ├── api/                           #   API-only (api.fixture) — browserless `api` project
+│   │   ├── journey-a-setup/           #     A6 biometric enrollment
+│   │   ├── journey-b-field/           #     B1-B15 device capture — reserved
+│   │   └── journey-c-packhouse/       #     C1-C10 kiosk capture — reserved
+│   ├── ui/                            #   Browser journeys (base.fixture + POM)
+│   │   ├── system/login-module.spec.ts#     logged-out login module
+│   │   ├── journey-a-setup/           #     A1-A14 — a01-user-setup.spec.ts is the reference
+│   │   ├── journey-d-office/          #     D1-D8
+│   │   ├── journey-e-payroll/         #     E8-E11
+│   │   └── journey-f-analysis/        #     F1-F7
+│   └── workflow/                      #   UI + API hybrid (base.fixture + apiRequest)
+│       ├── journey-d-office/          #     D9-D10 calculations
+│       └── journey-e-payroll/         #     E1-E7 calculations
 │
+├── specs/                             # One markdown plan per workflow (written first)
+│   ├── _template.md
+│   └── journey-a/a01-user-setup.md    #   worked example
+│
+├── docs/catalog/                      # PET-Tiger-Workflow-Catalog.docx — source of truth
 ├── scripts/                           # npm-script helpers (plain JS, no ts-node dependency)
-├── test-data/                         # External test data
+│   ├── import-catalog.js              #   docx -> workflow-catalog.json
+│   ├── runner-sync.js                 #   runner CSV -> JSON mirror
+│   ├── check-runner.js                #   validates rows <-> specs <-> catalog
+│   └── coverage-report.js             #   69-workflow automation coverage
 └── logs/                              # Runtime log output (app-<date>.log)
 ```
 
@@ -447,8 +486,8 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 
 | Source | File | Env Value |
 |--------|------|-----------|
-| JSON | `src/data/runnerManager.json` | `TEST_DATA_SOURCE=json` (default) |
-| CSV | `src/data/runnerManager.csv` | `TEST_DATA_SOURCE=csv` |
+| JSON | `src/data/runner/*.json` (generated mirror) | `TEST_DATA_SOURCE=json` (default) |
+| CSV | `src/data/runner/*.csv` (authored) | `TEST_DATA_SOURCE=csv` |
 
 **Data format** (same across both sources):
 
@@ -469,13 +508,13 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 1. `DataProvider.getInstance()` reads the configured source (`TEST_DATA_SOURCE`) directly — a JSON source reads the `.json` file, a CSV source reads the `.csv` file
 2. Per-test → bind a runner row by `id`, then destructure the `testCaseData` fixture, which auto-loads and validates the matching record, skipping the test if it's missing or `enabled: false`
 
-A row is bound either via a per-test **annotation** (the live pattern in `tests/ui/user-setup.spec.ts`) or via `test.use({ testCaseId })` — both resolve the same way:
+A row is bound either via a per-test **annotation** (the live pattern in `tests/ui/journey-a-setup/a01-user-setup.spec.ts`) or via `test.use({ testCaseId })` — both resolve the same way:
 
 ```typescript
 // Live pattern — annotation on the test options
 test('[User Setup] Verify that ... appears in the Users list.', {
     tag: ['@UI', '@Smoke', '@Local'],
-    annotation: { type: 'testCaseId', description: 'USR-001' },
+    annotation: { type: 'testCaseId', description: 'A1-002' },
 }, async ({ usersPage, testCaseData }) => {
     // testCaseData is the USR-001 row: { id: 'USR-001', testName: 'createUserWithAllFields', ... }
 });
@@ -546,7 +585,7 @@ Filter runs with `--grep`, e.g. `npx playwright test --grep @Smoke`.
 ### Step-by-Step Guide
 
 > The example below uses a generic `ProductPage` as a **template** — swap in your
-> real screen (see `src/pages/UsersPage.ts` for a live reference).
+> real screen (see `src/pages/admin/UsersPage.ts` for a live reference).
 
 #### Step 1: Create a Page Object (if needed)
 
@@ -612,7 +651,7 @@ import { test } from '../../../src/fixtures/base.fixture';
 test.describe('Product Cart Functionality', () => {
     test('verifyUserCanAddProductToCart', {
         tag: ['@Regression', '@UI'],
-        annotation: { type: 'testCaseId', description: 'PROD-001' }, // must exist in runnerManager
+        annotation: { type: 'testCaseId', description: 'A2-001' }, // must exist in src/data/runner/
     }, async ({ productPage }) => {
         await productPage.navigate();
         await productPage.selectProduct('Widget Pro');
@@ -636,9 +675,9 @@ npx playwright test tests/ui/products/product-add-to-cart.spec.ts --project=chro
 ### Example 1: UI Login Test (starts logged out)
 
 ```typescript
-// tests/ui/login/login-module.spec.ts
+// tests/ui/system/login-module.spec.ts
 import { expect, test } from '../../src/fixtures/base.fixture';
-import { loginModuleData } from '../../src/data/loginModuleData';
+import { loginModuleData } from '@data/system/loginModuleData';
 
 test.use({
     storageState: { cookies: [], origins: [] },

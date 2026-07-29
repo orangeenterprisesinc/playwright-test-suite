@@ -24,6 +24,8 @@
  * ```
  */
 import type { Locator } from '@playwright/test';
+import type { ModuleRequirement } from '../data/shared/modules';
+import type { SegmentRequirement } from '../data/shared/segments';
 
 /**
  * Supported deployment environments for the application.
@@ -163,30 +165,61 @@ export type TestCategory = 'ui' | 'api' | 'workflow';
 
 
 /**
- * Data structure for a general-purpose test case driven by external data files.
+ * Lifecycle of a runner row, mirroring the Workflow Catalog's own `Status` field
+ * and extending it with the two states that only exist once automation starts.
+ *
+ * - `'draft'` — reserved from the catalog; no plan, no spec yet
+ * - `'specced'` — a plan exists under `specs/`
+ * - `'ticketed'` — build or validation work is cut in Jira
+ * - `'automated'` — a spec exists and is bound to this row
+ *
+ * @typedef {('draft' | 'specced' | 'ticketed' | 'automated')} RunnerRowStatus
+ */
+export type RunnerRowStatus = 'draft' | 'specced' | 'ticketed' | 'automated';
+
+/**
+ * One runner row: a single test case, bound to a spec by `id`.
+ *
+ * Rows are authored per journey under `src/data/runner/` and are the machine-
+ * readable projection of the Workflow Catalog — `workflow`, `segments` and
+ * `modules` come straight from the catalog entry, which is what lets a customer
+ * scope be derived rather than hand-maintained (see `src/config/scope.ts`).
+ *
+ * A row with `enabled: false` and no spec is a **reservation** — the backlog
+ * entry for a workflow the tester has not recorded yet. `npm run runner:check`
+ * reports those as planned work rather than errors.
  *
  * @interface TestCaseData
- * @property {string} id - Unique test case identifier (e.g., `'TC001'`)
- * @property {TestCategory} category - Which suite the case belongs to (`ui` | `api` | `workflow`)
+ * @property {string} id - Row id, `<workflow>-<nnn>` (e.g. `'A1-001'`); joins catalog ▸ plan ▸ spec ▸ row
+ * @property {TestCategory} category - Which suite the case belongs to (`ui` | `api` | `workflow`); must match the spec's folder
+ * @property {string} [journey] - Catalog journey letter, `'A'`–`'F'` (absent for system rows such as login)
+ * @property {string} [workflow] - Catalog workflow id, e.g. `'A1'` (absent for system rows)
  * @property {string} testName - Machine-friendly test name
  * @property {string} testTitle - Human-readable test title
- * @property {string} [testDescription] - Optional detailed description
- * @property {boolean} shouldComplete - Whether the test case is expected to complete successfully
- * @property {number} expectedCount - Expected count for assertion validation
- * @property {string[]} [tags] - Optional tags for filtering (e.g., `['smoke', 'regression']`)
+ * @property {string} [testDescription] - Optional detailed description; becomes the Allure description
+ * @property {SegmentRequirement[]} [segments] - Segments the workflow applies to, or `['all']`
+ * @property {ModuleRequirement[]} [modules] - Licence modules the workflow requires, or `['core']`
+ * @property {string[]} [tags] - Tags for reporting (e.g. `['smoke', 'regression']`)
+ * @property {boolean} [demo] - Catalog's per-segment demo-candidate flag
+ * @property {string} [jira] - Epic/issue key once work is cut
+ * @property {RunnerRowStatus} [status] - Row lifecycle state
  * @property {boolean} enabled - Whether this test case should be executed
+ * @property {boolean} [shouldComplete] - Legacy; retained for the original login rows, unused by specs
+ * @property {number} [expectedCount] - Legacy; retained for the original login rows, unused by specs
  *
  * @example
  * ```typescript
- * const testCase: TestCaseData = {
- *   id: 'TC001',
+ * const row: TestCaseData = {
+ *   id: 'A1-001',
  *   category: 'ui',
- *   testName: 'searchProducts',
- *   testTitle: 'Search for products by keyword',
- *   testDescription: 'Verify product search returns relevant results',
- *   shouldComplete: true,
- *   expectedCount: 5,
- *   tags: ['smoke', 'search'],
+ *   journey: 'A',
+ *   workflow: 'A1',
+ *   testName: 'createUserWithAllFields',
+ *   testTitle: 'Create a user with all fields populated',
+ *   segments: ['all'],
+ *   modules: ['Windows', 'Network'],
+ *   tags: ['smoke', 'regression'],
+ *   status: 'automated',
  *   enabled: true,
  * };
  * ```
@@ -194,13 +227,20 @@ export type TestCategory = 'ui' | 'api' | 'workflow';
 export interface TestCaseData {
     id: string;
     category: TestCategory;
+    journey?: string;
+    workflow?: string;
     testName: string;
     testTitle: string;
     testDescription?: string;
-    shouldComplete: boolean;
-    expectedCount: number;
+    segments?: SegmentRequirement[];
+    modules?: ModuleRequirement[];
     tags?: string[];
+    demo?: boolean;
+    jira?: string;
+    status?: RunnerRowStatus;
     enabled: boolean;
+    shouldComplete?: boolean;
+    expectedCount?: number;
 }
 
 /**

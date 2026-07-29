@@ -12,7 +12,7 @@
  * @since 1.0.0
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from './BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * Page Object representing the authenticated shell's left navigation.
@@ -72,16 +72,36 @@ export class LeftNavigationPage extends BasePage {
     }
 
     /**
-     * Navigate to the Users administration screen the way a user does:
-     * File ▸ Administration ▸ Users. Waits for the Users list URL so callers
-     * can proceed once the grid route is active.
+     * Walk an arbitrary sidebar path the way a person does, expanding each group
+     * in turn and clicking the leaf. Every PET Tiger screen is reached this way —
+     * `['File', 'Administration', 'Users']`, `['Input', 'Setup', 'Ranch']`,
+     * `['Input', 'Transfer to Job Card']` — so the whole catalog navigates through
+     * this one method.
+     *
+     * @param menuPath group labels followed by the leaf label
+     * @param expectedUrl relative URL the leaf routes to; a trailing query string is tolerated
+     */
+    async openViaMenu(menuPath: string[], expectedUrl: string): Promise<void> {
+        if (menuPath.length < 1) throw new Error('openViaMenu needs at least a leaf label');
+
+        this.logger.info(`Navigating via menu: ${menuPath.join(' ▸ ')}`);
+
+        // Expand each group using the next label as the "is it open?" probe.
+        for (let i = 0; i < menuPath.length - 1; i++) {
+            await this.expandGroup(menuPath[i], menuPath[i + 1]);
+        }
+
+        await this.menuItem(menuPath[menuPath.length - 1]).click();
+        // Tolerate a query string (the app can carry grid state in the URL).
+        await this.page.waitForURL(new RegExp(`${expectedUrl.replace(/\//g, '\\/')}(\\?|$)`));
+    }
+
+    /**
+     * Navigate to the Users administration screen: File ▸ Administration ▸ Users.
+     * Kept as a named shortcut for the most-used path; new screens should call
+     * {@link openViaMenu} with their own path instead.
      */
     async openUsersViaMenu(): Promise<void> {
-        this.logger.info('Navigating via menu: File ▸ Administration ▸ Users');
-        await this.expandGroup('File', 'Administration');
-        await this.expandGroup('Administration', 'Users');
-        await this.menuItem('Users').click();
-        // Tolerate a query string (the app can carry grid state in the URL).
-        await this.page.waitForURL(/\/settings\/users(\?|$)/);
+        await this.openViaMenu(['File', 'Administration', 'Users'], '/settings/users');
     }
 }

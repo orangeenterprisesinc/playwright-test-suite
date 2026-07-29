@@ -22,7 +22,7 @@ Do not force one template onto every request. Instead, detect the closest existi
 Before writing code, inspect the nearest matching files and reuse their style:
 
 1. Check the target folder: `tests/<module>/*.spec.ts` (e.g. `tests/login/login-module.spec.ts`)
-2. Check whether a matching page object already exists in `src/pages/*.ts`
+2. Check whether a matching page object already exists under `src/pages/<area>/*.ts`
 3. Check whether a reusable fragment belongs in `src/components/*.ts`
 4. Check whether the scenario is:
    - data-driven by `testCaseId`
@@ -37,13 +37,98 @@ If the live code and older documentation disagree, trust the **live code**.
 - UI specs: `tests/<module>/*.spec.ts`
 - Auth setup: `tests/auth.setup.ts` (auth-setup project — logs in once, persists `.auth/user.json`)
 - Main UI fixture: `src/fixtures/base.fixture.ts`
-- Page objects: `src/pages/*.ts` (all extend `BasePage`)
+- Page objects: `src/pages/<area>/*.ts` — grouped by app menu area (`shell/`, `admin/`, `setup/`, `processing/`, `payroll/`, `connectivity/`, `analysis/`). List+form screens extend `SetupScreenPage`; everything else extends `BasePage`
 - Components: `src/components/*.ts` (all extend `BaseComponent`)
 - Config/env access: `src/enums/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
-- Runner test data (data-driven rows): `src/data/runnerManager.json` / `src/data/runnerManager.csv`
-- Module test data (small per-module values): `src/data/<module>-data.json` (e.g. `login-module-data.json`)
+- Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
+- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts` (typed TS module, e.g. `src/data/journey-a/userSetupData.ts`)
 - Data helpers: `src/utils/DataProvider.ts`
 - Environments: `env.local` / `env.dev` / `env.qa`, selected via `TEST_ENV` (default `local`)
+
+### Catalog workflows — where a spec goes and what it is called
+
+This suite automates the **PET Tiger Workflow Catalog**: 69 workflows across six
+journeys (A setup/config, B field handheld, C pack-house kiosk, D daily office
+processing, E weekly payroll close, F analysis). `src/data/catalog/workflow-catalog.json`
+is the machine-readable catalog — read the entry for the workflow you are asked about
+before generating anything. It gives the title, the ordered steps, the segments and
+the licence modules.
+
+**One workflow id joins every artifact**, so nothing needs a lookup table:
+
+| Artifact | Path |
+|---|---|
+| Catalog entry | `src/data/catalog/workflow-catalog.json` → `A1` |
+| Plan | `specs/journey-a/a01-user-setup.md` |
+| Spec | `tests/ui/journey-a-setup/a01-user-setup.spec.ts` |
+| Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
+
+**Folder** — category first (it decides the fixture and the Playwright project),
+journey second. The category comes from the catalog entry's `surface`:
+
+| `surface` | Category | Folder |
+|---|---|---|
+| `ui` | `ui` | `tests/ui/journey-<x>-<area>/` |
+| `device` | `api` | `tests/api/journey-<x>-<area>/` (handheld/kiosk — no web screen, driven through the sync API) |
+| `calc` | `workflow` | `tests/workflow/journey-<x>-<area>/` |
+
+Existing folders: `tests/ui/{system,journey-a-setup,journey-b-field,journey-d-office,journey-e-payroll,journey-f-analysis}`,
+`tests/api/{journey-a-setup,journey-b-field,journey-c-packhouse}`,
+`tests/workflow/{journey-d-office,journey-e-payroll}`.
+
+**Ids** — `<workflow>-<nnn>`: `A1-001`, `D4-002`. Never invent a new prefix scheme.
+Non-catalog framework tests (login, auth) use `UI-00X` in `src/data/runner/system.csv`.
+
+**Tags** — one describe per workflow, named for it, carrying both selection tags:
+
+```typescript
+test.describe('A2 · Ranch, field, crop, and variety setup', { tag: ['@JourneyA', '@A2'] }, () => {
+    test('[Ranch] Verify that …', {
+        tag: ['@UI', '@Regression'],
+        annotation: { type: 'testCaseId', description: 'A2-001' },
+    }, async ({ pages, cleanup }) => { /* … */ });
+});
+```
+
+The describe title becomes the Allure story; the file name becomes the sub-suite.
+
+**Segments and modules** — copy them onto the runner row from the catalog entry
+verbatim. They drive `TEST_SCOPE` filtering (`src/config/scope.ts`), which is how a
+per-customer run is derived. Getting them wrong makes a workflow silently skip.
+
+**Before finishing**: `npm run runner:sync && npm run runner:check`. The checker
+fails on a spec whose `testCaseId` has no row, an enabled row no spec claims, a
+category that disagrees with the folder, an unknown segment/module, or a JSON mirror
+that has drifted.
+
+### Reuse before writing a page object
+
+Most PET Tiger screens are a grid plus a New/Edit form: Users, Ranch, Field, Crop,
+Variety, Job, Job Group, Crew, Employee, Equipment. For those, **extend
+`src/pages/SetupScreenPage.ts`** and copy `src/pages/admin/UsersPage.ts` — it is the
+reference implementation. The base already handles:
+
+- walking the sidebar to the list (`menuPath`), New/Edit navigation
+- the grid: column filters, row lookup by edit link, `Total N rows`, absence checks
+  (`src/components/DataGridComponent.ts`)
+- **on-blur validation** — the last field filled must be blurred before Save enables
+- **Save stays disabled to signal rejection** (a duplicate is reported this way, not
+  as a failed save), plus the server-side rejection path
+- the "Unsaved changes" bar on edit
+
+A concrete screen supplies only its `SetupScreenConfig` (list URL, grid name, entity,
+menu path, rejection message), its locators, and its `fill*` methods. Register it in
+`src/fixtures/pages.fixture.ts` so specs reach it as `pages.<name>`.
+
+### Test-data cleanup
+
+Never hand-write `UPDATE … SET Deleted = 1` in a spec. Register the entity once in
+`src/data/shared/cleanupTargets.ts`, then in the spec:
+
+```typescript
+cleanup.track('user', user.name);          // removed after the test, even on failure
+await cleanup.remove('user', user.name);   // delete now, as a verified test step
+```
 
 ### Test structure rules — standard Playwright only
 
@@ -98,7 +183,7 @@ Preferred sources of values:
 
 1. the user's scenario
 2. existing nearby specs in `tests/<module>`
-3. the module data file (`src/data/<module>-data.json`) for module-specific values
+3. the module data file (`src/data/journey-<x>/<name>Data.ts`) for module-specific values
 4. `testCaseData` for data-driven values
 5. `process.env` / `getConfigValue(...)` for environment values
 6. neutral placeholders in examples when showing structure only
@@ -112,7 +197,7 @@ Do not assume every test case uses a runner data row.
 - If the user provides an ID that maps to `id` → `test.use({ testCaseId: '...' })`
 - If they provide a logical test name that maps to `testName` → `test.use({ testCaseName: '...' })`
 - Either of the above permits destructuring `testCaseData`
-- Otherwise: no option fixtures, no `testCaseData`; put module values in `src/data/<module>-data.json` and import it directly
+- Otherwise: no option fixtures, no `testCaseData`; put module values in `src/data/journey-<x>/<name>Data.ts` and import it directly
 
 ### Fixture usage accuracy
 
@@ -204,9 +289,9 @@ This framework reads test data **directly from its source — JSON runs from JSO
 - `TEST_DATA_SOURCE` (`json` | `csv`) in the env file selects the runner data source
 - `src/data/runnerManager.json` stores records under the `runnerManager` key; `src/data/runnerManager.csv` holds the same records — keep both in sync when adding rows
 - `getTestCaseById(...)` resolves by `id`; `testCaseName` lookup resolves by the `testName` field
-- Module-specific values (error messages, wrong inputs) belong in a directly-imported `src/data/<module>-data.json`
+- Module-specific values (error messages, wrong inputs) belong in a directly-imported `src/data/journey-<x>/<name>Data.ts`
 
-`TestCaseData` fields: `id`, `testName`, `testTitle`, `testDescription?`, `shouldComplete`, `expectedCount`, `tags?`, `enabled`.
+`TestCaseData` fields: `id`, `category`, `journey?`, `workflow?`, `testName`, `testTitle`, `testDescription?`, `segments?`, `modules?`, `tags?`, `demo?`, `jira?`, `status?`, `enabled`. (`shouldComplete`/`expectedCount` are legacy and optional — omit them.)
 
 ### Rule-based generation logic
 

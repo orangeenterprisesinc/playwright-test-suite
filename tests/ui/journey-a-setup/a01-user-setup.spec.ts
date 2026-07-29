@@ -1,26 +1,30 @@
 /**
- * Journey A1 — User Setup.
+ * Catalog workflow **A1 — License, serial number, and user setup**, steps 4-5:
+ * create office users with roles and per-user permissions, and verify login.
  *
- * Authenticated flow (File ▸ Administration ▸ Users). These tests run logged
- * in via the shared `.auth/user.json` storage state, so there is no login flow
- * here.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A1 |
+ * | Plan | `specs/journey-a/a01-user-setup.md` |
+ * | Recording | `Testing video/journey-a/a01-user-setup.mp4` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`…`A1-005` |
+ *
+ * Authenticated flow (File ▸ Administration ▸ Users). These tests run logged in
+ * via the shared `.auth/user.json` storage state, so there is no login flow here —
+ * that half of the workflow is covered by `tests/ui/system/login-module.spec.ts`.
  *
  * The PET Tiger UI has no delete-user action and soft-deletes users, so each
- * created user is removed directly in SQL (Deleted=1 in both the client and
- * master databases) after the test — a true delete that also frees the
- * Name/Initials/Email. Names/Initials/Emails are generated uniquely per run so
- * re-runs never collide; because the Initials field is capped at 3 characters
- * (and its "Already in use" rule is enforced on new users), createUser
- * regenerates the Initials and retries if a random value happens to already
- * exist.
+ * created user is removed with `Deleted = 1` after the test — a true delete that
+ * also frees the Name/Initials/Email. The `cleanup` fixture does that; specs no
+ * longer write the SQL themselves. Names/Initials/Emails are generated uniquely
+ * per run so re-runs never collide; because the Initials field is capped at 3
+ * characters (and its "Already in use" rule is enforced on new users), createUser
+ * regenerates the Initials and retries if a random value happens to already exist.
  */
-import { expect, test } from '../../src/fixtures/base.fixture';
-import { userSetupData as userData } from '../../src/data/userSetupData';
-import { runSql } from '../../src/utils/db/sqlClient';
-import { makeUser, randomInitials } from '../../src/utils/testData';
-import { ConfigProperties, getConfigValue } from '../../src/enums/configProperties';
-import type { NewUserData } from '../../src/pages/UsersPage';
-import type { UsersPage } from '../../src/pages/UsersPage';
+import { expect, test } from '@fixtures/base.fixture';
+import { userSetupData as userData } from '@data/journey-a/userSetupData';
+import { makeUser, randomInitials } from '@utils/testData';
+import type { NewUserData, UsersPage } from '@pages/admin/UsersPage';
 
 /**
  * Create a user through the New User form, retrying with a fresh Initials value
@@ -69,46 +73,26 @@ async function expectUserListed(usersPage: UsersPage, user: NewUserData): Promis
     await expect(row).toContainText(user.email);
 }
 
-test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
+// One describe per catalog workflow, named for it and carrying both selection
+// tags: `@JourneyA` runs the whole journey, `@A1` just this workflow.
+//   npx playwright test --grep @JourneyA
+//   npx playwright test --grep @A1
+// The describe title is also the Allure "story", so the report reads
+// ui ▸ journey-a-setup ▸ A1 · License, serial number, and user setup.
+test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA', '@A1'] }, () => {
 
-    // Users created by a test, soft-deleted in SQL after it. PET Tiger has no
-    // UI delete and soft-deletes (Deleted=1). We scope cleanup to the client
-    // DB only (USE DelLlano) — the Users screen reads from there, so this
-    // removes the user and frees its Name/Initials — and deliberately leave the
-    // shared TigerMaster DB untouched. Emails are unique per run, so the
-    // leftover global row never blocks re-creation. DB name comes from config;
-    // sqlClient owns the connection. The query lives here on purpose, so it's
-    // visible and debuggable per test.
-    const createdUsers: NewUserData[] = [];
-    const clientDb = getConfigValue(ConfigProperties.DB_CLIENT);
-
-    // Hard-delete (Deleted=1) a user in the client DB — a true delete that frees
-    // the Name/Initials/Email. The Users screen reads from this DB, so the user
-    // also disappears from the list. Used both as the explicit delete step in
-    // the end-to-end test and as the afterEach safety-net cleanup.
-    //
-    // The name is bound as @name rather than interpolated: sqlClient binds it as
-    // a real parameter on the driver path and escapes it on the sqlcmd path.
-    async function hardDeleteUser(name: string): Promise<void> {
-        await runSql(
-            `USE [${clientDb}]; SET NOCOUNT ON; ` +
-            `UPDATE dbo.Users SET Deleted = 1 ` +
-            `WHERE Name LIKE @name AND Deleted = 0;`,
-            name,
-            { name },
-        );
-    }
-
-    test.afterEach(async () => {
-        while (createdUsers.length) {
-            await hardDeleteUser(createdUsers.pop()!.name);
-        }
-    });
+    // Users created by a test are removed by the `cleanup` fixture after it — see
+    // src/utils/db/cleanupRegistry.ts and src/data/shared/cleanupTargets.ts, which
+    // own the soft-delete statement and the table it targets. Cleanup is scoped to
+    // the client DB (the Users screen reads from there, so removing the row frees
+    // its Name/Initials) and deliberately leaves the shared TigerMaster untouched:
+    // emails are unique per run, so the leftover global row never blocks
+    // re-creation.
 
     test('[User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.', {
         tag: ['@UI', '@E2E', '@Smoke', '@Local'],
-        annotation: { type: 'testCaseId', description: 'USR-000' },
-    }, async ({ usersPage }) => {
+        annotation: { type: 'testCaseId', description: 'A1-001' },
+    }, async ({ usersPage, cleanup }) => {
         // ── Create a new user with all fields (as in the reference video) ──
         // createUser walks the real sidebar menu (File ▸ Administration ▸ Users)
         // and fills General, Permissions and Personal Info, so the recording
@@ -122,7 +106,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
             additionalAccess: userData.permissions.additional_access,
             accessToReverse: userData.defaults.access_to_reverse,
         }));
-        createdUsers.push(user); // afterEach safety net if a later step fails
+        cleanup.track('user', user.name); // removed after the test, even if a later step fails
         await expect(usersPage.userCreatedToast).toBeVisible();
 
         // ── Verify the new user appears in the Users list ───────────
@@ -134,17 +118,17 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
         await expect(usersPage.nameInput).toHaveValue(user.name);
 
         // ── Delete the new user and confirm it's gone from the list ──
-        // PET Tiger has no UI delete, so removal is done in SQL; the user then
-        // disappears from the list (which reads the client DB).
-        await hardDeleteUser(user.name);
-        createdUsers.splice(createdUsers.indexOf(user), 1); // already removed
+        // PET Tiger has no UI delete, so removal is a soft delete in SQL; the user
+        // then disappears from the list (which reads the client DB). `remove` also
+        // un-tracks it, so the after-test sweep doesn't try to delete it again.
+        await cleanup.remove('user', user.name);
         await usersPage.expectAbsentFromList(user.name);
     });
 
     test('[User Setup] Verify that an administrator user can be created with all fields populated and appears in the Users list.', {
         tag: ['@UI', '@Smoke', '@Local'],
-        annotation: { type: 'testCaseId', description: 'USR-001' },
-    }, async ({ usersPage }) => {
+        annotation: { type: 'testCaseId', description: 'A1-002' },
+    }, async ({ usersPage, cleanup }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.all_fields_role,
             firstName: userData.personal_info.first_name,
@@ -154,7 +138,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
             additionalAccess: userData.permissions.additional_access,
             accessToReverse: userData.defaults.access_to_reverse,
         }));
-        createdUsers.push(user);
+        cleanup.track('user', user.name);
 
         // Success feedback right after saving.
         await expect(usersPage.userCreatedToast).toBeVisible();
@@ -166,12 +150,12 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that a user can be created with only the required fields.', {
         tag: ['@UI', '@Local'],
-        annotation: { type: 'testCaseId', description: 'USR-002' },
-    }, async ({ usersPage }) => {
+        annotation: { type: 'testCaseId', description: 'A1-003' },
+    }, async ({ usersPage, cleanup }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.required_only_role,
         }));
-        createdUsers.push(user);
+        cleanup.track('user', user.name);
 
         await usersPage.gotoUsersList();
         await expectUserListed(usersPage, user);
@@ -179,8 +163,8 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that every Role option is selectable and a user can be created with a non-administrator role.', {
         tag: ['@UI', '@Local'],
-        annotation: { type: 'testCaseId', description: 'USR-003' },
-    }, async ({ usersPage }) => {
+        annotation: { type: 'testCaseId', description: 'A1-004' },
+    }, async ({ usersPage, cleanup }) => {
         await usersPage.gotoUsersList();
         await usersPage.openNewUserForm();
 
@@ -209,7 +193,7 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
             outcome = await usersPage.submit();
         }
         expect(outcome, 'user should be created with a unique Initials').toBe('created');
-        createdUsers.push(user);
+        cleanup.track('user', user.name);
 
         await expect(usersPage.userCreatedToast).toBeVisible();
 
@@ -219,11 +203,11 @@ test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
 
     test('[User Setup] Verify that creating a user with an Initials value already in use is rejected.', {
         tag: ['@UI', '@Local', '@negative'],
-        annotation: { type: 'testCaseId', description: 'USR-004' },
-    }, async ({ page, usersPage }) => {
+        annotation: { type: 'testCaseId', description: 'A1-005' },
+    }, async ({ page, usersPage, cleanup }) => {
         // Seed a user so we have a known, in-use Initials value.
         const seed = await createUser(usersPage, makeUser({ role: userData.defaults.all_fields_role }));
-        createdUsers.push(seed);
+        cleanup.track('user', seed.name);
 
         // Attempt a second, different user reusing the seed's Initials.
         await usersPage.gotoUsersList();

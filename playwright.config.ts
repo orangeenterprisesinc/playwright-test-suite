@@ -24,6 +24,26 @@ const BASE_URL = process.env.BASE_URL || process.env.APP_URL;
 const IS_CI = !!process.env.CI;
 
 /**
+ * The migrated web-pet suite (tests/webpet) is opt-in: its projects are only
+ * materialized when explicitly requested, so a bare `npx playwright test`
+ * (developer machines, e2e.yml, e2e-local.yml) never picks up its ~406 tests
+ * (~48 min, requires the full local web-pet stack). Activated by WEBPET=1 or
+ * by asking for the project on the CLI (`--project=webpet`); the npm scripts
+ * and scripts/run-playwright.js set the env var for worker processes too.
+ */
+const WEBPET_ENABLED =
+    process.env.WEBPET === '1' ||
+    process.argv.some(
+        (arg, i, argv) =>
+            arg.startsWith('--project=webpet') ||
+            (arg === '--project' && (argv[i + 1] ?? '').startsWith('webpet')),
+    );
+// Worker processes re-evaluate this config with a different argv, so persist
+// the decision into the environment — children inherit it and materialize the
+// same project list (otherwise workers die with "Project not found").
+if (WEBPET_ENABLED) process.env.WEBPET = '1';
+
+/**
  * Retry policy: an explicit `RETRY` value always wins; otherwise retry twice
  * in CI to absorb infrastructure flakiness, and never locally so failures
  * surface immediately while developing.
@@ -114,7 +134,10 @@ export default defineConfig({
         // start already authenticated.
         {
             name: 'auth-setup',
-            testMatch: /.*\.setup\.ts/,
+            // Scoped to the exact file: the previous /.*\.setup\.ts/ regex was
+            // unanchored and would also capture unrelated setup files (e.g. the
+            // migrated suite's webpet.setup.ts, which has its own project).
+            testMatch: '**/auth.setup.ts',
             use: { ...devices['Desktop Chrome'] },
         },
 
@@ -123,7 +146,9 @@ export default defineConfig({
             // API specs run in their own browserless `api` project below; ignore
             // them here so they don't double-run (and needlessly pull in
             // auth-setup / browser storageState) under the browser project.
-            testIgnore: '**/tests/api/**',
+            // tests/webpet is the migrated web-pet suite — it runs only under
+            // its own opt-in `webpet` project (different auth + parity settings).
+            testIgnore: ['**/tests/api/**', '**/tests/webpet/**'],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: '.auth/user.json',
@@ -138,6 +163,55 @@ export default defineConfig({
             name: 'api',
             testDir: './tests/api',
         },
+
+        // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
+        // Parity contract with the source repo (apps/web/playwright.config.ts):
+        // 30s test timeout, retries 0 (even in CI), 5s expect timeout, trace
+        // on-first-retry, video/screenshot off, locale en-US + Accept-Language.
+        // These deliberately override this repo's 110s/10s/video-on globals so
+        // the source suite's localhost baseline (362 passed / 18 skipped /
+        // 26 failed) is reproduced unchanged.
+        ...(WEBPET_ENABLED
+            ? [
+                  {
+                      // Ports the source repo's globalSetup (admin API login →
+                      // storage state + best-effort RestrictedTest provisioning)
+                      // as a dependency project: its failure fails ONLY the
+                      // webpet project below (this repo's globalSetup slot is
+                      // already taken by src/fixtures/global-setup.ts).
+                      name: 'webpet-setup',
+                      testDir: './tests/webpet',
+                      testMatch: '**/webpet.setup.ts',
+                      timeout: 120 * 1000,
+                      retries: 0,
+                      use: {
+                          trace: 'off' as const,
+                          video: 'off' as const,
+                          screenshot: 'off' as const,
+                      },
+                  },
+                  {
+                      name: 'webpet',
+                      testDir: './tests/webpet',
+                      dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
+                      timeout: 30 * 1000,
+                      retries: 0,
+                      expect: { timeout: 5 * 1000 },
+                      use: {
+                          ...devices['Desktop Chrome'],
+                          locale: 'en-US',
+                          extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
+                          trace: 'on-first-retry' as const,
+                          video: 'off' as const,
+                          screenshot: 'off' as const,
+                          // NO storageState: tests/webpet/fixtures.ts seeds its own
+                          // contexts from tests/webpet/.auth, and notifications.spec.ts's
+                          // clean-context tests must start unauthenticated (matching
+                          // the source config).
+                      },
+                  },
+              ]
+            : []),
 
         // Enable more browsers by uncommenting; each reuses the shared
         // authenticated session from `auth-setup`.

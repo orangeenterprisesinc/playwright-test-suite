@@ -1,0 +1,147 @@
+name: WebPet E2E (dev staging)
+
+# Runs the MIGRATED web-pet suite (tests/webpet — 406 tests) against the DEV
+# STAGING deployment (app.ptdev.xyz). Boots nothing; TEST_ENV=dev makes the
+# framework's env loading supply BASE_URL/API_URL, and env.dev additionally
+# sets WEBPET_API_ORIGIN=https://api.ptdev.xyz so the suite's direct API calls
+# (admin login, data-factory) target the API host — the SPA host serves
+# index.html for every path including /api/*.
+#
+# ── REPORT-ONLY BASELINE — read before treating red as regression ───────────
+# This suite was authored against a seeded local DelLlano DB. On dev staging:
+#   * pass counts WILL differ from the localhost baseline (362/18/26) wherever
+#     dev's data differs from the seed;
+#   * the suite MUTATES dev data by design (creates test crews/employees/jobs,
+#     inline-edits Ranch/Field rows, provisions a RestrictedTest_* user,
+#     changes user preferences) — accepted per the migration decision;
+#   * expected dev-failure classes (cannot be fixed without invasive edits):
+#       - specs calling page.request.*('/api/…') — that context inherits the
+#         SPA host's baseURL and gets index.html back (ranch, job, parts of
+#         notifications, and 3 equiv specs);
+#       - employee-documents.spec.ts skips (S3_ENDPOINT deliberately unset);
+#       - data-scoping depends on RestrictedTest provisioning against dev.
+# Capture the first runs as the dev baseline (tests/webpet/README.md) and
+# disable dev-incompatible tests via src/data/webpet/webpetRunnerManager.json.
+#
+# Nightly + manual only — deliberately NOT on push and NOT on the
+# run-playwright repository_dispatch (e2e.yml owns those for dev staging).
+on:
+  schedule:
+    # 4:00 AM IST (UTC+5:30) — clear of e2e.yml's 10:30/12:30 UTC slots and
+    # webpet-e2e-local.yml's 20:30 UTC slot.
+    - cron: '30 22 * * *'
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only run webpet tests matching this pattern (e.g. employee, "Billing Center"). Blank = whole suite.'
+        required: false
+        default: ''
+
+concurrency:
+  group: webpet-e2e-dev
+  cancel-in-progress: true
+
+jobs:
+  webpet-e2e-dev:
+    name: WebPet Playwright E2E (dev staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    env:
+      # Selects env.dev (BASE_URL=https://app.ptdev.xyz, API_URL and
+      # WEBPET_API_ORIGIN=https://api.ptdev.xyz). See e2e.yml for why
+      # USER_NAME is a variable (masking) and why the 'su' default is required.
+      TEST_ENV: dev
+      USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
+      PASSWORD: ${{ secrets.DEV_PASSWORD }}
+      # The migrated suite's admin login (tests/webpet/support/provision.ts and
+      # notifications.spec.ts read these directly) — same dev-staging account.
+      E2E_ADMIN_USER: ${{ vars.DEV_USER_NAME || 'su' }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.DEV_PASSWORD }}
+      # Materializes the webpet projects in every process (runner + workers).
+      WEBPET: '1'
+      # No DB_* here: the webpet suite does its own API-level cleanup and the
+      # framework's SQL sweep targets 'QA User %' rows this suite never creates.
+      # With DB_SERVER/DB_CLIENT unset, isDbCleanupEnabled() is false and the
+      # global-setup probe just logs a warning.
+      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    steps:
+      # Fail in seconds with the actual cause instead of a login timeout later.
+      - name: "Guard: login password secret present"
+        run: |
+          if [ -z "$PASSWORD" ]; then
+            echo "::error::No login password configured — add a DEV_PASSWORD repository secret holding the dev-staging 'su' password. Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Checkout test suite
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java (for Allure report generation)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install test-suite deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # Non-blocking drift alarm — the gate is fail-open by design; see
+      # scripts/webpet-runner-sync.js.
+      - name: Validate webpet runner data (drift alarm)
+        continue-on-error: true
+        run: npm run webpet:runner:check
+
+      - name: Run webpet Playwright tests
+        env:
+          GREP: ${{ github.event.inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            echo "Filtering to: $GREP"
+            npx playwright test --project=webpet --grep "$GREP"
+          else
+            npx playwright test --project=webpet
+          fi
+
+      - name: Restore Allure history
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: allure-report/history
+          key: webpet-allure-history-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            webpet-allure-history-${{ github.ref_name }}-
+
+      - name: Generate Allure report
+        if: always()
+        run: node scripts/generate-allure-report.js
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webpet-playwright-report
+          path: playwright-report
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webpet-allure-report
+          path: allure-report

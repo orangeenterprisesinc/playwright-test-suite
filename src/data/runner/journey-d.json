@@ -1,0 +1,210 @@
+{
+    "runnerManager": [
+        {
+            "id": "D1-001",
+            "workflow": "D1",
+            "journey": "D",
+            "category": "ui",
+            "testName": "postOfficeSync",
+            "testTitle": "Post Office sync",
+            "testDescription": "Pull the day's field and kiosk records into the office instance through the Orange Post Office before any processing. Confirm every device has reported so no crew is missing from the transfer.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D2-001",
+            "workflow": "D2",
+            "journey": "D",
+            "category": "ui",
+            "testName": "exceptionReview",
+            "testTitle": "Exception review",
+            "testDescription": "Open the Transfer to Job Card screen and review the day's cached time cards for flagged exceptions before committing anything. Nothing is written to the database yet, so errors can be caught and fixed first.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D3-001",
+            "workflow": "D3",
+            "journey": "D",
+            "category": "ui",
+            "testName": "addMissingTimeInAndCorrectTimeCard",
+            "testTitle": "Add missing time-in and correct time card",
+            "testDescription": "Fix the flagged exceptions on the time card tab, most commonly a missing time-in ahead of a piece-out. Corrections are made on time cards, never on job cards, so they survive a later re-transfer.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D4-001",
+            "workflow": "D4",
+            "journey": "D",
+            "category": "ui",
+            "testName": "transferToJobCard",
+            "testTitle": "Transfer to Job Card",
+            "testDescription": "Run the transfer to convert the reviewed time cards into job cards and compute gross pay, one crew at a time, every day. This is the heart of the program and the basis for all pay and analysis.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D5-001",
+            "workflow": "D5",
+            "journey": "D",
+            "category": "ui",
+            "testName": "reverseAndRedo",
+            "testTitle": "Reverse and redo",
+            "testDescription": "Reverse a committed transfer to return job cards to time cards, fix the underlying data, then re-transfer. Use this when the time card data itself is wrong, not when only a rate changed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D6-001",
+            "workflow": "D6",
+            "journey": "D",
+            "category": "ui",
+            "testName": "recalculateAfterSetupChange",
+            "testTitle": "Recalculate after setup change",
+            "testDescription": "Recalculate existing job cards to pick up a rate or setup change made after they were created, without deleting them. This differs from reverse, which throws the job cards away.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D7-001",
+            "workflow": "D7",
+            "journey": "D",
+            "category": "ui",
+            "testName": "multiEdit",
+            "testTitle": "Multi-edit",
+            "testDescription": "Change one field across many records at once, for example reassigning the job on a batch of cards. Permissions gate who can multi-edit.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D8-001",
+            "workflow": "D8",
+            "journey": "D",
+            "category": "ui",
+            "testName": "deleteToRecycleAndRestore",
+            "testTitle": "Delete to recycle and restore",
+            "testDescription": "Deleted records are soft-deleted to a recycle bin, excluded from reports but recoverable, so a mistaken delete is reversible. A separate multi-delete restore protects against an interrupted bulk delete.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D9-001",
+            "workflow": "D9",
+            "journey": "D",
+            "category": "workflow",
+            "testName": "groupPieceOutDistribution",
+            "testTitle": "Group piece-out distribution",
+            "testDescription": "A crew piece-out captured as one total is distributed to individual members during the transfer. If the split is wrong, reverse and redistribute.",
+            "segments": [
+                "grower",
+                "perennial-grower",
+                "pack-house"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "D10-001",
+            "workflow": "D10",
+            "journey": "D",
+            "category": "workflow",
+            "testName": "exerciseAndAutoBreakSplit",
+            "testTitle": "Exercise and auto-break split",
+            "testDescription": "The transfer auto-splits the first job card into a short exercise segment plus the remaining work, and supplies a break job card when only a break start was recorded, both per the crew record. These rules turn one field record into the correct paid segments.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        }
+    ]
+}

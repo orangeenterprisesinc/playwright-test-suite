@@ -35,11 +35,23 @@
       "@config/*": [
         "./src/config/*"
       ],
-      "@types/*": [
-        "./src/types/*"
+      "@data/*": [
+        "./src/data/*"
       ],
-      "@test-data/*": [
-        "./test-data/*"
+      "@enums/*": [
+        "./src/enums/*"
+      ],
+      "@core/*": [
+        "./src/core/*"
+      ],
+      "@preconditions/*": [
+        "./src/preconditions/*"
+      ],
+      "@apptypes": [
+        "./src/types/index.ts"
+      ],
+      "@apptypes/*": [
+        "./src/types/*"
       ]
     },
     "types": [

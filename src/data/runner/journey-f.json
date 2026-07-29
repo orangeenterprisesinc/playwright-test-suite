@@ -1,0 +1,151 @@
+{
+    "runnerManager": [
+        {
+            "id": "F1-001",
+            "workflow": "F1",
+            "journey": "F",
+            "category": "ui",
+            "testName": "realTimeProductivityDashboard",
+            "testTitle": "Real-time productivity dashboard",
+            "testDescription": "Turn a report into a live web dashboard of crew output, speed, and cost that refreshes on an interval. Managers keep it open on a phone or browser to watch the day unfold.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Real Time Dashboard",
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F2-001",
+            "workflow": "F2",
+            "journey": "F",
+            "category": "ui",
+            "testName": "mapBasedDashboard",
+            "testTitle": "Map-based dashboard",
+            "testDescription": "Show a live map of labor, equipment, and productivity by field, drawn from the field boundaries captured in setup. Useful for seeing where crews are and how each field is progressing.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Mapping",
+                "Real Time Dashboard"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "demo": true,
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F3-001",
+            "workflow": "F3",
+            "journey": "F",
+            "category": "ui",
+            "testName": "costVersusPriceAnalysis",
+            "testTitle": "Cost-versus-price analysis",
+            "testDescription": "Compare accumulating labor cost against the crop's market price to decide whether to keep harvesting, stop, or move fields. This is the owner's profitability view. Parked for Anthony (Cost Accounting off).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Cost Accounting",
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F4-001",
+            "workflow": "F4",
+            "journey": "F",
+            "category": "ui",
+            "testName": "dailyNotification",
+            "testTitle": "Daily notification",
+            "testDescription": "Schedule any report to email a recipient at a set time each day, for example who showed up in the field. The same report engine that feeds dashboards feeds these emails.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F5-001",
+            "workflow": "F5",
+            "journey": "F",
+            "category": "ui",
+            "testName": "dashboardLinkSharing",
+            "testTitle": "Dashboard link sharing",
+            "testDescription": "Share a live dashboard's web link with managers so they can open it in any browser or pin it on a phone. No app or login flow is needed beyond the link.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Real Time Dashboard"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F6-001",
+            "workflow": "F6",
+            "journey": "F",
+            "category": "ui",
+            "testName": "seasonOverSeasonComparison",
+            "testTitle": "Season-over-season comparison",
+            "testDescription": "Compare results across seasons or years for the same field or crop to judge yield and productivity trends. This is the historical analysis the captured data enables.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "F7-001",
+            "workflow": "F7",
+            "journey": "F",
+            "category": "ui",
+            "testName": "reportGenerationAndExport",
+            "testTitle": "Report generation and export",
+            "testDescription": "Run any of the system's reports with parameters and send the output to screen, printer, file, or Excel, the everyday analysis and payroll-review surface. The payroll summary and the meal-exceptions report are the most used.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "status": "draft",
+            "enabled": false
+        }
+    ]
+}

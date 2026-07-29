@@ -13,7 +13,7 @@ tests/*.spec.ts                → what to test (test bodies + assertions)
    │  imports test/expect from
    ▼
 src/fixtures/base.fixture.ts   → dependency injection: hands each test its page objects,
-   │                              logging, auth session, and the runnerManager enable/skip gate
+   │                              logging, auth session, and the 3-layer enable/scope/skip gate
    ▼
 src/pages/*.ts (POM)           → how to drive the app (locators + workflow methods)
    │  locators are inline, accessibility-first
@@ -41,13 +41,14 @@ Two conventions drive everything else:
 
 ## 2. Writing a UI spec
 
-Reference: [`tests/ui/user-setup.spec.ts`](../tests/ui/user-setup.spec.ts). A spec has four parts.
+Reference: [`tests/ui/journey-a-setup/a01-user-setup.spec.ts`](../tests/ui/journey-a-setup/a01-user-setup.spec.ts).
+A spec has four parts.
 
 **(1) Imports** — always from the fixture, plus data and helpers:
 
 ```ts
 import { expect, test } from '../../src/fixtures/base.fixture';    // NOT @playwright/test
-import { userSetupData as userData } from '../../src/data/userSetupData'; // module data bag
+import { userSetupData as userData } from '@data/journey-a/userSetupData'; // journey value bag
 import { makeUser, randomInitials } from '../../src/utils/testData';// data factories
 import { runSql } from '../../src/utils/db/sqlClient';               // cleanup helper
 ```
@@ -59,7 +60,7 @@ fixtures the test needs:
 test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
   test('[User Setup] End-to-end: create a user, verify, edit, delete.', {
       tag: ['@UI', '@E2E', '@Smoke', '@Local'],
-      annotation: { type: 'testCaseId', description: 'USR-000' }, // ← binds test to a runnerManager row
+      annotation: { type: 'testCaseId', description: 'A1-001' }, // ← binds test to a runner row
   }, async ({ usersPage }) => {                                    // ← usersPage injected by the fixture
       ...
   });
@@ -78,7 +79,7 @@ await expect(row).toContainText(user.role);
 **(4) Lifecycle/cleanup** — PET Tiger has no UI delete, so created users are soft-deleted in
 SQL via `afterEach`.
 
-The logged-out variant — [`tests/ui/login/login-module.spec.ts`](../tests/ui/login/login-module.spec.ts) —
+The logged-out variant — [`tests/ui/system/login-module.spec.ts`](../tests/ui/system/login-module.spec.ts) —
 discards the pre-auth session at file scope:
 
 ```ts
@@ -94,7 +95,7 @@ Inline in each page object under [`src/pages/`](../src/pages/), in two forms.
 **Static locators** → `readonly Locator` fields assigned in the constructor:
 
 ```ts
-// src/pages/UsersPage.ts
+// src/pages/admin/UsersPage.ts
 this.newUserButton    = page.getByRole('button', { name: 'New User' });
 this.nameInput        = page.getByRole('textbox', { name: 'Name *' });
 this.userCreatedToast = page.getByText('User created');
@@ -110,8 +111,13 @@ userRow(name: string): Locator      { return this.page.getByRole('row').filter({
 ```
 
 **POM hierarchy:** [`BasePage.ts`](../src/pages/BasePage.ts) is a thin abstract base holding
-`page`, `logger`, `baseUrl`, and `navigate()`. Concrete pages ([`LoginPage.ts`](../src/pages/LoginPage.ts),
-[`LeftNavigationPage.ts`](../src/pages/LeftNavigationPage.ts), [`UsersPage.ts`](../src/pages/UsersPage.ts))
+`page`, `logger`, `baseUrl`, and `navigate()`. A **list + New/Edit form** screen instead extends
+[`SetupScreenPage.ts`](../src/pages/SetupScreenPage.ts), which adds the grid
+([`DataGridComponent`](../src/components/DataGridComponent.ts)), sidebar navigation, and the
+on-blur / Save-stays-disabled / "Unsaved changes" save behaviour every PET Tiger setup screen
+shares. Concrete pages ([`shell/LoginPage.ts`](../src/pages/shell/LoginPage.ts),
+[`shell/LeftNavigationPage.ts`](../src/pages/shell/LeftNavigationPage.ts),
+[`admin/UsersPage.ts`](../src/pages/admin/UsersPage.ts))
 extend it, declare locators, and expose async *workflow* methods. Page objects can compose
 others — `UsersPage` instantiates `LeftNavigationPage` to reach the screen the way a human
 clicks. Workflow methods return semantic outcomes (e.g. `submit()` → `'created' |
@@ -123,14 +129,16 @@ clicks. Workflow methods return semantic outcomes (e.g. `submit()` → `'created
 
 Three kinds:
 
-- **Module value bags** — [`src/data/userSetupData.ts`](../src/data/userSetupData.ts),
-  [`src/data/loginModuleData.ts`](../src/data/loginModuleData.ts). Static strings (role lists,
+- **Journey value bags** — [`src/data/journey-a/userSetupData.ts`](../src/data/journey-a/userSetupData.ts),
+  [`src/data/system/loginModuleData.ts`](../src/data/system/loginModuleData.ts). Static strings (role lists,
   expected messages, defaults), exported as typed consts and imported directly by the spec.
   TypeScript rather than JSON because `test_user_prefix` is shared by `userFactory` (which
   *names* test users) and `global-teardown` (which *sweeps* them) — a drift between those two
   would silently orphan test users, so it is single-source and compile-checked.
-- **Runner rows** — [`src/data/runnerManager.json`](../src/data/runnerManager.json) or
-  [`.csv`](../src/data/runnerManager.csv), selected by `TEST_DATA_SOURCE` (exactly one is read;
+- **Runner rows** — [`src/data/runner/`](../src/data/runner/), one file per journey
+  (`journey-a.csv` authored, `journey-a.json` a generated mirror), read as one combined set by
+  [`MultiFileDataReader`](../src/utils/dataReaders/MultiFileDataReader.ts) and selected by
+  `TEST_DATA_SOURCE` (exactly one format is read;
   no conversion step). One row per managed test case (see §6). Loaded through `DataProvider`.
 - **Runtime overrides** — [`src/data/runnerList.json`](../src/data/runnerList.json). Ships as
   `{}`. See §6 for how it overrides the runner rows.
@@ -210,8 +218,9 @@ reuses so no test re-logs-in.
 
 ## 6. The runner manager
 
-[`src/data/runnerManager.json`](../src/data/runnerManager.json) holds
-`{ "runnerManager": [ ...rows ] }`. Each row (`TestCaseData` in
+Each file in [`src/data/runner/`](../src/data/runner/) holds
+`{ "runnerManager": [ ...rows ] }` (JSON) or a header row with the same columns (CSV).
+Each row (`TestCaseData` in
 [`src/types/index.ts`](../src/types/index.ts)):
 
 ```json
@@ -237,11 +246,12 @@ The fixture's `beforeEach` resolves the row, then applies two layers in order:
 | Layer | File | Effect |
 |---|---|---|
 | 1 | [`runnerList.json`](../src/data/runnerList.json) | Matched on row `id`. **Wins outright** — `execute: "yes"` runs a test even when its row says `enabled: false`; `execute: "no"` skips it even when enabled. |
-| 2 | `runnerManager.json` / `.csv` | Applies when the id is absent from `runnerList`: skips if `enabled === false`, or if the id has **no row at all**. |
+| 2 | `src/data/runner/*` | Applies when the id is absent from `runnerList`: skips if `enabled === false`, or if the id has **no row at all**. |
+| 3 | `TEST_SCOPE` ([`src/config/scope.ts`](../src/config/scope.ts)) | Skips a row whose `segments` do not intersect the customer's, or whose `modules` are not all licensed. Unset = no filtering. |
 
 Override is **per-entry, not a whitelist** — an id missing from `runnerList` falls through to
-its runnerManager row, so adding one entry cannot silently disable everything else.
-`runnerList.json` ships as `{}`, meaning "runnerManager governs everything"; keep it that way
+its runner row, so adding one entry cannot silently disable everything else.
+`runnerList.json` ships as `{}`, meaning "the runner rows govern everything"; keep it that way
 for normal runs, since `execute: "yes"` can resurrect a test that was deliberately switched off.
 
 A `testCaseId` with **no matching row is skipped**, not run. That is deliberate: the gate used to

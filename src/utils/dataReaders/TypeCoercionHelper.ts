@@ -21,8 +21,12 @@
  * ```
  */
 export class TypeCoercionHelper {
-    /** @private Columns that should be converted to string arrays */
-    private static readonly ARRAY_COLUMNS = ['tags'];
+    /**
+     * @private Columns that should be converted to string arrays.
+     * `segments` and `modules` are runner-row columns holding the catalog's
+     * multi-value fields (`grower|perennial-grower`, `Windows|Network`).
+     */
+    private static readonly ARRAY_COLUMNS = ['tags', 'segments', 'modules'];
 
     /** @private Columns that should be converted to numbers */
     private static readonly NUMERIC_COLUMNS = [
@@ -31,7 +35,7 @@ export class TypeCoercionHelper {
 
     /** @private Columns that should be converted to booleans */
     private static readonly BOOLEAN_COLUMNS = [
-        'enabled', 'shouldComplete', 'completed', 'active',
+        'enabled', 'shouldComplete', 'completed', 'active', 'demo',
     ];
 
     /**

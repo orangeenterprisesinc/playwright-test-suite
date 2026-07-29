@@ -22,22 +22,39 @@ Put a spec in `tests/workflow/` only when it **does something in the UI and then
 ### Start by inspecting the repo before generating code
 
 1. Check `tests/workflow/*.spec.ts` for the nearest existing hybrid spec and copy its style
-2. Check `src/pages/*.ts` for a page object that already models the UI half — reuse before creating
+2. Check `src/pages/<area>/*.ts` for a page object that already models the UI half — reuse before creating
 3. Read `src/fixtures/base.fixture.ts` to confirm the `apiRequest` fixture and the page-object fixtures available
 4. Confirm the auth model the verifying endpoint needs (`AUTH_TYPE`)
 
 If the live code and older documentation disagree, trust the **live code**.
 
+### Catalog workflows — folder, id and tags
+
+This suite automates the PET Tiger Workflow Catalog (69 workflows, journeys A–F).
+Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
+generating anything, and follow the conventions in the `ui-script-generator` skill's
+"Catalog workflows" section — they apply to every category:
+
+- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
+  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
+  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
+  Copy `segments` and `modules` onto the row from the catalog entry — they drive
+  `TEST_SCOPE` filtering.
+- **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
+- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Finish with**: `npm run runner:sync && npm run runner:check`.
+
 ### Repository structure
 
 - Workflow specs: `tests/workflow/*.spec.ts` (import from `src/fixtures/base.fixture`)
 - Main UI fixture: `src/fixtures/base.fixture.ts` — provides page objects as fixtures **and** `apiRequest: APIRequestContext` (baseURL = `API_URL`) for the verification half
-- Page objects: `src/pages/*.ts` (all extend `BasePage`); components: `src/components/*.ts` (extend `BaseComponent`)
+- Page objects: `src/pages/<area>/*.ts` — grouped by app menu area (`shell/`, `admin/`, `setup/`, `processing/`, `payroll/`, `connectivity/`, `analysis/`). List+form screens extend `SetupScreenPage`; everything else extends `BasePage`; components: `src/components/*.ts` (extend `BaseComponent`)
 - Auth-retry request runner: `src/auth/requestBuilder.ts` (`executeWithAuthRetry`)
 - Response assertions: `src/utils/apiResponseUtils.ts` (`verifyJsonKeyValues`)
-- SQL setup/cleanup: `src/utils/db/sqlClient.ts` (`runSql`, `sqlLiteral`) — used by `tests/ui/user-setup.spec.ts` for teardown
+- SQL setup/cleanup: `src/utils/db/cleanupRegistry.ts` (the `cleanup` fixture) for per-test teardown, over `src/utils/db/sqlClient.ts` (`runSql`, `sqlLiteral`)
 - Config/env access: `src/enums/configProperties.ts`
-- Runner data (`category: "workflow"`): `src/data/runnerManager.json` / `src/data/runnerManager.csv`; module data: `src/data/<module>-data.json`
+- Runner data (`category: "workflow"`): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`); module data: `src/data/journey-<x>/<name>Data.ts`
 
 ### Authentication model
 
@@ -80,16 +97,16 @@ Notes:
 
 ### Setup / cleanup
 
-- Prefer creating prerequisite state and cleaning up through the API when an endpoint exists; use `src/utils/db/sqlClient.ts` (`runSql`, `sqlLiteral`) for SQL teardown when the app has no delete path (as `tests/ui/user-setup.spec.ts` does for users)
+- Prefer creating prerequisite state and cleaning up through the API when an endpoint exists; use the `cleanup` fixture for teardown when the app has no delete path — `cleanup.track('<entity>', name)`, with the entity registered in `src/data/shared/cleanupTargets.ts` (as `tests/ui/journey-a-setup/a01-user-setup.spec.ts` does for users). Do not hand-write `UPDATE … SET Deleted = 1` in a spec
 - Track created entities and remove them in `test.afterEach` so runs stay idempotent
 
 ### Avoid hardcoded values
 
-Do not invent endpoints, ids, payloads, credentials, tokens, or base URLs. Resolve entity ids **by name / lookup at runtime**. Preferred sources: the user's scenario → nearby workflow specs → `src/data/<module>-data.json` → `testCaseData` → `getConfigValue(...)`/`process.env`. Ask a focused question rather than inventing a required value.
+Do not invent endpoints, ids, payloads, credentials, tokens, or base URLs. Resolve entity ids **by name / lookup at runtime**. Preferred sources: the user's scenario → nearby workflow specs → `src/data/journey-<x>/<name>Data.ts` → `testCaseData` → `getConfigValue(...)`/`process.env`. Ask a focused question rather than inventing a required value.
 
 ### Data-driven detection
 
-Same three modes as the rest of the suite: `test.use({ testCaseId: 'WF-00X' })`, `test.use({ testCaseName: '...' })`, or non-data-driven. Only with an option set may you destructure `testCaseData`. Runner rows use `category: "workflow"` and a `WF-00X` id, live in both `runnerManager.json` and `runnerManager.csv` (keep in sync), tags pipe-delimited, `enabled: true`. Add a real row for the spec you generate (follow the existing `UI-*`/`USR-*` rows as the shape reference).
+Same three modes as the rest of the suite: `test.use({ testCaseId: 'WF-00X' })`, `test.use({ testCaseName: '...' })`, or non-data-driven. Only with an option set may you destructure `testCaseData`. Runner rows use `category: "workflow"` and a `WF-00X` id, live in `src/data/runner/journey-<x>.csv`, then `npm run runner:sync`, tags pipe-delimited, `enabled: true`. Add a real row for the spec you generate (follow the existing `A1-*` rows in `src/data/runner/journey-a.csv` as the shape reference).
 
 ### Running
 
@@ -123,6 +140,6 @@ Return only these sections (write `None` where unused):
 - UI half uses page-object fixtures, no inline selectors, no re-implemented login
 - API half uses `executeWithAuthRetry(apiRequest, …, testInfo)` and asserts with `verifyJsonKeyValues` / status checks
 - entity ids resolved by name/lookup at runtime; `url` relative to `API_URL`; no secrets/ids hardcoded
-- `testCaseId`/`testCaseName`/non-data-driven choice correct; `testCaseData` only when a row is selected; runnerManager JSON and CSV in sync
+- `testCaseId`/`testCaseName`/non-data-driven choice correct; `testCaseData` only when a row is selected; `npm run runner:check` passes
 - created state cleaned up in `afterEach`; no unused destructured fixtures
 - generated code runs without manual correction (`npm run typecheck`, `npx playwright test --grep @Workflow --list`)

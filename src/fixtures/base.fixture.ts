@@ -2,14 +2,20 @@
  * @fileoverview Custom Playwright test fixtures for UI testing.
  *
  * Extends Playwright's base `test` object with:
+ * - **pages** — Every page object, lazily built (`pages.users`, `pages.leftNav`, …)
  * - **navigation** — Pre-built {@link NavigationComponent} fixture
  * - **modal** — Pre-built {@link ModalComponent} fixture
  * - **form** — Pre-built {@link FormComponent} fixture
  * - **logger** — Per-test {@link Logger} instance
  * - **authenticatedPage** — Page with pre-loaded auth state from `.auth/user.json`
  * - **apiRequest** — Standalone API request context
+ * - **cleanup** — Tracks created records and removes them after the test
  * - **testCaseId / testCaseName / testCaseData** — Data-driven lookup fixtures
  * - **workerLogger** — Per-worker logger (worker-scoped)
+ *
+ * Its `beforeEach` also applies the three-layer execution gate — `runnerList.json`
+ * override, the runner row's `enabled` flag, then the `TEST_SCOPE` segment/module
+ * filter (see `src/config/scope.ts`).
  *
  * @module fixtures/base.fixture
  * @since 1.0.0
@@ -33,9 +39,12 @@ import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
 import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
 import { getRunnerListDecision } from '../listeners/methodInterceptor';
-import { LoginPage } from '../pages/LoginPage';
-import { LeftNavigationPage } from '../pages/LeftNavigationPage';
-import { UsersPage } from '../pages/UsersPage';
+import { evaluateScope } from '../config/scope';
+import { LoginPage } from '../pages/shell/LoginPage';
+import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
+import { UsersPage } from '../pages/admin/UsersPage';
+import { createPageObjects, type PageObjects } from './pages.fixture';
+import { CleanupRegistry } from '../utils/db/cleanupRegistry';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../utils/allureLabels';
 import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
@@ -45,6 +54,12 @@ import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
  * @typedef {object} CustomFixtures
  */
 type CustomFixtures = {
+    /**
+     * Every page object, lazily constructed — `pages.users`, `pages.leftNav`, …
+     * This is the way to reach a screen; the three named fixtures below are
+     * shortcuts for the ones the existing specs already use.
+     */
+    pages: PageObjects;
     /** Page Object for the PET Tiger login page. */
     loginPage: LoginPage;
     /** Page Object for the authenticated shell's left navigation. */
@@ -65,6 +80,13 @@ type CustomFixtures = {
     authenticatedPage: Page;
     /** Standalone Playwright API request context (not tied to browser context). */
     apiRequest: APIRequestContext;
+
+    /**
+     * Tracks records the test creates and removes them afterwards —
+     * `cleanup.track('user', name)`. Drained automatically after the test, even
+     * when it fails. See `src/utils/db/cleanupRegistry.ts`.
+     */
+    cleanup: CleanupRegistry;
 
     /**
      * Test case ID for data-driven lookup (e.g. `'TC-AUTH-001'`).
@@ -103,16 +125,23 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     testCaseName: ['', { option: true }],
 
     // ── Page Object fixtures ────────────────────────────────────────
-    loginPage: async ({ page }, use) => {
-        await use(new LoginPage(page));
+    // `pages` is the general accessor — one fixture for every screen, each built
+    // on first use. The three named fixtures below resolve through it, so a spec
+    // can keep using `usersPage` or move to `pages.users` and get the same object.
+    pages: async ({ page }, use) => {
+        await use(createPageObjects(page));
     },
 
-    leftNavigationPage: async ({ page }, use) => {
-        await use(new LeftNavigationPage(page));
+    loginPage: async ({ pages }, use) => {
+        await use(pages.login);
     },
 
-    usersPage: async ({ page }, use) => {
-        await use(new UsersPage(page));
+    leftNavigationPage: async ({ pages }, use) => {
+        await use(pages.leftNav);
+    },
+
+    usersPage: async ({ pages }, use) => {
+        await use(pages.users);
     },
 
     // Navigate to the login page before the test body runs.
@@ -144,6 +173,15 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         await use(logger);
 
         logger.info(`Finished test: ${testInfo.title} - ${testInfo.status}`);
+    },
+
+    // ── Test-data cleanup ───────────────────────────────────────────
+    // Draining after `use` means it runs whether the test passed or failed, which
+    // is the whole point: a failed test is exactly when records get left behind.
+    cleanup: async ({ }, use) => {
+        const registry = new CleanupRegistry();
+        await use(registry);
+        await registry.drain();
     },
 
     // ── Data-driven test case fixture ───────────────────────────────
@@ -228,8 +266,9 @@ test.beforeEach(async ({ testCaseId }, testInfo) => {
     onTestStart(testInfo);
 
     // Resolve the runner row for this test (from the testCaseId option or a
-    // { type: 'testCaseId' } annotation), then apply the two-layer gate:
-    // runnerList.json overrides, runnerManager `enabled` is the baseline.
+    // { type: 'testCaseId' } annotation), then apply the three-layer gate:
+    // runnerList.json overrides, the row's `enabled` flag is the baseline, and
+    // TEST_SCOPE narrows to one customer's segments and licensed modules.
     const caseId = resolveCaseId(testInfo, testCaseId);
     const row = caseId ? await getTestCaseById<TestCaseData>(caseId) : null;
 
@@ -243,7 +282,7 @@ test.beforeEach(async ({ testCaseId }, testInfo) => {
     if (override === false) {
         test.skip(true, `Test case '${caseId}' is disabled in runnerList (execute=no)`);
     } else if (override === null) {
-        // Layer 2 — no override, so runnerManager governs.
+        // Layer 2 — no override, so the runner row governs.
         //
         // A test that claims a testCaseId with no matching row is a configuration
         // error, and it must NOT run: previously this gate only checked
@@ -253,13 +292,23 @@ test.beforeEach(async ({ testCaseId }, testInfo) => {
         // `caseId &&` guard is load-bearing: unannotated tests such as auth.setup.ts
         // resolve to '' and must still run, or every browser project loses its session.
         if (caseId && !row) {
-            test.skip(true, `Test case '${caseId}' has no runnerManager row — add one (enabled true/false) or remove the annotation.`);
+            test.skip(true, `Test case '${caseId}' has no runner row — add one to src/data/runner/ (enabled 1/0) or remove the annotation.`);
         }
         if (row && row.enabled === false) {
-            test.skip(true, `Test case '${row.id}' is disabled in runnerManager (enabled=false)`);
+            test.skip(true, `Test case '${row.id}' is disabled in its runner row (enabled=false)`);
+        }
+
+        // Layer 3 — TEST_SCOPE. A row whose workflow does not apply to this
+        // customer's segments, or needs a module they have not licensed, is not a
+        // failure and not a gap: it is out of scope. Rows with no segments/modules
+        // (the system rows) are always in scope. Skipped last so an out-of-scope
+        // row that is also disabled reports the simpler reason.
+        const verdict = evaluateScope(row);
+        if (!verdict.inScope) {
+            test.skip(true, `Test case '${row!.id}' is out of scope for TEST_SCOPE='${process.env.TEST_SCOPE}' — ${verdict.reason}`);
         }
     }
-    // override === true → runs regardless of runnerManager, by design.
+    // override === true → runs regardless of the row and the scope, by design.
 
     await applyAllureLabels(testInfo, row);
 });

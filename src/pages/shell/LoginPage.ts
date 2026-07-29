@@ -15,7 +15,7 @@
  * ```
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from './BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * Page Object representing the PET Tiger login page.
