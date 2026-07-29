@@ -200,6 +200,13 @@ jobs:
           token: ${{ secrets.APP_REPO_TOKEN }}
           path: app
           clean: false
+          # Full history, not the default depth-1. When a login started failing
+          # with "Invalid column name 'IsSuperUser'", the shallow clone made it
+          # impossible to see WHEN the app began requiring that column — every
+          # file looks added at a grafted root commit, so git log -S and git
+          # blame both point at HEAD and say nothing. clean:false keeps this
+          # checkout between runs, so the deeper fetch is a one-time cost.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -258,6 +265,31 @@ jobs:
             echo "Waiting for MinIO/Gotenberg... (${i}/30) minio=$minio_ok gotenberg=$gotenberg_ok"; sleep 2
           done
           echo "::error::MinIO/Gotenberg never became healthy"; exit 1
+
+      # The app and the databases version independently: the app is a fresh
+      # checkout of web-pet main every run, while TigerMaster/DelLlano only move
+      # when someone runs cmd/migrate. When the app gets ahead, the failure
+      # surfaces far from its cause — a login that returns HTTP 500 ("Invalid
+      # column name 'IsSuperUser'") looks exactly like flakiness from the test
+      # side, and cost three 60s retries and a manual api.log dig to identify.
+      # goose knows the answer before the app is even built, so ask it here.
+      #
+      # `status` is read-only (it SELECTs goose_db_version) but always exits 0,
+      # so the pending check has to read its output. MSSQL_* come from the job
+      # env above — the same settings the API server uses.
+      - name: 'Guard: databases match the app build'
+        working-directory: app/apps/api
+        run: |
+          # Written to RUNNER_TEMP, not the checkout: `clean: false` means a file
+          # dropped in app/ would linger as untracked cruft on every later run.
+          status_file="$RUNNER_TEMP/migrate-status.txt"
+          go run ./cmd/migrate status --target all | tee "$status_file"
+          if grep -q 'Pending' "$status_file"; then
+            pending=$(grep -c 'Pending' "$status_file")
+            echo "::error::${pending} migration(s) pending — the databases are behind this app build, so login will fail with 'Invalid column name'. Fix on the runner: cd app/apps/api && go run ./cmd/migrate up --target all (see the pending list above)."
+            exit 1
+          fi
+          echo "Databases are in sync with the app build."
 
       - name: Build API
         working-directory: app/apps/api
