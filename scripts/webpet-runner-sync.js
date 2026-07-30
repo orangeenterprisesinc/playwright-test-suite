@@ -428,6 +428,27 @@ function runIds() {
     );
 }
 
+/**
+ * Line-ending-insensitive text comparison.
+ *
+ * The generated maps are written with `\n`, but this repo has
+ * `core.autocrlf=true` and no `.gitattributes`, so any checkout on Windows
+ * rewrites them as CRLF. A raw `!==` then reports all four maps "out of date"
+ * on a tree that is byte-for-byte correct — and since `webpet:runner:check` is a
+ * blocking CI gate, that failed the **self-hosted Windows** job outright: the
+ * one workflow that produces the localhost acceptance baseline. It passed
+ * locally right up until a `git checkout` converted the files.
+ *
+ * Worse, the suggested remedy made it look transient: `webpet:runner:sync`
+ * rewrites the files with LF, the check goes green, git reports no change
+ * (autocrlf normalises on add), and the next checkout breaks it again.
+ *
+ * What matters is the content, not how the platform spells a newline.
+ */
+function sameText(a, b) {
+    return a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
+}
+
 /** Compares the generated id maps on disk against what the CSV implies. */
 function idsDriftProblems(rows) {
     const problems = [];
@@ -439,7 +460,7 @@ function idsDriftProblems(rows) {
     for (const [name, text] of expected) {
         if (!present.has(name)) {
             problems.push(`id map missing: src/data/webpet/ids/${name}`);
-        } else if (fs.readFileSync(path.join(IDS_DIR, name), 'utf-8') !== text) {
+        } else if (!sameText(fs.readFileSync(path.join(IDS_DIR, name), 'utf-8'), text)) {
             problems.push(`id map out of date: src/data/webpet/ids/${name}`);
         }
         present.delete(name);
