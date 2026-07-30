@@ -24,7 +24,7 @@
  * matches, that an action order survived, that an assertion still runs, or that
  * a conditional skip still fires. Those need the stack.
  *
- * Usage: node scripts/webpet-ids-check.js      (npm run webpet:ids:check)
+ * Usage: node scripts/webpet/ids-check.js      (npm run webpet:ids:check)
  */
 const fs = require('node:fs');
 const path = require('node:path');

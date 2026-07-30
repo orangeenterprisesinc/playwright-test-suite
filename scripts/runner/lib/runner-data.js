@@ -204,7 +204,7 @@ function parseAnnotation(optionsBlock, type) {
  * itself enforces elsewhere: **titles and annotation descriptions must be
  * single-quoted literals**. A computed title or a `description: someVar` is
  * invisible here, which is why the login negatives stay three explicit `test()`
- * calls instead of a loop — see `specs/system/login.md`.
+ * calls instead of a loop — see `test-plans/system/login.md`.
  *
  * @returns {{file: string, title: string, tags: string[], suiteTags: string[],
  *            testCaseId: string|null, requirements: string[]}[]}

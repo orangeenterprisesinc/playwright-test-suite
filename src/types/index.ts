@@ -70,7 +70,7 @@ export type DataSourceType = 'json' | 'csv';
  *   Needs the browser and `auth-setup`, so it lives in `tests/web/` too
  * - `'api'` — API-only, browserless (`tests/api/`)
  *
- * The mapping is enforced by `CATEGORY_FOLDER` in `scripts/check-runner.js`.
+ * The mapping is enforced by `CATEGORY_FOLDER` in `scripts/runner/check.js`.
  *
  * @typedef {('ui' | 'api' | 'workflow')} TestCategory
  */
@@ -87,7 +87,7 @@ export type TestCategory = 'ui' | 'api' | 'workflow';
  * - `'automated'` — a spec exists and is bound to this row
  * - `'lifted'` — **web-pet only**: the test exists and runs, but has not yet been
  *   converted to this framework's conventions. Distinct from `'draft'`, which
- *   means no test exists at all. `scripts/check-runner.js` keeps the stricter
+ *   means no test exists at all. `scripts/runner/check.js` keeps the stricter
  *   four-value list for journey rows, so this state cannot leak into them.
  *
  * @typedef {('draft' | 'specced' | 'ticketed' | 'automated' | 'lifted')} RunnerRowStatus

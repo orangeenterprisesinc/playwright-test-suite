@@ -32,10 +32,10 @@
  *                                     testName, testDescription, jira, status, notes
  *
  * Usage:
- *   node scripts/webpet-runner-sync.js           # rediscover tests, merge, write CSV+JSON
- *   node scripts/webpet-runner-sync.js --check   # exit 1 on drift, write nothing
- *   node scripts/webpet-runner-sync.js --mirror  # no discovery: re-derive JSON from CSV
- *   node scripts/webpet-runner-sync.js --ids     # regenerate src/data/webpet/ids/*.ts
+ *   node scripts/webpet/runner-sync.js           # rediscover tests, merge, write CSV+JSON
+ *   node scripts/webpet/runner-sync.js --check   # exit 1 on drift, write nothing
+ *   node scripts/webpet/runner-sync.js --mirror  # no discovery: re-derive JSON from CSV
+ *   node scripts/webpet/runner-sync.js --ids     # regenerate src/data/webpet/ids/*.ts
  *
  * Merge semantics (write mode):
  *   - matched rows keep their id and every human-owned column

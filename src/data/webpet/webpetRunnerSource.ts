@@ -88,7 +88,7 @@ async function build(): Promise<WebpetRunnerIndex> {
  *
  * The `titlePath` filter drops the project name and the spec-file entry, leaving
  * describes + title. Unchanged from the original gate so no row is orphaned by
- * the move, and mirrored exactly by `scripts/webpet-runner-sync.js` — the three
+ * the move, and mirrored exactly by `scripts/webpet/runner-sync.js` — the three
  * must agree or rows silently stop matching.
  */
 export function webpetStructuralKey(testInfo: TestInfo): string {

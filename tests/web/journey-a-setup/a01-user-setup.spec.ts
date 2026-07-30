@@ -5,7 +5,7 @@
  * | | |
  * |---|---|
  * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A1 |
- * | Plan | `specs/journey-a/a01-user-setup.md` |
+ * | Plan | `test-plans/journey-a/a01-user-setup.md` |
  * | Recording | `docs/media/journey-a/a01-user-setup.mp4` |
  * | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`…`A1-006` |
  *

@@ -3,7 +3,7 @@
  *
  * | | |
  * |---|---|
- * | Plan | `specs/system/login.md` |
+ * | Plan | `test-plans/system/login.md` |
  * | Runner rows | `src/data/runner/system.csv` → `UI-001`…`UI-004` |
  *
  * Not a catalog workflow (it is catalog A1 step 5, "Verify login"), so it lives

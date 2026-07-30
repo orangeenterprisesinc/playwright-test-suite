@@ -15,10 +15,10 @@
  * Keyed on WP id, so a retitle is not a regression but a lost test is.
  *
  * Usage:
- *   node scripts/webpet-baseline-diff.js <baseline.json> <after-report.json>
+ *   node scripts/webpet/baseline-diff.js <baseline.json> <after-report.json>
  *
  * `<after-report.json>` may be either a raw Playwright JSON report or a
- * manifest already produced by scripts/webpet-baseline.js.
+ * manifest already produced by scripts/webpet/baseline.js.
  *
  * Exit 0 = zero blocking rows. Exit 1 = at least one. Non-blocking rows are
  * printed and must be explained in the batch PR body, never ignored — an
@@ -91,7 +91,7 @@ const args = process.argv.slice(2);
 const filesFlag = args.find((a) => a.startsWith('--files='));
 const [baselinePath, afterPath] = args.filter((a) => !a.startsWith('--'));
 if (!baselinePath || !afterPath) {
-    console.error('Usage: node scripts/webpet-baseline-diff.js <baseline.json> <after-report.json> [--files=a.spec.ts,b.spec.ts]');
+    console.error('Usage: node scripts/webpet/baseline-diff.js <baseline.json> <after-report.json> [--files=a.spec.ts,b.spec.ts]');
     console.error('');
     console.error('  --files  spec files this run was meant to cover, relative to tests/webpet.');
     console.error('           Defaults to the collected-file set recorded in the run manifest.');

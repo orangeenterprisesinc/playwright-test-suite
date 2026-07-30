@@ -39,7 +39,7 @@
  * npm run webpet:audit -- --verbose       # list clean files too
  * ```
  *
- * @module scripts/webpet-audit-relocation
+ * @module scripts/webpet/audit-relocation
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
