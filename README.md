@@ -15,6 +15,8 @@
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
+- [The migrated web-pet suite](#-the-migrated-web-pet-suite-testswebpet)
+- [Linting](docs/LINTING.md)
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
@@ -205,9 +207,11 @@ playwright-test-suite/
 │   │   ├── journey-d-office/          #     D1-D8
 │   │   ├── journey-e-payroll/         #     E8-E11
 │   │   └── journey-f-analysis/        #     F1-F7
-│   └── workflow/                      #   UI + API hybrid (base.fixture + apiRequest)
-│       ├── journey-d-office/          #     D9-D10 calculations
-│       └── journey-e-payroll/         #     E1-E7 calculations
+│   ├── workflow/                      #   UI + API hybrid (base.fixture + apiRequest)
+│   │   ├── journey-d-office/          #     D9-D10 calculations
+│   │   └── journey-e-payroll/         #     E1-E7 calculations
+│   └── webpet/                        #   migrated web-pet suite — 406 tests, runs separately
+│                                      #     own fixture/pages/runner/projects; see below
 │
 ├── specs/                             # One markdown plan per workflow (written first)
 │   ├── _template.md
@@ -218,9 +222,54 @@ playwright-test-suite/
 │   ├── import-catalog.js              #   docx -> workflow-catalog.json
 │   ├── runner-sync.js                 #   runner CSV -> JSON mirror
 │   ├── check-runner.js                #   validates rows <-> specs <-> catalog
-│   └── coverage-report.js             #   69-workflow automation coverage
+│   ├── coverage-report.js             #   69-workflow automation coverage
+│   ├── webpet-runner-sync.js          #   the web-pet suite's own runner sync / drift check
+│   ├── webpet-ids-check.js            #   static gate: annotations, id maps, tags, imports
+│   └── webpet-baseline{,-diff}.js     #   per-test baseline capture + regression diff
 └── logs/                              # Runtime log output (app-<date>.log)
 ```
+
+The `src/` tree carries a parallel `webpet/` subtree in four places —
+`src/pages/webpet/`, `src/components/webpet/`, `src/data/webpet/` and the
+`webpet*.fixture.ts` files — for the migrated suite described below.
+
+---
+
+## 🐯 The migrated web-pet suite (`tests/webpet/`)
+
+Alongside the journey suites this repo hosts the **PET Tiger app repo's own
+Playwright suite** — 406 tests in 56 spec files, lifted from
+`web-pet/apps/web/e2e` and converted onto this framework's conventions (page
+objects, fixtures, `testCaseId` annotations, tags, path aliases).
+
+It **runs separately by design** and shares no runtime state with the journey
+suites:
+
+| | journey suites | `tests/webpet/` |
+|---|---|---|
+| fixture | `@fixtures/base.fixture` / `api.fixture` | `@fixtures/webpet.fixture` |
+| page objects | `src/pages/` | `src/pages/webpet/` (47 screens, 9 components) |
+| runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
+| ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
+| projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
+| CI | `e2e.yml`, `e2e-local.yml` | `webpet-e2e-local.yml`, `webpet-e2e-dev.yml` |
+
+```bash
+npm run test:webpet                        # whole suite against localhost
+npm run test:webpet:dev                    # against dev staging
+npm run test:webpet:list                   # collection check — prints 407 tests / 57 files
+npm run test:webpet -- --grep @wp-crop     # one module
+```
+
+A bare `npx playwright test` never picks it up: the `chromium` project ignores the
+folder and the web-pet projects materialize only under `WEBPET=1` or
+`--project=webpet`. It also needs the full local web-pet stack (Vite `:3000` → Go
+API `:8080` → SQL Server, MinIO, Gotenberg), which is why it is opt-in.
+
+Full documentation: [tests/webpet/README.md](tests/webpet/README.md) — including
+the run-control runner, the baseline acceptance gate, and the one rule that must
+never be broken (**a web-pet spec may not import `base.fixture`**, or all 406
+tests skip while the run reports green).
 
 ---
 

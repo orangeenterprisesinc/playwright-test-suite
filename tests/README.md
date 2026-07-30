@@ -21,9 +21,10 @@ tests/
 │   ├── journey-d-office/               #   D1–D8 daily office processing
 │   ├── journey-e-payroll/              #   E8–E11 payroll close and export
 │   └── journey-f-analysis/             #   F1–F7 analysis and monitoring
-└── workflow/                           # UI + API hybrid → src/fixtures/base.fixture
-    ├── journey-d-office/               #   D9–D10 transfer-time calculations
-    └── journey-e-payroll/              #   E1–E7, E12–E13 payroll calculations
+├── workflow/                           # UI + API hybrid → src/fixtures/base.fixture
+│   ├── journey-d-office/               #   D9–D10 transfer-time calculations
+│   └── journey-e-payroll/              #   E1–E7, E12–E13 payroll calculations
+└── webpet/                             # migrated web-pet suite — SEPARATE, see below
 ```
 
 ## Which category?
@@ -156,6 +157,41 @@ test('create in UI, verify via API', async ({ apiRequest, pages }, testInfo) => 
 
 - Resolve entity ids **by name at runtime** — never hardcode ids.
 - Tag with `@Workflow`.
+
+---
+
+## Not a category: `tests/webpet/`
+
+The migrated web-pet suite — 406 tests in 56 spec files lifted from the PET Tiger
+app repo and converted onto this framework's conventions. It is **not a fourth
+category and none of the rules above apply to it.** Everything about it is
+parallel: its own fixture, its own page-object tree, its own runner file, its own
+Playwright projects, its own npm scripts and its own CI workflows.
+
+| | journey suites | `tests/webpet/` |
+|---|---|---|
+| fixture | `@fixtures/base.fixture` / `api.fixture` | `@fixtures/webpet.fixture` |
+| page objects | `src/pages/` | `src/pages/webpet/` |
+| runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
+| ids | `A1-001` | `WP-0001` |
+| tags | `@JourneyA`, `@UI`, `@Smoke` | `@WebPet`, `@wp-*`, `@WPBatchNN` |
+| projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
+| run | `npx playwright test` | `npm run test:webpet` |
+
+The separation is enforced, not conventional:
+
+- `chromium` sets `testIgnore: ['**/tests/webpet/**']`, and the webpet projects
+  materialize only under `WEBPET=1` or `--project=webpet`. A bare
+  `npx playwright test` collects 11 tests and none of them are web-pet's.
+- **A web-pet spec must never import `base.fixture`.** Its gate resolves ids
+  through `DataProvider`, a process-wide singleton bound to `src/data/runner/`, so
+  every `WP-####` would hit "has no runner row" and all 406 tests would skip while
+  the run reported green. `webpet:ids:check` fails the build on that import.
+- Tag namespaces are disjoint (`@Smoke` cannot match `@wp-smoke`), so
+  `npm run test:smoke` never reaches into it.
+
+Start at [tests/webpet/README.md](webpet/README.md); the page-object rules are in
+[src/pages/webpet/README.md](../src/pages/webpet/README.md).
 
 ---
 

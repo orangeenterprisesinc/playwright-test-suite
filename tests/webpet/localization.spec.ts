@@ -1,5 +1,3 @@
-import { test, expect } from './fixtures'
-
 /**
  * Exercises the Header and Profile language pickers.
  *
@@ -8,80 +6,79 @@ import { test, expect } from './fixtures'
  * entirely in the English UI. They verify the picker's structure (System +
  * 3 locale options with BCP-47 suffixes) and the System-sentinel side
  * effect (a PUT /api/users/{id} with language=null).
+ *
+ * Framework-aligned (Batch 06): the user-menu locators live on AppShellPage and
+ * the Personal Details picker on ProfilePage. Action order and assertions
+ * unchanged.
  */
+import { expect, test } from '@fixtures/webpet.fixture';
 
-test.describe('Language picker — Header', () => {
-  test('header dropdown lists Language submenu with System + 3 locales', async ({ page }) => {
-    await page.goto('/')
+/** The picker's full option set, System sentinel first. */
+const LOCALE_OPTIONS = ['System', 'English (en)', 'Spanish (es)', 'Spanish (Mexico) (es-MX)'];
 
-    // Open the avatar dropdown.
-    // UserMenu (app/layout/UserMenu.tsx) lives in the sidebar, not a <header>
-    // — this selector never matched, hanging on the actionability wait until
-    // the CONTEXT-CLOSED cascade further down misreported the real cause.
-    await page.locator('[data-slot="dropdown-menu-trigger"]').first().click()
-    // Sub-triggers use data-slot="dropdown-menu-sub-trigger" in the shared
-    // dropdown-menu primitive; filter to the one containing "Language".
-    const languageSubTrigger = page
-      .locator('[data-slot="dropdown-menu-sub-trigger"]')
-      .filter({ hasText: 'Language' })
-    await expect(languageSubTrigger).toBeVisible({ timeout: 5000 })
-    await languageSubTrigger.click()
+test.describe('Language picker — Header', { tag: ['@WebPet', '@wp-shell', '@wp-localization', '@WPBatch06'] }, () => {
 
-    for (const expected of [
-      'System',
-      'English (en)',
-      'Spanish (es)',
-      'Spanish (Mexico) (es-MX)',
-    ]) {
-      await expect(page.getByRole('menuitemradio', { name: expected })).toBeVisible({
-        timeout: 5000,
-      })
-    }
-  })
+    test('[Localization] Verify that the header dropdown lists the Language submenu with System and three locales.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0239' },
+    }, async ({ pages }) => {
+        const shell = pages.shell;
+        await shell.gotoRoot();
 
-  test('picking "System" sends language=null to PUT /api/users/{id}', async ({ page }) => {
-    await page.goto('/')
+        // Open the avatar dropdown. UserMenu (app/layout/UserMenu.tsx) lives in the
+        // sidebar, not a <header> — a header-scoped selector never matched and hung
+        // on the actionability wait until a CONTEXT-CLOSED cascade misreported the
+        // real cause. AppShellPage.userMenuTrigger encodes the working locator.
+        await shell.userMenuTrigger.click();
+        // Sub-triggers use data-slot="dropdown-menu-sub-trigger" in the shared
+        // dropdown-menu primitive; the page object filters to the Language one.
+        await expect(shell.languageSubTrigger).toBeVisible({ timeout: 5000 });
+        await shell.languageSubTrigger.click();
 
-    // Capture the next PUT /api/users/{id} so we can assert the payload.
-    const putResponse = page.waitForRequest(
-      (req) => /\/api\/users\/\d+$/.test(req.url()) && req.method() === 'PUT',
-      { timeout: 10_000 },
-    )
+        for (const expected of LOCALE_OPTIONS) {
+            await expect(shell.localeOption(expected)).toBeVisible({ timeout: 5000 });
+        }
+    });
 
-    // UserMenu (app/layout/UserMenu.tsx) lives in the sidebar, not a <header>
-    // — this selector never matched, hanging on the actionability wait until
-    // the CONTEXT-CLOSED cascade further down misreported the real cause.
-    await page.locator('[data-slot="dropdown-menu-trigger"]').first().click()
-    await page
-      .locator('[data-slot="dropdown-menu-sub-trigger"]')
-      .filter({ hasText: 'Language' })
-      .click()
-    await page.getByRole('menuitemradio', { name: 'System' }).click()
+    test('[Localization] Verify that picking System sends a null language to the user endpoint.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0240' },
+    }, async ({ page, pages }) => {
+        const shell = pages.shell;
+        await shell.gotoRoot();
 
-    const req = await putResponse
-    const body = req.postDataJSON() as { language: unknown }
-    expect(body.language).toBeNull()
-  })
-})
+        // Capture the next PUT /api/users/{id} so we can assert the payload.
+        const putResponse = page.waitForRequest(
+            (req) => /\/api\/users\/\d+$/.test(req.url()) && req.method() === 'PUT',
+            { timeout: 10_000 },
+        );
 
-test.describe('Language picker — Profile', () => {
-  test('Profile Personal Details lists System + all 3 locales with BCP-47 suffixes', async ({
-    page,
-  }) => {
-    await page.goto('/profile')
-    // PersonalDetails section is the only home of the language picker now
-    // (PET-25 removed the duplicate Preferences-section picker).
-    const personalDetailsLanguage = page.locator('#personal-details #language-personal')
-    await personalDetailsLanguage.waitFor({ state: 'visible', timeout: 10_000 })
-    await personalDetailsLanguage.click()
+        await shell.openLanguageMenu();
+        await shell.localeOption('System').click();
 
-    for (const expected of [
-      'System',
-      'English (en)',
-      'Spanish (es)',
-      'Spanish (Mexico) (es-MX)',
-    ]) {
-      await expect(page.getByRole('option', { name: expected })).toBeVisible({ timeout: 5000 })
-    }
-  })
-})
+        const req = await putResponse;
+        const body = req.postDataJSON() as { language: unknown };
+        expect(body.language).toBeNull();
+    });
+
+});
+
+test.describe('Language picker — Profile', { tag: ['@WebPet', '@wp-shell', '@wp-localization', '@WPBatch06'] }, () => {
+
+    test('[Localization] Verify that Profile Personal Details lists System and all three locales with BCP-47 suffixes.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0241' },
+    }, async ({ pages }) => {
+        const profile = pages.profile;
+        await profile.gotoProfile();
+        // PersonalDetails section is the only home of the language picker now
+        // (PET-25 removed the duplicate Preferences-section picker).
+        await profile.languageSelect.waitFor({ state: 'visible', timeout: 10_000 });
+        await profile.languageSelect.click();
+
+        for (const expected of LOCALE_OPTIONS) {
+            await expect(profile.localeOption(expected)).toBeVisible({ timeout: 5000 });
+        }
+    });
+
+});

@@ -38,29 +38,20 @@ name: E2E (localhost, self-hosted)
 #                        orangeenterprisesinc/web-pet (private repo; the
 #                        default GITHUB_TOKEN can't check it out).
 #      LOCAL_USER_NAME = su
-#      LOCAL_PASSWORD  = dev-local-su-password (must match PT_SU_PASSWORD in
-#                         your local apps/api/.env, or the login step 401s)
+#      LOCAL_PASSWORD  = dev-local-su-password
 #
-# Auto-triggers — no fixed schedule; runs whenever there's actually a new
-# build/change to validate:
-#   1. repository_dispatch (run-playwright) — fired by the web-pet app repo when
-#      it pushes/builds. This is the SAME event_type e2e.yml already listens
-#      for, so one app-side dispatch fans out to BOTH the remote (e2e.yml) and
-#      the self-hosted localhost (this) suite, with no change on the app repo.
-#      The two run on different runners (ubuntu-latest vs self-hosted), so they
-#      don't contend for this machine.
-#   2. push to this test repo's main — so test-suite changes self-validate —
-#      and to dry-run, the staging branch for validating suite changes on the
-#      real runner before they reach main. A `push:` trigger is read from the
-#      pushed branch's own copy of this file, so dry-run has to be listed here
-#      (on that branch) or pushing to it silently runs nothing.
-#   3. workflow_dispatch — manual runs from the Actions tab.
+# su's credential (WEBPET-1463, 2026-07-25 retired the shared PT_SU_PASSWORD
+# login secret — every user, including su, now authenticates against their own
+# persisted TigerMaster.dbo.Users row). The "Reset su's TigerMaster credential"
+# step below resets that row to LOCAL_PASSWORD before auth-setup runs, so the
+# login step can't 401 on drift — do NOT reintroduce an env-secret login path.
+#
+# Manual-only: no push, no repository_dispatch, no schedule — this only runs
+# when someone clicks "Run workflow" on the Actions tab. This is a persistent
+# single-machine self-hosted runner, so an auto-trigger firing off-hours (or on
+# every push) doesn't just cost time, it can queue behind/collide with
+# whatever the machine's owner is doing locally.
 on:
-  push:
-    branches: [main, dry-run]
-  repository_dispatch:
-    types:
-      - run-playwright
   workflow_dispatch:
     inputs:
       grep:
@@ -125,7 +116,6 @@ jobs:
       MSSQL_DB: DelLlano
       MSSQL_ENCRYPT: 'false'
       MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
-      PT_SU_PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
       S3_ENDPOINT: http://localhost:9000
       S3_REGION: us-east-1
       S3_BUCKET: pet-tiger-dev
@@ -171,7 +161,7 @@ jobs:
         run: |
           missing=()
           [ -z "${{ secrets.APP_REPO_TOKEN }}" ] && missing+=("APP_REPO_TOKEN")
-          [ -z "${{ env.PT_SU_PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
+          [ -z "${{ env.PASSWORD }}" ] && missing+=("LOCAL_PASSWORD")
           if [ ${#missing[@]} -ne 0 ]; then
             echo "::error::Missing required secrets: ${missing[*]} — see the comment header in e2e-local.yml"
             exit 1
@@ -319,6 +309,25 @@ jobs:
           done
           echo "::error::API never became reachable on :8080 — is the SQLEXPRESS01 Windows service running?"; cat api.log; exit 1
 
+      # WEBPET-1463 (2026-07-25) retired the shared PT_SU_PASSWORD login secret —
+      # su now authenticates against its own persisted TigerMaster.dbo.Users row,
+      # same as every other user. This idempotent reset (legacy-plaintext
+      # Password, cleared PasswordHash/Salt) uses the app's own supported
+      # plaintext-fallback-with-lazy-upgrade path, so su's credential can never
+      # silently drift out of sync with LOCAL_PASSWORD again — without
+      # reintroducing an env-secret login path. Same sqlcmd/Windows-auth
+      # convention as src/utils/db/sqlClient.ts's runViaSqlcmd.
+      - name: Reset su's TigerMaster credential
+        shell: powershell
+        run: |
+          $password = "${{ secrets.LOCAL_PASSWORD }}".Replace("'", "''")
+          $query = "UPDATE TigerMaster.dbo.Users SET Password = '$password', PasswordHash = NULL, Salt = NULL, UpdateTime = GETDATE() WHERE Name = 'su' AND Deleted = 0;"
+          sqlcmd -S localhost,1433 -d master -C -b -l 10 -E -Q $query
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to reset su's TigerMaster credential (sqlcmd exit $LASTEXITCODE)"
+            exit 1
+          }
+
       - name: Wait for web on :3000
         run: |
           for i in $(seq 1 30); do
@@ -338,8 +347,8 @@ jobs:
 
       - name: Run Playwright tests
         env:
-          # Narrow the run when dispatched with inputs; both are empty for
-          # scheduled/push/dispatch runs, which therefore behave exactly as before.
+          # Narrow the run when dispatched with inputs; both are empty for a
+          # plain manual dispatch, which then behaves like a full-suite run.
           GREP: ${{ github.event.inputs.grep }}
           TEST_SCOPE: ${{ github.event.inputs.scope }}
         run: |

@@ -27,73 +27,79 @@
  * same as for the input/time-in equivalence specs (delete by reference prefix / date window).
  *
  * Requires the web app + seeded dev DB (DelLlano) running and the admin auth storage state.
+ *
+ * Framework-aligned (Batch 14): the scan shell's locators come from
+ * `ScanScreenPage`, shared with `scan-mode.spec.ts`. Note `scanInput` (strict) is
+ * correct here — Time In renders exactly one; the `.first()` variant exists only
+ * for the duplicate-id driver screens.
  */
-import { test, expect } from '../fixtures'
+import { expect, test } from '@fixtures/webpet.fixture';
 
-const ENABLED = process.env.SCAN_TIME_IN_EQUIV === '1'
-const EMPLOYEE_BARCODE = process.env.SCAN_EMPLOYEE_BARCODE ?? ''
+const ENABLED = process.env.SCAN_TIME_IN_EQUIV === '1';
+const EMPLOYEE_BARCODE = process.env.SCAN_EMPLOYEE_BARCODE ?? '';
 
-test.describe('Equivalence: scan-time-in', () => {
-  test.skip(
-    !ENABLED || EMPLOYEE_BARCODE === '',
-    'Set SCAN_TIME_IN_EQUIV=1 and SCAN_EMPLOYEE_BARCODE=<active employee barcode> to run against a seeded DB.',
-  )
+test.describe('Equivalence: scan-time-in', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
+    test.skip(
+        !ENABLED || EMPLOYEE_BARCODE === '',
+        'Set SCAN_TIME_IN_EQUIV=1 and SCAN_EMPLOYEE_BARCODE=<active employee barcode> to run against a seeded DB.',
+    );
 
-  test('scanning an employee and saving writes a Time In row with the expected reference', async ({
-    page,
-  }) => {
-    test.setTimeout(120_000)
+    test('[Equiv] Verify that scanning an employee and saving writes a Time In row with the expected reference.', {
+        tag: ['@wp-e2e', '@wp-scan'],
+        annotation: { type: 'testCaseId', description: 'WP-0178' },
+    }, async ({ page, pages }) => {
+        const screen = pages.scanScreen;
+        test.setTimeout(120_000);
 
-    // Capture the create response so we can read back the new row by id.
-    const createResponse = page.waitForResponse(
-      (r) => r.url().includes('/time-cards/time-in') && r.request().method() === 'POST',
-    )
+        // Capture the create response so we can read back the new row by id.
+        const createResponse = page.waitForResponse(
+            (r) => r.url().includes('/time-cards/time-in') && r.request().method() === 'POST',
+        );
 
-    // ── Drive the scan screen ──────────────────────────────────────────────
-    await page.goto('/scan/time-in')
-    await expect(page.locator('#scan-input')).toBeVisible()
+        // ── Drive the scan screen ──────────────────────────────────────────────
+        await screen.gotoSegment('time-in');
+        await expect(screen.scanInput).toBeVisible();
 
-    // Scan the employee barcode (keyboard-wedge: type + Enter).
-    await page.locator('#scan-input').fill(EMPLOYEE_BARCODE)
-    await page.locator('#scan-input').press('Enter')
+        // Scan the employee barcode (keyboard-wedge: type + Enter).
+        await screen.scanBarcode(EMPLOYEE_BARCODE);
 
-    // Decode must resolve to an employee — Save enables only then.
-    await expect(page.locator('[data-testid="scan-employee-name"]')).not.toHaveText(/^$/)
-    await expect(page.locator('[data-testid="scan-save-button"]')).toBeEnabled({ timeout: 15_000 })
+        // Decode must resolve to an employee — Save enables only then.
+        await expect(screen.employeeName).not.toHaveText(/^$/);
+        await expect(screen.saveButton).toBeEnabled({ timeout: 15_000 });
 
-    // Save the Time In punch.
-    await page.locator('[data-testid="scan-save-button"]').click()
+        // Save the Time In punch.
+        await screen.saveButton.click();
 
-    const res = await createResponse
-    expect(res.status(), 'POST /time-cards/time-in should succeed').toBeLessThan(400)
-    const created = await res.json()
-    const newId: number = created.timeCardCounter
-    expect(newId, 'create response should carry the new timeCardCounter').toBeGreaterThan(0)
+        const res = await createResponse;
+        expect(res.status(), 'POST /time-cards/time-in should succeed').toBeLessThan(400);
+        const created = await res.json();
+        const newId: number = created.timeCardCounter;
+        expect(newId, 'create response should carry the new timeCardCounter').toBeGreaterThan(0);
 
-    // Success message shown; employee slot cleared for the next punch.
-    await expect(page.locator('[data-testid="scan-status"]')).toBeVisible()
+        // Success message shown; employee slot cleared for the next punch.
+        await expect(screen.status).toBeVisible();
 
-    // ── DB assertions via GET /api/time-cards/time-in/:id ──────────────────
-    const get = await page.request.get(`/api/time-cards/time-in/${newId}`)
-    expect(get.ok()).toBe(true)
-    const row = await get.json()
+        // ── DB assertions via GET /api/time-cards/time-in/:id ──────────────────
+        const get = await page.request.get(`/api/time-cards/time-in/${newId}`);
+        expect(get.ok()).toBe(true);
+        const row = await get.json();
 
-    // Reference: legacy ScanTimeIn writes a YNIPU-format time-card reference via the shared
-    // two-step insert (placeholder → assembled reference). It must be non-empty.
-    expect(row.reference, 'Time In row must carry a generated reference').toBeTruthy()
-    expect(typeof row.reference).toBe('string')
-    expect(row.reference.length).toBeGreaterThan(0)
+        // Reference: legacy ScanTimeIn writes a YNIPU-format time-card reference via the shared
+        // two-step insert (placeholder → assembled reference). It must be non-empty.
+        expect(row.reference, 'Time In row must carry a generated reference').toBeTruthy();
+        expect(typeof row.reference).toBe('string');
+        expect(row.reference.length).toBeGreaterThan(0);
 
-    // Transaction columns: the scanned employee is persisted; the row is a live (not deleted,
-    // not transferred) Time In.
-    expect(row.timeCardCounter).toBe(newId)
-    expect(row.employeeCounter, 'scanned employee must be persisted').toBeGreaterThan(0)
-    expect(row.deleted).toBe(false)
-    expect(row.transferred).toBe(false)
-    // The scan screen sends now() as the punch time; the row must carry a dateTime.
-    expect(row.dateTime).toBeTruthy()
+        // Transaction columns: the scanned employee is persisted; the row is a live (not deleted,
+        // not transferred) Time In.
+        expect(row.timeCardCounter).toBe(newId);
+        expect(row.employeeCounter, 'scanned employee must be persisted').toBeGreaterThan(0);
+        expect(row.deleted).toBe(false);
+        expect(row.transferred).toBe(false);
+        // The scan screen sends now() as the punch time; the row must carry a dateTime.
+        expect(row.dateTime).toBeTruthy();
 
-    // assert: ignore — AuthorCounter / UpdateTime are stamped by the shared writer but not
-    // exposed by the GET endpoint; verified at the DB level (mcp__mssql) in the manual walk.
-  })
-})
+        // assert: ignore — AuthorCounter / UpdateTime are stamped by the shared writer but not
+        // exposed by the GET endpoint; verified at the DB level (mcp__mssql) in the manual walk.
+    });
+});

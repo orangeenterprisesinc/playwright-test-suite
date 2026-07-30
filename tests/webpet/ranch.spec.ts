@@ -8,20 +8,25 @@
  * cache patches across selected rows), undo via the SelectedRowsBar pill,
  * URL state for sort + filter.
  *
- * Run: pnpm --filter @pet-tiger/web exec playwright test ranch
- *
  * Test data (DelLlano, WEBPET-831): resolves active, uniquely-named ranches via
- * the API and targets rows by exact edit-link id (no Smith/BLAIR ids 1/5 here).
- * Tests toggle/edit and Undo-restore, so they self-clean.
+ * the API and targets rows by exact edit-link id. Tests toggle/edit and
+ * Undo-restore, so they self-clean.
+ *
+ * Framework-aligned (Batch 03): the grid surface lives on
+ * WebpetDataGridComponent and the map/boundary section on RanchFormPage. The
+ * API state helpers below stay here — they are test-data setup, carry no
+ * selectors, and deliberately use `page.request` rather than the `request`
+ * fixture (see seed/TRIAGE-DELLLANO.md; the two resolve different origins and
+ * swapping them moves the dev baseline).
  */
-import { test, expect } from './fixtures'
-import type { Page, Locator } from '@playwright/test'
-import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory'
+import { expect, test } from '@fixtures/webpet.fixture';
+import type { Page } from '@playwright/test';
+import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory';
 
 // Tests in this file mutate DB state on their own ranches and cannot run in
 // parallel without racing each other. Serialize — even though
 // playwright.config has `fullyParallel: true` globally.
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial' });
 
 // This file owns three ranches, created fresh via the API (no dependency on a
 // seeded "Smith" / "BLAIR" or on there being ≥N active uniquely-named ranches).
@@ -31,394 +36,368 @@ test.describe.configure({ mode: 'serial' })
 // three regardless, so no rows leak between runs. See data-factory.ts. Ranch
 // counts are small (well under the DataGrid's 100-row virtualization
 // threshold), so every row — including ours — stays in the DOM for row lookups.
-let ranchA: EnsuredRanch
-let ranchB: EnsuredRanch
-let ranchC: EnsuredRanch
+let ranchA: EnsuredRanch;
+let ranchB: EnsuredRanch;
+let ranchC: EnsuredRanch;
 
 test.beforeAll(async ({ request }) => {
-  ranchA = await ensureRanch(request)
-  ranchB = await ensureRanch(request)
-  ranchC = await ensureRanch(request)
-})
+    ranchA = await ensureRanch(request);
+    ranchB = await ensureRanch(request);
+    ranchC = await ensureRanch(request);
+});
 
 test.afterAll(async ({ request }) => {
-  if (ranchA) await deleteRanch(request, ranchA.id)
-  if (ranchB) await deleteRanch(request, ranchB.id)
-  if (ranchC) await deleteRanch(request, ranchC.id)
-})
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-// Target a row by its exact edit-link href (unambiguous vs. name, which can
-// collide with a Department/Customer cell value in other rows).
-function rowById(page: Page, id: number): Locator {
-  return page.locator('[role="row"]').filter({ has: page.locator(`a[href="/setup/ranches/${id}"]`) })
-}
-
-// The Active toggle's aria-label is `Active: <ranch name>` (RanchListPage:560).
-function activeToggle(row: Locator, name: string): Locator {
-  return row.getByRole('checkbox', { name: new RegExp('Active.*' + escapeRe(name)) })
-}
+    if (ranchA) await deleteRanch(request, ranchA.id);
+    if (ranchB) await deleteRanch(request, ranchB.id);
+    if (ranchC) await deleteRanch(request, ranchC.id);
+});
 
 // Ensure a ranch's WorkerCompCode is null so its cell shows the "—" empty
 // display (the WCC text-edit test starts from empty).
 async function clearRanchWcc(page: Page, id: number): Promise<void> {
-  const r = await (await page.request.get(`/api/ranches/${id}`)).json()
-  if (r.workerCompCode == null) return
-  await page.request.put(`/api/ranches/${id}`, {
-    data: {
-      active: true,
-      departmentCounter: r.departmentCounter ?? null,
-      workerCompCode: null,
-      customerCounter: r.customerCounter ?? null,
-      point: r.point ?? null,
-      polygon: r.polygon ?? null,
-      version: r.version,
-    },
-  })
+    const r = await (await page.request.get(`/api/ranches/${id}`)).json();
+    if (r.workerCompCode == null) return;
+    await page.request.put(`/api/ranches/${id}`, {
+        data: {
+            active: true,
+            departmentCounter: r.departmentCounter ?? null,
+            workerCompCode: null,
+            customerCounter: r.customerCounter ?? null,
+            point: r.point ?? null,
+            polygon: r.polygon ?? null,
+            version: r.version,
+        },
+    });
 }
 
 // Ensure a ranch starts with an empty boundary so filling the polygon/point in
 // the test is always a real change (an interrupted run can leave a stale
 // polygon, making the fill a no-op and Save stays disabled).
 async function clearRanchBoundary(page: Page, id: number): Promise<void> {
-  const r = await (await page.request.get(`/api/ranches/${id}`)).json()
-  if (r.point == null && r.polygon == null) return
-  await page.request.put(`/api/ranches/${id}`, {
-    data: {
-      active: true,
-      departmentCounter: r.departmentCounter ?? null,
-      workerCompCode: r.workerCompCode ?? null,
-      customerCounter: r.customerCounter ?? null,
-      point: null,
-      polygon: null,
-      version: r.version,
-    },
-  })
-}
-
-async function openMultiEdit(page: Page) {
-  await page.getByRole('button', { name: /^Multi Update$/ }).click()
+    const r = await (await page.request.get(`/api/ranches/${id}`)).json();
+    if (r.point == null && r.polygon == null) return;
+    await page.request.put(`/api/ranches/${id}`, {
+        data: {
+            active: true,
+            departmentCounter: r.departmentCounter ?? null,
+            workerCompCode: r.workerCompCode ?? null,
+            customerCounter: r.customerCounter ?? null,
+            point: null,
+            polygon: null,
+            version: r.version,
+        },
+    });
 }
 
 // ── Page chrome ─────────────────────────────────────────────────────────────
 
-test.describe('RanchListPage — page chrome', () => {
-  test('page title reads "Ranches" (not "Ranchs")', async ({ page }) => {
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
-    // The page-header title is rendered via setPageHeader(...) into a known
-    // slot. We assert text presence on the document; this fails if the
-    // typo regression sneaks back in.
-    await expect(page.getByText('Ranches', { exact: true }).first()).toBeVisible()
-    await expect(page.getByText('Ranchs', { exact: true })).not.toBeVisible()
-  })
+test.describe('RanchListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '@wp-ranch', '@WPBatch03'] }, () => {
 
-  test('grid uses role="grid" with header columns Name, Barcode, Department, WorkerCompCode, Active', async ({ page }) => {
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible()
-    // Note: traceability:form.field.code.label translates to "Barcode" (legacy
-    // alias) — RanchListPage reuses that key for the code column.
-    await expect(page.getByRole('columnheader', { name: /^Barcode/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /Department/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /Worker Comp Code/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Active/ })).toBeVisible()
-  })
+    test('[Ranch] Verify that the page title reads "Ranches" and not the historic typo.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0285' },
+    }, async ({ pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        // The page-header title is rendered via setPageHeader(...) into a known
+        // slot. We assert text presence on the document; this fails if the
+        // typo regression sneaks back in.
+        await expect(list.titleText).toBeVisible();
+        await expect(list.misspelledTitle).not.toBeVisible();
+    });
 
-  test('rightmost edit-icon column has a SquarePen link to /setup/ranches/:id', async ({ page }) => {
-    const r = ranchA
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
-    const editLink = page.locator(`a[href="/setup/ranches/${r.id}"]`).first()
-    await expect(editLink).toBeVisible()
-  })
+    test('[Ranch] Verify that the grid renders with the expected column headers.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0286' },
+    }, async ({ pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+        // Note: traceability:form.field.code.label translates to "Barcode" (legacy
+        // alias) — RanchListPage reuses that key for the code column.
+        await expect(list.grid.columnHeader(/^Barcode/)).toBeVisible();
+        await expect(list.grid.columnHeader(/Department/)).toBeVisible();
+        await expect(list.grid.columnHeader(/Worker Comp Code/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Active/)).toBeVisible();
+    });
 
-  test('Multi Update button paints aria-pressed=true when toggled on', async ({ page }) => {
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
-    const btn = page.getByRole('button', { name: /^Multi Update$/ })
-    await expect(btn).toHaveAttribute('aria-pressed', 'false')
-    await btn.click()
-    await expect(btn).toHaveAttribute('aria-pressed', 'true')
-    await btn.click()
-    await expect(btn).toHaveAttribute('aria-pressed', 'false')
-  })
+    test('[Ranch] Verify that the rightmost edit-icon column links to the ranch record.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0287' },
+    }, async ({ pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        await expect(list.grid.editLinkById(ranchA.id)).toBeVisible();
+    });
 
-  test('outbound "New Ranch" link carries the URL searchSuffix', async ({ page }) => {
-    await page.goto('/setup/ranches?sort=name.desc')
-    await page.waitForSelector('[role="grid"]')
-    const newLink = page.locator('a[href^="/setup/ranches/new"]').first()
-    await expect(newLink).toHaveAttribute('href', /\?sort=name\.desc/)
-  })
-})
+    test('[Ranch] Verify that the Multi Update button paints aria-pressed when toggled.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0288' },
+    }, async ({ pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        await expect(list.grid.multiUpdateButton).toHaveAttribute('aria-pressed', 'false');
+        await list.grid.toggleMultiUpdate();
+        await expect(list.grid.multiUpdateButton).toHaveAttribute('aria-pressed', 'true');
+        await list.grid.toggleMultiUpdate();
+        await expect(list.grid.multiUpdateButton).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    test('[Ranch] Verify that the outbound New Ranch link carries the URL search suffix.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0289' },
+    }, async ({ pages }) => {
+        const list = pages.ranchList;
+        await list.gotoListWithQuery('?sort=name.desc');
+        await expect(list.grid.newLink).toHaveAttribute('href', /\?sort=name\.desc/);
+    });
+
+});
 
 // ── Inline editing on a single row ──────────────────────────────────────────
 
-test.describe('RanchListPage — inline edit on a resolved ranch', () => {
-  test('Active toggle flips and bulk-undo restores', async ({ page }) => {
-    const r = ranchA
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
+test.describe('RanchListPage — inline edit on a resolved ranch', { tag: ['@WebPet', '@wp-setup', '@wp-ranch', '@WPBatch03'] }, () => {
 
-    const row = rowById(page, r.id)
-    const toggle = activeToggle(row, r.name)
-    await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    test('[Ranch] Verify that the Active toggle flips and bulk-undo restores it.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0290' },
+    }, async ({ pages }) => {
+        const grid = pages.ranchList.grid;
+        await pages.ranchList.gotoList();
 
-    // SelectedRowsBar's Undo restores it.
-    const undoBtn = page.getByRole('button', { name: /^Undo$/ })
-    await expect(undoBtn).toBeEnabled()
-    await undoBtn.click()
-    await expect(toggle).toHaveAttribute('aria-checked', 'true', { timeout: 10000 })
-  })
+        const row = grid.rowById(ranchA.id);
+        const toggle = grid.activeToggleNamed(row, ranchA.name);
+        await expect(toggle).toHaveAttribute('aria-checked', 'true');
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-checked', 'false');
 
-  test('WorkerCompCode text edit + undo', async ({ page }) => {
-    const r = ranchA
-    await clearRanchWcc(page, r.id)
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
+        // SelectedRowsBar's Undo restores it.
+        await expect(grid.undoButton).toBeEnabled();
+        await grid.undoButton.click();
+        await expect(toggle).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+    });
 
-    const row = rowById(page, r.id)
-    // Both Department (ComboboxEditCell) and WorkerCompCode (TextEditCell) show
-    // "—" when empty; Department's column comes first, so WCC's "—" button is
-    // the second one. (All DelLlano ranches have a null department.)
-    const wccViewButton = row.getByRole('button').filter({ hasText: /^—$/ }).nth(1)
-    await wccViewButton.click()
+    test('[Ranch] Verify that a WorkerCompCode text edit applies and undo reverts it.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0291' },
+    }, async ({ page, pages }) => {
+        const grid = pages.ranchList.grid;
+        await clearRanchWcc(page, ranchA.id);
+        await pages.ranchList.gotoList();
 
-    const input = row.getByRole('textbox')
-    await input.fill('SMOKE-TEST')
-    await input.press('Enter')
+        const row = grid.rowById(ranchA.id);
+        // Both Department (ComboboxEditCell) and WorkerCompCode (TextEditCell) show
+        // "—" when empty; Department's column comes first, so WCC's "—" button is
+        // the second one. (All DelLlano ranches have a null department.)
+        await grid.emptyCellButton(row, 1).click();
 
-    // The row should now show "SMOKE-TEST".
-    await expect(row.getByText('SMOKE-TEST', { exact: true })).toBeVisible({ timeout: 10000 })
+        const input = grid.cellTextbox(row);
+        await input.fill('SMOKE-TEST');
+        await input.press('Enter');
 
-    // Undo restores.
-    await page.getByRole('button', { name: /^Undo$/ }).click()
-    await expect(row.getByText('SMOKE-TEST')).not.toBeVisible({ timeout: 10000 })
-  })
-})
+        // The row should now show "SMOKE-TEST".
+        await expect(grid.cellWithText(row, 'SMOKE-TEST')).toBeVisible({ timeout: 10000 });
+
+        // Undo restores.
+        await grid.undoButton.click();
+        await expect(grid.cellContainingText(row, 'SMOKE-TEST')).not.toBeVisible({ timeout: 10000 });
+    });
+
+});
 
 // ── Multi-edit propagation (the bug we just fixed) ──────────────────────────
 
-test.describe('RanchListPage — multi-edit propagation', () => {
-  test('"Apply to all" propagates the cache patch to all selected rows (regression: was server-only)', async ({ page }) => {
-    const [rA, rB] = [ranchA, ranchB]
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
+test.describe('RanchListPage — multi-edit propagation', { tag: ['@WebPet', '@wp-setup', '@wp-ranch', '@WPBatch03'] }, () => {
 
-    await openMultiEdit(page)
+    test('[Ranch] Verify that Apply to all propagates the cache patch to every selected row.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0292' },
+    }, async ({ pages }) => {
+        const grid = pages.ranchList.grid;
+        await pages.ranchList.gotoList();
 
-    // Use exact href match — `^=` prefix would also catch /setup/ranches/10,
-    // /setup/ranches/11 etc. when those exist in the DB.
-    const smithRow = rowById(page, rA.id)
-    const blairRow = rowById(page, rB.id)
-    await smithRow.getByRole('checkbox').first().check()
-    await blairRow.getByRole('checkbox').first().check()
+        await grid.toggleMultiUpdate();
 
-    await expect(page.getByText(/2 selected/)).toBeVisible()
+        // Exact href match — a prefix would also catch /setup/ranches/10,
+        // /setup/ranches/11 etc. when those exist in the DB.
+        const smithRow = grid.rowById(ranchA.id);
+        const blairRow = grid.rowById(ranchB.id);
+        await grid.selectCheckbox(smithRow).check();
+        await grid.selectCheckbox(blairRow).check();
 
-    const blairToggle = activeToggle(blairRow, rB.name)
-    await blairToggle.click()
+        await expect(grid.selectionCount(2)).toBeVisible();
 
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
-    // i18n yesLabel resolves to "Apply to all {{count}}" — match by text.
-    await dialog.getByRole('button', { name: /^Apply to all/ }).click()
+        await grid.activeToggleNamed(blairRow, ranchB.name).click();
 
-    // After "yes" both rows should show Active=false in the UI. The test
-    // regression-guards the bug where only the edited row's cache patched
-    // (server applied to all but UI showed it as un-propagated).
-    await expect(activeToggle(blairRow, rB.name)).toHaveAttribute(
-      'aria-checked',
-      'false',
-      { timeout: 10000 },
-    )
-    await expect(activeToggle(smithRow, rA.name)).toHaveAttribute(
-      'aria-checked',
-      'false',
-      { timeout: 10000 },
-    )
+        await expect(grid.multiEditDialog).toBeVisible();
+        // i18n yesLabel resolves to "Apply to all {{count}}" — matched by prefix.
+        await grid.applyToAllButton.click();
 
-    // Undo restores both.
-    await page.getByRole('button', { name: /^Undo$/ }).click()
-    await expect(activeToggle(blairRow, rB.name)).toHaveAttribute(
-      'aria-checked',
-      'true',
-      { timeout: 10000 },
-    )
-    await expect(activeToggle(smithRow, rA.name)).toHaveAttribute(
-      'aria-checked',
-      'true',
-      { timeout: 10000 },
-    )
-  })
+        // After "yes" both rows should show Active=false in the UI. The test
+        // regression-guards the bug where only the edited row's cache patched
+        // (server applied to all but UI showed it as un-propagated).
+        await expect(grid.activeToggleNamed(blairRow, ranchB.name)).toHaveAttribute('aria-checked', 'false', { timeout: 10000 });
+        await expect(grid.activeToggleNamed(smithRow, ranchA.name)).toHaveAttribute('aria-checked', 'false', { timeout: 10000 });
 
-  test('"Just this row" updates only the edited row', async ({ page }) => {
-    const [rA, rB] = [ranchA, ranchB]
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
-    await openMultiEdit(page)
+        // Undo restores both.
+        await grid.undoButton.click();
+        await expect(grid.activeToggleNamed(blairRow, ranchB.name)).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+        await expect(grid.activeToggleNamed(smithRow, ranchA.name)).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+    });
 
-    const smithRow = rowById(page, rA.id)
-    const blairRow = rowById(page, rB.id)
-    await smithRow.getByRole('checkbox').first().check()
-    await blairRow.getByRole('checkbox').first().check()
+    test('[Ranch] Verify that Just this row updates only the edited row.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0293' },
+    }, async ({ pages }) => {
+        const grid = pages.ranchList.grid;
+        await pages.ranchList.gotoList();
+        await grid.toggleMultiUpdate();
 
-    const blairToggle = activeToggle(blairRow, rB.name)
-    await blairToggle.click()
+        const smithRow = grid.rowById(ranchA.id);
+        const blairRow = grid.rowById(ranchB.id);
+        await grid.selectCheckbox(smithRow).check();
+        await grid.selectCheckbox(blairRow).check();
 
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Just this row$/ }).click()
-    await expect(dialog).not.toBeVisible({ timeout: 10000 })
+        await grid.activeToggleNamed(blairRow, ranchB.name).click();
 
-    // BLAIR is inactive; Smith is still active.
-    await expect(activeToggle(blairRow, rB.name)).toHaveAttribute(
-      'aria-checked',
-      'false',
-      { timeout: 10000 },
-    )
-    await expect(activeToggle(smithRow, rA.name)).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
+        await expect(grid.multiEditDialog).toBeVisible();
+        await grid.justThisRowButton.click();
+        await expect(grid.multiEditDialog).not.toBeVisible({ timeout: 10000 });
 
-    // Undo restores BLAIR.
-    await page.getByRole('button', { name: /^Undo$/ }).click()
-    await expect(activeToggle(blairRow, rB.name)).toHaveAttribute(
-      'aria-checked',
-      'true',
-      { timeout: 10000 },
-    )
-  })
-})
+        // BLAIR is inactive; Smith is still active.
+        await expect(grid.activeToggleNamed(blairRow, ranchB.name)).toHaveAttribute('aria-checked', 'false', { timeout: 10000 });
+        await expect(grid.activeToggleNamed(smithRow, ranchA.name)).toHaveAttribute('aria-checked', 'true');
+
+        // Undo restores BLAIR.
+        await grid.undoButton.click();
+        await expect(grid.activeToggleNamed(blairRow, ranchB.name)).toHaveAttribute('aria-checked', 'true', { timeout: 10000 });
+    });
+
+});
 
 // ── Boundary section (PET-68 Step B) ────────────────────────────────────────
 
-test.describe('Ranch form — boundary section', () => {
-  test('boundary section renders with Edit Map header control and Advanced disclosure', async ({
-    page,
-  }) => {
-    const r = ranchC
-    await page.goto(`/setup/ranches/${r.id}`)
-    // Wait for the Map section to settle.
-    const mapHeading = page.getByRole('heading', { name: /^Map$/ })
-    await mapHeading.waitFor()
-    await expect(mapHeading).toBeVisible()
+test.describe('Ranch form — boundary section', { tag: ['@WebPet', '@wp-setup', '@wp-ranch', '@WPBatch03'] }, () => {
 
-    // WEBPET-786: the "Edit Map" trigger moved onto the Map section header row
-    // and is now an icon button. Its accessible name still resolves via
-    // common.mapEditor.editOnMap (aria-label), so the role/name query holds.
-    const editMap = page.getByRole('button', { name: /Edit Map/i })
-    await expect(editMap).toBeVisible()
-    // The trigger sits on the same header row as the "Map" heading (it shares
-    // the heading's parent), not below the map preview.
-    await expect(
-      mapHeading.locator('xpath=..').getByRole('button', { name: /Edit Map/i }),
-    ).toBeVisible()
+    test('[Ranch] Verify that the boundary section renders with its Edit Map control and Advanced disclosure.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0294' },
+    }, async ({ pages }) => {
+        const form = pages.ranchForm;
+        await form.gotoEdit(ranchC.id);
+        // Wait for the Map section to settle.
+        await form.waitForMap();
+        await expect(form.mapHeading).toBeVisible();
 
-    // Clicking it opens the full-screen editor; Escape closes it.
-    await editMap.click()
-    await expect(page.getByRole('heading', { name: /Draw .*Boundary/i })).toBeVisible()
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('heading', { name: /Draw .*Boundary/i })).toBeHidden()
+        // WEBPET-786: the "Edit Map" trigger moved onto the Map section header row
+        // and is now an icon button. Its accessible name still resolves via
+        // common.mapEditor.editOnMap (aria-label), so the role/name query holds.
+        await expect(form.editMapButton).toBeVisible();
+        // The trigger sits on the same header row as the "Map" heading (it shares
+        // the heading's parent), not below the map preview.
+        await expect(form.editMapButtonOnHeaderRow).toBeVisible();
 
-    // The Advanced disclosure starts collapsed.
-    const advancedToggle = page.getByRole('button', {
-      name: /Advanced.*edit coordinates/i,
-    })
-    await expect(advancedToggle).toBeVisible()
-    await expect(advancedToggle).toHaveAttribute('aria-expanded', 'false')
+        // Clicking it opens the full-screen editor; Escape closes it.
+        await form.openBoundaryEditor();
+        await expect(form.boundaryEditorHeading).toBeVisible();
+        await form.closeBoundaryEditor();
+        await expect(form.boundaryEditorHeading).toBeHidden();
 
-    // Open the disclosure — point + polygon raw inputs appear.
-    await advancedToggle.click()
-    await expect(advancedToggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('#point')).toBeVisible()
-    await expect(page.locator('#polygon')).toBeVisible()
-  })
+        // The Advanced disclosure starts collapsed.
+        await expect(form.advancedToggle).toBeVisible();
+        await expect(form.advancedToggle).toHaveAttribute('aria-expanded', 'false');
 
-  test('saves polygon via Advanced text fallback and round-trips on reload', async ({
-    page,
-  }) => {
-    // SKIP — unstable in the full serial suite (passes reliably in isolation,
-    // e.g. `-g "saves polygon"`). After the preceding mutating boundary/list
-    // tests run, the Advanced polygon/point fills intermittently fail to mark
-    // the ranch form dirty, so Save stays disabled. This is a test-design issue
-    // (shared map-editor/form state across serial tests), not app behavior — the
-    // boundary save itself works. Re-enable by isolating the boundary tests into
-    // their own non-serial file. Tracked in seed/TRIAGE-DELLLANO.md (WEBPET-831).
-    test.skip(true, 'Boundary polygon-save flaky in serial suite (passes in isolation) — needs boundary tests split into own file')
-    const r = ranchC
-    await clearRanchBoundary(page, r.id)
-    await page.goto(`/setup/ranches/${r.id}`)
-    await page.getByRole('heading', { name: /^Map$/ }).waitFor()
+        // Open the disclosure — point + polygon raw inputs appear.
+        await form.openAdvanced();
+        await expect(form.advancedToggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(form.pointInput).toBeVisible();
+        await expect(form.polygonInput).toBeVisible();
+    });
 
-    // Open Advanced.
-    await page.getByRole('button', { name: /Advanced.*edit coordinates/i }).click()
+    test('[Ranch] Verify that a polygon saved via the Advanced text fallback round-trips on reload.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0295' },
+    }, async ({ page, pages }) => {
+        // SKIP — unstable in the full serial suite (passes reliably in isolation,
+        // e.g. `-g "polygon"`). After the preceding mutating boundary/list
+        // tests run, the Advanced polygon/point fills intermittently fail to mark
+        // the ranch form dirty, so Save stays disabled. This is a test-design issue
+        // (shared map-editor/form state across serial tests), not app behavior — the
+        // boundary save itself works. Re-enable by isolating the boundary tests into
+        // their own non-serial file. Tracked in seed/TRIAGE-DELLLANO.md (WEBPET-831).
+        test.skip(true, 'Boundary polygon-save flaky in serial suite (passes in isolation) — needs boundary tests split into own file');
+        const form = pages.ranchForm;
+        await clearRanchBoundary(page, ranchC.id);
+        await form.gotoEdit(ranchC.id);
+        await form.waitForMap();
 
-    // A tiny three-vertex polygon around the legacy default center
-    // (geographic center of US). Using the legacy `(lat, lng),...` format
-    // matches what the boundary editor itself emits.
-    const polygonText = '(38.51, -96.80),(38.52, -96.80),(38.51, -96.79)'
-    await page.locator('#polygon').fill(polygonText)
-    await page.locator('#point').fill('(38.515, -96.795)')
+        // Open Advanced.
+        await form.openAdvanced();
 
-    // Save (the FormFooter's primary action) — wait for it to enable once the
-    // form registers the polygon/point edits as dirty+valid.
-    const saveBtn = page.getByRole('button', { name: /^Save/ })
-    await expect(saveBtn).toBeEnabled({ timeout: 10000 })
-    await saveBtn.click()
+        // A tiny three-vertex polygon around the legacy default center
+        // (geographic center of US). Using the legacy `(lat, lng),...` format
+        // matches what the boundary editor itself emits.
+        const polygonText = '(38.51, -96.80),(38.52, -96.80),(38.51, -96.79)';
+        await form.polygonInput.fill(polygonText);
+        await form.pointInput.fill('(38.515, -96.795)');
 
-    // The page navigates back to /setup/ranches on save success.
-    await page.waitForURL(/\/setup\/ranches(\?|$)/, { timeout: 10000 })
+        // Save (the FormFooter's primary action) — wait for it to enable once the
+        // form registers the polygon/point edits as dirty+valid.
+        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+        await form.saveButton.click();
 
-    // Round-trip: read back via the API and assert the polygon stuck.
-    const after = await page.request.get(`/api/ranches/${r.id}`)
-    expect(after.ok()).toBe(true)
-    const ranch = await after.json()
-    expect(ranch.polygon).toBe(polygonText)
-    expect(ranch.point).toBe('(38.515, -96.795)')
+        // The page navigates back to /setup/ranches on save success.
+        await page.waitForURL(/\/setup\/ranches(\?|$)/, { timeout: 10000 });
 
-    // Cleanup: reset polygon back to null so subsequent runs start clean.
-    await page.request.put(`/api/ranches/${r.id}`, {
-      data: {
-        active: true,
-        departmentCounter: ranch.departmentCounter ?? null,
-        workerCompCode: ranch.workerCompCode ?? null,
-        customerCounter: ranch.customerCounter ?? null,
-        point: null,
-        polygon: null,
-        version: ranch.version,
-      },
-    })
-  })
-})
+        // Round-trip: read back via the API and assert the polygon stuck.
+        const after = await page.request.get(`/api/ranches/${ranchC.id}`);
+        expect(after.ok()).toBe(true);
+        const ranch = await after.json();
+        expect(ranch.polygon).toBe(polygonText);
+        expect(ranch.point).toBe('(38.515, -96.795)');
+
+        // Cleanup: reset polygon back to null so subsequent runs start clean.
+        await page.request.put(`/api/ranches/${ranchC.id}`, {
+            data: {
+                active: true,
+                departmentCounter: ranch.departmentCounter ?? null,
+                workerCompCode: ranch.workerCompCode ?? null,
+                customerCounter: ranch.customerCounter ?? null,
+                point: null,
+                polygon: null,
+                version: ranch.version,
+            },
+        });
+    });
+
+});
 
 // ── URL state ───────────────────────────────────────────────────────────────
 
-test.describe('RanchListPage — URL state', () => {
-  test('typing in the Name filter updates the URL with ?name=', async ({ page }) => {
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
+test.describe('RanchListPage — URL state', { tag: ['@WebPet', '@wp-setup', '@wp-ranch', '@WPBatch03'] }, () => {
 
-    // Text-filter columns render Inputs with the default "Filter…" placeholder;
-    // Name is the first text-filter column. (A separate global Search box uses a
-    // different placeholder — don't match it.)
-    const nameFilter = page.getByPlaceholder('Filter…').first()
-    await nameFilter.fill('BLAIR')
-    await expect(page).toHaveURL(/\?name=BLAIR/, { timeout: 5000 })
-  })
+    test('[Ranch] Verify that typing in the Name filter updates the URL.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0296' },
+    }, async ({ page, pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        // Text-filter columns render Inputs with the default "Filter…" placeholder;
+        // Name is the first text-filter column. (A separate global Search box uses a
+        // different placeholder — don't match it.)
+        await list.grid.textFilter(0).fill('BLAIR');
+        await expect(page).toHaveURL(/\?name=BLAIR/, { timeout: 5000 });
+    });
 
-  test('clicking a sortable header updates the URL with ?sort=', async ({ page }) => {
-    await page.goto('/setup/ranches')
-    await page.waitForSelector('[role="grid"]')
+    test('[Ranch] Verify that clicking a sortable header updates the URL.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0297' },
+    }, async ({ page, pages }) => {
+        const list = pages.ranchList;
+        await list.gotoList();
+        await list.grid.columnHeader(/^Name/).click();
+        // Default-sort is `name asc` so the first click should produce desc.
+        await expect(page).toHaveURL(/\?sort=name\.desc/, { timeout: 5000 });
+    });
 
-    await page.getByRole('columnheader', { name: /^Name/ }).click()
-    // Default-sort is `name asc` so the first click should produce desc.
-    await expect(page).toHaveURL(/\?sort=name\.desc/, { timeout: 5000 })
-  })
-})
+});

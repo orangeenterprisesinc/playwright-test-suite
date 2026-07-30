@@ -3,42 +3,45 @@
  * setup-batch-b-smoke.spec.ts when EmployeeListPage migrated to the new
  * DataGrid lib (PET-424). Form pages were not touched by that migration,
  * so the form tests below remain valid against the existing DOM.
+ *
+ * Framework-aligned (Batch 02): locators live in EmployeeFormPage /
+ * EmployeeListPage; the Department and Crew ParentPickers are driven through
+ * ParentPickerComponent. Action order and assertions unchanged.
  */
-import { test, expect } from './fixtures'
-import { comboboxInput, openCombobox } from './parent-picker-helpers'
+import { expect, test } from '@fixtures/webpet.fixture';
 import {
-  ensureCrew,
-  deleteCrew,
-  ensureDepartment,
-  deleteDepartment,
-  ensureEmployee,
-  deleteEmployee,
-  type EnsuredCrew,
-  type EnsuredDepartment,
-  type EnsuredEmployee,
-} from './data-factory'
+    ensureCrew,
+    deleteCrew,
+    ensureDepartment,
+    deleteDepartment,
+    ensureEmployee,
+    deleteEmployee,
+    type EnsuredCrew,
+    type EnsuredDepartment,
+    type EnsuredEmployee,
+} from './data-factory';
 
 // This file creates its own Department + Crew + Employee via the API instead of
 // depending on shared hardcoded rows ("Locker, Mather" id=5, "ADP 5", "Crew 01")
 // that don't reliably exist in every client DB and collide across parallel
 // workers. Assert against the returned values (emp.*, dept.*, crew.*), never a
 // literal. See data-factory.ts.
-let dept: EnsuredDepartment
-let crew: EnsuredCrew
-let emp: EnsuredEmployee
+let dept: EnsuredDepartment;
+let crew: EnsuredCrew;
+let emp: EnsuredEmployee;
 
 test.beforeAll(async ({ request }) => {
-  dept = await ensureDepartment(request)
-  crew = await ensureCrew(request)
-  emp = await ensureEmployee(request, { department: { id: dept.id, name: dept.name } })
-})
+    dept = await ensureDepartment(request);
+    crew = await ensureCrew(request);
+    emp = await ensureEmployee(request, { department: { id: dept.id, name: dept.name } });
+});
 
 test.afterAll(async ({ request }) => {
-  // Delete the employee first — it FK-references the crew/department.
-  if (emp) await deleteEmployee(request, emp.id)
-  if (crew) await deleteCrew(request, crew.id)
-  if (dept) await deleteDepartment(request, dept.id)
-})
+    // Delete the employee first — it FK-references the crew/department.
+    if (emp) await deleteEmployee(request, emp.id);
+    if (crew) await deleteCrew(request, crew.id);
+    if (dept) await deleteDepartment(request, dept.id);
+});
 
 // Prerequisites:
 //   - dev server running:  cd apps/web && pnpm dev
@@ -49,142 +52,191 @@ test.afterAll(async ({ request }) => {
 
 // ── New Employee Form ──────────────────────────────────────────────────────────
 
-test.describe('New employee form', () => {
+test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee', '@WPBatch02'] }, () => {
 
-  test('renders all expected fields', async ({ page }) => {
-    await page.goto('/setup/employees/new')
-    await expect(page.locator('input#name')).toBeVisible()
-    await expect(page.locator('input#code')).toBeVisible()
-    await expect(page.locator('input#exportIdentifier')).toBeVisible()
-    await expect(page.locator('input#firstName')).toBeVisible()
-    await expect(page.locator('input#lastName')).toBeVisible()
-    // Department and Crew are now ParentPicker comboboxes.
-    await expect(comboboxInput(page, 'Department')).toBeVisible()
-    await expect(comboboxInput(page, 'Crew')).toBeVisible()
-    await expect(page.locator('input#active')).toBeVisible()
-  })
+    test('[Employee] Verify that the new employee form renders all expected fields.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0145' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoNew();
+        await expect(form.nameInput).toBeVisible();
+        await expect(form.codeInput).toBeVisible();
+        await expect(form.exportIdentifierInput).toBeVisible();
+        await expect(form.firstNameInput).toBeVisible();
+        await expect(form.lastNameInput).toBeVisible();
+        // Department and Crew are now ParentPicker comboboxes.
+        await expect(form.departmentPicker.comboboxInput).toBeVisible();
+        await expect(form.crewPicker.comboboxInput).toBeVisible();
+        await expect(form.activeCheckbox).toBeVisible();
+    });
 
-  test('department dropdown is populated from database', async ({ page }) => {
-    await page.goto('/setup/employees/new')
-    const input = comboboxInput(page, 'Department')
-    await openCombobox(input)
-    // Assert our own department shows up — proves the dropdown is DB-populated
-    // without depending on a specific seeded name.
-    await expect(page.locator('[data-slot="combobox-popup"]').getByText(dept.name)).toBeVisible()
-  })
+    test('[Employee] Verify that the department dropdown is populated from the database.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0146' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoNew();
+        await form.departmentPicker.openCombobox();
+        // Assert our own department shows up — proves the dropdown is DB-populated
+        // without depending on a specific seeded name.
+        await expect(form.departmentPicker.comboboxOptionByText(dept.name)).toBeVisible();
+    });
 
-  test('crew dropdown is populated from database', async ({ page }) => {
-    await page.goto('/setup/employees/new')
-    const input = comboboxInput(page, 'Crew')
-    await openCombobox(input)
-    await expect(page.locator('[data-slot="combobox-popup"]').getByText(crew.name)).toBeVisible()
-  })
+    test('[Employee] Verify that the crew dropdown is populated from the database.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0147' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoNew();
+        await form.crewPicker.openCombobox();
+        await expect(form.crewPicker.comboboxOptionByText(crew.name)).toBeVisible();
+    });
 
-  test('Save is disabled until required name is provided', async ({ page }) => {
-    await page.goto('/setup/employees/new')
-    // FormFooter disables Save until isDirty && isValid (PET-450).
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
-    await page.locator('input#name').click()
-    await page.locator('input#name').blur()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
-    await page.locator('input#name').fill('Pet450ValidName')
-    // Form validates on blur (mode: 'onBlur'); blur so isValid recomputes and
-    // FormFooter enables Save.
-    await page.locator('input#name').blur()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-  })
+    test('[Employee] Verify that Save is disabled until a required name is provided.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0148' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoNew();
+        // FormFooter disables Save until isDirty && isValid (PET-450).
+        await expect(form.footer.saveButton).toBeDisabled();
+        await form.nameInput.click();
+        await form.nameInput.blur();
+        await expect(form.footer.saveButton).toBeDisabled();
+        await form.nameInput.fill('Pet450ValidName');
+        // Form validates on blur (mode: 'onBlur'); blur so isValid recomputes and
+        // FormFooter enables Save.
+        await form.nameInput.blur();
+        await expect(form.footer.saveButton).toBeEnabled();
+    });
 
-  test('export identifier stays empty after name blur (GAP-016 fix)', async ({ page }) => {
-    // Legacy EmployeeForm.cs does NOT auto-fill ExportIdentifier from Name.
-    // The web divergence (handleNameBlur) was removed in PET-581.
-    await page.goto('/setup/employees/new')
-    await page.locator('input#name').fill('TestEmp')
-    await page.locator('input#name').blur()
-    await expect(page.locator('input#exportIdentifier')).toHaveValue('')
-  })
+    test('[Employee] Verify that the export identifier stays empty after a name blur (GAP-016 fix).', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0149' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        // Legacy EmployeeForm.cs does NOT auto-fill ExportIdentifier from Name.
+        // The web divergence (handleNameBlur) was removed in PET-581.
+        await form.gotoNew();
+        await form.fillName('TestEmp');
+        await expect(form.exportIdentifierInput).toHaveValue('');
+    });
 
-  test('manually filled export identifier is not overwritten', async ({ page }) => {
-    // Guard against a future regression that re-introduces the auto-fill:
-    // a manually entered ExportIdentifier must never be clobbered by name blur.
-    await page.goto('/setup/employees/new')
-    await page.locator('input#exportIdentifier').fill('ManualId')
-    await page.locator('input#name').fill('TestEmp')
-    await page.locator('input#name').blur()
-    await expect(page.locator('input#exportIdentifier')).toHaveValue('ManualId')
-  })
+    test('[Employee] Verify that a manually filled export identifier is not overwritten.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0150' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        // Guard against a future regression that re-introduces the auto-fill:
+        // a manually entered ExportIdentifier must never be clobbered by name blur.
+        await form.gotoNew();
+        await form.exportIdentifierInput.fill('ManualId');
+        await form.fillName('TestEmp');
+        await expect(form.exportIdentifierInput).toHaveValue('ManualId');
+    });
 
-  test('Cancel returns to list without saving', async ({ page }) => {
-    await page.goto('/setup/employees/new')
-    await page.locator('input#name').fill('ShouldNotBeSaved')
-    // Once the form is dirty the footer's cancel button relabels to "Discard
-    // changes"; clicking it triggers the UnsavedChangesModal navigation guard,
-    // and "Don't Save" abandons edits and proceeds to the list.
-    await page.locator('button:has-text("Discard changes")').click()
-    await page.getByRole('button', { name: "Don't Save" }).click()
-    await page.waitForURL('**/setup/employees')
-    // List page is now DataGrid (role=grid); no <td> elements.
-    await expect(page.locator('[role="grid"]')).toBeVisible()
-    await expect(page.getByText('ShouldNotBeSaved')).not.toBeVisible()
-  })
+    test('[Employee] Verify that Cancel returns to the list without saving.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0151' },
+    }, async ({ page, pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoNew();
+        await form.nameInput.fill('ShouldNotBeSaved');
+        // Once the form is dirty the footer's cancel button relabels to "Discard
+        // changes"; clicking it triggers the UnsavedChangesModal navigation guard,
+        // and "Don't Save" abandons edits and proceeds to the list.
+        await form.discardChanges();
+        await page.waitForURL('**/setup/employees');
+        // List page is now DataGrid (role=grid); no <td> elements.
+        await expect(pages.employeeList.grid.getRoot()).toBeVisible();
+        await expect(pages.employeeList.employeeNamed('ShouldNotBeSaved')).not.toBeVisible();
+    });
 
-  test('duplicate name shows conflict error', async ({ page }) => {
-    // Our factory employee already exists; API errors surface via alert() — auto-dismiss it.
-    await page.goto('/setup/employees/new')
-    page.on('dialog', (dialog) => dialog.dismiss())
-    await page.locator('input#name').fill(emp.name)
-    // Blur so the form validates (mode: 'onBlur') and the submit button enables.
-    await page.locator('input#name').blur()
-    await page.locator('button[type="submit"]').click()
-    // Wait for Save button to re-enable (isSubmitting → false), meaning mutation settled.
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled({ timeout: 10000 })
-    // A 409 conflict means we stay on the create form, not navigate to the edit form.
-    await expect(page).toHaveURL(/\/setup\/employees\/new/)
-  })
+    test('[Employee] Verify that a duplicate name shows a conflict error.', {
+        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
+        annotation: { type: 'testCaseId', description: 'WP-0152' },
+    }, async ({ page, pages }) => {
+        const form = pages.employeeForm;
+        // Our factory employee already exists; API errors surface via alert() — auto-dismiss it.
+        await form.gotoNew();
+        page.on('dialog', (dialog) => dialog.dismiss());
+        // Blur so the form validates (mode: 'onBlur') and the submit button enables.
+        await form.fillName(emp.name);
+        await form.footer.submitButton.click();
+        // Wait for Save button to re-enable (isSubmitting → false), meaning mutation settled.
+        await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
+        // A 409 conflict means we stay on the create form, not navigate to the edit form.
+        await expect(page).toHaveURL(/\/setup\/employees\/new/);
+    });
 
-})
+});
 
 // ── Edit Employee Form ─────────────────────────────────────────────────────────
 
-test.describe('Edit employee form', () => {
+test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee', '@WPBatch02'] }, () => {
 
-  test('loads existing employee data correctly', async ({ page }) => {
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    await expect(page.locator('input#name')).toHaveValue(emp.name)
-    await expect(page.locator('input#firstName')).toHaveValue(emp.firstName)
-    await expect(page.locator('input#lastName')).toHaveValue(emp.lastName)
-  })
+    test('[Employee] Verify that the edit form loads the existing employee data.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0153' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        await expect(form.nameInput).toHaveValue(emp.name);
+        await expect(form.firstNameInput).toHaveValue(emp.firstName);
+        await expect(form.lastNameInput).toHaveValue(emp.lastName);
+    });
 
-  test('name, barcode and export identifier are read-only', async ({ page }) => {
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    await page.waitForSelector('input#name')
-    await expect(page.locator('input#name')).toHaveAttribute('readonly', '')
-    await expect(page.locator('input#code')).toHaveAttribute('readonly', '')
-    await expect(page.locator('input#exportIdentifier')).toHaveAttribute('readonly', '')
-  })
+    test('[Employee] Verify that the name, barcode and export identifier are read-only.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0154' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        await form.waitForForm();
+        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        await expect(form.codeInput).toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
+    });
 
-  test('first name, last name fields are editable', async ({ page }) => {
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    await page.waitForSelector('input#firstName')
-    await expect(page.locator('input#firstName')).not.toHaveAttribute('readonly', '')
-    await expect(page.locator('input#lastName')).not.toHaveAttribute('readonly', '')
-  })
+    test('[Employee] Verify that the first name and last name fields are editable.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0155' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        await form.firstNameInput.waitFor({ state: 'visible' });
+        await expect(form.firstNameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.lastNameInput).not.toHaveAttribute('readonly', '');
+    });
 
-  test('department dropdown is populated and shows current value', async ({ page }) => {
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    // Our employee was created in `dept`; the combobox reflects its label.
-    await expect(comboboxInput(page, 'Department')).toHaveValue(emp.departmentName ?? dept.name)
-  })
+    test('[Employee] Verify that the department dropdown shows the current value.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0156' },
+    }, async ({ pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        // Our employee was created in `dept`; the combobox reflects its label.
+        await expect(form.departmentPicker.comboboxInput).toHaveValue(emp.departmentName ?? dept.name);
+    });
 
-  test('Cancel returns to list', async ({ page }) => {
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    await page.waitForSelector('button:has-text("Cancel")')
-    await page.locator('button:has-text("Cancel")').click()
-    await page.waitForURL('**/setup/employees')
-  })
+    test('[Employee] Verify that Cancel returns to the list from the edit form.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0157' },
+    }, async ({ page, pages }) => {
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        await form.footer.cancelButton.waitFor({ state: 'visible' });
+        await form.footer.cancelButton.click();
+        await page.waitForURL('**/setup/employees');
+    });
 
-  test('nonexistent id shows error message', async ({ page }) => {
-    await page.goto('/setup/employees/999999')
-    await expect(page.locator('text=Failed to load employee.')).toBeVisible()
-  })
+    test('[Employee] Verify that a nonexistent employee id shows an error message.', {
+        tag: ['@wp-ui', '@wp-negative'],
+        annotation: { type: 'testCaseId', description: 'WP-0158' },
+    }, async ({ pages }) => {
+        await pages.employeeForm.gotoEdit(999999);
+        await expect(pages.employeeForm.notFoundMessage).toBeVisible();
+    });
 
-})
+});

@@ -75,12 +75,20 @@
  * feature per-command (e.g. "Gather Logs" / "Set Timezone"). The committed spec
  * is the repeatable harness; gap recording is a manual harness step (the spec
  * asserts parity, it does not mutate repo docs).
+ *
+ * ── Framework alignment (Batch 14) ───────────────────────────────────────────
+ * Pure API — no page objects apply. The Tier-1 tests are generated from the
+ * COMMANDS table, so their ids come from the **generated**
+ * `src/data/webpet/ids/equivBiometricDeviceCommandsEquivalenceIds.ts` and are
+ * compile-checked against that table's `as const` keys; the single Tier-2 test is
+ * hand-authored and carries a literal id.
  */
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
-import { test, expect } from '../fixtures'
+import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths'
+import { expect, test } from '@fixtures/webpet.fixture'
+import { equivBiometricDeviceCommandsEquivalenceIds as ids } from '@data/webpet/ids/equivBiometricDeviceCommandsEquivalenceIds'
 
-const ADMIN_STORAGE = join(__dirname, '..', '.auth', 'storage.json')
+const ADMIN_STORAGE = WEBPET_ADMIN_STORAGE
 
 // Terminal run statuses for the per-device command run rollup
 // (DeviceCommandStatus*, connectivity package): completed / failed / partial.
@@ -137,31 +145,40 @@ function normalizeDevices(body: CommandRunResponse): NormDeviceResult[] {
 // Each family-A command, with the request body that exercises the
 // MessageType.Single ("Update Now") path so the one-file-per-device + Single
 // semantics can be checked in Tier 2.
+// `key` is the runner business key — it is never sent to the API. It exists so
+// the generated id map can be indexed by something stable: `name` is display
+// text and would put spaces in a caseKey.
 const COMMANDS = [
   {
+    key: 'gather-logs',
     name: 'Gather Logs',
     url: '/api/connectivity/device-command/gather-logs',
     body: { logsAndData: false, updateImmediately: true },
   },
   {
+    key: 'request-partial-data',
     name: 'Request Partial Data',
     url: '/api/connectivity/device-command/request-partial-data',
     // A valid range is required (end strictly after start — legacy ValidateData).
     body: { startDate: '2020-01-01', endDate: '2020-01-31', updateImmediately: true },
   },
   {
+    key: 'set-timezone',
     name: 'Set Timezone',
     url: '/api/connectivity/device-command/set-timezone',
     body: { updateImmediately: true },
   },
 ] as const
 
-test.describe('Equivalence: biometric device commands (web vs legacy, family A / mailbox)', () => {
+test.describe('Equivalence: biometric device commands (web vs legacy, family A / mailbox)', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
   // ── TIER 1 — CONTRACT (always) ─────────────────────────────────────────────
   // Proves the per-device result/log model is wired end-to-end for each mailbox
   // command. Runs on any stack with admin auth; asserts contract, not parity.
   for (const cmd of COMMANDS) {
-    test(`contract: ${cmd.name} returns a per-device run reaching terminal status`, async ({
+    test(`[Equiv] Verify that the ${cmd.name} command returns a per-device run reaching terminal status.`, {
+      tag: ['@wp-api', '@wp-connectivity'],
+      annotation: { type: 'testCaseId', description: ids[`contract:${cmd.key}`] },
+    }, async ({
       page,
       baseURL,
     }) => {
@@ -241,7 +258,10 @@ test.describe('Equivalence: biometric device commands (web vs legacy, family A /
   test.describe('parity vs legacy (host-bound)', () => {
     test.skip(!PARITY_ENABLED, PARITY_SKIP_REASON)
 
-    test('web per-device result/log output matches legacy for the same device set', async ({
+    test('[Equiv] Verify that the web per-device result and log output matches legacy for the same device set.', {
+      tag: ['@wp-api', '@wp-connectivity'],
+      annotation: { type: 'testCaseId', description: 'WP-0173' },
+    }, async ({
       page,
     }) => {
       test.setTimeout(300_000)

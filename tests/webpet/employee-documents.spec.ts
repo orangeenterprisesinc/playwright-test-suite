@@ -5,94 +5,89 @@
  *   - dev server running:  cd apps/web && pnpm dev
  *   - API server running:  cd apps/api  && go run .
  *   - MinIO (or S3) available via S3_ENDPOINT env var (see apps/api/.env.example)
- *   - DB contains: Employee "Locker, Mather" (id=5) with employees.setup permission
  *
  * Skip condition:
- *   All tests in this file are skipped when S3_ENDPOINT is not set, because the
- *   upload endpoint requires a live object-store backend.
- *   Run with: S3_ENDPOINT=http://localhost:9000 pnpm e2e --grep "Employee Documents"
+ *   Skipped when S3_ENDPOINT is not set, because the upload endpoint requires a
+ *   live object-store backend. The flag is read at **module scope** deliberately
+ *   — moving it inside the test body would change when the skip is decided and
+ *   shift the suite's skip count.
+ *   Run with: S3_ENDPOINT=http://localhost:9000 npm run test:webpet -- --grep @wp-documents
+ *
+ * Framework-aligned (Batch 08): the tab's whole surface lives on
+ * EmployeeDocumentsComponent, which records the two things that make it unlike
+ * the rest of the suite — it is a real ARIA tab (not a button strip), and its
+ * list is a plain `<table>`, not the PET-424 DataGrid.
  */
+import { WEBPET_SAMPLE_PDF } from '@config/webpetPaths';
+import { expect, test } from '@fixtures/webpet.fixture';
+import { ensureEmployee, deleteEmployee } from './data-factory';
 
-import { join } from 'path'
-import { test, expect } from './fixtures'
-import { ensureEmployee, deleteEmployee } from './data-factory'
+const S3_AVAILABLE = !!process.env.S3_ENDPOINT;
 
-const S3_AVAILABLE = !!process.env.S3_ENDPOINT
+test.describe('Employee Documents tab', { tag: ['@WebPet', '@wp-documents', '@WPBatch08'] }, () => {
 
-// Fixture PDF shipped with the test suite.
-const SAMPLE_PDF = join(__dirname, 'fixtures', 'sample.pdf')
+    test('[Documents] Verify the upload, list, sort, download and delete happy path.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0144' },
+    }, async ({ page, pages, request }) => {
+        test.skip(!S3_AVAILABLE, 'requires MinIO/S3 dev bucket — set S3_ENDPOINT to enable');
 
-test.describe('Employee Documents tab', () => {
+        const form = pages.employeeForm;
+        const docs = form.documents;
 
-  // NOTE: S3-gated — skipped unless S3_ENDPOINT is set, so this migration is
-  // structurally correct but not live-verified in an env without MinIO/S3.
-  test('upload → list → sort → download → delete', async ({ page, request }) => {
-    test.skip(!S3_AVAILABLE, 'requires MinIO/S3 dev bucket — set S3_ENDPOINT to enable')
+        // Own employee via the factory instead of a hardcoded row.
+        const emp = await ensureEmployee(request);
+        try {
+            await form.gotoEdit(emp.id);
+            await form.waitForForm();
 
-    // Own employee via the factory instead of a hardcoded id=5 row.
-    const emp = await ensureEmployee(request)
-    try {
-    // Navigate to the employee edit form.
-    await page.goto(`/setup/employees/${String(emp.id)}`)
-    await page.waitForSelector('input#name')
+            await docs.open();
 
-    // Switch to the Documents tab.
-    await page.getByRole('tab', { name: 'Documents' }).click()
+            // Pick the first available document type.
+            await docs.typeSelectTrigger.click();
+            await expect(docs.firstTypeOption).toBeVisible({ timeout: 5000 });
+            await docs.firstTypeOption.click();
 
-    // Locate the document type select and pick the first available type.
-    const typeSelect = page.locator('[data-slot="select-trigger"]').first()
-    await typeSelect.click()
-    const firstOption = page.locator('[data-slot="select-item"]').first()
-    await expect(firstOption).toBeVisible({ timeout: 5000 })
-    const typeName = (await firstOption.textContent()) ?? 'Unknown'
-    await firstOption.click()
+            await docs.fileInput.setInputFiles(WEBPET_SAMPLE_PDF);
 
-    // Set the file input.
-    await page.locator('input[type="file"]').setInputFiles(SAMPLE_PDF)
+            await docs.uploadButton.click();
+            await expect(docs.documentCell('sample.pdf')).toBeVisible({ timeout: 15000 });
 
-    // Click Upload and wait for the new row to appear.
-    await page.locator('button:has-text("Upload")').click()
-    await expect(page.locator('td:has-text("sample.pdf")')).toBeVisible({ timeout: 15000 })
+            const uploadedRow = docs.documentRow('sample.pdf');
+            await expect(uploadedRow).toBeVisible();
 
-    // Verify the uploaded row appears in the table.
-    const uploadedRow = page.locator('tr', { hasText: 'sample.pdf' })
-    await expect(uploadedRow).toBeVisible()
+            // Sort by Type. The assertion is intentionally lenient: what matters is
+            // that sorting was triggered without crashing and the uploaded row is
+            // still present. With a single row the sort is a no-op, so the
+            // before/after row text is captured for diagnostic context only.
+            const beforeText = await docs.firstBodyRow.textContent();
+            await docs.columnSortButton('Type').click();
+            // Give the sort a moment to re-render.
+            await page.waitForTimeout(300);
+            const afterText = await docs.firstBodyRow.textContent();
+            await expect(docs.documentCell('sample.pdf')).toBeVisible();
+            void beforeText;
+            void afterText;
 
-    // Click the Type column header to sort by type asc — the order should change.
-    const beforeText = await page.locator('tbody tr:first-child').textContent()
-    await page.locator('thead button', { hasText: 'Type' }).click()
-    // Give the sort a moment to re-render.
-    await page.waitForTimeout(300)
-    const afterText = await page.locator('tbody tr:first-child').textContent()
-    // We only assert sort happened if there are multiple rows; single-row is a no-op.
-    // The assertion is intentionally lenient: sort was triggered (no crash) and the
-    // table still contains our uploaded filename.
-    await expect(page.locator('td:has-text("sample.pdf")')).toBeVisible()
-    // Suppress unused-variable warning — beforeText/afterText used for diagnostic context.
-    void beforeText
-    void afterText
-    void typeName
+            // Download — intercept the API call and assert it returns 200.
+            const [downloadResponse] = await Promise.all([
+                page.waitForResponse(
+                    (resp) => resp.url().includes('/documents/') && resp.url().includes('/content'),
+                ),
+                docs.downloadButton(uploadedRow).click(),
+            ]);
+            expect(downloadResponse.status()).toBe(200);
 
-    // Click the Download button for our uploaded row.
-    // Intercept the API call and assert it returns 200.
-    const [downloadResponse] = await Promise.all([
-      page.waitForResponse((resp) =>
-        resp.url().includes('/documents/') && resp.url().includes('/content')
-      ),
-      uploadedRow.locator('button[aria-label="Download"]').click(),
-    ])
-    expect(downloadResponse.status()).toBe(200)
+            // Delete, then confirm in the AlertDialog.
+            await docs.deleteButton(uploadedRow).click();
+            await expect(docs.deleteConfirmDialog).toBeVisible();
+            await docs.confirmDeleteButton.click();
 
-    // Click the Delete button and confirm in the AlertDialog.
-    await uploadedRow.locator('button[aria-label="Delete"]').click()
-    await expect(page.getByRole('alertdialog')).toBeVisible()
-    await page.getByRole('button', { name: 'Delete' }).last().click()
+            // Row should be removed from the table.
+            await expect(docs.documentCell('sample.pdf')).not.toBeVisible({ timeout: 10000 });
+        } finally {
+            await deleteEmployee(request, emp.id);
+        }
+    });
 
-    // Row should be removed from the table.
-    await expect(page.locator('td:has-text("sample.pdf")')).not.toBeVisible({ timeout: 10000 })
-    } finally {
-      await deleteEmployee(request, emp.id)
-    }
-  })
-
-})
+});
