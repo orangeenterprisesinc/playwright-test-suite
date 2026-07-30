@@ -1,8 +1,9 @@
 name: WebPet E2E (localhost, self-hosted)
 
 # Runs the MIGRATED web-pet suite (tests/webpet — 406 tests, ~48 min at
-# workers:1) against a locally-booted PET Tiger stack, using the exact same
-# boot machinery as e2e-local.yml. Kept as a separate workflow on purpose:
+# workers:1, now actually pinned to 1 rather than merely claimed) against a
+# locally-booted PET Tiger stack, using the exact same boot machinery as
+# e2e-local.yml. Kept as a separate workflow on purpose:
 #
 #   - the webpet Playwright projects are opt-in (playwright.config.ts only
 #     materializes them when WEBPET=1 / --project=webpet), so the existing
