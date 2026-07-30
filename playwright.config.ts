@@ -115,7 +115,7 @@ export default defineConfig({
     // project), so CI runs on a single worker to keep that session stable and
     // results deterministic. Locally Playwright chooses a worker count from the
     // available CPUs. Override per run with the CLI `--workers`.
-    workers: IS_CI ? 4 : 4,
+    workers: IS_CI ? 2 : 4,
 
     // Optional fail-fast; set MAX_FAILURES to stop the run after N failures.
     maxFailures: process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined,
