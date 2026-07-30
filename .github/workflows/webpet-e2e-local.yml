@@ -38,6 +38,10 @@ on:
         description: 'Conversion batch number, e.g. 01 — runs only @WPBatch<NN>. Takes precedence over grep. Blank = whole suite.'
         required: false
         default: ''
+      workers:
+        description: 'Playwright workers. Leave at 1 — the 362/18/26 acceptance baseline only holds serially. Raise only for a quick smoke.'
+        required: false
+        default: '1'
 
 # SAME group as e2e-local.yml — one persistent machine, one runner: a dispatch
 # of either workflow queues behind the other instead of racing it over ports
@@ -300,20 +304,34 @@ jobs:
       # diff below reads) alongside html/github/allure, and the later steps
       # upload those. Passing --reporter here would REPLACE the whole chain and
       # silently empty both uploaded artifacts.
+      # --workers is PINNED, not left to the config's default of 4. The header of
+      # this file has always described the run as "~48 min at workers:1" and the
+      # 362/18/26 acceptance baseline was captured that way, but the flag was
+      # never actually passed — so every run here was really 4-wide, and this
+      # suite is not parallel-safe (it mutates shared setup rows and does inline
+      # grid edits). A 4-wide run cannot be compared with the baseline, which is
+      # the entire purpose of this workflow.
       - name: Run webpet Playwright tests
         env:
           GREP: ${{ github.event.inputs.grep }}
           BATCH: ${{ github.event.inputs.batch }}
+          WORKERS: ${{ github.event.inputs.workers }}
         run: |
           # --grep is a regex over the title path AND tags, so a batch tag and a
           # free-text filter go through the same flag.
           FILTER="$GREP"
           if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
+          W="${WORKERS:-1}"
+          if [ -z "$W" ]; then W=1; fi
+          if [ "$W" != "1" ]; then
+            echo "::warning::Running with $W workers — results are NOT comparable with the 362/18/26 acceptance baseline (captured at 1)."
+          fi
+          echo "Workers: $W"
           if [ -n "$FILTER" ]; then
             echo "Filtering to: $FILTER"
-            npx playwright test --project=webpet --grep "$FILTER"
+            npx playwright test --project=webpet --workers="$W" --grep "$FILTER"
           else
-            npx playwright test --project=webpet
+            npx playwright test --project=webpet --workers="$W"
           fi
 
       # Per-test comparison against the committed manifest. Totals cannot see a
