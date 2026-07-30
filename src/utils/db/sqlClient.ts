@@ -26,7 +26,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { ConnectionPool, type config as MssqlConfig } from 'mssql';
-import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../enums/configProperties';
+import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../config/configProperties';
 import { Logger } from '../logger';
 
 const logger = new Logger('SqlClient');

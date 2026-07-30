@@ -59,7 +59,7 @@ on:
         required: false
         default: ''
       scope:
-        description: 'Customer scope from src/data/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
+        description: 'Customer scope from config/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
         required: false
         default: ''
 
@@ -393,18 +393,18 @@ jobs:
 
       - name: Generate Allure report
         if: always()
-        run: node scripts/generate-allure-report.js
+        run: node scripts/report/allure-generate.js
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report
+          path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: allure-report
+          path: artifacts/allure/report

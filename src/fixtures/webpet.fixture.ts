@@ -18,13 +18,15 @@
  *
  * ## Why the gate is an auto fixture
  *
- * `base.fixture` applies its gate from a module-level `test.beforeEach`. Such a
- * hook attaches to whichever file suite is loading at that instant, and the
- * fixture module body runs once per worker process, so it fires for the **first
- * spec file each worker loads and no others** — measured, not inferred. An auto
- * fixture fires for every test, and resolves before the test function's declared
- * parameters, so a skip prevents `context`/`page`/`request` from ever being
- * created.
+ * A module-level `test.beforeEach` attaches to whichever file suite is loading at
+ * that instant, and the fixture module body runs once per worker process, so it
+ * fires for the **first spec file each worker loads and no others** — measured,
+ * not inferred. An auto fixture fires for every test, and resolves before the test
+ * function's declared parameters, so a skip prevents `context`/`page`/`request`
+ * from ever being created.
+ *
+ * `base.fixture` made exactly that mistake and has since been converted to a
+ * `gate` auto fixture too; neither suite may go back to a `beforeEach`.
  *
  * ## What must not change
  *
@@ -43,9 +45,9 @@ import { expect, test as base } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
-import { applyWebpetGate } from './webpetGate';
+import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
-import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
+import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
 
 export { expect };
 /** Re-exported so specs can type a helper's `page` parameter without a second import. */

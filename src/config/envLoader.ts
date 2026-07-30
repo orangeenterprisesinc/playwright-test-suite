@@ -1,10 +1,10 @@
 /**
  * @fileoverview Environment file loader supporting env.local/dev/qa with OS-env precedence.
  *
- * Loads a base `.env` (if present) and an environment-specific `env.<name>` file,
- * where name is resolved from `TEST_ENV` (preferred) or `ENV`, defaulting to
- * `'local'`. OS-level environment
- * variables always take precedence.
+ * Loads a base `env/.env` (if present) and an environment-specific
+ * `env/env.<name>` file, where name is resolved from `TEST_ENV` (preferred) or
+ * `ENV`, defaulting to `'local'`. OS-level environment variables always take
+ * precedence.
  *
  * @module config/envLoader
  * @author Gukan
@@ -82,8 +82,11 @@ export function loadEnvFiles(options?: {
     const baseFile = options?.baseFileName || '.env';
     const warnOnMissing = options?.warnOnMissing !== false;
 
-    const basePath = path.resolve(cwd, baseFile);
-    const envPath = path.resolve(cwd, `env.${envName}`);
+    // All environment inputs live in one folder (`env/`) rather than scattered
+    // across the repo root — see docs/STRUCTURE.md.
+    const envDir = path.resolve(cwd, 'env');
+    const basePath = path.resolve(envDir, baseFile);
+    const envPath = path.resolve(envDir, `env.${envName}`);
 
     const loadedFiles: string[] = [];
     const missingFiles: string[] = [];

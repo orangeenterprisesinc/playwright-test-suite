@@ -6,66 +6,20 @@
  * User/Auth/API-fixture/Excel/accessibility interfaces with zero callers) —
  * re-add a type here only once something actually imports it.
  *
- * - **Environment Configuration**: {@link Environment}, {@link EnvironmentConfig}
  * - **Test Data Management**: {@link TestCaseData}, {@link DataProviderResult}, {@link RunnerData}
  * - **Data Reader Abstraction**: {@link IDataReader}, {@link DataSourceType}
- * - **Network**: {@link MockRoute}
  * - **Logging**: {@link LogLevel}, {@link LogEntry}
- * - **Visual Testing**: {@link ScreenshotOptions}
  *
  * @module types
  * @since 1.0.0
  *
  * @example
  * ```typescript
- * import type { EnvironmentConfig, TestCaseData, IDataReader } from '../types';
- *
- * const config: EnvironmentConfig = { name: 'dev', appUrl: 'http://localhost', apiUrl: 'http://api', timeout: 30000, retries: 2 };
+ * import type { TestCaseData, IDataReader } from '../types';
  * ```
  */
-import type { Locator } from '@playwright/test';
-import type { ModuleRequirement } from '../data/shared/modules';
-import type { SegmentRequirement } from '../data/shared/segments';
-
-/**
- * Supported deployment environments for the application.
- *
- * - `'local'` — Local development stack (http://localhost:3000)
- * - `'dev'` — Development environment
- * - `'qa'` — QA environment
- *
- * @typedef {('local' | 'dev' | 'qa')} Environment
- */
-export type Environment = 'local' | 'dev' | 'qa';
-
-/**
- * Configuration settings for a specific deployment environment.
- *
- * @interface EnvironmentConfig
- * @property {Environment} name - The environment identifier
- * @property {string} appUrl - Base URL for the web application (e.g., `'https://app.staging.example.com'`)
- * @property {string} apiUrl - Base URL for the API server (e.g., `'https://api.staging.example.com'`)
- * @property {number} timeout - Default timeout in milliseconds for operations
- * @property {number} retries - Number of retry attempts for flaky operations
- *
- * @example
- * ```typescript
- * const stagingConfig: EnvironmentConfig = {
- *   name: 'stag',
- *   appUrl: 'https://app.staging.example.com',
- *   apiUrl: 'https://api.staging.example.com',
- *   timeout: 30000,
- *   retries: 2,
- * };
- * ```
- */
-export interface EnvironmentConfig {
-    name: Environment;
-    appUrl: string;
-    apiUrl: string;
-    timeout: number;
-    retries: number;
-}
+import type { ModuleRequirement } from '../data/static/shared/modules';
+import type { SegmentRequirement } from '../data/static/shared/segments';
 
 /**
  * Supported log severity levels, ordered from least to most severe.
@@ -97,52 +51,6 @@ export interface LogEntry {
 }
 
 /**
- * Options for taking and comparing screenshots.
- *
- * @interface ScreenshotOptions
- * @property {boolean} [fullPage] - Whether to capture the full scrollable page
- * @property {{ x: number; y: number; width: number; height: number }} [clip] - Specific region to capture
- * @property {Locator[]} [mask] - Elements to mask (hide) in the screenshot
- * @property {number} [maxDiffPixels] - Maximum allowed pixel difference for visual comparison
- * @property {number} [threshold] - Per-pixel color threshold (0–1) for visual comparison
- */
-export interface ScreenshotOptions {
-    fullPage?: boolean;
-    clip?: { x: number; y: number; width: number; height: number };
-    mask?: Locator[];
-    maxDiffPixels?: number;
-    threshold?: number;
-}
-
-/**
- * Configuration for mocking a network route during testing.
- *
- * @interface MockRoute
- * @property {string | RegExp} url - URL pattern to intercept
- * @property {string} [method] - HTTP method to match (e.g., `'GET'`, `'POST'`)
- * @property {number} [status] - HTTP status code for the mocked response (default: 200)
- * @property {unknown} [body] - Response body (will be JSON-stringified if not a string)
- * @property {Record<string, string>} [headers] - Custom response headers
- *
- * @example
- * ```typescript
- * const route: MockRoute = {
- *   url: '/api/users',
- *   method: 'GET',
- *   status: 200,
- *   body: [{ id: 1, name: 'Test User' }],
- * };
- * ```
- */
-export interface MockRoute {
-    url: string | RegExp;
-    method?: string;
-    status?: number;
-    body?: unknown;
-    headers?: Record<string, string>;
-}
-
-/**
  * Supported data source types for test data providers.
  *
  * - `'json'` — JSON file data source
@@ -153,11 +61,16 @@ export interface MockRoute {
 export type DataSourceType = 'json' | 'csv';
 
 /**
- * Test category — maps a runner row to its `tests/` folder.
+ * Test category — mirrors the catalog's `surface` field and maps a runner row to
+ * its `tests/` folder. Three categories, **two** folders: the folder boundary is a
+ * runtime one (it picks the Playwright project), and only `api` differs there.
  *
- * - `'ui'` — UI end-to-end tests (`tests/ui/`)
- * - `'api'` — API-only tests (`tests/api/`)
- * - `'workflow'` — UI + API hybrid tests (`tests/workflow/`)
+ * - `'ui'` — browser-driven tests (`tests/web/`)
+ * - `'workflow'` — UI + API (+ DB) hybrids; act in the UI, verify through the API.
+ *   Needs the browser and `auth-setup`, so it lives in `tests/web/` too
+ * - `'api'` — API-only, browserless (`tests/api/`)
+ *
+ * The mapping is enforced by `CATEGORY_FOLDER` in `scripts/check-runner.js`.
  *
  * @typedef {('ui' | 'api' | 'workflow')} TestCategory
  */

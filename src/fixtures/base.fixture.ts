@@ -34,20 +34,19 @@
 import { APIRequestContext, expect, Page, test as base } from '@playwright/test';
 import { NavigationComponent } from '../components/NavigationComponent';
 import { ModalComponent } from '../components/ModalComponent';
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
-import { getTestCaseById, getRunnerData } from '../utils/DataProvider';
-import { getRunnerListDecision } from '../listeners/methodInterceptor';
-import { evaluateScope } from '../config/scope';
+import { getTestCaseById, getRunnerData } from '../data/readers/DataProvider';
+import { decideExecution } from './gate/executionGate';
 import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { createPageObjects, type PageObjects } from './pages.fixture';
 import { CleanupRegistry } from '../utils/db/cleanupRegistry';
 import type { TestCaseData } from '../types';
-import { applyAllureLabels, resolveCaseId } from '../utils/allureLabels';
-import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
+import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
+import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
 
 /**
  * Per-test fixture types.
@@ -107,6 +106,13 @@ type CustomFixtures = {
      * and skips the test if `enabled === false`.
      */
     testCaseData: TestCaseData;
+
+    /**
+     * Auto fixture applying the framework's three-layer execution gate and the
+     * per-test lifecycle hooks. Never referenced by a spec — see the fixture
+     * implementation for why it must be a fixture and not a `beforeEach`.
+     */
+    gate: void;
 };
 
 /**
@@ -123,6 +129,59 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     // ── Option fixtures (set via test.use) ──────────────────────────
     testCaseId: ['', { option: true }],
     testCaseName: ['', { option: true }],
+
+    /**
+     * Run control + per-test lifecycle, applied to every test automatically.
+     *
+     * ## Why this is a fixture and not a `test.beforeEach`
+     *
+     * It used to be a module-level `test.beforeEach` here, and that silently only
+     * half-worked. A hook registered at module scope inside a fixture module
+     * attaches to whichever file suite is loading at that instant, and this module
+     * body runs once per worker process (Node's module cache) — so the gate fired
+     * for the FIRST spec file each worker loaded and no others. Tests in every
+     * other file ran completely ungoverned: `enabled=0` rows executed anyway.
+     * See `src/fixtures/executionGate.ts` for the two-spec measurement.
+     *
+     * An auto fixture also resolves BEFORE the test function's declared
+     * parameters, so a skip decided here prevents `context`/`page`/`request` from
+     * ever being created. That is both faster and the only way a gate can stop a
+     * test that would otherwise fail during fixture setup — which is why this
+     * depends on nothing but the `testCaseId` option.
+     *
+     * The three gate layers themselves live in {@link decideExecution}, shared with
+     * the web-pet suite's `webpetGate.ts`. Do not re-inline them: the rules must
+     * not fork just because the row source did.
+     */
+    gate: [
+        async ({ testCaseId }, use, testInfo) => {
+            onTestStart(testInfo);
+
+            // Resolve the runner row for this test, from the testCaseId option or a
+            // { type: 'testCaseId' } annotation.
+            const caseId = resolveCaseId(testInfo, testCaseId);
+            const row = caseId ? await getTestCaseById<TestCaseData>(caseId) : null;
+
+            const decision = decideExecution(caseId, row);
+            if (decision.skip) testInfo.skip(true, decision.reason);
+
+            // Labelling must never be able to fail a test — the Allure runtime binds
+            // to the running test through async-local state, and this now runs from
+            // inside a fixture rather than a `beforeEach`. Mirrors webpetGate.ts.
+            try {
+                await applyAllureLabels(testInfo, row);
+            } catch (error: unknown) {
+                new Logger('Gate').warn(
+                    `Allure labelling failed for '${testInfo.title}': ${String(error)}`,
+                );
+            }
+
+            await use();
+
+            onTestEnd(testInfo);
+        },
+        { auto: true },
+    ],
 
     // ── Page Object fixtures ────────────────────────────────────────
     // `pages` is the general accessor — one fixture for every screen, each built
@@ -260,61 +319,6 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         { scope: 'worker' },
     ],
 
-});
-
-test.beforeEach(async ({ testCaseId }, testInfo) => {
-    onTestStart(testInfo);
-
-    // Resolve the runner row for this test (from the testCaseId option or a
-    // { type: 'testCaseId' } annotation), then apply the three-layer gate:
-    // runnerList.json overrides, the row's `enabled` flag is the baseline, and
-    // TEST_SCOPE narrows to one customer's segments and licensed modules.
-    const caseId = resolveCaseId(testInfo, testCaseId);
-    const row = caseId ? await getTestCaseById<TestCaseData>(caseId) : null;
-
-    // Layer 1 — runnerList.json wins outright for any id it lists, including
-    // re-enabling a row whose `enabled` is false. Per-entry, so an id absent from
-    // the list falls through to runnerManager rather than being implicitly
-    // excluded — adding one entry must not silently disable everything else.
-    // Normally runnerList.json is `{}` and this is always null.
-    const override = caseId ? getRunnerListDecision(caseId) : null;
-
-    if (override === false) {
-        test.skip(true, `Test case '${caseId}' is disabled in runnerList (execute=no)`);
-    } else if (override === null) {
-        // Layer 2 — no override, so the runner row governs.
-        //
-        // A test that claims a testCaseId with no matching row is a configuration
-        // error, and it must NOT run: previously this gate only checked
-        // `row && row.enabled === false`, so an unknown ID fell through and executed
-        // completely ungoverned — USR-000 ran (and burned both CI retries) for exactly
-        // this reason while every other user-setup case was correctly disabled. The
-        // `caseId &&` guard is load-bearing: unannotated tests such as auth.setup.ts
-        // resolve to '' and must still run, or every browser project loses its session.
-        if (caseId && !row) {
-            test.skip(true, `Test case '${caseId}' has no runner row — add one to src/data/runner/ (enabled 1/0) or remove the annotation.`);
-        }
-        if (row && row.enabled === false) {
-            test.skip(true, `Test case '${row.id}' is disabled in its runner row (enabled=false)`);
-        }
-
-        // Layer 3 — TEST_SCOPE. A row whose workflow does not apply to this
-        // customer's segments, or needs a module they have not licensed, is not a
-        // failure and not a gap: it is out of scope. Rows with no segments/modules
-        // (the system rows) are always in scope. Skipped last so an out-of-scope
-        // row that is also disabled reports the simpler reason.
-        const verdict = evaluateScope(row);
-        if (!verdict.inScope) {
-            test.skip(true, `Test case '${row!.id}' is out of scope for TEST_SCOPE='${process.env.TEST_SCOPE}' — ${verdict.reason}`);
-        }
-    }
-    // override === true → runs regardless of the row and the scope, by design.
-
-    await applyAllureLabels(testInfo, row);
-});
-
-test.afterEach(async ({ }, testInfo) => {
-    onTestEnd(testInfo);
 });
 
 export { expect };

@@ -69,7 +69,7 @@ file quoted 406 / 56 for this command — that was wrong.)
 The `--reporter=list` in that script is **load-bearing, not cosmetic**. `--list`
 instantiates the configured reporter chain and fires `onEnd`, so without an
 explicit reporter a "collection check" would send the email report, post to
-Slack, and overwrite `test-results/results.json` — destroying the baseline it is
+Slack, and overwrite `artifacts/results/results.json` — destroying the baseline it is
 meant to be checking. Any webpet command that must not notify has to pass
 `--reporter=` explicitly.
 
@@ -87,9 +87,9 @@ app.ptdev.xyz, nightly 4:00 AM IST + manual). Neither runs on push.
 
 | Var | Purpose | Where set |
 |---|---|---|
-| `E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD` | admin (`su`) API login in [support/provision.ts](support/provision.ts) + notifications.spec.ts; falls back to `USER_NAME`/`PASSWORD` (see [src/config/webpetEnv.ts](../../src/config/webpetEnv.ts)) so a local `test:webpet:dev` reuses the framework's dev credentials | `env.local` (committed throwaway) / CI secrets (`LOCAL_PASSWORD`, `DEV_PASSWORD`) / fallback: `env.dev` + `.env` |
-| `WEBPET_API_ORIGIN` | base for DIRECT API request contexts; **unset on local** (calls go through the Vite proxy, byte-identical to the source repo), `https://api.ptdev.xyz` on dev | `env.dev` only |
-| `S3_ENDPOINT` | non-empty ⇒ employee-documents.spec.ts runs (needs MinIO) | `env.local`; deliberately absent on dev |
+| `E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD` | admin (`su`) API login in [support/provision.ts](support/provision.ts) + notifications.spec.ts; falls back to `USER_NAME`/`PASSWORD` (see [src/config/webpetEnv.ts](../../src/config/webpetEnv.ts)) so a local `test:webpet:dev` reuses the framework's dev credentials | `env/env.local` (committed throwaway) / CI secrets (`LOCAL_PASSWORD`, `DEV_PASSWORD`) / fallback: `env/env.dev` + `.env` |
+| `WEBPET_API_ORIGIN` | base for DIRECT API request contexts; **unset on local** (calls go through the Vite proxy, byte-identical to the source repo), `https://api.ptdev.xyz` on dev | `env/env.dev` only |
+| `S3_ENDPOINT` | non-empty ⇒ employee-documents.spec.ts runs (needs MinIO) | `env/env.local`; deliberately absent on dev |
 | `WEBPET=1` | materializes the webpet projects (auto-set by the npm scripts / `--project=webpet`) | scripts/CI |
 | `PET_EXPORT_EQUIV`, `PET_DEVICE_CMD_EQUIV`, `SCAN_TIME_IN_EQUIV` (+ `PET_LEGACY_*`, `SCAN_EMPLOYEE_BARCODE`) | opt-in equiv parity specs — set nowhere, skip by default (needs a Windows host with legacy baselines) | — |
 
@@ -194,7 +194,7 @@ still be wired to the wrong element. Only the baseline diff below proves that.
 > prefix. A guard that has never been seen to fail is not evidence of anything.
 
 The framework's own `runner:check` deliberately excludes this tree
-(`scripts/lib/runner-data.js` → `EXCLUDED_TEST_DIRS`).
+(`scripts/runner/lib/runner-data.js` → `EXCLUDED_TEST_DIRS`).
 
 ## Baselines — the acceptance gate for a conversion batch
 
@@ -232,7 +232,7 @@ from a regression:
 
 ```sh
 # an explicit --reporter replaces the configured chain, so no email, no Slack,
-# and test-results/results.json is left intact
+# and artifacts/results/results.json is left intact
 PLAYWRIGHT_JSON_OUTPUT_NAME=run1.json npm run test:webpet -- --reporter=json --workers=1
 PLAYWRIGHT_JSON_OUTPUT_NAME=run2.json npm run test:webpet -- --reporter=json --workers=1
 
@@ -487,8 +487,8 @@ dialog policy), neither of which belongs in a page object.
 |---|---|
 | `src/fixtures/webpet.fixture.ts` | the suite's `test`/`expect`; context + page + authed request |
 | `src/fixtures/webpetAnonymous.fixture.ts` | unauthenticated variant for notifications' 401 tests |
-| `src/fixtures/webpetGate.ts` | run control, wired as an `{ auto: true }` fixture |
-| `src/fixtures/executionGate.ts` | the framework's three-layer decision, shared with the journey suites |
+| `src/fixtures/gate/webpetGate.ts` | run control, wired as an `{ auto: true }` fixture |
+| `src/fixtures/gate/executionGate.ts` | the framework's three-layer decision, shared with the journey suites |
 | `src/data/webpet/webpetRunnerSource.ts` | row reader — its own `MultiFileDataReader`, **not** `DataProvider` |
 | `src/config/webpetEnv.ts`, `webpetPaths.ts` | URL/credential resolution, filesystem anchors |
 | `src/pages/webpet/Webpet{Form,List}Page.ts` | the two page-object bases |

@@ -147,7 +147,7 @@ jobs:
 
       # NOTE: no --reporter override — that would REPLACE the configured chain
       # and empty the html/allure artifacts uploaded below. The chain's JSON
-      # reporter already writes test-results/results.json for the diff.
+      # reporter already writes artifacts/results/results.json for the diff.
       # --workers is pinned, NOT left to the config's default of 4. This suite is
       # not parallel-safe on dev: it mutates shared dev data (test crews,
       # employees, jobs, Ranch/Field inline edits, user preferences), so
@@ -188,8 +188,8 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          if [ -f src/data/webpet/baselines/dev.json ] && [ -f test-results/results.json ]; then
-            npm run webpet:diff -- src/data/webpet/baselines/dev.json test-results/results.json
+          if [ -f src/data/webpet/baselines/dev.json ] && [ -f artifacts/results/results.json ]; then
+            npm run webpet:diff -- src/data/webpet/baselines/dev.json artifacts/results/results.json
           else
             echo "::warning::No dev baseline manifest yet — see tests/webpet/README.md 'Baselines'."
           fi
@@ -198,25 +198,25 @@ jobs:
         if: always()
         uses: actions/cache@v4
         with:
-          path: allure-report/history
+          path: artifacts/allure/report/history
           key: webpet-allure-history-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
             webpet-allure-history-${{ github.ref_name }}-
 
       - name: Generate Allure report
         if: always()
-        run: node scripts/generate-allure-report.js
+        run: node scripts/report/allure-generate.js
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-playwright-report
-          path: playwright-report
+          path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-allure-report
-          path: allure-report
+          path: artifacts/allure/report

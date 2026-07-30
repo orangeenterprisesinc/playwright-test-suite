@@ -1,9 +1,9 @@
 # Dependencies
 node_modules/
 
-# Playwright output
-/test-results/
-/playwright-report/
+# All run output — Playwright results/HTML report, Allure results/report, and
+# the framework logs — lives under one tree (see docs/STRUCTURE.md).
+/artifacts/
 /blob-report/
 /playwright/.cache/
 
@@ -20,20 +20,16 @@ node_modules/
 .auth/
 
 # Personal env overrides (SMTP credentials etc.) — loaded by envLoader as the
-# base file, never committed. Committed env.local/dev/qa hold no real secrets.
-.env
-
-# Reporting output
-allure-results/
-allure-report/
-logs/
+# base file, never committed. Committed env/env.local|dev|qa hold no real
+# secrets. All environment inputs live in env/ (see docs/STRUCTURE.md).
+env/.env
 
 # Claude Code — the shared .claude/ folder IS committed; only personal
 # local overrides are ignored.
 .claude/settings.local.json
 
-#Testing context
-Testing video/
+#Testing context — screen recordings referenced by the plans under test-plans/
+docs/media/
 Reference project/
 
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
@@ -41,6 +37,6 @@ Reference project/
 
 
 # Local SQL Server backup (12.9GB real client data — never commit)
-db backup/
+docker/db-backup/
 *.bak
-docker-e2e/.env
+docker/e2e/.env

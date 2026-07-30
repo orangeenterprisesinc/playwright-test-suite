@@ -117,7 +117,7 @@ export abstract class BasePage {
 
     /**
      * Captures a full-page screenshot under this repo's
-     * `test-results/screenshots/<name>.png` convention.
+     * `artifacts/results/screenshots/<name>.png` convention.
      *
      * @example
      * await basePage.takeScreenshot('homepage-loaded');
@@ -125,21 +125,21 @@ export abstract class BasePage {
     async takeScreenshot(name: string): Promise<Buffer> {
         this.logger.info(`Taking screenshot: ${name}`);
         return await this.page.screenshot({
-            path: `test-results/screenshots/${name}.png`,
+            path: `artifacts/results/screenshots/${name}.png`,
             fullPage: true,
         });
     }
 
     /**
      * Captures a screenshot of a single element under the same
-     * `test-results/screenshots/<name>.png` convention as {@link takeScreenshot}.
+     * `artifacts/results/screenshots/<name>.png` convention as {@link takeScreenshot}.
      *
      * @example
      * await basePage.takeElementScreenshot(chart, 'chart-screenshot');
      */
     async takeElementScreenshot(locator: Locator, name: string): Promise<Buffer> {
         return await locator.screenshot({
-            path: `test-results/screenshots/${name}.png`,
+            path: `artifacts/results/screenshots/${name}.png`,
         });
     }
 }

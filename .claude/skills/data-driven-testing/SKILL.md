@@ -18,7 +18,7 @@ agree.)
    One file per journey (`journey-a` … `journey-f`) plus `system` for non-catalog
    framework tests. Read as one combined set by `MultiFileDataReader`.
 2. **Journey value bags** — `src/data/journey-<x>/<name>Data.ts`, e.g.
-   `src/data/journey-a/userSetupData.ts`. Typed TS modules, not JSON: small value
+   `src/data/static/journey-a/userSetupData.ts`. Typed TS modules, not JSON: small value
    bags (option lists, expected messages, defaults) imported directly by the spec.
    TypeScript so a cross-cutting constant is compile-checked in every place that
    depends on it.
@@ -28,12 +28,12 @@ Plus two supporting data sets:
 3. **The catalog** — `src/data/catalog/workflow-catalog.json`, regenerated from the
    Word document by `npm run catalog:import`. The 69 workflows with their steps,
    segments and modules. Source of truth for what a row's metadata should say.
-4. **Customer scopes** — `src/data/scopes/<customer>.json`: the segments and licence
+4. **Customer scopes** — `config/scopes/<customer>.json`: the segments and licence
    modules one customer has. Drives `TEST_SCOPE` filtering.
 
 ### Source selection
 
-- `TEST_DATA_SOURCE=json | csv` in `env.local` / `env.dev` / `env.qa`
+- `TEST_DATA_SOURCE=json | csv` in `env/env.local` / `env/env.dev` / `env/env.qa`
   (OS env vars override; default is JSON).
 - `RUNNER_DATA_DIR` overrides the runner directory (default `src/data/runner`).
 - `DATA_FILE_PATH_JSON` / `DATA_FILE_PATH_CSV` switch to a single file instead of the
@@ -119,7 +119,7 @@ Rules:
   otherwise the fixture skips the test.
 - Lookup by `testCaseId` matches `id`; `testCaseName` matches `testName`.
 - Programmatic access outside fixtures: `getTestCaseById(...)`, `getRunnerData()`, or
-  `DataProvider.forSource('csv')` from `src/utils/DataProvider.ts`.
+  `DataProvider.forSource('csv')` from `src/data/readers/DataProvider.ts`.
 
 ### Adding rows — the loop
 
@@ -133,7 +133,7 @@ Rules:
 ### Forbidden
 
 - No conversion pipelines in the test path, no unified/generated runtime JSON, no
-  writing under `test-results/converted/`.
+  writing under `artifacts/results/converted/`.
 - No hand-editing `src/data/runner/*.json` — it is generated from the CSV.
 - No Excel or database readers — JSON and CSV only.
 - No test values hardcoded in specs when a journey value bag is the right home.

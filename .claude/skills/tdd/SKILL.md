@@ -58,13 +58,13 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
-  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
-  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
+  on whether a browser is needed. The category comes from the catalog entry's `surface`:
+  `ui` → `tests/web/`, `calc` → `tests/web/` (tagged `@Workflow`), `device` → `tests/api/`.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.
 - **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
-- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Plan first**: `test-plans/journey-<x>/<wf>-<slug>.md` (copy `test-plans/_template.md`).
 - **Finish with**: `npm run runner:sync && npm run runner:check`.
 

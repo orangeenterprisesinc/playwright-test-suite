@@ -6,7 +6,7 @@
  * @module auth/requestBuilder
  */
 import type { APIRequestContext, APIResponse, TestInfo } from '@playwright/test';
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { clearTokenCache, getAccessToken } from './authorizationManager';
 import { TestMetrics } from '../context/testMetrics';
 import { Logger } from '../utils/logger';

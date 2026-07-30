@@ -31,14 +31,15 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
-  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
-  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
+  on whether a browser is needed. The category comes from the catalog entry's `surface`:
+  `ui` → `tests/web/`, `calc` → `tests/web/` (tagged `@Workflow`), `device` → `tests/api/`.
+  API specs are the `tests/api/` case.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.
 - **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
-- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Plan first**: `test-plans/journey-<x>/<wf>-<slug>.md` (copy `test-plans/_template.md`).
 - **Finish with**: `npm run runner:sync && npm run runner:check`.
 
 ### Repository structure
@@ -46,11 +47,10 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 - API specs: `tests/api/*.spec.ts` (import from `src/fixtures/api.fixture`)
 - API fixture: `src/fixtures/api.fixture.ts` (`api`, `apiContext`, `authenticatedApi`)
 - Auth layer: `src/auth/*` — `authContextFactory.ts` (`buildAuthContextOptions()`), `requestBuilder.ts` (`executeWithAuthRetry`, `HttpMethod`, `RequestOptions`), `authorizationManager.ts` (token cache)
-- Response assertions: `src/utils/apiResponseUtils.ts` (`verifyJsonKeyValues`)
-- Config/env access: `src/enums/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
+- Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
 - Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts`
-- Environments: `env.local` / `env.dev` / `env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
+- Environments: `env/env.local` / `env/env.dev` / `env/env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
 
 ### Test structure rules — standard Playwright only
 
@@ -98,14 +98,14 @@ test.describe('Users API', { tag: '@API' }, () => {
 
 - Prefer `api.assertStatus(response, expected)` / `api.assertSuccess(response)` for status checks
 - For body assertions on the `ApiHelper` result, assert against `response.data` with web-first `expect(...)`
-- To confirm a record exists somewhere in a JSON body (including nested/paginated shapes) use `verifyJsonKeyValues(apiResponse, expected)` from `src/utils/apiResponseUtils.ts` — note it takes a raw Playwright `APIResponse`, so use it with `apiContext.fetch(...)` / `executeWithAuthRetry(...)`, not the `ApiHelper` `{ status, data }` result
+- To confirm a record exists somewhere in a JSON body (including nested/paginated shapes), assert on the parsed body with Playwright's own matchers — `expect(body).toMatchObject({...})` for a known shape, or `expect(JSON.stringify(body)).toContain(value)` when the nesting is not known. There is no bespoke body-matcher helper in this repo; a `verifyJsonKeyValues` util used to exist but no spec ever imported it and it was removed
 
 ```typescript
-import { verifyJsonKeyValues } from '../../src/utils/apiResponseUtils';
 import { executeWithAuthRetry } from '../../src/auth/requestBuilder';
 
 const res = await executeWithAuthRetry(apiContext, 'GET', 'users', {}, testInfo);
-expect(await verifyJsonKeyValues(res, { email: user.email })).toBeTruthy();
+expect(res.status()).toBe(200);
+expect(JSON.stringify(await res.json())).toContain(user.email);
 ```
 
 ### Avoid hardcoded values

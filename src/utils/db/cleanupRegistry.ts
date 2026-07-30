@@ -14,7 +14,7 @@
  * nine near-identical statements copied into nine specs, and any one of them
  * getting the database or the soft-delete flag wrong leaks records into a shared
  * dev database. The statement now lives here once, driven by
- * `src/data/shared/cleanupTargets.ts`.
+ * `src/data/static/shared/cleanupTargets.ts`.
  *
  * A test may also delete a record deliberately, as its own assertion step (the A1
  * end-to-end does exactly this). {@link CleanupRegistry.remove} does that and
@@ -26,8 +26,8 @@
  * @module utils/db/cleanupRegistry
  * @since 1.0.0
  */
-import { ConfigProperties, getConfigValue } from '../../enums/configProperties';
-import { CLEANUP_TARGETS, cleanupTarget, type CleanupTarget } from '../../data/shared/cleanupTargets';
+import { ConfigProperties, getConfigValue } from '../../config/configProperties';
+import { CLEANUP_TARGETS, cleanupTarget, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { Logger } from '../logger';
 import { runSql } from './sqlClient';
 

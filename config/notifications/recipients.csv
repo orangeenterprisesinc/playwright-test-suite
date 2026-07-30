@@ -1,0 +1,12 @@
+scope,recipients,notes
+dry-run:scheduled,"gukapriyan.intuware@usesilo.com,placeholder1@example.com,placeholder2@example.com,placeholder3@example.com",Daily 4PM IST cron on dry-run - the full team list. REPLACE THE PLACEHOLDERS.
+dry-run,gukapriyan.intuware@usesilo.com,Any other trigger on dry-run (push/manual/dispatch)
+main,gukapriyan.intuware@usesilo.com,Pushes and merges to main - me only
+dev-qe,gukapriyan.intuware@usesilo.com,dev-qe branch - me only
+scheduled,gukapriyan.intuware@usesilo.com,Cron on any branch without its own row above
+manual,gukapriyan.intuware@usesilo.com,workflow_dispatch (Run workflow button)
+push,gukapriyan.intuware@usesilo.com,Automatic push trigger on a branch without its own row
+external dispatch,gukapriyan.intuware@usesilo.com,repository_dispatch fired by the web-pet app build
+ci,gukapriyan.intuware@usesilo.com,Running under CI with no recognised GitHub event
+local run,gukapriyan.intuware@usesilo.com,Laptop / self-hosted runs outside CI
+default,gukapriyan.intuware@usesilo.com,Fallback when nothing above matched

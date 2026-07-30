@@ -8,7 +8,7 @@
  *
  * @module auth/authorizationManager
  */
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { AuthenticationError } from '../core/frameworkExceptions';
 import { Logger } from '../utils/logger';
 

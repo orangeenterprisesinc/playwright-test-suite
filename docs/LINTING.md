@@ -23,7 +23,7 @@ unusable: **15,543 errors across 204 of 204 files**, every one of them
 `prettier/prettier`. Nobody can act on a signal that fires on every file in the
 repo, so nobody ran the linter, so the real defects underneath were never seen.
 
-Adding [`.prettierrc.json`](../.prettierrc.json) — measured against the actual
+Adding [`config/lint/.prettierrc.json`](../config/lint/.prettierrc.json) — measured against the actual
 codebase rather than guessed (4-space indent on 14,047 lines vs 473 at 2; single
 quotes 13,090 vs 1,152 double; p99 line length 110, so `printWidth: 120`) — cut
 that to 7,062. Still unusable, and the residue turned out not to be drift at all:
@@ -49,7 +49,7 @@ Prettier explodes every `test(title, options, body)` call and re-indents its
 whole body. With ~450 tests that is most of the diff in the repository, and it
 would contradict the convention the framework's own documentation teaches.
 
-So: **formatting is a formatter's job, not a gate's.** `.prettierrc.json` exists
+So: **formatting is a formatter's job, not a gate's.** `config/lint/.prettierrc.json` exists
 so editors and `npm run format` agree on 4-space/single-quote/120-col when you
 choose to run them; eslint stays out of it and reports things that can actually
 be wrong.

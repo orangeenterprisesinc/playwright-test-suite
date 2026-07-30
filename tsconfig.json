@@ -38,14 +38,11 @@
       "@data/*": [
         "./src/data/*"
       ],
-      "@enums/*": [
-        "./src/enums/*"
+      "@reporting/*": [
+        "./src/reporting/*"
       ],
       "@core/*": [
         "./src/core/*"
-      ],
-      "@preconditions/*": [
-        "./src/preconditions/*"
       ],
       "@apptypes": [
         "./src/types/index.ts"
@@ -72,7 +69,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test-results",
-    "playwright-report"
+    "artifacts"
   ]
 }

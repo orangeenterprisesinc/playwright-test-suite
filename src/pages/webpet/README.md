@@ -67,10 +67,12 @@ green**.
 Specs import from **`src/fixtures/webpet.fixture.ts`**, which composes the same framework building
 blocks (`executionGate`, Allure labelling, lifecycle listeners) against the web-pet row source.
 
-Related: `base.fixture.ts` applies its gate from a **module-level `test.beforeEach`**. Measured
-behaviour — a module-scope hook in a fixture module attaches only to the spec file that is loading
-at import time, so it fires for the **first spec file each worker loads and no others**. The
-web-pet gate is therefore an `{ auto: true }` fixture. Do not "upgrade" it to a `beforeEach`.
+Related: gating must be an `{ auto: true }` fixture in **both** suites, never a module-level
+`test.beforeEach`. Measured behaviour — a module-scope hook in a fixture module attaches only to
+the spec file that is loading at import time, so it fires for the **first spec file each worker
+loads and no others**. `base.fixture.ts` used to get this wrong and was only partly gating its
+journey suites; it now uses a `gate` auto fixture like this one. Do not "upgrade" either to a
+`beforeEach`.
 
 ## Deliberate near-duplicates — do not consolidate
 

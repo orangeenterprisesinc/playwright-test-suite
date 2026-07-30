@@ -10,7 +10,7 @@
  * const context = await playwright.request.newContext({ baseURL, ...authOptions });
  * ```
  */
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { getAccessToken } from './authorizationManager';
 
 export type AuthType = 'oauth2' | 'basic' | 'apikey' | 'none';

@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Debugs whichever spec is focused in the editor. Uses the Playwright CLI
+      // directly (not an npm script) so breakpoints bind, and pins one worker
+      // so the inspector is not fighting parallel workers.
+      "type": "node",
+      "request": "launch",
+      "name": "Debug current spec (chromium, headed)",
+      "program": "${workspaceFolder}/node_modules/@playwright/test/cli.js",
+      "args": ["test", "${relativeFile}", "--project=chromium", "--headed", "--workers=1"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // The migrated web-pet suite runs under its own opt-in project with its
+      // own auth — never chromium (see playwright.config.ts).
+      "type": "node",
+      "request": "launch",
+      "name": "Debug current spec (webpet, headed)",
+      "program": "${workspaceFolder}/node_modules/@playwright/test/cli.js",
+      "args": ["test", "${relativeFile}", "--project=webpet", "--headed", "--workers=1"],
+      "cwd": "${workspaceFolder}",
+      "env": { "WEBPET": "1" },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

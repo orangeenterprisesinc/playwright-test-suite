@@ -39,11 +39,11 @@ If the live code and older documentation disagree, trust the **live code**.
 - Main UI fixture: `src/fixtures/base.fixture.ts`
 - Page objects: `src/pages/<area>/*.ts` — grouped by app menu area (`shell/`, `admin/`, `setup/`, `processing/`, `payroll/`, `connectivity/`, `analysis/`). List+form screens extend `SetupScreenPage`; everything else extends `BasePage`
 - Components: `src/components/*.ts` (all extend `BaseComponent`)
-- Config/env access: `src/enums/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
+- Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
-- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts` (typed TS module, e.g. `src/data/journey-a/userSetupData.ts`)
-- Data helpers: `src/utils/DataProvider.ts`
-- Environments: `env.local` / `env.dev` / `env.qa`, selected via `TEST_ENV` (default `local`)
+- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts` (typed TS module, e.g. `src/data/static/journey-a/userSetupData.ts`)
+- Data helpers: `src/data/readers/DataProvider.ts`
+- Environments: `env/env.local` / `env/env.dev` / `env/env.qa`, selected via `TEST_ENV` (default `local`)
 
 ### Catalog workflows — where a spec goes and what it is called
 
@@ -59,22 +59,25 @@ the licence modules.
 | Artifact | Path |
 |---|---|
 | Catalog entry | `src/data/catalog/workflow-catalog.json` → `A1` |
-| Plan | `specs/journey-a/a01-user-setup.md` |
-| Spec | `tests/ui/journey-a-setup/a01-user-setup.spec.ts` |
+| Plan | `test-plans/journey-a/a01-user-setup.md` |
+| Spec | `tests/web/journey-a-setup/a01-user-setup.spec.ts` |
 | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
 
-**Folder** — category first (it decides the fixture and the Playwright project),
-journey second. The category comes from the catalog entry's `surface`:
+**Folder** — there are only **two**, and the split is whether a browser is needed
+(that is what picks the Playwright project). Category comes from the catalog entry's
+`surface`; three categories map onto the two folders:
 
 | `surface` | Category | Folder |
 |---|---|---|
-| `ui` | `ui` | `tests/ui/journey-<x>-<area>/` |
+| `ui` | `ui` | `tests/web/journey-<x>-<area>/` |
 | `device` | `api` | `tests/api/journey-<x>-<area>/` (handheld/kiosk — no web screen, driven through the sync API) |
-| `calc` | `workflow` | `tests/workflow/journey-<x>-<area>/` |
+| `calc` | `workflow` | `tests/web/journey-<x>-<area>/` — needs the browser, so it goes with the UI specs and is tagged `@Workflow` |
 
-Existing folders: `tests/ui/{system,journey-a-setup,journey-b-field,journey-d-office,journey-e-payroll,journey-f-analysis}`,
-`tests/api/{journey-a-setup,journey-b-field,journey-c-packhouse}`,
-`tests/workflow/{journey-d-office,journey-e-payroll}`.
+Existing folders: `tests/web/{system,journey-a-setup,journey-b-field,journey-d-office,journey-e-payroll,journey-f-analysis}`,
+`tests/api/{journey-a-setup,journey-b-field,journey-c-packhouse}`.
+
+`npm run runner:check` enforces this mapping (`CATEGORY_FOLDER` in
+`scripts/runner/check.js`), so a spec in the wrong folder fails immediately.
 
 **Ids** — `<workflow>-<nnn>`: `A1-001`, `D4-002`. Never invent a new prefix scheme.
 Non-catalog framework tests (login, auth) use `UI-00X` in `src/data/runner/system.csv`.
@@ -123,7 +126,7 @@ menu path, rejection message), its locators, and its `fill*` methods. Register i
 ### Test-data cleanup
 
 Never hand-write `UPDATE … SET Deleted = 1` in a spec. Register the entity once in
-`src/data/shared/cleanupTargets.ts`, then in the spec:
+`src/data/static/shared/cleanupTargets.ts`, then in the spec:
 
 ```typescript
 cleanup.track('user', user.name);          // removed after the test, even on failure

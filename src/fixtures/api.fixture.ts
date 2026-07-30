@@ -16,7 +16,7 @@
  * ```
  */
 import { APIRequestContext, expect, test as base } from '@playwright/test';
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { buildAuthContextOptions } from '../auth/authContextFactory';
 import { executeWithAuthRetry, type HttpMethod, type RequestOptions } from '../auth/requestBuilder';
 import { Logger } from '../utils/logger';

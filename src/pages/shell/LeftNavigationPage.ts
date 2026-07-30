@@ -6,7 +6,7 @@
  * click-through menu path (File ▸ Administration ▸ Users) so tests can navigate
  * the way a human does instead of jumping straight to a URL with `page.goto`.
  * Driving the actual menu is what lets the recorded video capture the
- * navigation steps (see tests/ui/journey-a1-walkthrough.spec.ts).
+ * navigation steps (see the journey specs under tests/web/).
  *
  * @module pages/LeftNavigationPage
  * @since 1.0.0

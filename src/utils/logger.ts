@@ -53,7 +53,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 /** @private Directory for log files, configurable via `LOG_DIR` env var */
-const LOG_DIR = process.env.LOG_DIR || 'logs';
+const LOG_DIR = process.env.LOG_DIR || path.join('artifacts', 'logs');
 /** @private Whether to write logs to disk (disable with `FILE_LOG=false`) */
 const ENABLE_FILE_LOG = process.env.FILE_LOG !== 'false';
 

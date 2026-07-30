@@ -18,9 +18,9 @@
  * @module fixtures/webpetAnonymous.fixture
  */
 import { expect, test as base } from '@playwright/test';
-import { applyWebpetGate } from './webpetGate';
+import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
-import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
+import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
 
 export { expect };
 

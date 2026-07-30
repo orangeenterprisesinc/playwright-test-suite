@@ -301,7 +301,7 @@ jobs:
         run: npm run webpet:runner:check
 
       # NOTE: deliberately no --reporter override. The configured chain already
-      # includes the JSON reporter (writing test-results/results.json, which the
+      # includes the JSON reporter (writing artifacts/results/results.json, which the
       # diff below reads) alongside html/github/allure, and the later steps
       # upload those. Passing --reporter here would REPLACE the whole chain and
       # silently empty both uploaded artifacts.
@@ -346,10 +346,10 @@ jobs:
           if [ ! -f src/data/webpet/baselines/localhost.json ]; then
             echo "::warning::No baseline manifest yet — batch acceptance cannot be verified."
             echo "Capture one: see tests/webpet/README.md 'Baselines'."
-          elif [ ! -f test-results/results.json ]; then
-            echo "::warning::No test-results/results.json — the run produced no JSON report."
+          elif [ ! -f artifacts/results/results.json ]; then
+            echo "::warning::No artifacts/results/results.json — the run produced no JSON report."
           else
-            npm run webpet:diff -- src/data/webpet/baselines/localhost.json test-results/results.json
+            npm run webpet:diff -- src/data/webpet/baselines/localhost.json artifacts/results/results.json
           fi
 
       - name: Dump app logs
@@ -386,18 +386,18 @@ jobs:
 
       - name: Generate Allure report
         if: always()
-        run: node scripts/generate-allure-report.js
+        run: node scripts/report/allure-generate.js
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-playwright-report
-          path: playwright-report
+          path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-allure-report
-          path: allure-report
+          path: artifacts/allure/report

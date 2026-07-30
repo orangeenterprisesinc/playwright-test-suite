@@ -24,7 +24,7 @@
  */
 import path from 'node:path';
 import type { TestInfo } from '@playwright/test';
-import { MultiFileDataReader } from '../../utils/dataReaders/MultiFileDataReader';
+import { MultiFileDataReader } from '../readers/MultiFileDataReader';
 import { getCurrentDataSourceType } from '../../config/dataSource.config';
 import { WEBPET_DATA_DIR, webpetSpecPath } from '../../config/webpetPaths';
 import type { WebpetTestCaseData } from '../../types';
