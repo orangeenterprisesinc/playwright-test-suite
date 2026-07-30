@@ -210,6 +210,22 @@ one test greening while another reds. So a batch is accepted by a **per-test**
 diff, keyed on WP id and comparing status **plus a normalised failure
 fingerprint**.
 
+### Every baseline run is `--workers=1`
+
+This suite is **not parallel-safe**: it mutates shared setup rows (test crews,
+employees, jobs), does inline grid edits, and flips user preferences, so
+concurrent tests race each other. Both committed baselines were captured
+serially, and a run at any other width cannot be compared with them.
+
+That was true and unenforced for a while. `playwright.config.ts` defaults to
+`workers: 4`; this file's own header described the local run as "~48 min at
+workers:1"; and **neither workflow ever passed the flag**. So every CI run was
+really 4-wide while the docs claimed otherwise. The first run after the framework
+alignment landed made it obvious — 6 m 11 s against the dev baseline's 56.5 m.
+
+Both webpet workflows now pin `--workers` and expose it as a dispatch input
+(default `1`), and warn in the job log when it is raised.
+
 Capture on the seeded stack, twice — whatever differs between two runs of
 unchanged code is flake, and flake has to be known before it can be told apart
 from a regression:
@@ -259,8 +275,28 @@ Expected dev-failure classes are listed in the header of
 the first baseline runs.
 
 **First dev baseline (2026-07-29): 319 passed / 47 failed / 22 skipped /
-19 did-not-run (56.5 m)** — full categorized failure list in
+19 did-not-run (56.5 m, workers 1)** — full categorized failure list in
 [DEV-BASELINE-2026-07-29.md](DEV-BASELINE-2026-07-29.md).
+
+**First post-alignment dev run (2026-07-30, commit `9a2199a`): 315 / 50 / 42 / 0
+in 6 m 11 s — at workers 4, so NOT comparable.** Recorded because the
+reconciliation is still informative, not because it verifies anything:
+
+- The skipped swing is an artifact: 22+19 = 41 before, 42+0 = 42 now — the
+  serial-file remainders were reported as `skipped` rather than `didNotRun`.
+- **18 of 21 files had identical failure counts.** Only three moved:
+  `employee.spec.ts` 1→4 (all three new ones `POST /api/employees` **500** — a
+  dev API fault, same class as the known `POST /api/users` 500),
+  `bonus-shell.spec.ts` 1→2 (`net::ERR_CONNECTION_RESET`), and
+  `variety.spec.ts` 1→0.
+- The two failures that looked like conversion defects were checked against
+  `webpet-lift-v1` and are not: the report-editor strict-mode violation echoes
+  a locator byte-identical to the original, and reconcile's
+  `derivedPermissions` TypeError has the same shape as the pre-conversion code.
+
+A per-file count match at the wrong worker count is weak evidence — it cannot see
+a test that failed for one reason before and a different reason now. Re-run at
+`workers=1` before drawing any conclusion.
 
 ## Upstream re-sync policy
 

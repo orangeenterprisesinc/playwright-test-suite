@@ -40,6 +40,10 @@ on:
         description: 'Conversion batch number, e.g. 01 — runs only @WPBatch<NN>. Takes precedence over grep. Blank = whole suite.'
         required: false
         default: ''
+      workers:
+        description: 'Playwright workers. Leave at 1 for a baseline-comparable run; raise only for a quick smoke (results then are NOT comparable).'
+        required: false
+        default: '1'
 
 concurrency:
   group: webpet-e2e-dev
@@ -49,7 +53,10 @@ jobs:
   webpet-e2e-dev:
     name: WebPet Playwright E2E (dev staging)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    # A serial run of the whole suite took 56.5 min on dev (see
+    # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
+    # so 75 left almost no headroom for a slow night. 90 does.
+    timeout-minutes: 90
 
     env:
       # Selects env.dev (BASE_URL=https://app.ptdev.xyz, API_URL and
@@ -141,18 +148,37 @@ jobs:
       # NOTE: no --reporter override — that would REPLACE the configured chain
       # and empty the html/allure artifacts uploaded below. The chain's JSON
       # reporter already writes test-results/results.json for the diff.
+      # --workers is pinned, NOT left to the config's default of 4. This suite is
+      # not parallel-safe on dev: it mutates shared dev data (test crews,
+      # employees, jobs, Ranch/Field inline edits, user preferences), so
+      # concurrent tests race each other. The committed baseline was captured at
+      # workers 1, and a run at any other width is not comparable with it — the
+      # first CI run after the framework alignment landed at 4 and finished in
+      # 6m11s against the baseline's 56.5m, with a failure set that matched
+      # per-file but could not be trusted to match per-test.
+      #
+      # `workers` is a dispatch input so a quick smoke is still one click away;
+      # the scheduled nightly always runs serial.
       - name: Run webpet Playwright tests
         env:
           GREP: ${{ github.event.inputs.grep }}
           BATCH: ${{ github.event.inputs.batch }}
+          WORKERS: ${{ github.event.inputs.workers }}
         run: |
           FILTER="$GREP"
           if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
+          # Empty on a scheduled run (dispatch inputs are unset there) → serial.
+          W="${WORKERS:-1}"
+          if [ -z "$W" ]; then W=1; fi
+          if [ "$W" != "1" ]; then
+            echo "::warning::Running with $W workers — results are NOT comparable with the committed dev baseline (captured at 1)."
+          fi
+          echo "Workers: $W"
           if [ -n "$FILTER" ]; then
             echo "Filtering to: $FILTER"
-            npx playwright test --project=webpet --grep "$FILTER"
+            npx playwright test --project=webpet --workers="$W" --grep "$FILTER"
           else
-            npx playwright test --project=webpet
+            npx playwright test --project=webpet --workers="$W"
           fi
 
       # Report-only: dev is a triage baseline, not a gate (its DB is not the
