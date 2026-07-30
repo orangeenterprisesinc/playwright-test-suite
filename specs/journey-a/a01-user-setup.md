@@ -29,12 +29,54 @@ the recording.
 | 1 | Provision the instance and database. | Not in the recording — infrastructure. | **no** — done before any test runs |
 | 2 | Apply the serial (PET Setup encodes concurrent users, handheld devices, databases, personal devices, module flags). | Not in the recording. | **no** — the catalog notes serial generation runs through the legacy PET Setup (Delphi) tool, which has no web surface |
 | 3 | Confirm enabled modules and limits. | Not in the recording. | **not yet** — needs the Program Configuration screen; belongs with A11 (Preferences) |
-| 4 | Create users under File ▸ Administration ▸ Users, assign Administrator or limited roles, grant per-user permissions (employee rates, multi-edit, multi-delete, modify locked job cards, view SSN, view I9). | The whole recording. Sidebar File ▸ Administration ▸ Users → **New User** → General tab (Name, Password, Role, Initials, Email Address) → Permissions tab (Additional Access checkboxes, Access to Reverse) → Personal Info tab (First/Middle/Last name, Title) → Save → "User created" toast → back to the list, filter by Name, confirm the row. | **yes** — `A1-001`…`A1-005` |
+| 4 | Create users under File ▸ Administration ▸ Users, assign Administrator or limited roles, grant per-user permissions (employee rates, multi-edit, multi-delete, modify locked job cards, view SSN, view I9). | The whole recording. Sidebar File ▸ Administration ▸ Users → **New User** → General tab (Name, Password, Role, Initials, Email Address) → Permissions tab (Additional Access checkboxes, Access to Reverse) → Personal Info tab (First/Middle/Last name, Title) → Save → "User created" toast → back to the list, filter by Name, confirm the row. | **yes** — `A1-001`…`A1-006` |
 | 5 | Verify login. | Not in this recording. | **yes**, but covered separately by `tests/ui/system/login-module.spec.ts` (`UI-001`…`UI-004`) — login is the gate every journey starts behind, so it is not duplicated here |
 
 **Scope of the spec:** step 4 only, plus the duplicate-Initials rule the form
 enforces. Steps 1–3 are infrastructure/legacy-tool and step 5 lives in the system
-suite. That is why `A1` has five rows rather than one per catalog step.
+suite. That is why `A1` has six rows rather than one per catalog step.
+
+## Acceptance criteria (EARS)
+
+The catalog says what the operator *does*; this says what PET Tiger must *do
+back*. Ids are stable — append, never re-sort.
+
+| id | Requirement | Cases |
+|---|---|---|
+| `A1-R1` | When the New User form is saved with Name, Password, Role, Initials and Email Address populated, PET Tiger shall create the user and display "User created". | `A1-001`, `A1-002`, `A1-003`, `A1-006` |
+| `A1-R2` | When the Users list is filtered by Name, PET Tiger shall display exactly the matching user's row, with its Initials, Role and Email Address. | `A1-001`, `A1-002` |
+| `A1-R3` | While the last-edited field on the General tab has not been blurred, PET Tiger shall keep Save disabled. | (POM) |
+| `A1-R4` | If Initials match those of an existing user, then PET Tiger shall keep Save disabled, display "Already in use", and remain on the New User form. | `A1-005` |
+| `A1-R5` | PET Tiger shall limit Initials to 3 characters. | `A1-005` |
+| `A1-R6` | PET Tiger shall offer exactly the 17 documented Role options, in the documented order, each one selectable. | `A1-004` |
+| `A1-R7` | When a user is deleted, PET Tiger shall remove it from the Users list and release its Name, Initials and Email Address for reuse. | `A1-001` |
+| `A1-R8` | When an existing user is opened for edit, PET Tiger shall load its saved values into the form. | `A1-001` |
+| `A1-R9` | When a serial is applied, PET Tiger shall enable the modules and ceilings it encodes. | — not automatable: serials are generated in the legacy PET Setup (Delphi) tool, which has no web surface (catalog steps 2–3) |
+
+`A1-R3` and `A1-R4` both end with Save disabled, and that is the point: the same
+pixel means "still validating" in one and "rejected" in the other. Splitting them
+is what forces each setup screen to declare its own `rejectionMessage` — see
+[`SetupScreenPage`](../../src/pages/SetupScreenPage.ts).
+
+**The 17 Role options** (`A1-R6`), in UI order, from
+[`userSetupData.ts`](../../src/data/journey-a/userSetupData.ts):
+
+| # | Role | | # | Role |
+|---|---|---|---|---|
+| 1 | Clerk | | 10 | Input Clerk |
+| 2 | Administrator | | 11 | Crew Supervisor |
+| 3 | Field Supervisor | | 12 | Employee Setup Clerk |
+| 4 | Field Man | | 13 | Analyst |
+| 5 | Time Card Clerk | | 14 | Crew Reviewer |
+| 6 | Manager | | 15 | Warehouse Supervisor |
+| 7 | Scan Screens Only | | 16 | Shortcuts Only |
+| 8 | Report Viewer | | 17 | Device Administrator |
+| 9 | Report Viewer Limited | | | |
+
+`A1-004` asserts the whole list with `toHaveText`, so it is order-sensitive by
+design and fails if an option is added, removed or reordered. The defaults the
+spec selects from that list: `Administrator` (all-fields), `Clerk`
+(required-only), `Report Viewer` (non-administrator).
 
 ## Screens and page objects
 
@@ -101,15 +143,25 @@ global row never blocks re-creation.
 
 `src/data/runner/journey-a.csv`:
 
-| id | Title | Tags | enabled |
-|---|---|---|---|
-| `A1-001` | End-to-end: create a user, verify it in the Users list, edit it, then delete it | `smoke\|high-level\|regression` | 0 |
-| `A1-002` | Create a user with all fields populated | `smoke\|high-level\|regression` | 0 |
-| `A1-003` | Create a user with only the required fields | `high-level\|regression` | 0 |
-| `A1-004` | Every Role option is selectable and a non-administrator user can be created | `high-level\|regression` | 0 |
-| `A1-005` | Creating a user with an Initials value already in use is rejected | `regression` | 0 |
+| id | Title | Req | Tags | enabled |
+|---|---|---|---|---|
+| `A1-001` | End-to-end: create a user, verify it in the Users list, edit it, then delete it | `A1-R1`, `A1-R2`, `A1-R7`, `A1-R8` | `smoke\|high-level\|regression` | 0 |
+| `A1-002` | Create a user with all fields populated | `A1-R1`, `A1-R2` | `high-level\|regression` | 0 |
+| `A1-003` | Create a user with only the required fields | `A1-R1` | `high-level\|regression` | 0 |
+| `A1-004` | Every Role option is offered in the documented order | `A1-R6` | `regression` | 0 |
+| `A1-005` | Creating a user with an Initials value already in use is rejected | `A1-R4`, `A1-R5` | `regression` | 0 |
+| `A1-006` | Create a user with a non-administrator role | `A1-R1` | `high-level\|regression` | 0 |
 
-All five ship **disabled**: they need SQL cleanup reachable from the run host
+`A1-001` holds the file's single `smoke` slot: it is the widest path through the
+workflow (create → list → edit → delete) and the only case that exercises `A1-R7`
+and `A1-R8`. Everything below it is high-level or regression.
+
+`A1-004` was previously "every Role option is selectable **and** a
+non-administrator user can be created" — two outcomes in one case. It now covers
+`A1-R6` alone and drops to regression, because a dropdown-contents guard is not a
+business path; the non-administrator creation it used to carry became `A1-006`.
+
+All six ship **disabled**: they need SQL cleanup reachable from the run host
 (`DB_CLEANUP`, `DB_SERVER`, `DB_CLIENT`), so enabling them on a runner without
 database access would leak a test user per run. Enable with `enabled=1` in the CSV
 plus `npm run runner:sync`, or temporarily via `src/data/runnerList.json`.

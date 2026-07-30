@@ -22,11 +22,11 @@ const TESTS_DIR = path.join(ROOT, 'tests');
 /** Column order for the CSV files and the generated JSON. */
 const COLUMNS = [
     'id', 'workflow', 'journey', 'category', 'testName', 'testTitle', 'testDescription',
-    'segments', 'modules', 'tags', 'demo', 'jira', 'status', 'enabled',
+    'segments', 'modules', 'tags', 'req', 'demo', 'jira', 'status', 'enabled',
 ];
 
 /** Columns holding pipe-delimited multi-values. */
-const ARRAY_COLUMNS = ['segments', 'modules', 'tags'];
+const ARRAY_COLUMNS = ['segments', 'modules', 'tags', 'req'];
 
 /** Columns holding 1/0 booleans. */
 const BOOLEAN_COLUMNS = ['demo', 'enabled'];
@@ -181,6 +181,90 @@ function specClaims() {
     return claims;
 }
 
+/** Pulls `'@A'`, `"@B"` … out of a `tag: [ … ]` literal. */
+function parseTagArray(optionsBlock) {
+    const match = /\btag:\s*\[([^\]]*)\]/.exec(optionsBlock);
+    if (!match) return [];
+    return [...match[1].matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]);
+}
+
+/** Pulls one annotation's description out of an options block, or `null`. */
+function parseAnnotation(optionsBlock, type) {
+    const pattern = new RegExp(`type:\\s*'${type}'\\s*,\\s*description:\\s*'([^']+)'`);
+    const match = pattern.exec(optionsBlock);
+    return match ? match[1] : null;
+}
+
+/**
+ * Every `test()` in the owned spec tree, with the tags and annotations declared
+ * on it, plus the tags of the `test.describe` that encloses it.
+ *
+ * Parsed with regular expressions rather than the TypeScript AST because this
+ * runs in CI before any build step. That imposes one convention the checker
+ * itself enforces elsewhere: **titles and annotation descriptions must be
+ * single-quoted literals**. A computed title or a `description: someVar` is
+ * invisible here, which is why the login negatives stay three explicit `test()`
+ * calls instead of a loop — see `specs/system/login.md`.
+ *
+ * @returns {{file: string, title: string, tags: string[], suiteTags: string[],
+ *            testCaseId: string|null, requirements: string[]}[]}
+ */
+function specTests() {
+    const found = [];
+    for (const file of specFiles()) {
+        const source = fs.readFileSync(file, 'utf8');
+        const relative = path.relative(ROOT, file).split(path.sep).join('/');
+
+        // Describe options carry no nested braces, so a flat match is enough.
+        const suiteTags = [
+            ...source.matchAll(/\btest\.describe\(\s*'(?:\\.|[^'\\])*'\s*,\s*\{([^}]*)\}/g),
+        ].flatMap((m) => parseTagArray(m[1]));
+
+        // Test options DO nest (the annotation array), so match up to the brace
+        // that is immediately followed by the callback: `}, async`.
+        const tests = source.matchAll(
+            /\btest\(\s*'((?:\\.|[^'\\])*)'\s*,\s*\{([\s\S]*?)\}\s*,\s*async/g,
+        );
+        for (const match of tests) {
+            const [, title, options] = match;
+            const requirement = parseAnnotation(options, 'requirement');
+            found.push({
+                file: relative,
+                title,
+                tags: parseTagArray(options),
+                suiteTags,
+                testCaseId: parseAnnotation(options, 'testCaseId'),
+                requirements: requirement ? requirement.split('|').map((r) => r.trim()).filter(Boolean) : [],
+            });
+        }
+    }
+    return found;
+}
+
+/**
+ * Every EARS requirement id declared in a plan under `specs/` — `A1-R4`,
+ * `UI-R2`, … `_template.md` is skipped: its worked example cites A1's ids, and
+ * counting those would let a plan lose a requirement without the checker
+ * noticing.
+ */
+function planRequirements() {
+    const dir = path.join(ROOT, 'specs');
+    const ids = new Set();
+
+    const walk = (current) => {
+        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+            const full = path.join(current, entry.name);
+            if (entry.isDirectory()) walk(full);
+            else if (entry.name.endsWith('.md') && entry.name !== '_template.md') {
+                const source = fs.readFileSync(full, 'utf8');
+                for (const m of source.matchAll(/\b((?:[A-F]\d{1,2}|UI)-R\d+)\b/g)) ids.add(m[1]);
+            }
+        }
+    };
+    if (fs.existsSync(dir)) walk(dir);
+    return ids;
+}
+
 module.exports = {
     ROOT,
     RUNNER_DIR,
@@ -193,5 +277,7 @@ module.exports = {
     loadCatalog,
     specFiles,
     specClaims,
+    specTests,
+    planRequirements,
     loadScopes,
 };
