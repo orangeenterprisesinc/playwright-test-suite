@@ -11,73 +11,93 @@
  * `aria-pressed` flip) since the inline-edit / propagate / undo flows are
  * exercised exhaustively by ranch.spec.ts and field.spec.ts.
  *
- * Run: pnpm --filter @pet-tiger/web exec playwright test traceability-batch-a-smoke
+ * Framework-aligned (Batch 05): Grade and Size bind TraceLookupListPage; Variety
+ * reuses the list page from Batch 2. Action order and assertions unchanged.
  */
-import { test, expect } from './fixtures'
+import { expect, test } from '@fixtures/webpet.fixture';
 
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial' });
 
 // ── Grade ──────────────────────────────────────────────────────────────────
 
-test.describe('GradeListPage smoke', () => {
-  test('renders grid + Multi Update button toggles aria-pressed', async ({ page }) => {
-    await page.goto('/setup/traceability/grades')
-    await page.waitForSelector('[role="grid"]')
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Export Identifier/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Active/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Barcode/ })).toBeVisible()
+test.describe('GradeListPage smoke', { tag: ['@WebPet', '@wp-setup', '@wp-batcha', '@WPBatch05'] }, () => {
 
-    const btn = page.getByRole('button', { name: /^Multi Update$/ })
-    await expect(btn).toHaveAttribute('aria-pressed', 'false')
-    await btn.click()
-    await expect(btn).toHaveAttribute('aria-pressed', 'true')
-  })
+    test('[Grade] Verify that the list renders its grid and the Multi Update button toggles aria-pressed.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0390' },
+    }, async ({ pages }) => {
+        const list = pages.gradeList;
+        await list.gotoList();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Export Identifier/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Active/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Barcode/)).toBeVisible();
 
-  test('outbound "New Grade" link carries the URL searchSuffix', async ({ page }) => {
-    await page.goto('/setup/traceability/grades?sort=name.desc')
-    await page.waitForSelector('[role="grid"]')
-    const newLink = page.locator('a[href^="/setup/traceability/grades/new"]').first()
-    await expect(newLink).toHaveAttribute('href', /\?sort=name\.desc/)
-  })
-})
+        await expect(list.grid.multiUpdateButton).toHaveAttribute('aria-pressed', 'false');
+        await list.grid.toggleMultiUpdate();
+        await expect(list.grid.multiUpdateButton).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    test('[Grade] Verify that the outbound New Grade link carries the URL search suffix.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0391' },
+    }, async ({ pages }) => {
+        const list = pages.gradeList;
+        await list.gotoListWithQuery('?sort=name.desc');
+        await expect(list.grid.newLink).toHaveAttribute('href', /\?sort=name\.desc/);
+    });
+
+});
 
 // ── Variety ────────────────────────────────────────────────────────────────
 
-test.describe('VarietyListPage smoke', () => {
-  test('renders grid with the Crop FK column + name read-only column', async ({ page }) => {
-    await page.goto('/setup/varieties')
-    await page.waitForSelector('[role="grid"]')
-    // Crop is the alias-driven label — default alias resolves to "Crop".
-    await expect(page.getByRole('columnheader', { name: /^Crop/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Barcode/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Export Identifier/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Active/ })).toBeVisible()
-  })
+test.describe('VarietyListPage smoke', { tag: ['@WebPet', '@wp-setup', '@wp-batcha', '@WPBatch05'] }, () => {
 
-  test('Report button is visible (alias-aware page header)', async ({ page }) => {
-    await page.goto('/setup/varieties')
-    await page.waitForSelector('[role="grid"]')
-    // Renamed from "Print Report" to "Report" (i18n common.reportLabel).
-    await expect(page.getByRole('button', { name: /^Report$/ })).toBeVisible()
-  })
-})
+    test('[Variety] Verify that the list renders its grid with the Crop FK and read-only name columns.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0392' },
+    }, async ({ pages }) => {
+        const list = pages.varietyList;
+        await list.gotoList();
+        // Crop is the alias-driven label — default alias resolves to "Crop".
+        await expect(list.grid.columnHeader(/^Crop/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Barcode/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Export Identifier/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Active/)).toBeVisible();
+    });
+
+    test('[Variety] Verify that the Report button is visible on the alias-aware page header.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0393' },
+    }, async ({ pages }) => {
+        const list = pages.varietyList;
+        await list.gotoList();
+        // Renamed from "Print Report" to "Report" (i18n common.reportLabel).
+        await expect(list.reportButton).toBeVisible();
+    });
+
+});
 
 // ── Size ───────────────────────────────────────────────────────────────────
 
-test.describe('SizeListPage smoke', () => {
-  test('renders grid with active + bulkItem toggle columns', async ({ page }) => {
-    await page.goto('/setup/traceability/sizes')
-    await page.waitForSelector('[role="grid"]')
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Export Identifier/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Barcode/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Active/ })).toBeVisible()
-    // bulkItem column is unique to Size — column header label should be visible.
-    await expect(page.getByRole('columnheader', { name: /Bulk Item/ })).toBeVisible()
-    // Read-only columns
-    await expect(page.getByRole('columnheader', { name: /^Quantity/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Unit/ })).toBeVisible()
-  })
-})
+test.describe('SizeListPage smoke', { tag: ['@WebPet', '@wp-setup', '@wp-batcha', '@WPBatch05'] }, () => {
+
+    test('[Size] Verify that the list renders its grid with the active and bulk-item toggle columns.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0394' },
+    }, async ({ pages }) => {
+        const list = pages.sizeList;
+        await list.gotoList();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Export Identifier/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Barcode/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Active/)).toBeVisible();
+        // bulkItem column is unique to Size — column header label should be visible.
+        await expect(list.grid.columnHeader(/Bulk Item/)).toBeVisible();
+        // Read-only columns
+        await expect(list.grid.columnHeader(/^Quantity/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Unit/)).toBeVisible();
+    });
+
+});

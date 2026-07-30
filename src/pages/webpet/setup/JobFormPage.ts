@@ -1,0 +1,89 @@
+/**
+ * @fileoverview Job create/edit form — `/setup/jobs/{new,:id}`.
+ *
+ * Save is gated on **two** things: Name, and an Overtime Rules foreign key
+ * (schema: positive int). Name alone leaves it disabled, which is what the
+ * required-fields test proves.
+ *
+ * The widest read-only set of the setup forms: Name, Alias, Code and Export
+ * Identifier all lock once the record exists.
+ *
+ * `includeIdleTime` / `actAsDeterminedByJobEnd` are non-nullable booleans
+ * rendered as shadcn Checkboxes with legacy `NOT NULL DEFAULT` values (PET-60).
+ * Both tests covering them are skipped pending rework — their locators are kept
+ * here so the skip can be lifted without re-deriving anything.
+ *
+ * @module pages/webpet/setup/JobFormPage
+ */
+import { Locator, Page } from '@playwright/test';
+import { WebpetFormPage } from '../WebpetFormPage';
+import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
+
+/**
+ * @class JobFormPage
+ * @extends WebpetFormPage
+ */
+export class JobFormPage extends WebpetFormPage {
+    /** Readonly once the record exists. */
+    readonly codeInput: Locator;
+    /** Readonly once the record exists — unique to this screen. */
+    readonly aliasInput: Locator;
+    /** shadcn Select trigger, not a native `<select>`. */
+    readonly paymentTypeSelect: Locator;
+    /**
+     * The same control, narrowed to the trigger slot.
+     *
+     * Kept alongside {@link paymentTypeSelect} rather than replacing it: the two
+     * lifted specs address this control differently, and collapsing them would
+     * change which element one of them resolves.
+     */
+    readonly paymentTypeTrigger: Locator;
+    /** Required FK. Save stays disabled until one is chosen. */
+    readonly overtimeRulesPicker: ParentPickerComponent;
+    /**
+     * PET-60 boolean — the element carrying `id="includeIdleTime"`.
+     *
+     * base-ui splits the checkbox: this id lands on a **hidden `<input>`**,
+     * while the visible control gets its own generated id. Use
+     * {@link includeIdleTimeControl} to assert on what the user sees. Both exist
+     * because the two lifted specs address different elements, and the comment
+     * in `select-smoke.spec.ts` documents that as deliberate.
+     */
+    readonly includeIdleTimeCheckbox: Locator;
+    /** The *visible* PET-60 checkbox, linked to its label via `aria-labelledby`. */
+    readonly includeIdleTimeControl: Locator;
+    /** PET-60 boolean, shadcn Checkbox — reads `data-state`, not `checked`. */
+    readonly actAsDeterminedByJobEndCheckbox: Locator;
+    /**
+     * Shown when the id in the URL does not resolve. The bare `"not found."` the
+     * lifted spec used — narrowing it would be a behaviour change.
+     */
+    readonly notFoundMessage: Locator;
+
+    constructor(page: Page) {
+        super(page, { listUrl: '/setup/jobs', entity: 'Job' });
+
+        this.codeInput = page.locator('input#code');
+        this.aliasInput = page.locator('input#alias');
+        this.paymentTypeSelect = page.locator('#paymentType');
+        this.paymentTypeTrigger = page.locator('[data-slot="select-trigger"]#paymentType');
+        this.overtimeRulesPicker = new ParentPickerComponent(page, 'Overtime Rules');
+        this.includeIdleTimeCheckbox = page.locator('#includeIdleTime');
+        this.includeIdleTimeControl = this.checkboxFor('includeIdleTime');
+        this.actAsDeterminedByJobEndCheckbox = page.locator('#actAsDeterminedByJobEnd');
+        this.notFoundMessage = page.locator('text=not found.');
+    }
+
+    /**
+     * Choose the first available Overtime Rule.
+     *
+     * By position rather than by name: the rule set is client-specific, so no
+     * literal is safe, and the tests only need *a* valid FK to clear the gate.
+     */
+    async pickFirstOvertimeRule(): Promise<void> {
+        await this.overtimeRulesPicker.openCombobox();
+        await this.overtimeRulesPicker.comboboxPopup.getByRole('option').first().click();
+    }
+}
+
+export default JobFormPage;

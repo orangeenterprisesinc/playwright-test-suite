@@ -44,6 +44,36 @@ const WEBPET_ENABLED =
 if (WEBPET_ENABLED) process.env.WEBPET = '1';
 
 /**
+ * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
+ * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
+ * so a run of the converted suite is still comparable with the source repo's
+ * localhost acceptance baseline (362 passed / 18 skipped / 26 failed).
+ *
+ * `WEBPET_PARITY=0` previews the end state — this repo's globals (110s / 10s /
+ * CI retries 2 / video+screenshot on / trace retain-on-failure) — which is a
+ * genuinely different beast: video-on across 406 tests is multi-gigabyte and CI
+ * retries turn flake into green. Preview it before committing to it.
+ *
+ * ## Why this flag outlived the conversion (Batch 15)
+ *
+ * The plan had the final batch delete it. It is deliberately still here, because
+ * deleting it now would destroy the only regression signal the alignment has
+ * left. The per-test baseline manifest (`src/data/webpet/baselines/`) was never
+ * captured — it needs the seeded stack — so the 362/18/26 aggregate is the sole
+ * remaining check that fourteen batches of rewriting preserved behaviour. Flip
+ * the run settings first and any delta becomes unattributable: conversion bug or
+ * a 110s timeout papering over a hang? No way to tell.
+ *
+ * Deleting this flag and its conditionals is therefore gated on exactly one
+ * thing: **a parity run of the converted suite on the seeded stack that
+ * reproduces 362/18/26** (or explains each delta). After that, capture the
+ * per-test manifest, delete the flag, and re-capture the manifest under the
+ * framework globals — the config should not settle into a permanent two-mode
+ * state.
+ */
+const WEBPET_PARITY = process.env.WEBPET_PARITY !== '0';
+
+/**
  * Retry policy: an explicit `RETRY` value always wins; otherwise retry twice
  * in CI to absorb infrastructure flakiness, and never locally so failures
  * surface immediately while developing.
@@ -165,12 +195,16 @@ export default defineConfig({
         },
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
-        // Parity contract with the source repo (apps/web/playwright.config.ts):
-        // 30s test timeout, retries 0 (even in CI), 5s expect timeout, trace
-        // on-first-retry, video/screenshot off, locale en-US + Accept-Language.
-        // These deliberately override this repo's 110s/10s/video-on globals so
-        // the source suite's localhost baseline (362 passed / 18 skipped /
-        // 26 failed) is reproduced unchanged.
+        // Two run states, selected by WEBPET_PARITY (see above):
+        //   parity (default) — 30s test / 5s expect / retries 0 / no video,
+        //                      reproducing the source repo's localhost baseline
+        //                      so each conversion batch is provably behaviour-
+        //                      preserving.
+        //   framework        — inherits this file's globals, simply by not
+        //                      overriding them.
+        // `locale` + `Accept-Language` are NOT parity pins: the suite asserts
+        // English copy and the fixture pins pt.locale to match, so they survive
+        // the flip. Same for the deliberate absence of storageState.
         ...(WEBPET_ENABLED
             ? [
                   {
@@ -194,18 +228,26 @@ export default defineConfig({
                       name: 'webpet',
                       testDir: './tests/webpet',
                       dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
-                      timeout: 30 * 1000,
-                      retries: 0,
-                      expect: { timeout: 5 * 1000 },
+                      ...(WEBPET_PARITY
+                          ? {
+                                timeout: 30 * 1000,
+                                retries: 0,
+                                expect: { timeout: 5 * 1000 },
+                            }
+                          : {}),
                       use: {
                           ...devices['Desktop Chrome'],
                           locale: 'en-US',
                           extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
-                          trace: 'on-first-retry' as const,
-                          video: 'off' as const,
-                          screenshot: 'off' as const,
-                          // NO storageState: tests/webpet/fixtures.ts seeds its own
-                          // contexts from tests/webpet/.auth, and notifications.spec.ts's
+                          ...(WEBPET_PARITY
+                              ? {
+                                    trace: 'on-first-retry' as const,
+                                    video: 'off' as const,
+                                    screenshot: 'off' as const,
+                                }
+                              : {}),
+                          // NO storageState: src/fixtures/webpet.fixture.ts seeds its
+                          // own contexts from tests/webpet/.auth, and notifications.spec.ts's
                           // clean-context tests must start unauthenticated (matching
                           // the source config).
                       },

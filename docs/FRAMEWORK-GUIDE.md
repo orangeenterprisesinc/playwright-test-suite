@@ -33,9 +33,19 @@ Two conventions drive everything else:
 1. **There is no separate locator file.** Locators live *inline* inside each page object,
    written accessibility-first (`getByRole` / `getByLabel` / `getByText`), not as CSS/XPath
    in JSON.
-2. **Every spec imports `test`/`expect` from `src/fixtures/base.fixture.ts`, never from
+2. **Every spec imports `test`/`expect` from a framework fixture, never from
    `@playwright/test` directly.** That single import is how a test inherits page objects,
    logging, the pre-authenticated session, Allure labels, and the runner "enabled" skip gate.
+   For the journey suites that fixture is `src/fixtures/base.fixture.ts`.
+
+> **The one exception, and it matters.** `tests/webpet/` — the migrated web-pet suite —
+> imports `src/fixtures/webpet.fixture.ts` and **must never import `base.fixture`**.
+> `base.fixture` resolves a test's id through `DataProvider`, a singleton bound process-wide
+> to `src/data/runner/`; web-pet rows live in `src/data/webpet/`, so every `WP-####` would
+> hit the "has no runner row" branch and **all 406 tests would skip while the run reported
+> green**. `webpet.fixture` composes the same building blocks against the web-pet row source.
+> `npm run webpet:ids:check` fails the build if that import ever appears.
+> See [tests/webpet/README.md](../tests/webpet/README.md).
 
 ---
 
@@ -299,8 +309,10 @@ The mechanism spans four pieces:
 
 ## 8. GitHub CI
 
-Two complementary workflows, both listening for the same external `repository_dispatch`
-(`run-playwright`) so one app-side build fans out to both.
+Four workflows: two for the journey suites and two for the migrated web-pet suite. The
+journey pair listen for the same external `repository_dispatch` (`run-playwright`), so one
+app-side build fans out to both; the web-pet pair are independent and never triggered by a
+push.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
 - Triggers: **twice-daily cron — 4pm IST (`30 10 * * *`) and 6pm IST (`30 12 * * *`)** — plus
@@ -335,6 +347,15 @@ Two complementary workflows, both listening for the same external `repository_di
   `/` → `npx playwright test` → dump logs, kill ports, `docker compose down -v`, generate +
   upload Allure report.
 
+**[`webpet-e2e-local.yml`](../.github/workflows/webpet-e2e-local.yml) and
+[`webpet-e2e-dev.yml`](../.github/workflows/webpet-e2e-dev.yml)** — the migrated web-pet
+suite (see §9). The local one is the same self-hosted Windows stack boot as `e2e-local.yml`
+plus the DelLlano seed, and is **manual dispatch only**; the dev one runs nightly at 4:00 AM
+IST against app.ptdev.xyz and is report-only. Both export `WEBPET=1` job-wide to materialize
+the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check` and
+`webpet:runner:check` before a browser starts — those catch the failure modes that report
+green (a dropped test, an orphaned id, a leaked journey tag).
+
 **Reporting** ([`src/reporting/`](../src/reporting/)) runs *inside* Playwright's `onEnd` — no
 separate CI send step. All three are self-gating (do nothing unless their `SEND_*` flag +
 endpoint are set, and never fail the run):
@@ -348,5 +369,54 @@ endpoint are set, and never fail the run):
 **npm scripts** ([`package.json`](../package.json)) all go through `run-playwright.js <env>`:
 `test` / `test:dev` / `test:qa`, plus `test:headed`, `test:ui`, `test:debug`, `test:smoke`
 (`--grep=@Smoke`), `test:api` (`--project=api`), `test:workflow`, `test:last-failed`,
-`report:allure`, `docker:build`/`docker:run`.
+`report:allure`, `docker:build`/`docker:run`. The web-pet suite has its own set —
+`test:webpet`, `test:webpet:dev`, `test:webpet:list`, and the `webpet:*` data/verification
+scripts (§9).
+
+---
+
+## 9. The migrated web-pet suite (`tests/webpet/`)
+
+The PET Tiger app repo's own Playwright suite — **406 tests in 56 spec files** — lifted from
+`web-pet/apps/web/e2e` and converted onto these conventions. It is deliberately parallel to
+everything above rather than folded into it: its own fixture, page-object tree, runner file,
+Playwright projects, npm scripts and CI workflows. Nothing in §§2–8 applies to it unchanged.
+
+```
+tests/webpet/*.spec.ts            → 406 tests, no selectors of their own
+   │  imports test/expect from
+   ▼
+src/fixtures/webpet.fixture.ts    → NOT base.fixture (see §1) — same building blocks,
+   │                                 web-pet row source, gate as an { auto: true } fixture
+   ▼
+src/pages/webpet/<area>/          → 47 screens over WebpetFormPage / WebpetListPage
+src/components/webpet/            → 9 components (ParentPicker, FormFooter, DataGrid, …)
+src/data/webpet/                  → runner CSV + JSON mirror, case tables, generated id maps
+```
+
+Three things are worth knowing before touching it:
+
+1. **The gate is an `{ auto: true }` fixture, never a module-level `beforeEach`.** Measured:
+   a module-scope hook in a fixture module attaches only to the spec file loading at import
+   time, so it fires for the first spec file each worker loads and no others. (This is a live
+   bug in `base.fixture.ts` for the journey suites — real, but its own fix.)
+2. **Ids never renumber.** `WP-0001`…`WP-0406`, one per test, annotated on every one. The 78
+   tests generated from a case table take their id from a generated map in
+   `src/data/webpet/ids/`, keyed on a business field and compile-checked — an unchecked index
+   would yield `undefined`, the annotation would be empty, and the gate would silently skip.
+3. **No tag may be a prefix of another.** `--grep` is a plain substring regex over title path
+   *and* tags, so `@wp-job` also selected `@wp-job-group`. `webpet:ids:check` rejects prefix
+   collisions; it has caught five.
+
+```bash
+npm run test:webpet                  # whole suite, localhost stack required
+npm run test:webpet:list             # collection check — 407 tests / 57 files
+npm run webpet:runner:sync           # rediscover + merge rows (id-first) + write CSV & JSON
+npm run webpet:runner:check          # drift alarm — blocking in CI
+npm run webpet:ids:check             # static gate, no stack, runs in a second
+npm run webpet:baseline / webpet:diff  # per-test baseline capture + regression diff
+```
+
+Full documentation: [tests/webpet/README.md](../tests/webpet/README.md) and
+[src/pages/webpet/README.md](../src/pages/webpet/README.md).
 ```

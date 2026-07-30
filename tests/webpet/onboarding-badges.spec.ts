@@ -12,76 +12,102 @@
  *
  * NOT executed in the /execute-ticket run that shipped this file. Run
  * manually against a live dev environment to confirm the slice end-to-end.
+ *
+ * Framework-aligned (Batch 06): locators live in OnboardingBadgeListPage /
+ * OnboardingBadgeFormPage, which also record the route-versus-resource split —
+ * the section routes under /setup/badge while the API resource stays
+ * /api/onboarding-badges.
  */
-import { test, expect } from './fixtures'
-import { ensureEmployee, deleteEmployee } from './data-factory'
+import { expect, test } from '@fixtures/webpet.fixture';
+import { ensureEmployee, deleteEmployee } from './data-factory';
 
-// The onboarding-badges section is routed under /setup/badge (AppRouter path
-// 'badge'), NOT /setup/onboarding-badges. The API resource is still
-// /api/onboarding-badges. This URL was stale relative to the router.
-const LIST_URL = '/setup/badge'
+test.describe('Onboarding Badges — list page chrome', { tag: ['@WebPet', '@wp-setup', '@wp-badge', '@WPBatch06'] }, () => {
 
-test.describe('Onboarding Badges — list page chrome', () => {
-  test('page title is "Onboarding Badges"', async ({ page }) => {
-    await page.goto(LIST_URL)
-    await expect(page.getByRole('heading', { name: /onboarding badges/i })).toBeVisible()
-  })
+    test('[Badge] Verify that the list page title reads Onboarding Badges.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0254' },
+    }, async ({ pages }) => {
+        const list = pages.onboardingBadgeList;
+        await list.goto();
+        await expect(list.heading).toBeVisible();
+    });
 
-  test('grid renders with the expected columns', async ({ page }) => {
-    await page.goto(LIST_URL)
-    await page.waitForSelector('[role="grid"]')
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Barcode/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /Export Identifier/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Crew/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Department/ })).toBeVisible()
-    await expect(page.getByRole('columnheader', { name: /^Active/ })).toBeVisible()
-  })
+    test('[Badge] Verify that the grid renders with the expected columns.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0255' },
+    }, async ({ pages }) => {
+        const list = pages.onboardingBadgeList;
+        await list.gotoList();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Barcode/)).toBeVisible();
+        await expect(list.grid.columnHeader(/Export Identifier/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Crew/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Department/)).toBeVisible();
+        await expect(list.grid.columnHeader(/^Active/)).toBeVisible();
+    });
 
-  test('"New Badge" button navigates to the new-record form', async ({ page }) => {
-    await page.goto(LIST_URL)
-    await page.getByRole('button', { name: /new badge/i }).click()
-    await expect(page).toHaveURL(/\/setup\/badge\/new/)
-  })
-})
+    test('[Badge] Verify that the New Badge button navigates to the new-record form.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0256' },
+    }, async ({ page, pages }) => {
+        const list = pages.onboardingBadgeList;
+        await list.goto();
+        await list.newBadgeButton.click();
+        await expect(page).toHaveURL(/\/setup\/badge\/new/);
+    });
 
-test.describe('Onboarding Badges — new-record form', () => {
-  test('renders Name + Barcode + Export Identifier + Active + Crew + Department fields', async ({ page }) => {
-    await page.goto(`${LIST_URL}/new`)
-    await expect(page.locator('input#name')).toBeVisible()
-    await expect(page.locator('input#code')).toBeVisible()
-    await expect(page.locator('input#exportIdentifier')).toBeVisible()
-    await expect(page.locator('input#active')).toBeVisible()
-  })
+});
 
-  test('Save is disabled until Name is entered', async ({ page }) => {
-    await page.goto(`${LIST_URL}/new`)
-    // The form's Save button is inside the FormFooter — disabled while
-    // !isDirty or when validation fails.
-    const save = page.getByRole('button', { name: /^save/i })
-    await expect(save).toBeDisabled()
-  })
-})
+test.describe('Onboarding Badges — new-record form', { tag: ['@WebPet', '@wp-setup', '@wp-badge', '@WPBatch06'] }, () => {
 
-test.describe('Onboarding Badges — cross-contamination guard', () => {
-  test('regular Employees do NOT appear in the onboarding-badges list', async ({ page, request }) => {
-    // Create a regular Employee (RecordType=0) and assert it is absent from the
-    // badges list (API filter `RecordType = 1`); any leakage is a backend
-    // regression. Using a factory employee makes this a real check instead of a
-    // spot-check against a possibly-absent seeded name.
-    const emp = await ensureEmployee(request)
-    try {
-      const resp = await request.get('/api/onboarding-badges')
-      expect(resp.ok()).toBeTruthy()
-      const badges = (await resp.json()) as Array<{ name: string }>
-      expect(badges.find((b) => b.name === emp.name)).toBeUndefined()
+    test('[Badge] Verify that the new-record form renders its name, barcode, export identifier and active fields.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0257' },
+    }, async ({ pages }) => {
+        const form = pages.onboardingBadgeForm;
+        await form.gotoNew();
+        await expect(form.nameInput).toBeVisible();
+        await expect(form.codeInput).toBeVisible();
+        await expect(form.exportIdentifierInput).toBeVisible();
+        await expect(form.activeCheckbox).toBeVisible();
+    });
 
-      // The list page should also render without the badge row count
-      // hitting the regular-Employee count.
-      await page.goto(LIST_URL)
-      await page.waitForSelector('[role="grid"]')
-    } finally {
-      await deleteEmployee(request, emp.id)
-    }
-  })
-})
+    test('[Badge] Verify that Save is disabled until a name is entered.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0258' },
+    }, async ({ pages }) => {
+        const form = pages.onboardingBadgeForm;
+        await form.gotoNew();
+        // The form's Save button is inside the FormFooter — disabled while
+        // !isDirty or when validation fails.
+        await expect(form.footer.saveButton).toBeDisabled();
+    });
+
+});
+
+test.describe('Onboarding Badges — cross-contamination guard', { tag: ['@WebPet', '@wp-setup', '@wp-badge', '@WPBatch06'] }, () => {
+
+    test('[Badge] Verify that regular employees do not appear in the onboarding-badges list.', {
+        tag: ['@wp-api', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0259' },
+    }, async ({ pages, request }) => {
+        // Create a regular Employee (RecordType=0) and assert it is absent from the
+        // badges list (API filter `RecordType = 1`); any leakage is a backend
+        // regression. Using a factory employee makes this a real check instead of a
+        // spot-check against a possibly-absent seeded name.
+        const emp = await ensureEmployee(request);
+        try {
+            const resp = await request.get('/api/onboarding-badges');
+            expect(resp.ok()).toBeTruthy();
+            const badges = (await resp.json()) as Array<{ name: string }>;
+            expect(badges.find((b) => b.name === emp.name)).toBeUndefined();
+
+            // The list page should also render without the badge row count
+            // hitting the regular-Employee count.
+            await pages.onboardingBadgeList.gotoList();
+        } finally {
+            await deleteEmployee(request, emp.id);
+        }
+    });
+
+});

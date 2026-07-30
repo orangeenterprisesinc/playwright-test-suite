@@ -12,85 +12,88 @@
  * Field's existing combobox propagation test does NOT cover this — Field keys
  * options by name, so it was never affected.
  *
- * Run: pnpm --filter @pet-tiger/web exec playwright test time-in
- *
  * Data: relies on seeded Time In records. A narrow date window (2025-12-01) is
  * used because that day has ~80 records (under the 100-row virtualization
  * threshold) so the first rows are reliably in the DOM. Mutations are restored
  * via Undo within the test.
+ *
+ * Framework-aligned (Batch 09): locators live in TimeInListPage and the grid
+ * component. The Ranch column index is a named constant on the page object —
+ * an off-by-one there silently drives the wrong column's editor.
  */
-import { test, expect } from './fixtures'
+import { expect, test } from '@fixtures/webpet.fixture';
 
 // Mutates shared Time In rows (ranchCounter) then restores via Undo — cannot
 // run in parallel with itself.
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial' });
 
 // A day known to carry multiple Time In records in the seed data.
-const DAY = '2025-12-01'
+const DAY = '2025-12-01';
 
-test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', () => {
-  test('editing a Ranch (counter-keyed dropdown) in multi-edit persists to all selected rows', async ({
-    page,
-  }) => {
-    await page.goto('/input/time-in')
-    await page.waitForSelector('[role="grid"]')
+test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@WebPet', '@wp-input', '@wp-timein', '@WPBatch09'] }, () => {
 
-    // Narrow to a populated day so the first data rows are present.
-    await page.locator('#filter-from').fill(DAY)
-    await page.locator('#filter-to').fill(DAY)
+    test('[Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0378' },
+    }, async ({ pages }) => {
+        const list = pages.timeInList;
+        const grid = list.grid;
+        await list.gotoList();
 
-    // Wait for at least two data rows (role="row" includes 2 header rows).
-    await expect.poll(async () => page.getByRole('row').count()).toBeGreaterThan(3)
+        // Narrow to a populated day so the first data rows are present.
+        await list.filterToDay(DAY);
 
-    await page.getByRole('button', { name: /^Multi Update$/ }).click()
+        // Wait for at least two data rows (role="row" includes 2 header rows).
+        await expect.poll(async () => grid.roleRows.count()).toBeGreaterThan(3);
 
-    // First two data rows (skip the column-header row + filter-header row).
-    const rowA = page.getByRole('row').nth(2)
-    const rowB = page.getByRole('row').nth(3)
-    await rowA.getByRole('checkbox').first().check()
-    await rowB.getByRole('checkbox').first().check()
-    await expect(page.getByText(/2 selected/)).toBeVisible()
+        await grid.toggleMultiUpdate();
 
-    // Ranch is the 5th data cell (index 4): [selection, reference, dateTime,
-    // employeeName, ranchName, …].
-    const rowARanch = rowA.getByRole('cell').nth(4).getByRole('button')
-    const rowBRanch = rowB.getByRole('cell').nth(4).getByRole('button')
-    const originalA = (await rowARanch.textContent())?.trim() ?? ''
-    const originalB = (await rowBRanch.textContent())?.trim() ?? ''
+        // First two data rows (skip the column-header row + filter-header row).
+        const rowA = grid.roleRowAt(2);
+        const rowB = grid.roleRowAt(3);
+        await grid.selectCheckbox(rowA).check();
+        await grid.selectCheckbox(rowB).check();
+        await expect(grid.selectionCount(2)).toBeVisible();
 
-    // Enter edit mode on row A's Ranch cell → opens the base-ui combobox popup.
-    await rowARanch.click()
+        const rowARanch = list.ranchEditor(rowA);
+        const rowBRanch = list.ranchEditor(rowB);
+        const originalA = (await rowARanch.textContent())?.trim() ?? '';
+        const originalB = (await rowBRanch.textContent())?.trim() ?? '';
 
-    // Pick the first option whose text differs from row A's current ranch.
-    const options = page.getByRole('option')
-    await expect(options.first()).toBeVisible()
-    const optionCount = await options.count()
-    let chosen = ''
-    for (let i = 0; i < optionCount; i++) {
-      const txt = (await options.nth(i).textContent())?.trim() ?? ''
-      if (txt && txt !== originalA) {
-        chosen = txt
-        await options.nth(i).click()
-        break
-      }
-    }
-    expect(chosen, 'expected at least one ranch option different from the current value').not.toBe(
-      '',
-    )
+        // Enter edit mode on row A's Ranch cell → opens the base-ui combobox popup.
+        await rowARanch.click();
 
-    // The propagate dialog must appear (pre-fix: commitEdit was never called,
-    // so no dialog appeared and the value reverted).
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^Apply to all/ }).click()
+        // Pick the first option whose text differs from row A's current ranch.
+        const options = grid.editorOptions;
+        await expect(options.first()).toBeVisible();
+        const optionCount = await options.count();
+        let chosen = '';
+        for (let i = 0; i < optionCount; i++) {
+            const txt = (await options.nth(i).textContent())?.trim() ?? '';
+            if (txt && txt !== originalA) {
+                chosen = txt;
+                await options.nth(i).click();
+                break;
+            }
+        }
+        expect(
+            chosen,
+            'expected at least one ranch option different from the current value',
+        ).not.toBe('');
 
-    // Both selected rows now show the chosen ranch (the edit actually stuck).
-    await expect(rowARanch).toHaveText(chosen, { timeout: 10000 })
-    await expect(rowBRanch).toHaveText(chosen, { timeout: 10000 })
+        // The propagate dialog must appear (pre-fix: commitEdit was never called,
+        // so no dialog appeared and the value reverted).
+        await expect(grid.multiEditDialog).toBeVisible();
+        await grid.applyToAllButton.click();
 
-    // Undo restores each row to its original ranch.
-    await page.getByRole('button', { name: /^Undo$/ }).click()
-    await expect(rowARanch).toHaveText(originalA, { timeout: 10000 })
-    await expect(rowBRanch).toHaveText(originalB, { timeout: 10000 })
-  })
-})
+        // Both selected rows now show the chosen ranch (the edit actually stuck).
+        await expect(rowARanch).toHaveText(chosen, { timeout: 10000 });
+        await expect(rowBRanch).toHaveText(chosen, { timeout: 10000 });
+
+        // Undo restores each row to its original ranch.
+        await grid.undoButton.click();
+        await expect(rowARanch).toHaveText(originalA, { timeout: 10000 });
+        await expect(rowBRanch).toHaveText(originalB, { timeout: 10000 });
+    });
+
+});

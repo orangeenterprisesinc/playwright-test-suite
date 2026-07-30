@@ -27,137 +27,146 @@
  * so no interaction with the DateTimePicker calendar UI is needed.
  * The form's usePrefillFromQuery hook handles:
  *   dateTime, employeeCounter, crewCounter, ranchCounter, fieldCounter, jobCounter.
+ *
+ * Framework-aligned (Batch 14). Note this test is declared with `test.skip`, so
+ * its body never runs — the locators still moved onto `TimeCardFormPage` so that
+ * re-enabling it is a one-line change rather than a re-derivation of the prefill
+ * and duplicate-guard quirks.
  */
-import { test, expect } from '../fixtures'
-import type { Page } from '@playwright/test'
+import { expect, test } from '@fixtures/webpet.fixture';
+import type { TimeCardFormPage } from '@pages/webpet/input/TimeCardFormPage';
 
-const TEST_DATE = '2099-01-15'
+const TEST_DATE = '2099-01-15';
 
 function extractIdFromUrl(url: string): number {
-  const m = url.match(/\/(\d+)(?:\?.*)?$/)
-  expect(m, `URL ${url} should end with a numeric ID`).not.toBeNull()
-  return parseInt(m![1]!, 10)
+    const m = url.match(/\/(\d+)(?:\?.*)?$/);
+    expect(m, `URL ${url} should end with a numeric ID`).not.toBeNull();
+    return parseInt(m![1]!, 10);
 }
 
 // Clicks "Continue Anyway" when the Duplicate Time In dialog is present.
 // Swallows the error if no dialog appears within 5 s (the duplicate check is async).
-async function confirmDuplicateIfVisible(page: Page) {
-  try {
-    const dialog = page.getByRole('alertdialog')
-    await dialog.waitFor({ state: 'visible', timeout: 5000 })
-    await dialog.getByRole('button', { name: 'Continue Anyway' }).click()
-    await expect(dialog).toBeHidden()
-  } catch {
-    // No duplicate dialog — proceed
-  }
+async function confirmDuplicateIfVisible(form: TimeCardFormPage) {
+    try {
+        await form.duplicateDialog.waitFor({ state: 'visible', timeout: 5000 });
+        await form.continueAnywayButton.click();
+        await expect(form.duplicateDialog).toBeHidden();
+    } catch {
+        // No duplicate dialog — proceed
+    }
 }
 
-// URL-prefill fires reset() as a React mount effect, which sets isDirty=false.
-// FormFooter.SaveButton disables when !isDirty, so we must dirty after reset settles.
-// networkidle ensures all async data (employee/job lookups) has loaded and any
-// secondary reset() calls from data-dependent effects have already fired.
-// traceabilityCode setValueAs: ''→null — non-empty 'x' keeps isDirty=true.
-async function markFormDirty(page: Page) {
-  await page.waitForLoadState('networkidle')
-  await page.locator('input#traceabilityCode').fill('x')
-}
+test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
 
-test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', () => {
+    test.skip('[Equiv] Verify that three Time In records and one Time Out record are written with the correct DB values.', {
+        tag: ['@wp-e2e', '@wp-deferred'],
+        annotation: { type: 'testCaseId', description: 'WP-0175' },
+    }, async ({ page, pages }) => {
+        // SKIP: legacy workflow used View > Time Cards multi-entry form; web app
+        // has the list view but has not yet replicated the multi-entry capability.
+        // Re-enable once the multi-entry workflow is built for purpose.
+        const form = pages.timeCardForm;
+        test.setTimeout(120_000);
 
-  test.skip('creates 3 Time In + 1 Time Out records with correct DB values', async ({ page }) => {
-    // SKIP: legacy workflow used View > Time Cards multi-entry form; web app
-    // has the list view but has not yet replicated the multi-entry capability.
-    // Re-enable once the multi-entry workflow is built for purpose.
-    test.setTimeout(120_000)
+        // URL-prefill fires reset() as a React mount effect, which sets isDirty=false.
+        // FormFooter.SaveButton disables when !isDirty, so we must dirty after reset settles.
+        // networkidle ensures all async data (employee/job lookups) has loaded and any
+        // secondary reset() calls from data-dependent effects have already fired.
+        // traceabilityCode setValueAs: ''→null — non-empty 'x' keeps isDirty=true.
+        const markFormDirty = async () => {
+            await page.waitForLoadState('networkidle');
+            await form.traceabilityCode.fill('x');
+        };
 
-    // ── Step 1: Time In 06:00, Job 128 (FUMIGATION FLAT) ──────────────────
-    await page.goto(
-      `/input/time-in/new?dateTime=${TEST_DATE}T06:00` +
-      `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=128`
-    )
-    await markFormDirty(page)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled({ timeout: 10000 })
-    await page.getByRole('button', { name: 'Save' }).click()
-    await confirmDuplicateIfVisible(page)
-    await page.waitForURL(/\/input\/time-in\/\d+/)
-    const step1Id = extractIdFromUrl(page.url())
+        // ── Step 1: Time In 06:00, Job 128 (FUMIGATION FLAT) ──────────────────
+        await form.gotoNewTimeIn(
+            `?dateTime=${TEST_DATE}T06:00` +
+            `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=128`,
+        );
+        await markFormDirty();
+        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+        await form.saveButton.click();
+        await confirmDuplicateIfVisible(form);
+        await page.waitForURL(/\/input\/time-in\/\d+/);
+        const step1Id = extractIdFromUrl(page.url());
 
-    const res1 = await page.request.get(`/api/time-cards/time-in/${step1Id}`)
-    expect(res1.ok()).toBe(true)
-    const r1 = await res1.json()
-    expect(r1.dateTime).toBe(`${TEST_DATE}T06:00:00`)
-    expect(r1.jobCounter).toBe(128)
-    expect(r1.ranchCounter).toBe(9)
-    expect(r1.fieldCounter).toBe(85)
-    expect(r1.employeeCounter).toBe(1257)
-    expect(r1.crewCounter).toBe(4)
-    // isTimeIn=true implicit: record found via /time-cards/time-in/
-    // cardType=1 implicit: Time In endpoint
+        const res1 = await page.request.get(`/api/time-cards/time-in/${step1Id}`);
+        expect(res1.ok()).toBe(true);
+        const r1 = await res1.json();
+        expect(r1.dateTime).toBe(`${TEST_DATE}T06:00:00`);
+        expect(r1.jobCounter).toBe(128);
+        expect(r1.ranchCounter).toBe(9);
+        expect(r1.fieldCounter).toBe(85);
+        expect(r1.employeeCounter).toBe(1257);
+        expect(r1.crewCounter).toBe(4);
+        // isTimeIn=true implicit: record found via /time-cards/time-in/
+        // cardType=1 implicit: Time In endpoint
 
-    // ── Step 2: Time In 10:00, Job 193 (LUNCH) ────────────────────────────
-    await page.goto(
-      `/input/time-in/new?dateTime=${TEST_DATE}T10:00` +
-      `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=193`
-    )
-    await markFormDirty(page)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled({ timeout: 10000 })
-    await page.getByRole('button', { name: 'Save' }).click()
-    await confirmDuplicateIfVisible(page)
-    await page.waitForURL(/\/input\/time-in\/\d+/)
-    const step2Id = extractIdFromUrl(page.url())
+        // ── Step 2: Time In 10:00, Job 193 (LUNCH) ────────────────────────────
+        await form.gotoNewTimeIn(
+            `?dateTime=${TEST_DATE}T10:00` +
+            `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=193`,
+        );
+        await markFormDirty();
+        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+        await form.saveButton.click();
+        await confirmDuplicateIfVisible(form);
+        await page.waitForURL(/\/input\/time-in\/\d+/);
+        const step2Id = extractIdFromUrl(page.url());
 
-    const res2 = await page.request.get(`/api/time-cards/time-in/${step2Id}`)
-    expect(res2.ok()).toBe(true)
-    const r2 = await res2.json()
-    expect(r2.dateTime).toBe(`${TEST_DATE}T10:00:00`)
-    expect(r2.jobCounter).toBe(193)
-    expect(r2.ranchCounter).toBe(9)
-    expect(r2.fieldCounter).toBe(85)
-    expect(r2.employeeCounter).toBe(1257)
-    expect(r2.crewCounter).toBe(4)
+        const res2 = await page.request.get(`/api/time-cards/time-in/${step2Id}`);
+        expect(res2.ok()).toBe(true);
+        const r2 = await res2.json();
+        expect(r2.dateTime).toBe(`${TEST_DATE}T10:00:00`);
+        expect(r2.jobCounter).toBe(193);
+        expect(r2.ranchCounter).toBe(9);
+        expect(r2.fieldCounter).toBe(85);
+        expect(r2.employeeCounter).toBe(1257);
+        expect(r2.crewCounter).toBe(4);
 
-    // ── Step 3: Time In 10:30, Job 128 (FUMIGATION FLAT) ──────────────────
-    await page.goto(
-      `/input/time-in/new?dateTime=${TEST_DATE}T10:30` +
-      `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=128`
-    )
-    await markFormDirty(page)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled({ timeout: 10000 })
-    await page.getByRole('button', { name: 'Save' }).click()
-    await confirmDuplicateIfVisible(page)
-    await page.waitForURL(/\/input\/time-in\/\d+/)
-    const step3Id = extractIdFromUrl(page.url())
+        // ── Step 3: Time In 10:30, Job 128 (FUMIGATION FLAT) ──────────────────
+        await form.gotoNewTimeIn(
+            `?dateTime=${TEST_DATE}T10:30` +
+            `&employeeCounter=1257&crewCounter=4&ranchCounter=9&fieldCounter=85&jobCounter=128`,
+        );
+        await markFormDirty();
+        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+        await form.saveButton.click();
+        await confirmDuplicateIfVisible(form);
+        await page.waitForURL(/\/input\/time-in\/\d+/);
+        const step3Id = extractIdFromUrl(page.url());
 
-    const res3 = await page.request.get(`/api/time-cards/time-in/${step3Id}`)
-    expect(res3.ok()).toBe(true)
-    const r3 = await res3.json()
-    expect(r3.dateTime).toBe(`${TEST_DATE}T10:30:00`)
-    expect(r3.jobCounter).toBe(128)
-    expect(r3.ranchCounter).toBe(9)
-    expect(r3.fieldCounter).toBe(85)
-    expect(r3.employeeCounter).toBe(1257)
-    expect(r3.crewCounter).toBe(4)
+        const res3 = await page.request.get(`/api/time-cards/time-in/${step3Id}`);
+        expect(res3.ok()).toBe(true);
+        const r3 = await res3.json();
+        expect(r3.dateTime).toBe(`${TEST_DATE}T10:30:00`);
+        expect(r3.jobCounter).toBe(128);
+        expect(r3.ranchCounter).toBe(9);
+        expect(r3.fieldCounter).toBe(85);
+        expect(r3.employeeCounter).toBe(1257);
+        expect(r3.crewCounter).toBe(4);
 
-    // ── Step 4: Time Out 14:30, no job / ranch / field ─────────────────────
-    await page.goto(
-      `/input/time-out/new?dateTime=${TEST_DATE}T14:30&employeeCounter=1257&crewCounter=4`
-    )
-    await markFormDirty(page)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled({ timeout: 10000 })
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForURL(/\/input\/time-out\/\d+/)
-    const step4Id = extractIdFromUrl(page.url())
+        // ── Step 4: Time Out 14:30, no job / ranch / field ─────────────────────
+        await form.gotoNewTimeOut(
+            `?dateTime=${TEST_DATE}T14:30&employeeCounter=1257&crewCounter=4`,
+        );
+        await markFormDirty();
+        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+        await form.saveButton.click();
+        await page.waitForURL(/\/input\/time-out\/\d+/);
+        const step4Id = extractIdFromUrl(page.url());
 
-    const res4 = await page.request.get(`/api/time-cards/time-out/${step4Id}`)
-    expect(res4.ok()).toBe(true)
-    const r4 = await res4.json()
-    expect(r4.dateTime).toBe(`${TEST_DATE}T14:30:00`)
-    expect(r4.jobCounter).toBeNull()
-    expect(r4.ranchCounter).toBeNull()
-    expect(r4.fieldCounter).toBeNull()
-    expect(r4.employeeCounter).toBe(1257)
-    expect(r4.crewCounter).toBe(4)
-    // isTimeIn=false implicit: record found via /time-cards/time-out/
-    // cardType=0 implicit: Time Out endpoint
-  })
-})
+        const res4 = await page.request.get(`/api/time-cards/time-out/${step4Id}`);
+        expect(res4.ok()).toBe(true);
+        const r4 = await res4.json();
+        expect(r4.dateTime).toBe(`${TEST_DATE}T14:30:00`);
+        expect(r4.jobCounter).toBeNull();
+        expect(r4.ranchCounter).toBeNull();
+        expect(r4.fieldCounter).toBeNull();
+        expect(r4.employeeCounter).toBe(1257);
+        expect(r4.crewCounter).toBe(4);
+        // isTimeIn=false implicit: record found via /time-cards/time-out/
+        // cardType=0 implicit: Time Out endpoint
+    });
+
+});

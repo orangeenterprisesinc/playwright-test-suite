@@ -172,10 +172,14 @@ export type TestCategory = 'ui' | 'api' | 'workflow';
  * - `'specced'` — a plan exists under `specs/`
  * - `'ticketed'` — build or validation work is cut in Jira
  * - `'automated'` — a spec exists and is bound to this row
+ * - `'lifted'` — **web-pet only**: the test exists and runs, but has not yet been
+ *   converted to this framework's conventions. Distinct from `'draft'`, which
+ *   means no test exists at all. `scripts/check-runner.js` keeps the stricter
+ *   four-value list for journey rows, so this state cannot leak into them.
  *
- * @typedef {('draft' | 'specced' | 'ticketed' | 'automated')} RunnerRowStatus
+ * @typedef {('draft' | 'specced' | 'ticketed' | 'automated' | 'lifted')} RunnerRowStatus
  */
-export type RunnerRowStatus = 'draft' | 'specced' | 'ticketed' | 'automated';
+export type RunnerRowStatus = 'draft' | 'specced' | 'ticketed' | 'automated' | 'lifted';
 
 /**
  * One runner row: a single test case, bound to a spec by `id`.
@@ -241,6 +245,38 @@ export interface TestCaseData {
     enabled: boolean;
     shouldComplete?: boolean;
     expectedCount?: number;
+}
+
+/**
+ * One runner row for the migrated web-pet suite.
+ *
+ * A superset of {@link TestCaseData} — so it can be handed straight to
+ * `evaluateScope()` and `applyAllureLabels()` — plus the columns that only make
+ * sense for a lifted suite whose tests are identified structurally as well as by
+ * id.
+ *
+ * Deliberately absent: `segments` / `modules` / `journey` / `workflow` / `demo`.
+ * Those are Workflow Catalog concepts; filling them with plausible-looking
+ * values would make `evaluateScope()` match nothing (a module name absent from
+ * `workflow-catalog.json` never resolves) and would print a fabricated `Journey`
+ * parameter into every Allure result. Leaving them undefined is what makes
+ * `evaluateScope()` correctly treat every web-pet row as always-in-scope.
+ *
+ * @interface WebpetTestCaseData
+ * @property {string} file - Spec path relative to `tests/webpet`, posix separators
+ * @property {string} titlePath - Describe titles + test title, `' > '`-joined
+ * @property {string} [caseKey] - Business key for a loop-generated test; drives `src/data/webpet/ids/`
+ * @property {string} [module] - Feature area, seeded from the spec file name
+ * @property {string} [notes] - Free-text triage note
+ * @property {boolean} [stale] - The test no longer exists; the row is kept, never deleted
+ */
+export interface WebpetTestCaseData extends TestCaseData {
+    file: string;
+    titlePath: string;
+    caseKey?: string;
+    module?: string;
+    notes?: string;
+    stale?: boolean;
 }
 
 /**

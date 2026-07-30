@@ -1,248 +1,277 @@
-import { test, expect } from './fixtures';
-// Migration note (types only): Parameters<typeof test>[1]['page'] resolved to a
-// different overload under this repo's @playwright/test 1.58.2 — use Page directly.
-import type { Page } from './fixtures';
+/**
+ * Smoke + CRUD tests for PET-202 (TimeSheet Validation, TimeSheetEntry
+ * module-gated).
+ *
+ * When the TimeSheetEntry module is not in PT_MODULES every route here returns
+ * 403. The page objects' `goto*OrForbidden` helpers report that so the spec can
+ * still pass in dev environments without the module enabled.
+ *
+ * Prerequisites (with TimeSheetEntry enabled):
+ *   - dev server running:  cd apps/web && pnpm dev
+ *   - API server running:  cd apps/api && go run .
+ *   - PT_MODULES env includes "TimeSheetEntry"
+ *
+ * No multi-update specs — Validation has no bulk-edit fields (no Active column).
+ *
+ * Framework-aligned (Batch 09): locators live in
+ * TimeSheetValidationListPage / TimeSheetValidationFormPage. This was the last
+ * consumer of the `type { Page }` re-export from tests/webpet/fixtures.ts, which
+ * the module-gate helpers made unnecessary.
+ *
+ * ## Cross-test coupling, preserved deliberately
+ *
+ * The edit-form tests read a record the create test made, and the delete/restore
+ * test cleans up both. That is order-dependent and would not be written this way
+ * today — but rewriting it would change what runs, so it stays. The `test.skip()`
+ * guards are what keep it honest when the earlier test did not run.
+ */
+import { expect, test } from '@fixtures/webpet.fixture';
 
-// Smoke + CRUD tests for PET-202 (TimeSheet Validation, TimeSheetEntry module-gated).
-//
-// When the TimeSheetEntry module is not in PT_MODULES the route returns 403.
-// The helper below handles this so the spec can still pass in dev environments
-// without the module enabled.
-//
-// Prerequisites (with TimeSheetEntry enabled):
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api && go run .
-//   - PT_MODULES env includes "TimeSheetEntry"
-//
-// No multi-update specs — Validation has no bulk-edit fields (no Active column).
-
-const LIST_URL = '/setup/timesheet/validations';
-const DELETED_URL = '/setup/timesheet/validations/deleted';
-const NEW_URL = '/setup/timesheet/validations/new';
 const TEST_NAME = '_PET202TestValidation';
 const TEST_NAME_2 = '_PET202TestValidation2';
 
-async function gotoOrSkip(page: Page, url: string) {
-  const resp = await page.goto(url);
-  if (resp && resp.status() === 403) {
-    // TimeSheetEntry module not enabled in PT_MODULES — acceptable in dev env.
-    return false;
-  }
-  return true;
+interface ValidationRow {
+    validationCounter: number;
+    name: string;
+    version: string;
 }
 
 // ── List Page ──────────────────────────────────────────────────────────────────
 
-test.describe('Setup > TimeSheet Validation — list page', () => {
-  test('list page renders or 403 when module disabled', async ({ page }) => {
-    const ok = await gotoOrSkip(page, LIST_URL);
-    if (!ok) {
-      // Module off: sidebar link should not be visible.
-      await page.goto('/dashboard');
-      await expect(
-        page.getByRole('link', { name: /timesheet setup/i }),
-      ).toHaveCount(0);
-      return;
-    }
-    await expect(page.getByRole('heading', { name: /timesheet validations/i })).toBeVisible();
-    await expect(page.locator(`a[href="${NEW_URL}"]`)).toBeVisible();
-  });
+test.describe('Setup > TimeSheet Validation — list page', { tag: ['@WebPet', '@wp-setup', '@wp-validation', '@WPBatch09'] }, () => {
 
-  test('Name column header is visible', async ({ page }) => {
-    const ok = await gotoOrSkip(page, LIST_URL);
-    if (!ok) return;
-    await page.waitForSelector('[role="grid"]');
-    await expect(page.getByRole('columnheader', { name: /^Name/ })).toBeVisible();
-  });
+    test('[Validation] Verify that the list page renders, or that the module is absent from the sidebar.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0379' },
+    }, async ({ pages }) => {
+        const list = pages.timeSheetValidationList;
+        if (!(await list.gotoOrForbidden())) {
+            // Module off: the sidebar link must not be visible either.
+            await pages.shell.gotoDashboard();
+            await expect(pages.shell.navLinkMatching(/timesheet setup/i)).toHaveCount(0);
+            return;
+        }
+        await expect(list.heading).toBeVisible();
+        await expect(list.newLink).toBeVisible();
+    });
 
-  test('filter by name narrows results', async ({ page }) => {
-    const ok = await gotoOrSkip(page, LIST_URL);
-    if (!ok) return;
-    await page.waitForSelector('[role="grid"]');
-    // Filter to something unlikely to match, so the grid is empty.
-    await page.getByPlaceholder('Filter…').first().fill('zzz_unlikely_match');
-    await expect(page.locator('[role="cell"]:has-text("zzz_unlikely_match")')).toHaveCount(0);
-  });
+    test('[Validation] Verify that the Name column header is visible.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0380' },
+    }, async ({ pages }) => {
+        const list = pages.timeSheetValidationList;
+        if (!(await list.gotoOrForbidden())) return;
+        await list.grid.waitForGrid();
+        await expect(list.grid.columnHeader(/^Name/)).toBeVisible();
+    });
+
+    test('[Validation] Verify that filtering by name narrows the results.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0381' },
+    }, async ({ pages }) => {
+        const list = pages.timeSheetValidationList;
+        if (!(await list.gotoOrForbidden())) return;
+        await list.grid.waitForGrid();
+        // Filter to something unlikely to match, so the grid is empty.
+        await list.grid.textFilter(0).fill('zzz_unlikely_match');
+        await expect(list.grid.cellByText('zzz_unlikely_match')).toHaveCount(0);
+    });
+
 });
 
 // ── New Form ───────────────────────────────────────────────────────────────────
 
-test.describe('Setup > TimeSheet Validation — new form', () => {
-  test('new form renders name field', async ({ page }) => {
-    const ok = await gotoOrSkip(page, NEW_URL);
-    if (!ok) return;
-    await expect(page.locator('input#name')).toBeVisible();
-  });
+test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@wp-setup', '@wp-validation', '@WPBatch09'] }, () => {
 
-  test('Save is disabled until required name is provided', async ({ page }) => {
-    const ok = await gotoOrSkip(page, NEW_URL);
-    if (!ok) return;
-    // FormFooter disables Save until isDirty && isValid (PET-451).
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await page.locator('input#name').click();
-    await page.locator('input#name').blur();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await page.locator('input#name').fill('Pet451ValidName');
-    // mode: 'onBlur' — validation (and thus isValid → Save-enabled) only runs on
-    // blur, so blur before asserting Save is enabled.
-    await page.locator('input#name').blur();
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled();
-  });
+    test('[Validation] Verify that the new form renders the name field.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0382' },
+    }, async ({ pages }) => {
+        const form = pages.timeSheetValidationForm;
+        if (!(await form.gotoNewOrForbidden())) return;
+        await expect(form.nameInput).toBeVisible();
+    });
 
-  test('Cancel returns to list', async ({ page }) => {
-    const ok = await gotoOrSkip(page, NEW_URL);
-    if (!ok) return;
-    await page.locator('button:has-text("Cancel")').click();
-    await page.waitForURL(`**${LIST_URL}`);
-  });
+    test('[Validation] Verify that Save is disabled until a required name is provided.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0383' },
+    }, async ({ pages }) => {
+        const form = pages.timeSheetValidationForm;
+        if (!(await form.gotoNewOrForbidden())) return;
+        // FormFooter disables Save until isDirty && isValid (PET-451).
+        await expect(form.footer.saveButton).toBeDisabled();
+        await form.nameInput.click();
+        await form.nameInput.blur();
+        await expect(form.footer.saveButton).toBeDisabled();
+        await form.nameInput.fill('Pet451ValidName');
+        // mode: 'onBlur' — validation (and thus isValid → Save-enabled) only runs on
+        // blur, so blur before asserting Save is enabled.
+        await form.nameInput.blur();
+        await expect(form.footer.saveButton).toBeEnabled();
+    });
 
-  test('create a new validation and navigate to edit form', async ({ page, request }) => {
-    const ok = await gotoOrSkip(page, NEW_URL);
-    if (!ok) return;
+    test('[Validation] Verify that Cancel returns to the list.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0384' },
+    }, async ({ page, pages }) => {
+        const form = pages.timeSheetValidationForm;
+        if (!(await form.gotoNewOrForbidden())) return;
+        await form.footer.cancelButton.click();
+        await page.waitForURL('**/setup/timesheet/validations');
+    });
 
-    // Clean up any pre-existing test record from a prior interrupted run.
-    const existing = await request.get('/api/validations');
-    if (existing.ok()) {
-      const items = (await existing.json()) as { validationCounter: number; name: string; version: string }[];
-      const prior = items.find((v) => v.name === TEST_NAME);
-      if (prior) {
-        await request.delete(`/api/validations/${prior.validationCounter}`, {
-          data: { rowversion: prior.version },
-        });
-      }
-    }
+    test('[Validation] Verify that creating a validation navigates to the edit form.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0385' },
+    }, async ({ page, pages, request }) => {
+        const form = pages.timeSheetValidationForm;
+        if (!(await form.gotoNewOrForbidden())) return;
 
-    await page.locator('input#name').fill(TEST_NAME);
-    // blur to run onBlur validation so the submit button enables (mode: 'onBlur').
-    await page.locator('input#name').blur();
-    await page.locator('button[type="submit"]').click();
-    // Should navigate to the edit form after successful create.
-    await page.waitForURL(`**/setup/timesheet/validations/**`);
-    await expect(page.locator('input#name')).toHaveValue(TEST_NAME);
-    // Name is read-only after first save.
-    await expect(page.locator('input#name')).toHaveAttribute('readonly', '');
-  });
+        // Clean up any pre-existing test record from a prior interrupted run.
+        const existing = await request.get('/api/validations');
+        if (existing.ok()) {
+            const items = (await existing.json()) as ValidationRow[];
+            const prior = items.find((v) => v.name === TEST_NAME);
+            if (prior) {
+                await request.delete(`/api/validations/${String(prior.validationCounter)}`, {
+                    data: { rowversion: prior.version },
+                });
+            }
+        }
+
+        // fillName blurs, which runs onBlur validation so the submit button enables.
+        await form.fillName(TEST_NAME);
+        await form.footer.submitButton.click();
+        // Should navigate to the edit form after successful create.
+        await page.waitForURL('**/setup/timesheet/validations/**');
+        await expect(form.nameInput).toHaveValue(TEST_NAME);
+        // Name is read-only after first save.
+        await expect(form.nameInput).toHaveAttribute('readonly', '');
+    });
+
 });
 
 // ── Edit Form ──────────────────────────────────────────────────────────────────
 
-test.describe('Setup > TimeSheet Validation — edit form', () => {
-  test('name is read-only on existing record', async ({ page, request }) => {
-    // Fetch the test record created in the previous describe block.
-    const listResp = await request.get('/api/validations');
-    if (!listResp.ok()) return;
-    const items = (await listResp.json()) as { validationCounter: number; name: string }[];
-    const rec = items.find((v) => v.name === TEST_NAME);
-    if (!rec) {
-      test.skip();
-      return;
-    }
+test.describe('Setup > TimeSheet Validation — edit form', { tag: ['@WebPet', '@wp-setup', '@wp-validation', '@WPBatch09'] }, () => {
 
-    const ok = await gotoOrSkip(page, `/setup/timesheet/validations/${rec.validationCounter}`);
-    if (!ok) return;
-    await expect(page.locator('input#name')).toHaveAttribute('readonly', '');
-  });
+    test('[Validation] Verify that the name is read-only on an existing record.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0386' },
+    }, async ({ pages, request }) => {
+        const form = pages.timeSheetValidationForm;
+        // Fetch the record the create test made — see the file header on coupling.
+        const listResp = await request.get('/api/validations');
+        if (!listResp.ok()) return;
+        const items = (await listResp.json()) as ValidationRow[];
+        const rec = items.find((v) => v.name === TEST_NAME);
+        if (!rec) {
+            test.skip();
+            return;
+        }
 
-  test('audit log tab is visible on existing record', async ({ page, request }) => {
-    const listResp = await request.get('/api/validations');
-    if (!listResp.ok()) return;
-    const items = (await listResp.json()) as { validationCounter: number; name: string }[];
-    const rec = items.find((v) => v.name === TEST_NAME);
-    if (!rec) {
-      test.skip();
-      return;
-    }
+        if (!(await form.gotoEditOrForbidden(rec.validationCounter))) return;
+        await expect(form.nameInput).toHaveAttribute('readonly', '');
+    });
 
-    // Audit log is a dedicated page (route validations/:id/audit →
-    // ValidationAuditLogPage), not an inline section on the edit form anymore.
-    // Verify that page loads for this record.
-    const ok = await gotoOrSkip(page, `/setup/timesheet/validations/${rec.validationCounter}/audit`);
-    if (!ok) return;
-    await expect(page.getByRole('heading', { name: /audit/i })).toBeVisible();
-  });
+    test('[Validation] Verify that the audit log page loads for an existing record.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0387' },
+    }, async ({ pages, request }) => {
+        const form = pages.timeSheetValidationForm;
+        const listResp = await request.get('/api/validations');
+        if (!listResp.ok()) return;
+        const items = (await listResp.json()) as ValidationRow[];
+        const rec = items.find((v) => v.name === TEST_NAME);
+        if (!rec) {
+            test.skip();
+            return;
+        }
 
-  test('nonexistent id shows error message', async ({ page }) => {
-    const ok = await gotoOrSkip(page, '/setup/timesheet/validations/999999999');
-    if (!ok) return;
-    await expect(page.locator('text=not found')).toBeVisible({ timeout: 10000 });
-  });
+        // The audit log is a dedicated page (validations/:id/audit →
+        // ValidationAuditLogPage), not an inline section on the edit form anymore.
+        if (!(await form.gotoAuditOrForbidden(rec.validationCounter))) return;
+        await expect(form.auditHeading).toBeVisible();
+    });
+
+    test('[Validation] Verify that a nonexistent id shows an error message.', {
+        tag: ['@wp-ui', '@wp-negative'],
+        annotation: { type: 'testCaseId', description: 'WP-0388' },
+    }, async ({ pages }) => {
+        const form = pages.timeSheetValidationForm;
+        if (!(await form.gotoEditOrForbidden(999999999))) return;
+        await expect(form.notFoundMessage).toBeVisible({ timeout: 10000 });
+    });
+
 });
 
 // ── Soft Delete + Restore ──────────────────────────────────────────────────────
 
-test.describe('Setup > TimeSheet Validation — soft delete and restore', () => {
-  test('can soft-delete and restore via API, then deleted list shows/removes entry', async ({
-    page,
-    request,
-  }) => {
-    // Create a fresh record for this test.
-    const createResp = await request.post('/api/validations', {
-      data: { name: TEST_NAME_2 },
-    });
-    if (!createResp.ok()) {
-      // If already exists, try to find it.
-      const listResp = await request.get('/api/validations');
-      if (!listResp.ok()) return;
-    }
+test.describe('Setup > TimeSheet Validation — soft delete and restore', { tag: ['@WebPet', '@wp-setup', '@wp-validation', '@WPBatch09'] }, () => {
 
-    const listResp = await request.get('/api/validations');
-    if (!listResp.ok()) return;
-    const items = (await listResp.json()) as { validationCounter: number; name: string; version: string }[];
-    const rec = items.find((v) => v.name === TEST_NAME_2);
-    if (!rec) return;
+    test('[Validation] Verify that a record can be soft-deleted and restored, with the deleted list reflecting both.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0389' },
+    }, async ({ page, pages, request }) => {
+        const list = pages.timeSheetValidationList;
 
-    // Soft-delete via API.
-    const deleteResp = await request.delete(`/api/validations/${rec.validationCounter}`, {
-      data: { rowversion: rec.version },
-    });
-    expect(deleteResp.status()).toBe(204);
-
-    // Deleted list should show the record.
-    const ok = await gotoOrSkip(page, DELETED_URL);
-    if (!ok) return;
-    await page.waitForSelector('[role="grid"]');
-    await expect(page.locator(`[role="cell"]:has-text("${TEST_NAME_2}")`)).toBeVisible();
-
-    // Restore.
-    const deletedResp = await request.get('/api/validations/deleted');
-    if (!deletedResp.ok()) return;
-    const deletedItems = (await deletedResp.json()) as { validationCounter: number; name: string; version: string }[];
-    const deletedRec = deletedItems.find((v) => v.name === TEST_NAME_2);
-    if (!deletedRec) return;
-
-    const restoreResp = await request.post(
-      `/api/validations/${deletedRec.validationCounter}/restore`,
-      { data: { rowversion: deletedRec.version } },
-    );
-    expect(restoreResp.status()).toBe(204);
-
-    // After restore, record should appear on list and not on deleted list.
-    await page.reload();
-    await page.waitForSelector('[role="grid"]');
-    await expect(page.locator(`[role="cell"]:has-text("${TEST_NAME_2}")`)).toHaveCount(0);
-
-    // Cleanup — soft-delete TEST_NAME_2 again.
-    const listAfterRestore = await request.get('/api/validations');
-    if (listAfterRestore.ok()) {
-      const afterItems = (await listAfterRestore.json()) as { validationCounter: number; name: string; version: string }[];
-      const afterRec = afterItems.find((v) => v.name === TEST_NAME_2);
-      if (afterRec) {
-        await request.delete(`/api/validations/${afterRec.validationCounter}`, {
-          data: { rowversion: afterRec.version },
+        // Create a fresh record for this test.
+        const createResp = await request.post('/api/validations', {
+            data: { name: TEST_NAME_2 },
         });
-      }
-    }
+        if (!createResp.ok()) {
+            // If it already exists, fall through and find it below.
+            const listResp = await request.get('/api/validations');
+            if (!listResp.ok()) return;
+        }
 
-    // Cleanup — soft-delete TEST_NAME if it still exists.
-    const listTestName = await request.get('/api/validations');
-    if (listTestName.ok()) {
-      const testItems = (await listTestName.json()) as { validationCounter: number; name: string; version: string }[];
-      const testRec = testItems.find((v) => v.name === TEST_NAME);
-      if (testRec) {
-        await request.delete(`/api/validations/${testRec.validationCounter}`, {
-          data: { rowversion: testRec.version },
+        const listResp = await request.get('/api/validations');
+        if (!listResp.ok()) return;
+        const items = (await listResp.json()) as ValidationRow[];
+        const rec = items.find((v) => v.name === TEST_NAME_2);
+        if (!rec) return;
+
+        // Soft-delete via API.
+        const deleteResp = await request.delete(`/api/validations/${String(rec.validationCounter)}`, {
+            data: { rowversion: rec.version },
         });
-      }
-    }
-  });
+        expect(deleteResp.status()).toBe(204);
+
+        // Deleted list should show the record.
+        if (!(await list.gotoDeletedOrForbidden())) return;
+        await list.grid.waitForGrid();
+        await expect(list.grid.cellByText(TEST_NAME_2)).toBeVisible();
+
+        // Restore.
+        const deletedResp = await request.get('/api/validations/deleted');
+        if (!deletedResp.ok()) return;
+        const deletedItems = (await deletedResp.json()) as ValidationRow[];
+        const deletedRec = deletedItems.find((v) => v.name === TEST_NAME_2);
+        if (!deletedRec) return;
+
+        const restoreResp = await request.post(
+            `/api/validations/${String(deletedRec.validationCounter)}/restore`,
+            { data: { rowversion: deletedRec.version } },
+        );
+        expect(restoreResp.status()).toBe(204);
+
+        // After restore the record leaves the deleted list.
+        await page.reload();
+        await list.grid.waitForGrid();
+        await expect(list.grid.cellByText(TEST_NAME_2)).toHaveCount(0);
+
+        // Cleanup — soft-delete both test records again.
+        for (const name of [TEST_NAME_2, TEST_NAME]) {
+            const after = await request.get('/api/validations');
+            if (!after.ok()) continue;
+            const afterItems = (await after.json()) as ValidationRow[];
+            const afterRec = afterItems.find((v) => v.name === name);
+            if (afterRec) {
+                await request.delete(`/api/validations/${String(afterRec.validationCounter)}`, {
+                    data: { rowversion: afterRec.version },
+                });
+            }
+        }
+    });
+
 });

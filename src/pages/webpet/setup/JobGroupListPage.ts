@@ -1,0 +1,27 @@
+/**
+ * @fileoverview Job Group list — `/setup/jobs/groups`.
+ *
+ * @module pages/webpet/setup/JobGroupListPage
+ */
+import { Locator, Page } from '@playwright/test';
+import { WebpetListPage } from '../WebpetListPage';
+
+/**
+ * @class JobGroupListPage
+ * @extends WebpetListPage
+ */
+export class JobGroupListPage extends WebpetListPage {
+    constructor(page: Page) {
+        super(page, '/setup/jobs/groups', 'Job Groups');
+    }
+
+    /**
+     * A job group name anywhere on the list, used to assert a discarded record
+     * was never saved. Page-scoped, matching the lifted spec.
+     */
+    jobGroupNamed(name: string): Locator {
+        return this.page.getByText(name);
+    }
+}
+
+export default JobGroupListPage;

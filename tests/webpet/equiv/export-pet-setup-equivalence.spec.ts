@@ -51,12 +51,17 @@
  * committed run here is the repeatable harness; gap recording is a manual
  * harness step on the host (the spec asserts parity, it does not mutate repo
  * docs).
+ *
+ * Framework-aligned (Batch 14): pure API plus filesystem parsing — no page
+ * objects apply, so only the fixture import, the title and the runner annotation
+ * changed.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
-import { test, expect } from '../fixtures'
+import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths'
+import { expect, test } from '@fixtures/webpet.fixture'
 
-const ADMIN_STORAGE = join(__dirname, '..', '.auth', 'storage.json')
+const ADMIN_STORAGE = WEBPET_ADMIN_STORAGE
 
 // Read the CSRF token from the saved storage state so the mutating POSTs
 // (export + round-trip import) pass RequireCSRF. pt_csrf is non-HttpOnly — the
@@ -198,10 +203,13 @@ function newestXmlIn(dir: string): string | null {
   return xmls[0]!
 }
 
-test.describe('Equivalence: export-pet-setup (web export vs legacy PET-Setup)', () => {
+test.describe('Equivalence: export-pet-setup (web export vs legacy PET-Setup)', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
   test.skip(!EQUIV_ENABLED, SKIP_REASON)
 
-  test('web export matches legacy PET-Setup and round-trips through import', async ({ page }) => {
+  test('[Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.', {
+    tag: ['@wp-api', '@wp-connectivity'],
+    annotation: { type: 'testCaseId', description: 'WP-0176' },
+  }, async ({ page }) => {
     test.setTimeout(300_000)
 
     const csrf = csrfFromStorage()

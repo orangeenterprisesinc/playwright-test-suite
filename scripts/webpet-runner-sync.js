@@ -3,31 +3,44 @@
  * web-pet suite (tests/webpet):
  *
  *   src/data/webpet/webpetRunnerManager.csv   — the AUTHORED file: edit
- *       enabled / testCaseId / notes here (Excel-friendly).
- *   src/data/webpet/webpetRunnerManager.json  — the generated RUNTIME mirror
- *       read by tests/webpet/support/webpet-gate.ts. Never hand-edit; if both
- *       files changed, the CSV wins on sync (same authored-CSV → JSON-mirror
- *       model as src/data/runner/).
+ *       enabled / caseKey / module / testName / testDescription / jira /
+ *       status / notes here (Excel-friendly).
+ *   src/data/webpet/webpetRunnerManager.json  — the generated RUNTIME mirror.
+ *       Never hand-edit; if both files changed, the CSV wins on sync (same
+ *       authored-CSV → JSON-mirror model as src/data/runner/). Emitted under a
+ *       `runnerManager` key so the framework's JsonDataReader can read it.
  *
- * The source specs carry no testCaseId annotations and many tests are
- * generated in loops, so rows are keyed by the stable identity
- * `<file relative to tests/webpet>::<describe titles > test title>` — computed
- * here from `playwright test --list --reporter=json` and reproduced at runtime
- * by the gate. Each test gets a stable WP-#### id. The id/file/title columns
- * are structural (owned by this script); only enabled/testCaseId/notes are
- * human-owned and survive every sync.
+ * ## Identity: id first, structural key as the fallback
+ *
+ * The lifted specs carried no annotations and many tests are generated in
+ * loops, so rows were originally keyed on
+ * `<file relative to tests/webpet>::<describe titles > test title>`.
+ * The framework alignment adds `testCaseId` annotations, and conversion also
+ * RETITLES tests — which under a purely structural key would allocate a fresh
+ * WP id, orphan the old row as stale, and silently drop the human's enabled /
+ * notes state. So the merge now prefers the annotation:
+ *
+ *     prior = byAnnotationId(entry) ?? byStructuralKey(entry)
+ *
+ * A commit that retitles AND annotates matches on the id; a commit that only
+ * retitles still matches structurally. No enabled flag is lost in either order,
+ * and ids never renumber (allocation stays max+1).
+ *
+ * Column ownership:
+ *   script-owned, rewritten every sync — file, titlePath, testTitle, tags
+ *   human-owned, preserved forever  — enabled, caseKey, module, category,
+ *                                     testName, testDescription, jira, status, notes
  *
  * Usage:
  *   node scripts/webpet-runner-sync.js           # rediscover tests, merge, write CSV+JSON
  *   node scripts/webpet-runner-sync.js --check   # exit 1 on drift, write nothing
- *   node scripts/webpet-runner-sync.js --mirror  # no test discovery: just re-derive
- *                                                #   the JSON mirror from the CSV
- *                                                #   (fast; safe while a run is live)
+ *   node scripts/webpet-runner-sync.js --mirror  # no discovery: re-derive JSON from CSV
+ *   node scripts/webpet-runner-sync.js --ids     # regenerate src/data/webpet/ids/*.ts
  *
  * Merge semantics (write mode):
- *   - existing keys keep their id / enabled / testCaseId / notes
- *   - new keys get the next free WP-#### with enabled=true
- *   - keys that no longer exist are kept but flagged stale=true — review and
+ *   - matched rows keep their id and every human-owned column
+ *   - new tests get the next free WP-#### with enabled=1
+ *   - tests that no longer exist are kept but flagged stale=true — review and
  *     delete them manually (deliberately non-destructive).
  */
 const { spawnSync } = require('node:child_process');
@@ -38,18 +51,42 @@ const Papa = require('papaparse');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const DATA_DIR = path.join(REPO_ROOT, 'src', 'data', 'webpet');
+const IDS_DIR = path.join(DATA_DIR, 'ids');
 const JSON_FILE = path.join(DATA_DIR, 'webpetRunnerManager.json');
 const CSV_FILE = path.join(DATA_DIR, 'webpetRunnerManager.csv');
 const CHECK_MODE = process.argv.includes('--check');
 const MIRROR_MODE = process.argv.includes('--mirror');
+const IDS_MODE = process.argv.includes('--ids');
 
-const CSV_FIELDS = ['id', 'file', 'title', 'enabled', 'testCaseId', 'notes', 'stale'];
+/** Column order of the authored CSV. Keep in sync with WebpetTestCaseData. */
+const CSV_FIELDS = [
+    'id',
+    'file',
+    'titlePath',
+    'caseKey',
+    'module',
+    'category',
+    'testName',
+    'testTitle',
+    'testDescription',
+    'tags',
+    'jira',
+    'status',
+    'enabled',
+    'notes',
+    'stale',
+];
+
+/** Columns this script owns and overwrites on every sync. */
+const SCRIPT_OWNED = ['file', 'titlePath', 'testTitle', 'tags'];
 
 /** Runs `playwright test --list --reporter=json --project=webpet` and returns the parsed report. */
 function listWebpetTests() {
     const cli = path.join(REPO_ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
     // Write the JSON report to a temp file so stray stdout (env loader logs,
-    // deprecation warnings) can't corrupt the payload.
+    // deprecation warnings) can't corrupt the payload. Also keeps the repo's
+    // real test-results/results.json — and the reporter chain's side effects —
+    // out of the way: `--reporter=json` replaces the configured list entirely.
     const jsonOut = path.join(os.tmpdir(), `webpet-list-${process.pid}.json`);
     const result = spawnSync(
         process.execPath,
@@ -79,7 +116,7 @@ function listWebpetTests() {
 
 /**
  * Normalizes a reporter file path to be relative to tests/webpet with posix
- * separators — matching webpetRunnerKey() in tests/webpet/support/webpet-gate.ts.
+ * separators — matching the structural key computed at runtime by the gate.
  * The JSON reporter emits paths relative to the global testDir ('./tests'), so
  * the usual shape is 'webpet/<spec>'; absolute and repo-relative forms are
  * handled too for robustness.
@@ -92,10 +129,21 @@ function normalizeFile(file) {
     return posix;
 }
 
+/** Default `module` for a spec file: 'crop.spec.ts' → 'crop', 'equiv/x.spec.ts' → 'equiv'. */
+function deriveModule(relFile) {
+    const segments = relFile.split('/');
+    if (segments.length > 1) return segments[0];
+    return segments[0].replace(/\.spec\.ts$/, '');
+}
+
 /**
- * Walks the JSON report into ordered entries { key, file, title, line, column }.
- * Only specs that run under the `webpet` project are included (the dependency
- * project's webpet.setup.ts is excluded — it is infrastructure, not a test).
+ * Walks the JSON report into ordered entries. Only specs that run under the
+ * `webpet` project are included (the dependency project's webpet.setup.ts is
+ * excluded — it is infrastructure, not a test, and is deliberately exempt from
+ * both annotation and the gate).
+ *
+ * Harvests the `testCaseId` annotation and the tags alongside the structural
+ * key: the JSON reporter emits `spec.tests[].annotations` and `spec.tags`.
  */
 function collectEntries(report) {
     const entries = [];
@@ -103,14 +151,21 @@ function collectEntries(report) {
     function walkSuite(suite, describeTitles, fileFromParent) {
         const file = suite.file ?? fileFromParent;
         for (const spec of suite.specs ?? []) {
-            const runsInWebpet = (spec.tests ?? []).some((t) => t.projectName === 'webpet');
-            if (!runsInWebpet) continue;
+            const webpetTest = (spec.tests ?? []).find((t) => t.projectName === 'webpet');
+            if (!webpetTest) continue;
             const relFile = normalizeFile(spec.file ?? file);
-            const title = [...describeTitles, spec.title].join(' > ');
+            const titlePath = [...describeTitles, spec.title].join(' > ');
+            const annotationId = String(
+                (webpetTest.annotations ?? []).find((a) => a.type === 'testCaseId')?.description ?? '',
+            ).trim();
+            const tags = (spec.tags ?? []).map((t) => (t.startsWith('@') ? t : `@${t}`));
             entries.push({
-                key: `${relFile}::${title}`,
+                key: `${relFile}::${titlePath}`,
                 file: relFile,
-                title,
+                titlePath,
+                testTitle: spec.title,
+                tags: tags.join('|'),
+                annotationId,
                 line: spec.line ?? 0,
                 column: spec.column ?? 0,
             });
@@ -125,26 +180,34 @@ function collectEntries(report) {
         walkSuite(fileSuite, [], fileSuite.file);
     }
 
-    entries.sort(
-        (a, b) =>
-            a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
-    );
+    entries.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column);
     return entries;
 }
 
 function rowKey(row) {
-    return `${row.file}::${row.title}`;
+    return `${row.file}::${row.titlePath}`;
 }
 
 function loadJsonRows() {
     if (!fs.existsSync(JSON_FILE)) return null;
     const parsed = JSON.parse(fs.readFileSync(JSON_FILE, 'utf-8'));
-    return parsed.testCases ?? [];
+    // `runnerManager` is the framework reader's sheet name; `testCases` is the
+    // pre-alignment shape, still accepted so an old mirror can be migrated.
+    return parsed.runnerManager ?? parsed.testCases ?? [];
 }
 
-/** 'false' / 'no' / '0' (any case) disable a row; everything else runs (fail-open). */
+/**
+ * Reads the authored `enabled` cell.
+ *
+ * Accepts the framework's 1/0 and the pre-alignment true/false. A BLANK cell is
+ * an error, not a default: the framework's MultiFileDataReader coerces blank to
+ * `false` while this suite's gate has always been fail-open, so a blank would
+ * mean "runs" today and "skips" after the reader swap. `--check` rejects blanks.
+ */
 function coerceEnabled(value) {
-    return !['false', 'no', '0'].includes(String(value ?? 'true').trim().toLowerCase());
+    const text = String(value ?? '').trim().toLowerCase();
+    if (text === '') return true; // fail-open at read time; --check reports it
+    return !['false', 'no', '0'].includes(text);
 }
 
 function loadCsvRows() {
@@ -160,18 +223,28 @@ function loadCsvRows() {
     return parsed.data.map((row) => ({
         id: String(row.id ?? '').trim(),
         file: String(row.file ?? '').trim(),
-        title: String(row.title ?? ''),
+        // `title` is the pre-alignment column name — read it so the first sync
+        // after the schema change migrates rather than orphaning every row.
+        titlePath: String(row.titlePath ?? row.title ?? ''),
+        caseKey: String(row.caseKey ?? '').trim(),
+        module: String(row.module ?? '').trim(),
+        category: String(row.category ?? '').trim(),
+        testName: String(row.testName ?? '').trim(),
+        testTitle: String(row.testTitle ?? ''),
+        testDescription: String(row.testDescription ?? ''),
+        tags: String(row.tags ?? '').trim(),
+        jira: String(row.jira ?? '').trim(),
+        status: String(row.status ?? '').trim(),
         enabled: coerceEnabled(row.enabled),
-        testCaseId: String(row.testCaseId ?? '').trim(),
+        enabledRaw: String(row.enabled ?? '').trim(),
         notes: String(row.notes ?? ''),
         stale: String(row.stale ?? '').trim().toLowerCase() === 'true',
     }));
 }
 
 /**
- * The authored (human-owned) rows: the CSV when it exists, else the JSON —
- * the JSON-only path exists so the very first sync after this script gains
- * CSV support migrates prior JSON state instead of discarding it.
+ * The authored (human-owned) rows: the CSV when it exists, else the JSON — the
+ * JSON-only path migrates prior state instead of discarding it.
  */
 function loadAuthoredRows() {
     return loadCsvRows() ?? loadJsonRows() ?? [];
@@ -193,9 +266,17 @@ function toCsvText(testCases) {
             data: testCases.map((r) => [
                 r.id,
                 r.file,
-                r.title,
-                r.enabled === false ? 'false' : 'true',
-                r.testCaseId ?? '',
+                r.titlePath,
+                r.caseKey ?? '',
+                r.module ?? '',
+                r.category ?? '',
+                r.testName ?? '',
+                r.testTitle ?? '',
+                r.testDescription ?? '',
+                r.tags ?? '',
+                r.jira ?? '',
+                r.status ?? '',
+                r.enabled === false ? '0' : '1',
                 r.notes ?? '',
                 r.stale ? 'true' : '',
             ]),
@@ -203,6 +284,27 @@ function toCsvText(testCases) {
         { newline: '\n' },
     );
     return `${csv}\n`;
+}
+
+/** Strips read-time-only helpers so they never reach the mirror. */
+function projectRow(row) {
+    return {
+        id: row.id,
+        file: row.file,
+        titlePath: row.titlePath,
+        caseKey: row.caseKey ?? '',
+        module: row.module ?? '',
+        category: row.category ?? '',
+        testName: row.testName ?? '',
+        testTitle: row.testTitle ?? '',
+        testDescription: row.testDescription ?? '',
+        tags: row.tags ?? '',
+        jira: row.jira ?? '',
+        status: row.status ?? '',
+        enabled: row.enabled !== false,
+        notes: row.notes ?? '',
+        ...(row.stale ? { stale: true } : {}),
+    };
 }
 
 function writeBoth(testCases, liveCount) {
@@ -213,7 +315,10 @@ function writeBoth(testCases, liveCount) {
             generator: 'scripts/webpet-runner-sync.js',
             authoredFile: 'webpetRunnerManager.csv',
         },
-        testCases,
+        // `runnerManager` is the sheet name the framework's JsonDataReader looks
+        // for (DATA_SHEET_NAME default). The pre-alignment mirror used
+        // `testCases`, which that reader cannot parse.
+        runnerManager: testCases.map(projectRow),
     };
     fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`);
@@ -222,35 +327,130 @@ function writeBoth(testCases, liveCount) {
 
 /** Canonical per-row shape for mirror comparison (field order pinned). */
 function canonical(row) {
-    return JSON.stringify({
-        id: row.id ?? '',
-        file: row.file ?? '',
-        title: row.title ?? '',
-        enabled: row.enabled !== false,
-        testCaseId: row.testCaseId ?? '',
-        notes: row.notes ?? '',
-        stale: row.stale === true,
-    });
+    return JSON.stringify(projectRow(row));
 }
 
 /** Order-insensitive CSV ⇄ JSON mirror comparison; returns human-readable problems. */
 function mirrorProblems(csvRows, jsonRows) {
     const problems = [];
-    const jsonByKey = new Map(jsonRows.map((r) => [rowKey(r), r]));
+    const jsonById = new Map(jsonRows.map((r) => [r.id, r]));
     for (const row of csvRows) {
-        const twin = jsonByKey.get(rowKey(row));
+        const twin = jsonById.get(row.id);
         if (!twin) {
             problems.push(`row only in CSV: ${row.id} ${rowKey(row)}`);
         } else if (canonical(twin) !== canonical(row)) {
             problems.push(`row differs between CSV and JSON: ${row.id} ${rowKey(row)}`);
         }
-        jsonByKey.delete(rowKey(row));
+        jsonById.delete(row.id);
     }
-    for (const row of jsonByKey.values()) {
+    for (const row of jsonById.values()) {
         problems.push(`row only in JSON: ${row.id} ${rowKey(row)}`);
     }
     return problems;
 }
+
+// ── Generated id maps ───────────────────────────────────────────────────────
+
+/** 'bonus-flow.spec.ts' → 'bonusFlow'; 'equiv/foo-bar.spec.ts' → 'equivFooBar'. */
+function idsModuleName(relFile) {
+    const stem = relFile.replace(/\.spec\.ts$/, '');
+    return stem
+        .split(/[/\-_.]/)
+        .filter(Boolean)
+        .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
+        .join('');
+}
+
+/**
+ * Builds the text of one generated id map. Rows are keyed by their `caseKey`
+ * (a business key such as 'step1:employee' or 'ungated:time-in') — never an
+ * array index — so a loop's ids survive re-ordering the case table.
+ */
+function idsFileText(relFile, rows) {
+    const name = `${idsModuleName(relFile)}Ids`;
+    const entries = rows
+        .slice()
+        .sort((a, b) => a.caseKey.localeCompare(b.caseKey))
+        .map((r) => `    '${r.caseKey.replace(/'/g, "\\'")}': '${r.id}',`)
+        .join('\n');
+    return `/**
+ * @fileoverview GENERATED — do not edit.
+ *
+ * Runner ids for tests/webpet/${relFile}, keyed by the business key in the
+ * \`caseKey\` column of src/data/webpet/webpetRunnerManager.csv.
+ *
+ * Regenerate with: npm run webpet:runner:ids
+ */
+export const ${name} = {
+${entries}
+} as const;
+
+/** Every business key this spec addresses. */
+export type ${name.charAt(0).toUpperCase()}${name.slice(1)}Key = keyof typeof ${name};
+`;
+}
+
+/** Groups rows with a caseKey by spec file and returns { relPath → text }. */
+function buildIdsFiles(rows) {
+    const byFile = new Map();
+    for (const row of rows) {
+        if (!row.caseKey || row.stale) continue;
+        if (!byFile.has(row.file)) byFile.set(row.file, []);
+        byFile.get(row.file).push(row);
+    }
+    const files = new Map();
+    for (const [relFile, fileRows] of byFile) {
+        files.set(`${idsModuleName(relFile)}Ids.ts`, idsFileText(relFile, fileRows));
+    }
+    return files;
+}
+
+function runIds() {
+    const rows = loadCsvRows();
+    if (!rows) throw new Error(`${CSV_FILE} does not exist — run: npm run webpet:runner:sync`);
+    const files = buildIdsFiles(rows);
+
+    fs.mkdirSync(IDS_DIR, { recursive: true });
+    const existing = fs.existsSync(IDS_DIR)
+        ? fs.readdirSync(IDS_DIR).filter((f) => f.endsWith('Ids.ts'))
+        : [];
+    for (const orphan of existing.filter((f) => !files.has(f))) {
+        fs.rmSync(path.join(IDS_DIR, orphan));
+        console.log(`[webpet-runner-sync] --ids: removed orphaned ${orphan}`);
+    }
+    for (const [name, text] of files) {
+        fs.writeFileSync(path.join(IDS_DIR, name), text);
+    }
+    console.log(
+        files.size === 0
+            ? '[webpet-runner-sync] --ids: no rows carry a caseKey yet — nothing to generate.'
+            : `[webpet-runner-sync] --ids: wrote ${String(files.size)} id map(s) → src/data/webpet/ids/`,
+    );
+}
+
+/** Compares the generated id maps on disk against what the CSV implies. */
+function idsDriftProblems(rows) {
+    const problems = [];
+    const expected = buildIdsFiles(rows);
+    const present = fs.existsSync(IDS_DIR)
+        ? new Set(fs.readdirSync(IDS_DIR).filter((f) => f.endsWith('Ids.ts')))
+        : new Set();
+
+    for (const [name, text] of expected) {
+        if (!present.has(name)) {
+            problems.push(`id map missing: src/data/webpet/ids/${name}`);
+        } else if (fs.readFileSync(path.join(IDS_DIR, name), 'utf-8') !== text) {
+            problems.push(`id map out of date: src/data/webpet/ids/${name}`);
+        }
+        present.delete(name);
+    }
+    for (const orphan of present) {
+        problems.push(`id map has no rows behind it: src/data/webpet/ids/${orphan}`);
+    }
+    return problems;
+}
+
+// ── Modes ───────────────────────────────────────────────────────────────────
 
 function runMirror() {
     const csvRows = loadCsvRows();
@@ -275,24 +475,74 @@ function runCheck() {
 
     const problems = mirrorProblems(csvRows, jsonRows);
 
+    // Row-level integrity, independent of discovery.
+    const seenIds = new Set();
+    for (const r of csvRows) {
+        if (seenIds.has(r.id)) problems.push(`duplicate row id in CSV: ${r.id}`);
+        seenIds.add(r.id);
+        if (!/^WP-\d{4}$/.test(r.id)) problems.push(`malformed id: '${r.id}' (${rowKey(r)})`);
+        if (!['0', '1'].includes(r.enabledRaw)) {
+            problems.push(
+                `enabled must be 1 or 0, found '${r.enabledRaw}': ${r.id} — a blank cell means ` +
+                    `"runs" to the gate but "skips" to the framework reader`,
+            );
+        }
+    }
+    problems.push(...idsDriftProblems(csvRows));
+
     const report = listWebpetTests();
     const entries = collectEntries(report);
+    const authoredById = new Map(csvRows.map((r) => [r.id, r]));
     const authoredByKey = new Map(csvRows.map((r) => [rowKey(r), r]));
     const discoveredKeys = new Set(entries.map((e) => e.key));
+    const claimedIds = new Map();
 
     for (const e of entries) {
-        if (!authoredByKey.has(e.key)) problems.push(`missing row: ${e.key}`);
+        if (e.annotationId) {
+            // An annotated test MUST resolve to a row: the fixture's gate treats
+            // a claimed id with no row as a configuration error and skips it.
+            if (!authoredById.has(e.annotationId)) {
+                problems.push(`annotation claims a row that does not exist: ${e.annotationId} (${e.key})`);
+            }
+            const already = claimedIds.get(e.annotationId);
+            if (already) {
+                problems.push(`id ${e.annotationId} claimed by two tests: '${already}' and '${e.key}'`);
+            }
+            claimedIds.set(e.annotationId, e.key);
+
+            const row = authoredById.get(e.annotationId);
+            if (row && row.tags !== e.tags) {
+                problems.push(
+                    `tags drift for ${e.annotationId}: row has '${row.tags}', spec has '${e.tags}'`,
+                );
+            }
+        } else {
+            const row = authoredByKey.get(e.key);
+            if (!row) {
+                problems.push(`missing row: ${e.key}`);
+            } else if (row.status === 'automated') {
+                // The batch owning this row is marked done, so the annotation
+                // should be there. Without it the test runs structurally gated.
+                problems.push(
+                    `row ${row.id} is status=automated but its test carries no testCaseId annotation: ${e.key}`,
+                );
+            }
+        }
     }
     for (const r of csvRows) {
-        if (!discoveredKeys.has(rowKey(r)) && r.stale !== true) {
+        const claimedByAnnotation = claimedIds.has(r.id);
+        if (!claimedByAnnotation && !discoveredKeys.has(rowKey(r)) && r.stale !== true) {
             problems.push(`stale row (test gone/renamed): ${r.id} ${rowKey(r)}`);
         }
     }
 
     if (problems.length === 0) {
         const staleCount = csvRows.filter((r) => r.stale).length;
+        const annotated = claimedIds.size;
         console.log(
-            `[webpet-runner-check] OK — ${String(entries.length)} tests all have rows, CSV and JSON agree (${String(staleCount)} known-stale).`,
+            `[webpet-runner-check] OK — ${String(entries.length)} tests all have rows ` +
+                `(${String(annotated)} annotated, ${String(entries.length - annotated)} structural), ` +
+                `CSV and JSON agree (${String(staleCount)} known-stale).`,
         );
         return;
     }
@@ -311,39 +561,65 @@ function runSync() {
     }
 
     const authored = loadAuthoredRows();
+    const authoredById = new Map(authored.filter((r) => r.id).map((r) => [r.id, r]));
     const authoredByKey = new Map(authored.map((r) => [rowKey(r), r]));
-    const discoveredKeys = new Set(entries.map((e) => e.key));
 
-    const newEntries = entries.filter((e) => !authoredByKey.has(e.key));
-    const staleRows = authored.filter((r) => !discoveredKeys.has(rowKey(r)));
-
-    const nextId = nextIdAllocator(authored);
-    const testCases = entries.map((e) => {
-        const prior = authoredByKey.get(e.key);
-        return {
-            id: prior?.id || nextId(),
-            file: e.file,
-            title: e.title,
-            enabled: prior ? prior.enabled !== false : true,
-            testCaseId: prior?.testCaseId ?? '',
-            notes: prior?.notes ?? '',
-        };
+    // Id first, structural key second — see the header. A conversion commit that
+    // retitles AND annotates matches on the id and keeps every human-owned
+    // column; one that only retitles still matches structurally.
+    const matched = new Set();
+    const resolved = entries.map((entry) => {
+        const prior =
+            (entry.annotationId && authoredById.get(entry.annotationId)) ||
+            authoredByKey.get(entry.key) ||
+            null;
+        if (prior) matched.add(prior);
+        return { entry, prior };
     });
+
+    const staleRows = authored.filter((r) => !matched.has(r));
+    const nextId = nextIdAllocator(authored);
+
+    const testCases = resolved.map(({ entry, prior }) => ({
+        id: prior?.id || entry.annotationId || nextId(),
+        // script-owned
+        file: entry.file,
+        titlePath: entry.titlePath,
+        testTitle: entry.testTitle,
+        tags: entry.tags,
+        // human-owned (defaults only on first sight)
+        caseKey: prior?.caseKey ?? '',
+        module: prior?.module || deriveModule(entry.file),
+        category: prior?.category || 'ui',
+        testName: prior?.testName ?? '',
+        testDescription: prior?.testDescription ?? '',
+        jira: prior?.jira ?? '',
+        status: prior?.status || 'lifted',
+        enabled: prior ? prior.enabled !== false : true,
+        notes: prior?.notes ?? '',
+    }));
+
     // Keep vanished rows (flagged) so a rename never silently drops a human's
-    // enabled=false / notes state — review and delete manually.
+    // enabled=0 / notes state — review and delete manually.
     for (const r of staleRows) {
         testCases.push({ ...r, stale: true });
     }
 
     writeBoth(testCases, entries.length);
+
+    const annotated = entries.filter((e) => e.annotationId).length;
+    const newRows = resolved.filter(({ prior }) => !prior).length;
     console.log(
         `[webpet-runner-sync] wrote ${String(testCases.length)} rows ` +
-            `(${String(entries.length)} live, ${String(staleRows.length)} stale, ${String(newEntries.length)} new) ` +
-            `→ webpetRunnerManager.csv + .json`,
+            `(${String(entries.length)} live, ${String(staleRows.length)} stale, ${String(newRows)} new, ` +
+            `${String(annotated)} annotated) → webpetRunnerManager.csv + .json`,
     );
+    if (fs.existsSync(IDS_DIR) || testCases.some((r) => r.caseKey)) runIds();
 }
 
-if (MIRROR_MODE) {
+if (IDS_MODE) {
+    runIds();
+} else if (MIRROR_MODE) {
     runMirror();
 } else if (CHECK_MODE) {
     runCheck();

@@ -1,7 +1,8 @@
 import { request, type APIRequestContext } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from './webpet-env';
+import { WEBPET_AUTH_DIR } from '@config/webpetPaths';
+import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/webpetEnv';
 
 /**
  * Port of the source repo's e2e/global-setup.ts (apps/web/e2e), invoked by the
@@ -11,8 +12,8 @@ import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from './webpet
  * login failure fails only the webpet project.
  *
  * Logs in as the admin (su) user and persists the resulting pt_session +
- * pt_csrf cookies to tests/webpet/.auth/storage.json; the fixtures in
- * tests/webpet/fixtures.ts load that storage state so every spec starts
+ * pt_csrf cookies to tests/webpet/.auth/storage.json; the fixture in
+ * src/fixtures/webpet.fixture.ts loads that storage state so every spec starts
  * authenticated — matching how the app bootstraps via /api/session/me.
  *
  * Differences from the source file (mechanical only):
@@ -48,12 +49,12 @@ export async function provisionWebpetAuth(): Promise<void> {
         throw new Error(
             `webpet setup: admin login failed (HTTP ${adminLoginRes.status()}) against ${API_BASE_URL} ` +
                 `as '${ADMIN_USER}'. Check E2E_ADMIN_USER / E2E_ADMIN_PASSWORD (falls back to ` +
-                `USER_NAME / PASSWORD — see support/webpet-env.ts), and make sure the stack is ` +
+                `USER_NAME / PASSWORD — see src/config/webpetEnv.ts), and make sure the stack is ` +
                 `reachable (localhost: Vite proxy + Go API running; dev: WEBPET_API_ORIGIN set).`,
         );
     }
 
-    const authDir = join(__dirname, '..', '.auth');
+    const authDir = WEBPET_AUTH_DIR;
     mkdirSync(authDir, { recursive: true });
     await adminCtx.storageState({ path: join(authDir, 'storage.json') });
 

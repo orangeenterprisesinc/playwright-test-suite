@@ -36,6 +36,10 @@ on:
         description: 'Only run webpet tests matching this pattern (e.g. employee, "Billing Center"). Blank = whole suite.'
         required: false
         default: ''
+      batch:
+        description: 'Conversion batch number, e.g. 01 — runs only @WPBatch<NN>. Takes precedence over grep. Blank = whole suite.'
+        required: false
+        default: ''
 
 concurrency:
   group: webpet-e2e-dev
@@ -85,6 +89,11 @@ jobs:
 
       - name: Checkout test suite
         uses: actions/checkout@v4
+        with:
+          # Full history + tags — the relocation audit reads each spec's
+          # pre-conversion form out of the webpet-lift-v1 tag, which a shallow
+          # clone does not fetch.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -102,21 +111,61 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # Non-blocking drift alarm — the gate is fail-open by design; see
-      # scripts/webpet-runner-sync.js.
-      - name: Validate webpet runner data (drift alarm)
-        continue-on-error: true
+      # BLOCKING. Static analysis only (no app, no discovery): catches a spec
+      # importing base.fixture — which would skip all 406 while reporting green
+      # — plus orphaned/duplicate WP ids, drifted id maps and leaked journey
+      # tags. None of those show up in a pass/fail column.
+      - name: Validate webpet ids and imports
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run webpet:ids:check
+
+      # Relocation gate — see webpet-e2e-local.yml for the rationale. Skipped
+      # rather than failed when the tag is absent (shallow clone).
+      - name: Validate webpet locator relocation
+        run: |
+          if git rev-parse --verify webpet-lift-v1 >/dev/null 2>&1; then
+            npm run webpet:audit
+          else
+            echo "::warning::webpet-lift-v1 tag not fetched — relocation audit skipped."
+          fi
+
+      # Blocking since Batch 15 (see webpet-e2e-local.yml for the full rationale):
+      # the gate is fail-open, so a test with no runner row skips silently while
+      # the run still reports green. With all 406 annotated and 0 rows structural,
+      # any drift here is a real defect, not conversion churn.
+      - name: Validate webpet runner data
         run: npm run webpet:runner:check
 
+      # NOTE: no --reporter override — that would REPLACE the configured chain
+      # and empty the html/allure artifacts uploaded below. The chain's JSON
+      # reporter already writes test-results/results.json for the diff.
       - name: Run webpet Playwright tests
         env:
           GREP: ${{ github.event.inputs.grep }}
+          BATCH: ${{ github.event.inputs.batch }}
         run: |
-          if [ -n "$GREP" ]; then
-            echo "Filtering to: $GREP"
-            npx playwright test --project=webpet --grep "$GREP"
+          FILTER="$GREP"
+          if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
+          if [ -n "$FILTER" ]; then
+            echo "Filtering to: $FILTER"
+            npx playwright test --project=webpet --grep "$FILTER"
           else
             npx playwright test --project=webpet
+          fi
+
+      # Report-only: dev is a triage baseline, not a gate (its DB is not the
+      # seeded DelLlano and the suite mutates dev data), so a delta here is
+      # information rather than a failure.
+      - name: Diff against the committed dev baseline
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -f src/data/webpet/baselines/dev.json ] && [ -f test-results/results.json ]; then
+            npm run webpet:diff -- src/data/webpet/baselines/dev.json test-results/results.json
+          else
+            echo "::warning::No dev baseline manifest yet — see tests/webpet/README.md 'Baselines'."
           fi
 
       - name: Restore Allure history

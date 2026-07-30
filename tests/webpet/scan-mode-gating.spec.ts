@@ -7,12 +7,8 @@
  * not registered in auth.ModuleKeys — see docs/04-operating-system/OPEN_QUESTIONS.md,
  * WEBPET-900 / WEBPET-904).
  *
- * Gating matrix (from src/app/router/AppRouter.tsx):
- *   - Inventory module:        /scan/{purchase,usage,physical-count,transfer-from,transfer-to}
- *   - Traceability module:     /scan/{field-traceability,warehouse-traceability}
- *   - LabelTraceability module:/scan/{run-in,run-out,run-piece-count,run-projection,
- *                                     run-tracking,assign-barcode-roll,assign-employee-crew}
- *   - ungated (any auth user):  /scan, foundation Time & Crew + Driver routes
+ * The gating matrix lives in `src/data/webpet/scanRoutes.ts` — shared with
+ * `scan-mode.spec.ts`, which iterates the same ungated list.
  *
  * RequireModule renders the screen when modules[module] === true, otherwise <Navigate to="/">.
  * Module entitlement comes from the live session and can resolve to false for every key until
@@ -22,83 +18,76 @@
  * gate absent. The ungated-route assertion is strict: the screen must render, no redirect.
  *
  * Requires the web app running and the admin auth storage state from global-setup.
+ *
+ * ## Framework alignment (Batch 13) — the loop-id contract
+ *
+ * All 25 tests are generated from the route tables, so their `testCaseId`
+ * annotations cannot be literals. They come from
+ * `src/data/webpet/ids/scanModeGatingIds.ts`, which is **generated** from the
+ * `caseKey` column of the runner CSV (`npm run webpet:runner:ids`).
+ *
+ * The tables are `as const`, so every segment is a literal and every map index
+ * below is checked at **compile time**. An unchecked index would yield
+ * `undefined`, the annotation would be empty, and the runner gate would silently
+ * skip the test while the suite still reported green.
  */
-import { test, expect } from './fixtures'
+import { expect, test } from '@fixtures/webpet.fixture';
+import { GATED_SCAN_ROUTES, UNGATED_SCAN_ROUTES } from '@data/webpet/scanRoutes';
+import { scanModeGatingIds } from '@data/webpet/ids/scanModeGatingIds';
 
-const GATED_ROUTES: { segment: string; module: string }[] = [
-  { segment: 'purchase', module: 'Inventory' },
-  { segment: 'usage', module: 'Inventory' },
-  { segment: 'physical-count', module: 'Inventory' },
-  { segment: 'transfer-from', module: 'Inventory' },
-  { segment: 'transfer-to', module: 'Inventory' },
-  { segment: 'field-traceability', module: 'Traceability' },
-  { segment: 'warehouse-traceability', module: 'Traceability' },
-  { segment: 'run-in', module: 'LabelTraceability' },
-  { segment: 'run-out', module: 'LabelTraceability' },
-  { segment: 'run-piece-count', module: 'LabelTraceability' },
-  { segment: 'run-projection', module: 'LabelTraceability' },
-  { segment: 'run-tracking', module: 'LabelTraceability' },
-  { segment: 'assign-barcode-roll', module: 'LabelTraceability' },
-  { segment: 'assign-employee-crew', module: 'LabelTraceability' },
-]
+test.describe('Scan Mode — module gating is wired on gated routes (WEBPET-908)', { tag: ['@WebPet', '@wp-scan', '@WPBatch13'] }, () => {
+    for (const { segment, module } of GATED_SCAN_ROUTES) {
 
-const UNGATED_ROUTES = [
-  'time-in',
-  'time-out',
-  'piece-out',
-  'time-card',
-  'paid-break',
-  'meal',
-  'crew-time-in',
-  'crew-time-out',
-  'crew-piece-out',
-  'driver-time-in',
-  'driver-time-out',
-]
+        test(`[Scan] Verify that /scan/${segment} is gated by the ${module} module.`, {
+            tag: ['@wp-ui', '@wp-regression'],
+            annotation: { type: 'testCaseId', description: scanModeGatingIds[`gated:${segment}`] },
+        }, async ({ page, pages }) => {
+            const screen = pages.scanScreen;
+            await screen.gotoSegment(segment);
+            // The redirect (when the module is off) is synchronous on first render, so give the
+            // app a beat to settle, then read where we landed.
+            await page.waitForLoadState('networkidle').catch(() => {});
 
-test.describe('Scan Mode — module gating is wired on gated routes (WEBPET-908)', () => {
-  for (const { segment, module } of GATED_ROUTES) {
-    test(`/scan/${segment} is gated by the ${module} module`, async ({ page }) => {
-      await page.goto(`/scan/${segment}`)
-      // The redirect (when the module is off) is synchronous on first render, so give the
-      // app a beat to settle, then read where we landed.
-      await page.waitForLoadState('networkidle').catch(() => {})
+            if (screen.isOnSegment(segment)) {
+                // Module enabled → a scan screen rendered on this route. Not every scan screen
+                // has a #scan-input: the run-* label-traceability screens (run-out / piece-count
+                // / projection / tracking) are read/compute screens with their own controls, not
+                // barcode-entry screens. Assert the shared scan-screen shell rendered via its
+                // page-header <h1> title (set by every ScanScreenLayout), which is uniform across
+                // both input and compute screens.
+                await expect(screen.pageHeading).toBeVisible();
+            } else {
+                // Module disabled → RequireModule redirected away from the gated path.
+                // The gate is wired (the proof this slice needs); we are no longer on /scan/<segment>.
+                expect(page.url()).not.toMatch(new RegExp(`/scan/${segment}$`));
+            }
+        });
 
-      const onGatedRoute = new RegExp(`/scan/${segment}$`).test(page.url())
-      if (onGatedRoute) {
-        // Module enabled → a scan screen rendered on this route. Not every scan screen
-        // has a #scan-input: the run-* label-traceability screens (run-out / piece-count
-        // / projection / tracking) are read/compute screens with their own controls, not
-        // barcode-entry screens. Assert the shared scan-screen shell rendered via its
-        // page-header <h1> title (set by every ScanScreenLayout), which is uniform across
-        // both input and compute screens.
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-      } else {
-        // Module disabled → RequireModule redirected away from the gated path.
-        // The gate is wired (the proof this slice needs); we are no longer on /scan/<segment>.
-        expect(page.url()).not.toMatch(new RegExp(`/scan/${segment}$`))
-      }
-    })
-  }
-})
+    }
+});
 
-test.describe('Scan Mode — foundation routes are ungated (WEBPET-908)', () => {
-  for (const segment of UNGATED_ROUTES) {
-    test(`/scan/${segment} renders for any authenticated user (no module redirect)`, async ({
-      page,
-    }) => {
-      await page.goto(`/scan/${segment}`)
-      await page.waitForLoadState('networkidle').catch(() => {})
-      // Strict: ungated screens must render and must not have been redirected away.
-      await expect(page).toHaveURL(new RegExp(`/scan/${segment}$`))
-      // Foundation screens carry a scan input. KNOWN APP BUG on the driver screens
-      // (driver-time-in / driver-time-out): they render both the normal ScanInput and
-      // a LicenseDecodePanel ScanInput, and ScanInput hardcodes id="scan-input" — so
-      // two elements share that id (invalid HTML / duplicate DOM id). `.first()` keeps
-      // this test asserting "a scan input rendered" without tripping strict-mode on the
-      // duplicate; the id collision itself is a src-side defect to fix in ScanInput
-      // (make the id unique per instance, e.g. derive from testId). Reported separately.
-      await expect(page.locator('#scan-input').first()).toBeVisible()
-    })
-  }
-})
+test.describe('Scan Mode — foundation routes are ungated (WEBPET-908)', { tag: ['@WebPet', '@wp-scan', '@WPBatch13'] }, () => {
+    for (const segment of UNGATED_SCAN_ROUTES) {
+
+        test(`[Scan] Verify that /scan/${segment} renders for any authenticated user with no module redirect.`, {
+            tag: ['@wp-ui', '@wp-regression'],
+            annotation: { type: 'testCaseId', description: scanModeGatingIds[`ungated:${segment}`] },
+        }, async ({ page, pages }) => {
+            const screen = pages.scanScreen;
+            await screen.gotoSegment(segment);
+            await page.waitForLoadState('networkidle').catch(() => {});
+            // Strict: ungated screens must render and must not have been redirected away.
+            await expect(page).toHaveURL(new RegExp(`/scan/${segment}$`));
+            // Foundation screens carry a scan input. KNOWN APP BUG on the driver screens
+            // (driver-time-in / driver-time-out): they render both the normal ScanInput and
+            // a LicenseDecodePanel ScanInput, and ScanInput hardcodes id="scan-input" — so
+            // two elements share that id (invalid HTML / duplicate DOM id). `anyScanInput`
+            // takes `.first()`, which keeps this test asserting "a scan input rendered"
+            // without tripping strict-mode on the duplicate; the id collision itself is a
+            // src-side defect to fix in ScanInput (make the id unique per instance, e.g.
+            // derive from testId). Reported separately.
+            await expect(screen.anyScanInput).toBeVisible();
+        });
+
+    }
+});

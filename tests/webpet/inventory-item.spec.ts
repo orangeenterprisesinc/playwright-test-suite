@@ -1,18 +1,25 @@
-import { test, expect } from './fixtures';
+/**
+ * Smoke test for PET-215: list page resolves the real DataTable, not the
+ * InventoryStubPage placeholder. Header-only scope; the InventoryCenterItem
+ * junction-table grid is deferred until a follow-up that wires it on both
+ * InventoryCenterFormPage and InventoryItemFormPage simultaneously.
+ *
+ * Framework-aligned (Batch 04): locators live in InventoryListPage.
+ */
+import { expect, test } from '@fixtures/webpet.fixture';
 
-// Smoke test for PET-215: list page resolves the real DataTable, not the
-// InventoryStubPage placeholder. Header-only scope; the InventoryCenterItem
-// junction-table grid is deferred until a follow-up that wires it on both
-// InventoryCenterFormPage and InventoryItemFormPage simultaneously.
+test.describe('Inventory > Inventory Item', { tag: ['@WebPet', '@wp-setup', '@wp-inventory', '@WPBatch04'] }, () => {
 
-test.describe('Inventory > Inventory Item', () => {
-  test('list page navigates to /setup/inventory/items and is no longer the stub', async ({
-    page,
-  }) => {
-    await page.goto('/setup/inventory/items');
-    await expect(page.getByTestId('inventory-stub-page')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Inventory Items' })).toBeVisible();
-    // Create affordance is a Button-as-link (role=button); target the anchor by href.
-    await expect(page.locator('a[href$="/setup/inventory/items/new"]').first()).toBeVisible();
-  });
+    test('[Inventory] Verify that the Inventory Item list page renders and is no longer the stub.', {
+        tag: ['@wp-ui', '@wp-smoke'],
+        annotation: { type: 'testCaseId', description: 'WP-0215' },
+    }, async ({ pages }) => {
+        const list = pages.inventoryItemList;
+        await list.goto();
+        await expect(list.stubPage).toHaveCount(0);
+        await expect(list.heading).toBeVisible();
+        // Create affordance is a Button-as-link (role=button); target the anchor by href.
+        await expect(list.newLink).toBeVisible();
+    });
+
 });
