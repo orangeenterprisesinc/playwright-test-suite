@@ -7,7 +7,7 @@
  * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A1 |
  * | Plan | `specs/journey-a/a01-user-setup.md` |
  * | Recording | `Testing video/journey-a/a01-user-setup.mp4` |
- * | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`…`A1-005` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`…`A1-006` |
  *
  * Authenticated flow (File ▸ Administration ▸ Users). These tests run logged in
  * via the shared `.auth/user.json` storage state, so there is no login flow here —
@@ -90,8 +90,11 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     // re-creation.
 
     test('[User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.', {
-        tag: ['@UI', '@E2E', '@Smoke', '@Local'],
-        annotation: { type: 'testCaseId', description: 'A1-001' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-001' },
+            { type: 'requirement', description: 'A1-R1|A1-R2|A1-R7|A1-R8' },
+        ],
     }, async ({ usersPage, cleanup }) => {
         // ── Create a new user with all fields (as in the reference video) ──
         // createUser walks the real sidebar menu (File ▸ Administration ▸ Users)
@@ -126,8 +129,11 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     });
 
     test('[User Setup] Verify that an administrator user can be created with all fields populated and appears in the Users list.', {
-        tag: ['@UI', '@Smoke', '@Local'],
-        annotation: { type: 'testCaseId', description: 'A1-002' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-002' },
+            { type: 'requirement', description: 'A1-R1|A1-R2' },
+        ],
     }, async ({ usersPage, cleanup }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.all_fields_role,
@@ -149,8 +155,11 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     });
 
     test('[User Setup] Verify that a user can be created with only the required fields.', {
-        tag: ['@UI', '@Local'],
-        annotation: { type: 'testCaseId', description: 'A1-003' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-003' },
+            { type: 'requirement', description: 'A1-R1' },
+        ],
     }, async ({ usersPage, cleanup }) => {
         const user = await createUser(usersPage, makeUser({
             role: userData.defaults.required_only_role,
@@ -161,10 +170,17 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         await expectUserListed(usersPage, user);
     });
 
-    test('[User Setup] Verify that every Role option is selectable and a user can be created with a non-administrator role.', {
-        tag: ['@UI', '@Local'],
-        annotation: { type: 'testCaseId', description: 'A1-004' },
-    }, async ({ usersPage, cleanup }) => {
+    // A1-R6 is a guard on the Role dropdown's contents, not a business path, so
+    // it stops at @Regression. It creates nothing and needs no cleanup. The
+    // non-administrator *creation* this test used to also perform is A1-006
+    // below — one outcome per case.
+    test('[User Setup] Verify that every Role option is offered in the documented order.', {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-004' },
+            { type: 'requirement', description: 'A1-R6' },
+        ],
+    }, async ({ usersPage }) => {
         await usersPage.gotoUsersList();
         await usersPage.openNewUserForm();
 
@@ -177,22 +193,21 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         for (const role of userData.roles) {
             await expect(usersPage.roleOption(role)).toBeEnabled();
         }
+    });
 
-        // Select a non-administrator role and create the user.
-        const user = makeUser({ role: userData.defaults.creatable_role });
-        await usersPage.roleOption(user.role).click();
-        await usersPage.nameInput.fill(user.name);
-        await usersPage.passwordInput.fill(user.password);
-        await usersPage.initialsInput.fill(user.initials);
-        await usersPage.emailInput.fill(user.email);
-
-        let outcome = await usersPage.submit();
-        for (let attempt = 0; outcome === 'duplicate-initials' && attempt < 5; attempt++) {
-            user.initials = randomInitials();
-            await usersPage.initialsInput.fill(user.initials);
-            outcome = await usersPage.submit();
-        }
-        expect(outcome, 'user should be created with a unique Initials').toBe('created');
+    // The same creation rule as A1-002/A1-003 (A1-R1), exercised with a role
+    // other than Administrator. `expectUserListed` asserts the Role shown in the
+    // grid row, which is what proves the non-administrator role was persisted.
+    test('[User Setup] Verify that a user can be created with a non-administrator role.', {
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-006' },
+            { type: 'requirement', description: 'A1-R1' },
+        ],
+    }, async ({ usersPage, cleanup }) => {
+        const user = await createUser(usersPage, makeUser({
+            role: userData.defaults.creatable_role,
+        }));
         cleanup.track('user', user.name);
 
         await expect(usersPage.userCreatedToast).toBeVisible();
@@ -202,8 +217,11 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     });
 
     test('[User Setup] Verify that creating a user with an Initials value already in use is rejected.', {
-        tag: ['@UI', '@Local', '@negative'],
-        annotation: { type: 'testCaseId', description: 'A1-005' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-005' },
+            { type: 'requirement', description: 'A1-R4|A1-R5' },
+        ],
     }, async ({ page, usersPage, cleanup }) => {
         // Seed a user so we have a known, in-use Initials value.
         const seed = await createUser(usersPage, makeUser({ role: userData.defaults.all_fields_role }));

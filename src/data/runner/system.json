@@ -11,6 +11,9 @@
                 "high-level",
                 "regression"
             ],
+            "req": [
+                "UI-R1"
+            ],
             "status": "automated",
             "enabled": true
         },
@@ -21,8 +24,11 @@
             "testTitle": "Login fails with an invalid password",
             "testDescription": "Verify login is rejected when the username is valid but the password is wrong, and the invalid-credentials error is shown.",
             "tags": [
-                "high-level",
                 "regression"
+            ],
+            "req": [
+                "UI-R2",
+                "UI-R3"
             ],
             "status": "automated",
             "enabled": true
@@ -34,8 +40,11 @@
             "testTitle": "Login fails with an invalid username",
             "testDescription": "Verify login is rejected when the username is invalid, and the invalid-credentials error is shown.",
             "tags": [
-                "high-level",
                 "regression"
+            ],
+            "req": [
+                "UI-R2",
+                "UI-R3"
             ],
             "status": "automated",
             "enabled": true
@@ -48,6 +57,10 @@
             "testDescription": "Verify login is rejected when both the username and password are invalid, and the invalid-credentials error is shown.",
             "tags": [
                 "regression"
+            ],
+            "req": [
+                "UI-R2",
+                "UI-R3"
             ],
             "status": "automated",
             "enabled": true

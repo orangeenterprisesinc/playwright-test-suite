@@ -17,15 +17,62 @@
  *
  * A row with `enabled: 0` and no spec is a **reservation** — the backlog entry
  * for a workflow not yet recorded — and is reported, not failed.
+ *
+ * It also owns the **tag and requirement contract**, because the CSV `tags`
+ * column and the tags Playwright actually greps are two different systems and
+ * had silently drifted apart: nine rows claimed `regression` while `@Regression`
+ * appeared in no spec at all, so `--grep=@Regression` selected nothing. The CSV
+ * is the source of truth and these rules keep the spec honest to it:
+ *
+ *   - the only tags a test may carry are the tier chain (`@Smoke`, `@HighLevel`,
+ *     `@Regression`) plus `@Demo` — category lives in the folder, environment in
+ *     TEST_ENV, and scope in segments/modules, so a tag repeating any of those
+ *     is a fourth copy of a fact nothing validates
+ *   - the tiers nest: every test is `@Regression`; `@Smoke` implies `@HighLevel`
+ *   - a spec's tier tags must equal the ones its CSV row declares
+ *   - at most one `@Smoke` per spec file — the happy path, and only it
+ *   - a row a spec claims must cite at least one EARS requirement in `req`, that
+ *     requirement must exist in a plan under `specs/`, and the spec's
+ *     `requirement` annotation must agree with the row
  */
 'use strict';
 
 const {
-    runnerFileNames, readCsv, readJson, toJsonText, allRows, loadCatalog, loadScopes, specClaims,
+    runnerFileNames, readCsv, readJson, toJsonText, allRows, loadCatalog, loadScopes,
+    specClaims, specTests, planRequirements,
 } = require('./lib/runner-data');
 
 const CATEGORIES = ['ui', 'api', 'workflow'];
 const STATUSES = ['draft', 'specced', 'ticketed', 'automated'];
+
+/** CSV tier value → the tag Playwright greps for it. Widest tier first. */
+const TIERS = [
+    ['regression', '@Regression'],
+    ['high-level', '@HighLevel'],
+    ['smoke', '@Smoke'],
+];
+const TIER_VALUES = TIERS.map(([value]) => value);
+const TIER_TAG = new Map(TIERS);
+
+const TIER_TAG_SET = new Set(TIERS.map(([, tag]) => tag));
+
+/** Tags a `test()` may carry beyond the tier chain. */
+const EXTRA_TEST_TAGS = new Set(['@Demo']);
+
+/** Tags a `test.describe()` may carry: the journey, the workflow, or @System. */
+const SUITE_TAG = /^@(?:Journey[A-F]|[A-F]\d{1,2}|System)$/;
+
+/**
+ * The tier tags a row's `tags` column implies, narrowest first — the order the
+ * specs write them in (`['@Smoke', '@HighLevel', '@Regression']`). Only used for
+ * reporting; the comparison itself is order-insensitive.
+ */
+function expectedTierTags(row) {
+    return [...TIER_VALUES]
+        .reverse()
+        .filter((tier) => (row.tags ?? []).includes(tier))
+        .map((tier) => TIER_TAG.get(tier));
+}
 
 const errors = [];
 const warnings = [];
@@ -90,6 +137,26 @@ function main() {
         for (const module of row.modules ?? []) {
             if (!knownModules.has(module)) fail(`${where}: unknown module '${module}'`);
         }
+
+        // Tiers: only the three known values, and they nest.
+        const tiers = row.tags ?? [];
+        for (const tag of tiers) {
+            if (!TIER_VALUES.includes(tag)) {
+                fail(`${where}: unknown tag '${tag}' — the tags column holds tiers only (${TIER_VALUES.join(', ')})`);
+            }
+        }
+        if (!tiers.includes('regression')) {
+            fail(`${where}: every row runs in regression — 'regression' is missing from tags`);
+        }
+        if (tiers.includes('smoke') && !tiers.includes('high-level')) {
+            fail(`${where}: 'smoke' implies 'high-level' — the tiers nest`);
+        }
+
+        for (const id of row.req ?? []) {
+            if (!/^(?:[A-F]\d{1,2}|UI)-R\d+$/.test(id)) {
+                fail(`${where}: req '${id}' must look like 'A1-R4' or 'UI-R2'`);
+            }
+        }
     }
 
     // ── Row ⇄ spec binding ──────────────────────────────────────────────
@@ -126,6 +193,86 @@ function main() {
     for (const [id, specs] of claims) {
         if (!seen.has(id)) {
             fail(`No runner row for testCaseId '${id}' claimed by ${specs.join(', ')} — add a row or drop the annotation`);
+        }
+    }
+
+    // ── Tags, tiers and requirements ────────────────────────────────────
+    // The CSV is the source of truth; the spec must agree with it. Without this
+    // the two tag systems drift and a `--grep` silently selects nothing.
+    const requirements = planRequirements();
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const smokeByFile = new Map();
+    const suiteTagsChecked = new Set();
+
+    for (const specTest of specTests()) {
+        const where = `${specTest.file} [${specTest.testCaseId ?? specTest.title}]`;
+
+        if (!suiteTagsChecked.has(specTest.file)) {
+            suiteTagsChecked.add(specTest.file);
+            for (const tag of specTest.suiteTags) {
+                if (!SUITE_TAG.test(tag)) {
+                    fail(`${specTest.file}: describe tag '${tag}' — a describe carries @Journey<X>, @<WF> or @System`);
+                }
+            }
+        }
+
+        for (const tag of specTest.tags) {
+            if (!TIER_TAG_SET.has(tag) && !EXTRA_TEST_TAGS.has(tag)) {
+                fail(
+                    `${where}: tag '${tag}' is not selectable — a test carries the tier chain ` +
+                    `(${[...TIER_TAG_SET].join(', ')}) and optionally @Demo. Category is the folder, ` +
+                    `environment is TEST_ENV, scope is segments/modules.`,
+                );
+            }
+        }
+
+        if (specTest.tags.includes('@Smoke')) {
+            smokeByFile.set(specTest.file, [...(smokeByFile.get(specTest.file) ?? []), specTest.testCaseId]);
+        }
+
+        if (!specTest.testCaseId) {
+            fail(`${where}: test has no testCaseId annotation — every test binds to a runner row`);
+            continue;
+        }
+
+        const row = rowsById.get(specTest.testCaseId);
+        if (!row) continue; // already reported by the claims check above
+
+        const sorted = (list) => [...list].sort().join('|');
+
+        const expected = expectedTierTags(row);
+        const actual = specTest.tags.filter((tag) => TIER_TAG_SET.has(tag));
+        if (sorted(expected) !== sorted(actual)) {
+            fail(
+                `[${row.id}]: tags '${(row.tags ?? []).join('|') || '(none)'}' expect ` +
+                `${expected.join(' ') || '(none)'} but the spec has ${actual.join(' ') || '(none)'} (${specTest.file})`,
+            );
+        }
+
+        if (row.demo && !specTest.tags.includes('@Demo')) {
+            fail(`[${row.id}]: row is demo=1, so the test must carry @Demo (${specTest.file})`);
+        }
+
+        const rowReqs = row.req ?? [];
+        if (!rowReqs.length) {
+            fail(`[${row.id}]: claimed by a spec but cites no requirement — fill the 'req' column`);
+        }
+        for (const id of rowReqs) {
+            if (!requirements.has(id)) {
+                fail(`[${row.id}]: requirement '${id}' is declared in no plan under specs/`);
+            }
+        }
+        if (sorted(rowReqs) !== sorted(specTest.requirements)) {
+            fail(
+                `[${row.id}]: requirement annotation '${specTest.requirements.join('|') || '(none)'}' ` +
+                `disagrees with the row's req '${rowReqs.join('|') || '(none)'}' (${specTest.file})`,
+            );
+        }
+    }
+
+    for (const [file, ids] of smokeByFile) {
+        if (ids.length > 1) {
+            fail(`${file}: ${ids.length} tests carry @Smoke (${ids.join(', ')}) — one per file, and it is the happy path`);
         }
     }
 

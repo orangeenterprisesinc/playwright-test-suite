@@ -20,6 +20,12 @@
                 "high-level",
                 "regression"
             ],
+            "req": [
+                "A1-R1",
+                "A1-R2",
+                "A1-R7",
+                "A1-R8"
+            ],
             "status": "automated",
             "enabled": false
         },
@@ -39,9 +45,12 @@
                 "Network"
             ],
             "tags": [
-                "smoke",
                 "high-level",
                 "regression"
+            ],
+            "req": [
+                "A1-R1",
+                "A1-R2"
             ],
             "status": "automated",
             "enabled": false
@@ -65,6 +74,9 @@
                 "high-level",
                 "regression"
             ],
+            "req": [
+                "A1-R1"
+            ],
             "status": "automated",
             "enabled": false
         },
@@ -73,9 +85,9 @@
             "workflow": "A1",
             "journey": "A",
             "category": "ui",
-            "testName": "everyRoleSelectableCreateNonAdmin",
-            "testTitle": "Every Role option is selectable and a non-administrator user can be created",
-            "testDescription": "Verify that every Role option is selectable and a user can be created with a non-administrator role.",
+            "testName": "everyRoleOfferedInDocumentedOrder",
+            "testTitle": "Every Role option is offered in the documented order",
+            "testDescription": "Verify that the Role dropdown offers exactly the 17 documented options, in the documented order, each one selectable. A guard against an option being added, removed or reordered.",
             "segments": [
                 "all"
             ],
@@ -84,8 +96,10 @@
                 "Network"
             ],
             "tags": [
-                "high-level",
                 "regression"
+            ],
+            "req": [
+                "A1-R6"
             ],
             "status": "automated",
             "enabled": false
@@ -107,6 +121,35 @@
             ],
             "tags": [
                 "regression"
+            ],
+            "req": [
+                "A1-R4",
+                "A1-R5"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A1-006",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createUserWithNonAdministratorRole",
+            "testTitle": "Create a user with a non-administrator role",
+            "testDescription": "Verify that a user can be created with a role other than Administrator and appears in the Users list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A1-R1"
             ],
             "status": "automated",
             "enabled": false
