@@ -83,6 +83,11 @@ export enum ConfigProperties {
     /** "owner" label applied to every test in the Allure report (env: `ALLURE_OWNER`, default `QA`) */
     ALLURE_OWNER = 'ALLURE_OWNER',
 
+    /* ── S3 Report Upload ────────────────────────────── */
+
+    /** Public URL of this run's uploaded artifacts, injected by CI (env: `REPORT_S3_URL`) */
+    REPORT_URL = 'REPORT_S3_URL',
+
     /* ── ELK Dashboard Notification ───────────────────── */
 
     /** Whether to push the run summary to ELK — `'yes'`/`'no'` (env: `SEND_RESULT_ELK`) */

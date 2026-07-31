@@ -209,15 +209,23 @@ The framework uses environment-specific configuration files in the project root:
 
 | File | Purpose |
 |------|---------|
-| `env.local` | Local environment (default) |
-| `env.dev` | Development environment |
-| `env.qa` | QA environment |
+| `env.local` | Local environment (default) — `http://localhost:3000` |
+| `env.dev` | DEV / staging — `https://app.ptdev.xyz`. **No credentials**: it's committed, so `USER_NAME`/`PASSWORD` come from CI secrets or your shell |
+| `env.qa` | QA environment (placeholder URL until a QA deployment exists) |
+
+These files are committed and hold no secrets. A gitignored `.env` is loaded first as a shared base for
+personal overrides (SMTP credentials, local passwords). Precedence, highest first
+(`src/config/envLoader.ts`): **OS/CI environment variables → `env.<TEST_ENV>` → `.env`**. An exported
+variable always wins, which is how CI secrets override a committed env file without any code change.
 
 Switch environments by setting `TEST_ENV`:
 
 ```bash
-# Run tests against the dev environment
+# Run tests against the dev/staging environment (https://app.ptdev.xyz)
 TEST_ENV=dev npm test
+
+# ...supplying credentials that env.dev deliberately omits
+USER_NAME=su PASSWORD='...' npm run test:dev
 
 # Run tests against QA
 TEST_ENV=qa npm test
@@ -744,14 +752,17 @@ npm run report:allure:open
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the suite on push to `main`, a daily schedule, manual dispatch, and `repository_dispatch` (triggered externally by the app repo).
+`.github/workflows/e2e.yml` runs the suite against the **DEV/staging deployment at `https://app.ptdev.xyz`** on push to `main`, twice daily (4:00 PM and 6:00 PM IST), manual dispatch, and `repository_dispatch` (triggered externally by the app repo).
 
 ```yaml
 on:
   push:
     branches: [main]
   schedule:
+    # UTC only — IST is UTC+5:30. Best-effort: GitHub can delay a run by
+    # several minutes. Schedules fire only from the default branch.
     - cron: '30 10 * * *'   # 4:00 PM IST
+    - cron: '30 12 * * *'   # 6:00 PM IST
   workflow_dispatch:
   repository_dispatch:
     types: [run-playwright]
@@ -760,8 +771,13 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TEST_ENV: dev                                  # selects env.dev
+      USER_NAME: ${{ secrets.PW_USER_NAME }}
+      PASSWORD: ${{ secrets.PW_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+      - run: ...                           # preflight: fail fast if secrets are empty
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - uses: actions/setup-java@v4        # required by allure-commandline
@@ -775,11 +791,20 @@ jobs:
         if: always()
 ```
 
+**How the target is chosen.** The workflow sets only `TEST_ENV: dev`; the URL itself comes from
+[`env.dev`](env.dev) (`BASE_URL=https://app.ptdev.xyz`). Change the target there, not in the workflow.
+Credentials are never in that committed file — they arrive as job env from the `PW_USER_NAME` /
+`PW_PASSWORD` repo secrets, and `envLoader`'s precedence (OS/CI vars beat every env file) makes them win
+automatically. A preflight step fails the run with a named error if either secret is empty, rather than
+letting it die as an opaque login timeout inside `tests/auth.setup.ts`.
+
 **CI-specific behavior:**
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
+- `concurrency: e2e-${{ github.ref }}` with `cancel-in-progress` — a push or app-repo dispatch cancels an in-flight run on the same ref
 - Email/Slack/ELK notifications stay off unless their repo variables (`SEND_EMAIL`, `SEND_SLACK`, `SEND_RESULT_ELK`) are explicitly set to `yes`
+- Optional S3 mirror of `test-results/` when the `SEND_S3` repo variable is `yes` (see the workflow's AWS steps)
 
 ---
 
@@ -796,10 +821,13 @@ jobs:
 | **Slack** | Incoming Webhook | Self-gating (`SEND_SLACK=yes`); posts pass/fail/flaky/skipped summary |
 | **ELK Dashboard** | HTTP POST to `ELK_URL` | Self-gating (`SEND_RESULT_ELK=yes`); pushes a JSON run summary |
 
-**Automatic artifacts on failure:**
-- 📸 Screenshot capture
-- 🎥 Video recording (on first retry)
-- 📋 Trace file (on first retry)
+**Automatic artifacts** (see `use` in `playwright.config.ts`):
+- 📸 Screenshot — `'on'`: captured for **every** test, so Allure has visual context on passes too
+- 🎥 Video — `'on'`: recorded for **every** test
+- 📋 Trace — `'retain-on-failure'`: kept only for failing tests
+
+Full capture is deliberate, but it is the main driver of artifact size on the twice-daily CI runs. To
+trim it, switch `video`/`screenshot` to `'retain-on-failure'`.
 
 ---
 

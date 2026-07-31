@@ -1,24 +1,30 @@
 name: E2E
 
-# Runs the Playwright suite against whatever BASE_URL resolves to via the
-# framework's own env loading (env.<TEST_ENV> + .env — see src/config/envLoader.ts).
-# No app is booted here: this repo's own env.<name> files (or CI secrets) are
-# the single source of truth for the target URL. Point BASE_URL at a real
-# dev/QA/staging environment there, not in this workflow.
+# Runs the Playwright suite against the DEV/staging deployment at
+# https://app.ptdev.xyz. The target is set by TEST_ENV: dev below, which makes
+# the framework's env loading read env.dev (see src/config/envLoader.ts).
+# No app is booted here: env.dev is the single source of truth for the URL —
+# change the target there, not in this workflow. Credentials never live in that
+# committed file; they come from the PW_USER_NAME/PW_PASSWORD secrets set as
+# job env below, which take precedence over any env file.
 #
 # Need to run against a real localhost instead? See e2e-local.yml, which
 # boots the app from a Docker image (APP_IMAGE repo variable) and runs the
 # suite against http://localhost:3000.
 #
-# Runs on push to main, a daily 4pm IST schedule, manual dispatch, and
-# repository_dispatch (fired externally, e.g. when the app repo pushes code).
+# Runs on push to main, twice-daily schedules (4pm + 6pm IST), manual dispatch,
+# and repository_dispatch (fired externally, e.g. when the app repo pushes code).
 on:
   push:
     branches: [main]
   schedule:
-    # 4:00 PM IST = 10:30 AM UTC (IST is UTC+5:30). GitHub's cron scheduler
-    # runs in UTC always — adjust this if IST's offset ever changes.
-    - cron: '30 10 * * *'
+    # IST is UTC+5:30 and GitHub's cron scheduler runs in UTC always — adjust
+    # both entries if IST's offset ever changes. GitHub's scheduler is
+    # best-effort and can delay a run by several minutes under load, so treat
+    # these as "around 4pm/6pm", not exact. Scheduled runs only fire from the
+    # repository's default branch.
+    - cron: '30 10 * * *' # 4:00 PM IST
+    - cron: '30 12 * * *' # 6:00 PM IST
   workflow_dispatch:
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
@@ -39,8 +45,12 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # Accept either secret naming scheme: PW_-prefixed, or the plain
-      # USERNAME/PASSWORD secrets that actually exist in the repo today.
+      # Selects env.dev (BASE_URL=https://app.ptdev.xyz). envLoader never
+      # overrides an existing OS/CI variable, so the secrets below win over
+      # anything an env file sets — which is why env.dev holds no credentials.
+      TEST_ENV: dev
+      # PW_USER_NAME / PW_PASSWORD are the canonical secret names; the plain
+      # USERNAME/PASSWORD fallbacks cover older secrets still in the repo.
       USER_NAME: ${{ secrets.PW_USER_NAME || secrets.USERNAME }}
       PASSWORD: ${{ secrets.PW_PASSWORD || secrets.PASSWORD }}
       # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
@@ -58,10 +68,29 @@ jobs:
       #     variable unset the reporter logs one line and does nothing. ---
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
+      #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
+      #     With SEND_S3 unset, every AWS step below is skipped and the Slack
+      #     message shows no S3 link. Uses a report bucket distinct from the
+      #     app's MinIO S3_BUCKET. ---
+      SEND_S3: ${{ vars.SEND_S3 || 'no' }}
+      S3_REPORT_BUCKET: ${{ vars.S3_REPORT_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
     steps:
       - name: Checkout test suite
         uses: actions/checkout@v4
+
+      # Fail fast and legibly on missing secrets, before the ~2min of npm ci and
+      # browser installs. tests/auth.setup.ts reads process.env.USER_NAME! — a
+      # non-null assertion — so without this check an unset secret surfaces as an
+      # opaque 20s login timeout instead of an error naming the cause. The echo
+      # also records in every run's log which environment it actually hit.
+      - name: Verify staging target and credentials
+        run: |
+          test -n "$USER_NAME" || { echo "::error::USER_NAME is empty — set the PW_USER_NAME repo secret"; exit 1; }
+          test -n "$PASSWORD"  || { echo "::error::PASSWORD is empty — set the PW_PASSWORD repo secret"; exit 1; }
+          echo "TEST_ENV=$TEST_ENV  BASE_URL(from env.$TEST_ENV)=$(grep '^BASE_URL=' "env.$TEST_ENV" | cut -d= -f2-)"
 
       - uses: actions/setup-node@v4
         with:
@@ -78,6 +107,17 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      # Computed BEFORE the test run so the Playwright process — and thus the
+      # Slack reporter (which posts in its onEnd, before the sync step below) —
+      # sees REPORT_S3_URL. The path is deterministic, so the link is valid once
+      # the "Upload test-results to S3" step finishes seconds later.
+      - name: Compute S3 report location
+        if: env.SEND_S3 == 'yes'
+        run: |
+          PREFIX="automation-reports/tiger-web/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
+          echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
+          echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
 
       - name: Run Playwright tests
         run: npx playwright test
@@ -116,3 +156,19 @@ jobs:
         with:
           name: allure-report
           path: allure-report
+
+      # Publish the raw test-results (traces, videos, screenshots, results.json)
+      # to a public S3 bucket so a Slack reader can open them directly, without
+      # logging into the Actions UI. Deterministic per-run prefix; bucket must
+      # allow public read on automation-reports/* (bucket policy, not ACLs).
+      - name: Configure AWS credentials
+        if: always() && env.SEND_S3 == 'yes'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload test-results to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync test-results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress

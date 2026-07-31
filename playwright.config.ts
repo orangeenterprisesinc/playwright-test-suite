@@ -104,7 +104,7 @@ export default defineConfig({
         // complete step-by-step debugging. To trim artifact size/time, switch
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
         screenshot: 'on',
-        trace: 'on',
+        trace: 'retain-on-failure',
         video: 'on',
     },
 
@@ -120,11 +120,23 @@ export default defineConfig({
 
         {
             name: 'chromium',
+            // API specs run in their own browserless `api` project below; ignore
+            // them here so they don't double-run (and needlessly pull in
+            // auth-setup / browser storageState) under the browser project.
+            testIgnore: '**/tests/api/**',
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: '.auth/user.json',
             },
             dependencies: ['auth-setup'],
+        },
+
+        // API-only specs (tests/api/*.spec.ts). No browser, no storageState, and
+        // no auth-setup dependency — src/fixtures/api.fixture.ts creates its own
+        // request context and applies the configured AUTH_TYPE strategy itself.
+        {
+            name: 'api',
+            testDir: './tests/api',
         },
 
         // Enable more browsers by uncommenting; each reuses the shared

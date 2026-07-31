@@ -66,6 +66,8 @@ export interface RunSummary {
     finishedAt: string;
     /** CI run URL, or empty string when not running in CI. */
     runUrl: string;
+    /** Public URL of this run's uploaded artifacts (S3), or empty string when not uploaded. */
+    reportUrl: string;
     /** Only the unexpected (failed) records, for the failures section. */
     failures: TestRecord[];
     /** Every test record. */
@@ -209,6 +211,7 @@ export class RunSummaryCollector {
             nodeVersion: process.version,
             finishedAt: new Date().toISOString(),
             runUrl: resolveRunUrl(),
+            reportUrl: getConfigValue(ConfigProperties.REPORT_URL, ''),
             failures: records.filter((r) => r.outcome === 'unexpected'),
             records,
         };

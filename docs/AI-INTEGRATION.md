@@ -29,6 +29,8 @@ existing suite on the first pass.
 | **`data-driven-testing`** | Adding/editing data-driven tests | Manages `runnerManager.json` / `runnerManager.csv` rows and the `testCaseId` / `testCaseName` fixtures. Enforces the **read-directly rule**: JSON runs from JSON, CSV from CSV — *no conversion step*. |
 | **`tdd`** | Building a new module test-first | Drives a red → green cycle: write the failing spec from acceptance criteria first, then build the page objects/fixtures to make it pass. |
 | **`jira-to-script`** | "Automate PROJ-123" | End-to-end pipeline: fetch the story via the Jira MCP → plan against the live app → generate the spec → run it → heal any failures. Chains the three agents below. |
+| **`annotate-video`** | You have a screen recording of a manual journey | Stage 1 of the video pipeline: runs the UI detector over the recording and writes timestamped annotations plus rendered keyframes to `.video-annotations/<slug>/`. Stops there. See §4. |
+| **`annotations-to-script`** | You have annotator output and want a spec | Stage 2: reads the annotations *and* keyframes, drafts a plan under `specs/`, pauses for confirmation, then generates → runs → heals via the agents below. |
 
 **Why skills matter:** without them, a general LLM would invent its own
 structure. With them, the AI writes tests the way *this* repo already does —
@@ -62,6 +64,93 @@ locators and waits reflect the actual DOM rather than guesses.
 |--------|---------|----------|
 | **`playwright-test`** | `node node_modules/@playwright/test/cli.js run-test-mcp-server` | Real-browser tools the agents call: `browser_snapshot`, `browser_click`, `browser_type`, `browser_generate_locator`, `test_run`, `test_debug`, `generator_write_test`, and more. |
 | **`jira`** | `uvx mcp-atlassian` | Reads Jira stories for `jira-to-script`. Needs `JIRA_URL`, `JIRA_USERNAME`, `JIRA_API_TOKEN` (prompted as MCP inputs). |
+
+---
+
+## 4. Video annotator (`tools/video-annotator/`)
+
+A recorded manual journey is the other common starting point besides a ticket.
+`tools/video-annotator/annotate_video.py` turns a screen recording into
+timestamped, structured UI annotations that `/annotations-to-script` reads.
+
+The pipeline is split into two skills on purpose — annotation is a slow CPU job
+over a file, generation is an interactive job against a live app, and the two
+are usually run at different times:
+
+```
+/annotate-video "Testing video/"
+      ▼
+.video-annotations/<slug>/{annotations.json, frames/}
+      ▼
+/annotations-to-script ".video-annotations/<slug>/"
+      ▼
+specs/<slug>.md  →  (you confirm)  →  generator → run → healer
+      ▼
+tests/ui/<module>.spec.ts
+```
+
+| Stage | What it does |
+|-------|--------------|
+| **Frame-diff** | Finds the frames where the screen actually changed. A 3-minute 30fps clip has ~5,400 frames but only ~40–120 moments where anything happened. |
+| **Forced sampling** | Typing moves a few dozen pixels — below any threshold that is not pure noise. `--max-gap-ms` samples on a timer through quiet stretches, so a form-filling step cannot silently vanish. On the reference recording this recovered a 20-second hole that earlier settings missed entirely. |
+| **Targeting** | Each keyframe records `change_region`, the bounding box of the pixels that moved. That says *where on the frame* to look; the rendered image says what is there. |
+
+Invoke it with `npm run video:annotate -- --input "<video>"`; output goes to
+`.video-annotations/<slug>/`. A typed programmatic API lives in `src/video/`
+for use from fixtures or specs. Local use needs a one-time ~170 MB Python
+bootstrap; CI uses the container instead. `tools/video-annotator/README.md`
+covers setup, tuning and Docker.
+
+> **There is no object detector.** Earlier versions ran a YOLOv8 UI-element
+> model and emitted bounding boxes. It was removed after measurement: every fact
+> in the resulting plans came from reading the frame image or from
+> `change_region`, never from a box. It was also 90% of the install (1,727 MB →
+> 171 MB), drew ~110 boxes per frame over the on-screen text a reader needs, and
+> carried an AGPL-3.0 obligation via `ultralytics`. Removing it left keyframe
+> selection byte-identical on the reference recording and halved the runtime.
+
+**The two stages have opposite automation properties**, which is why they are
+separate skills rather than one:
+
+| | Stage 1 — `/annotate-video` | Stage 2 — `/annotations-to-script` |
+|---|---|---|
+| Needs Claude | no | **yes** — reads the frames |
+| Needs the live app | no | **yes** — locators come from the real DOM |
+| Deterministic | yes | no |
+| Human gate | none | **yes, by design** |
+| **Runs in CI** | **yes** | **no** |
+
+Stage 1 runs unattended via `.github/workflows/annotate-video.yml` on a stock
+`ubuntu-latest` runner, publishing the annotations as an artifact. It is pure
+Python + OpenCV with no Windows dependency, so there is nothing to provision and
+no contention with the e2e workflow over this machine's ports and database. Stage 2
+stays local: automating it would mean removing the confirmation gate that exists
+to catch a misread frame before it becomes a wrong assertion.
+
+So the operating model is **upload → CI annotates → engineer runs stage 2 with
+review**. The only requirement on whoever records the journey is that the file be
+**MP4 (H.264)**.
+
+**Where the boundary sits:** the annotator reports *when* the screen changed and
+*where on the frame*, never what a control is called or that it was clicked. A
+coordinate carries no label. The reading happens in the skill, from the rendered
+keyframes; the real locator comes from the generator agent driving the live DOM.
+No pixel coordinate ever reaches a spec file.
+
+**The Playwright agents never read `annotations.json` or the frames.** They have
+no vision and do not parse detector output — their input is the markdown plan
+in `specs/`. Claude consumes the annotator output, and needs *both* parts of it:
+the JSON carries timing and change regions, the PNG carries the labels. This is
+why `/annotations-to-script` takes a directory, not a file.
+
+Two findings from the first real run are worth knowing, since both are now
+baked into the defaults. **Cursor matching is off** — synthetic templates
+false-positived on 100% of frames, always snapping to the same three coordinates
+while the real pointer was elsewhere, and a wrong cursor position points at the
+wrong control; targeting uses `change_region` instead. And **typing is invisible
+to frame-diff**, so quiet stretches are force-sampled on a timer
+(`--max-gap-ms`); without that, a 20-second form-filling step produced no
+keyframe at all.
 
 ---
 
@@ -114,5 +203,24 @@ pipeline as any hand-written spec.
     ├── ui-script-generator/SKILL.md       # chat scenario → conforming spec
     ├── data-driven-testing/SKILL.md       # runnerManager rows + fixtures
     ├── tdd/SKILL.md                       # red → green module build
-    └── jira-to-script/SKILL.md            # ticket → plan → generate → run → heal
+    ├── jira-to-script/SKILL.md            # ticket → plan → generate → run → heal
+    ├── annotate-video/SKILL.md            # stage 1: recording → annotations
+    └── annotations-to-script/SKILL.md     # stage 2: annotations → plan → spec
+
+tools/video-annotator/
+├── annotate_video.py                      # frame-diff → keyframes + change regions
+├── make_cursors.py                        # cursor match templates (opt-in)
+├── requirements.txt                       # opencv + numpy only
+├── Dockerfile                             # ~330 MB image used by CI
+└── README.md                              # bootstrap, tuning, Docker
+
+.github/workflows/
+├── annotator-image.yml                    # build + push the image to GHCR
+└── annotate-video.yml                     # stage 1 in CI (ubuntu-latest)
+
+src/video/                                 # typed bridge to the annotator
+├── types.ts
+├── videoProcessor.ts
+└── index.ts
+scripts/annotate-video.js                  # npm run video:annotate
 ```

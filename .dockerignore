@@ -20,3 +20,18 @@ logs/
 .git/
 .github/
 .claude/
+
+# Video annotator — none of this belongs in the Playwright image's build
+# context, and the venv alone is ~1.7 GB, which the daemon would otherwise
+# transfer on every `npm run docker:build`. The annotator has its own
+# Dockerfile at tools/video-annotator/Dockerfile, built from that directory
+# as its own context.
+tools/video-annotator/.venv/
+tools/video-annotator/cursors/
+.video-annotations/
+
+# Source recordings and SQL backups — gitignored, large, and never needed by
+# any image.
+Testing video/
+db backup/
+*.bak

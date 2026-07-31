@@ -30,6 +30,21 @@ the Playwright test agents (planner / generator / healer).
    Save the plan under `specs/<ISSUE-KEY>-<slug>.md` with a link back to
    the Jira key.
 
+   **Follow the plan format in `specs/README.md`** — read it before writing, with
+   `specs/journey-a1-user-setup.annotator-run1.md` as a worked example. Every
+   requirement is numbered (`R1`, `R2`, …) and states both what happens and what
+   the system does about it.
+
+   Jira ACs are usually prose or a checklist — restate each one with both halves
+   present rather than copying it across. Ambiguity becomes visible the moment you
+   try: an AC you cannot state as an action plus a specific expected result is
+   under-specified, and that is a question for the ticket author, not something to
+   guess at.
+
+   Negative and edge cases carry the coverage stories rarely spell out — the
+   planner agent should explore the live app for failure paths the ACs omit and add
+   them as numbered requirements.
+
 3. **Generate** — invoke the `playwright-test-generator` agent per planned
    scenario. Generated code MUST follow the repo conventions in
    `/ui-script-generator` (standard test structure, page-object fixtures,

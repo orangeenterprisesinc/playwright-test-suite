@@ -27,6 +27,13 @@ logs/
 #Testing context
 Testing video/
 
+# Video annotator — generated keyframes/JSON, the Python venv, and the optional
+# generated cursor templates. All reproducible: see
+# tools/video-annotator/README.md.
+.video-annotations/
+tools/video-annotator/.venv/
+tools/video-annotator/cursors/
+
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
 # which requires it.
 

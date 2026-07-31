@@ -208,6 +208,28 @@ This framework reads test data **directly from its source — JSON runs from JSO
 
 `TestCaseData` fields: `id`, `testName`, `testTitle`, `testDescription?`, `shouldComplete`, `expectedCount`, `tags?`, `enabled`.
 
+### Working from a test plan
+
+When the scenario comes from a plan in `specs/` (see `specs/README.md` for the
+format) rather than from chat, map the parts directly:
+
+| Part of the plan | Becomes |
+|---|---|
+| Preconditions | Fixture, storage state, or a setup step |
+| The action | The action in the test body |
+| A negative case's wrong input | That test's setup |
+| The expected result | The `expect(...)` assertions |
+
+**One requirement → one test.** Put the requirement number in the test's
+`annotation: { type: 'testCaseId', description: '...' }` (or a comment where a
+runner row already owns that field) so traceability survives into the code.
+
+Two checks before you finish: every requirement number appears in exactly one
+test, and no test exists that does not trace to one. If the plan has a **Not
+established** section, do not write tests for those items — they are open
+questions, and inventing an assertion for one is worse than leaving the gap
+visible.
+
 ### Rule-based generation logic
 
 1. Choose the target file under `tests/<module>` — update an existing spec if the scenario belongs there; create a new module folder only when needed

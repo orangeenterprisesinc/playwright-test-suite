@@ -1,0 +1,334 @@
+name: Watch Drive folder
+
+# Polls a Google Drive folder and dispatches one `annotate-video` run per new
+# recording, so whoever records a journey only has to drop the file in a folder.
+#
+# ── Correctness lives in the state file, not in the cron cadence ─────────────
+# GitHub's scheduler is best-effort: runs are routinely delayed 10-30 minutes and
+# can be dropped entirely. So this does NOT ask "what changed since last time" —
+# it compares the folder against a set of file ids in
+# `state/seen.json` on the `drive-state` branch. A delayed run, a dropped run, or
+# a three-day outage all resolve identically: the next poll dispatches whatever
+# is not in the set.
+#
+# The state file is committed through the Contents API with the blob `sha`, which
+# returns 409 on a stale sha. That is a real compare-and-swap, which is why this
+# is used in preference to actions/cache (evicted after 7 days and on LRU, so it
+# would silently re-dispatch) or repo variables (no `variables: write` permission
+# exists; it needs an admin-scoped PAT and offers no CAS).
+#
+# The commit is also repository activity, which keeps GitHub from auto-disabling
+# this schedule after 60 days of inactivity on a public repo.
+#
+# ── One-time setup ──────────────────────────────────────────────────────────
+#   1. Create the state branch (an orphan, so it carries none of main's history):
+#        git switch --orphan drive-state
+#        mkdir -p state && echo '{"version":1,"seen":{}}' > state/seen.json
+#        git add state/seen.json && git commit -m "drive-watch: init state"
+#        git push -u origin drive-state && git switch main
+#   2. Add secret GDRIVE_SA_KEY (the service-account JSON key) and variable
+#      GDRIVE_FOLDER_ID (from the folder URL). See docs/AI-INTEGRATION.md.
+#   3. Run this workflow manually once with `seed_only: true`. That records
+#      everything already in the folder WITHOUT dispatching, so a folder with a
+#      back catalogue does not fire a hundred annotate runs on first contact.
+
+on:
+  schedule:
+    # :07 and :37 — deliberately off the top of the hour, where the scheduler
+    # queue spikes and runs are most often delayed or dropped.
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+    inputs:
+      seed_only:
+        description: 'Record everything currently in the folder as seen, dispatch nothing (first-run bootstrap)'
+        required: false
+        default: false
+        type: boolean
+      max_dispatch:
+        description: 'Maximum annotate runs to dispatch this poll'
+        required: false
+        default: '10'
+        type: string
+
+concurrency:
+  group: drive-watch
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  poll:
+    name: Poll for new recordings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Covers both the state-file commit and POST /dispatches. No PAT needed:
+      # repository_dispatch is one of the two documented exceptions to the rule
+      # that GITHUB_TOKEN cannot trigger another workflow.
+      contents: write
+
+    env:
+      STATE_BRANCH: drive-state
+      STATE_PATH: state/seen.json
+      GDRIVE_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+      MAX_DISPATCH: ${{ inputs.max_dispatch || '10' }}
+      SEED_ONLY: ${{ inputs.seed_only && 'yes' || 'no' }}
+      # 500 MB — anything larger will not finish inside annotate-video's
+      # 20-minute timeout, so flag it rather than burning a run on it.
+      MAX_SIZE_BYTES: '524288000'
+      # Keep the most recent N ids. Pruning is by count, not age, deliberately:
+      # Drive returns fractional seconds in createdTime, which jq's `fromdate`
+      # rejects, and ISO-8601 strings sort chronologically anyway. The cap exists
+      # because the Contents API only returns inline content below 1 MB.
+      KEEP_IDS: '5000'
+
+    steps:
+      - name: 'Guard: configuration present'
+        env:
+          HAS_KEY: ${{ secrets.GDRIVE_SA_KEY != '' && 'yes' || 'no' }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_KEY" != yes ]; then
+            echo "::error::Secret GDRIVE_SA_KEY is not set. See the one-time setup at the top of this workflow."
+            exit 1
+          fi
+          if [ -z "${GDRIVE_FOLDER_ID:-}" ]; then
+            echo "::error::Variable GDRIVE_FOLDER_ID is not set. See the one-time setup at the top of this workflow."
+            exit 1
+          fi
+
+      # create_credentials_file:false — the default writes the raw key JSON into
+      # the workspace as gha-creds-*.json, and .gitignore has no entry for it.
+      #
+      # access_token_scopes is REQUIRED. The action defaults to cloud-platform,
+      # and a token without the Drive scope 403s on every call with
+      # insufficientScopes — which looks like a permissions problem on the folder.
+      #
+      # TODO: pin to a commit SHA — third-party action handling a credential:
+      #   gh api repos/google-github-actions/auth/git/ref/tags/v2 --jq .object.sha
+      - name: Authenticate to Google
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GDRIVE_SA_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive.readonly
+          create_credentials_file: false
+          export_environment_variables: false
+
+      - name: Read state
+        id: state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/$STATE_PATH?ref=$STATE_BRANCH"
+          CODE=$(curl -sS -o "$RUNNER_TEMP/state.raw" -w '%{http_code}' \
+                   -H "Authorization: Bearer $GH_TOKEN" \
+                   -H 'Accept: application/vnd.github+json' \
+                   -H 'X-GitHub-Api-Version: 2022-11-28' "$URL")
+          case "$CODE" in
+            200)
+              # The API returns line-wrapped base64; strip newlines before decoding.
+              jq -r '.content' "$RUNNER_TEMP/state.raw" | tr -d '\n' | base64 -d > "$RUNNER_TEMP/state.json"
+              echo "sha=$(jq -r '.sha' "$RUNNER_TEMP/state.raw")" >> "$GITHUB_OUTPUT" ;;
+            404)
+              echo "::notice::No state file yet — treating the folder as unseen. Run with seed_only:true first if it has a back catalogue."
+              echo '{"version":1,"seen":{}}' > "$RUNNER_TEMP/state.json"
+              echo "sha=" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::Could not read $STATE_PATH on branch $STATE_BRANCH (HTTP $CODE). Has the branch been created? See the one-time setup."
+              exit 1 ;;
+          esac
+          jq -r '"known ids: \(.seen | length)"' "$RUNNER_TEMP/state.json"
+
+      - name: List candidate recordings
+        id: list
+        env:
+          DRIVE_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+
+          # createdTime floor is an OPTIMISATION, never the dedupe — seen.json
+          # decides. It only keeps a historical back catalogue out of the result
+          # set after a seed run.
+          FLOOR=$(jq -r '.bootstrapped_at // empty' "$RUNNER_TEMP/state.json")
+
+          # mimeType equality, not `contains "video/"`: webm and mkv match that
+          # and then die inside OpenCV. Google-Docs files and shortcuts are
+          # excluded by construction, since alt=media 403s on both.
+          Q="'${GDRIVE_FOLDER_ID}' in parents and trashed = false"
+          Q="$Q and (mimeType = 'video/mp4' or mimeType = 'video/quicktime')"
+          if [ -n "$FLOOR" ]; then
+            Q="$Q and createdTime > '${FLOOR}'"
+          fi
+
+          : > "$RUNNER_TEMP/pages.ndjson"
+          PAGE=''
+          while : ; do
+            ARGS=(
+              -sS --fail-with-body --get
+              -H "Authorization: Bearer $DRIVE_TOKEN"
+              --data-urlencode "q=$Q"
+              --data-urlencode 'fields=nextPageToken,files(id,name,mimeType,size,createdTime,md5Checksum)'
+              --data 'pageSize=200'
+              --data 'spaces=drive'
+              # BOTH are required. Without them a folder that lives on a Shared
+              # Drive returns HTTP 200 with an empty list — no error, no hint.
+              --data 'supportsAllDrives=true'
+              --data 'includeItemsFromAllDrives=true'
+            )
+            if [ -n "$PAGE" ]; then
+              ARGS+=( --data-urlencode "pageToken=$PAGE" )
+            fi
+            curl "${ARGS[@]}" 'https://www.googleapis.com/drive/v3/files' > "$RUNNER_TEMP/page.json"
+            cat "$RUNNER_TEMP/page.json" >> "$RUNNER_TEMP/pages.ndjson"
+            printf '\n' >> "$RUNNER_TEMP/pages.ndjson"
+            PAGE=$(jq -r '.nextPageToken // empty' "$RUNNER_TEMP/page.json")
+            [ -n "$PAGE" ] || break
+          done
+
+          jq -s '[.[] | .files[]?]' "$RUNNER_TEMP/pages.ndjson" > "$RUNNER_TEMP/all.json"
+
+          # Sorted locally: Drive silently ignores orderBy for several q/corpora
+          # combinations, so server-side ordering is not dependable.
+          # md5Checksum is a secondary key so a re-upload of identical bytes under
+          # a new file id is skipped, while a rename never re-triggers.
+          jq -n \
+            --slurpfile state "$RUNNER_TEMP/state.json" \
+            --slurpfile found "$RUNNER_TEMP/all.json" \
+            --argjson maxsize "$MAX_SIZE_BYTES" \
+            --argjson cap "$MAX_DISPATCH" '
+              ($state[0].seen // {})              as $seen
+            | ([$seen[] | .md5 // empty])          as $md5s
+            | $found[0]
+            | map(select($seen[.id] == null))
+            | map(select(.md5Checksum as $m | $m == null or ($md5s | index($m)) == null))
+            | map(select(((.size // "0") | tonumber) <= $maxsize))
+            | sort_by(.createdTime)
+            | .[:$cap]
+          ' > "$RUNNER_TEMP/new.json"
+
+          COUNT=$(jq 'length' "$RUNNER_TEMP/new.json")
+          TOTAL=$(jq 'length' "$RUNNER_TEMP/all.json")
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          # Ids and sizes only. Run logs on a public repo are world-readable, and
+          # Drive file names routinely carry a customer or ticket identifier.
+          echo "$TOTAL candidate(s) in folder, $COUNT new"
+          jq -r '.[] | "  new: \(.id)  \(.size // "?") bytes  \(.createdTime)"' "$RUNNER_TEMP/new.json"
+
+          OVERSIZE=$(jq -n --slurpfile s "$RUNNER_TEMP/state.json" --slurpfile f "$RUNNER_TEMP/all.json" \
+            --argjson maxsize "$MAX_SIZE_BYTES" \
+            '($s[0].seen // {}) as $seen | $f[0] | map(select($seen[.id] == null))
+             | map(select(((.size // "0") | tonumber) > $maxsize)) | length')
+          if [ "$OVERSIZE" != "0" ]; then
+            echo "::warning::$OVERSIZE new file(s) skipped for exceeding $MAX_SIZE_BYTES bytes; they will not finish inside annotate-video's 20-minute timeout. Trim the recording or raise both limits."
+          fi
+
+      # Dispatch BEFORE marking, deliberately. A failed mark costs at most one
+      # duplicate annotate run — free on a public repo, visible, harmless. A
+      # failed dispatch after a successful mark loses the recording silently and
+      # permanently. Choose the failure mode you can see.
+      #
+      # client_payload carries the file id only: no token, no file name. The
+      # payload is retained in the event record and any step in any workflow
+      # could print it into a public log.
+      - name: Dispatch annotate-video per new recording
+        if: steps.list.outputs.count != '0' && env.SEED_ONLY != 'yes'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          while read -r ID; do
+            jq -n --arg id "$ID" \
+              '{event_type:"annotate-video",
+                client_payload:{drive_file_id:$id, source:"drive-watch"}}' \
+            | curl -sS --fail-with-body -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H 'Accept: application/vnd.github+json' \
+                -H 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/dispatches" -d @-
+            echo "dispatched $ID"
+          done < <(jq -r '.[].id' "$RUNNER_TEMP/new.json")
+
+      - name: Commit state (compare-and-swap)
+        if: steps.list.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHA='${{ steps.state.outputs.sha }}'
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          ADDED=$(jq 'length' "$RUNNER_TEMP/new.json")
+
+          for ATTEMPT in 1 2 3; do
+            jq -n \
+              --slurpfile state "$RUNNER_TEMP/state.json" \
+              --slurpfile new "$RUNNER_TEMP/new.json" \
+              --arg now "$NOW" \
+              --argjson keep "$KEEP_IDS" '
+                $state[0] as $s
+              | ($s.seen // {}) as $seen
+              | ($new[0] | map({key: .id, value: {t: .createdTime, md5: .md5Checksum}}) | from_entries) as $add
+              | $s
+                + { updated_at: $now,
+                    bootstrapped_at: ($s.bootstrapped_at // $now),
+                    seen: (($seen + $add) | to_entries
+                           | sort_by(.value.t) | reverse | .[:$keep] | from_entries) }
+            ' > "$RUNNER_TEMP/next.json"
+
+            jq -n --arg c "$(base64 -w0 "$RUNNER_TEMP/next.json")" \
+                  --arg b "$STATE_BRANCH" --arg sha "$SHA" \
+                  --arg m "drive-watch: +${ADDED} seen [skip ci]" \
+              '{message:$m, content:$c, branch:$b}
+               + (if $sha == "" then {} else {sha:$sha} end)' > "$RUNNER_TEMP/put.json"
+
+            CODE=$(curl -sS -o "$RUNNER_TEMP/put.out" -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/$STATE_PATH" \
+              -d @"$RUNNER_TEMP/put.json")
+
+            if [ "$CODE" = 200 ] || [ "$CODE" = 201 ]; then
+              echo "state committed (+${ADDED} ids, $(jq '.seen | length' "$RUNNER_TEMP/next.json") total)"
+              exit 0
+            fi
+
+            if [ "$CODE" = 409 ]; then
+              # Our sha is stale: a concurrent run committed first. This is the
+              # compare-and-swap — re-read and retry rather than clobber it.
+              echo "::warning::state changed under us, re-reading (attempt $ATTEMPT)"
+              curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+                -H 'Accept: application/vnd.github+json' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/$STATE_PATH?ref=$STATE_BRANCH" \
+                -o "$RUNNER_TEMP/state.raw"
+              jq -r '.content' "$RUNNER_TEMP/state.raw" | tr -d '\n' | base64 -d > "$RUNNER_TEMP/state.json"
+              SHA=$(jq -r '.sha' "$RUNNER_TEMP/state.raw")
+              continue
+            fi
+
+            echo "::error::state write failed (HTTP $CODE)"
+            cat "$RUNNER_TEMP/put.out"
+            exit 1
+          done
+          echo "::error::Could not commit state after 3 attempts. The next poll will re-dispatch anything not recorded, so expect duplicates."
+          exit 1
+
+      - name: Summarise
+        if: always() && steps.list.outcome == 'success'
+        run: |
+          set -euo pipefail
+          {
+            echo "## Drive poll"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| New recordings | ${{ steps.list.outputs.count }} |"
+            echo "| Mode | ${SEED_ONLY:-no} |"
+            if [ "${SEED_ONLY:-no}" = yes ]; then
+              echo ""
+              echo "> Seed run — everything currently in the folder was recorded as seen and **nothing was dispatched**. Subsequent polls will only pick up files added from now on."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,136 @@
+name: Build annotator image
+
+# Builds tools/video-annotator/Dockerfile and pushes it to this repository's
+# GitHub Container Registry. annotate-video.yml then runs that image instead of
+# provisioning Python on a runner.
+#
+# Runs only when the annotator itself changes — the image is a stable artifact,
+# not something to rebuild on every commit to the test suite.
+#
+# ~330 MB (python:3.12-slim + opencv + numpy). An earlier version bundled a
+# YOLOv8 detector for ~1.9 GB; it was removed after measurement showed the
+# bounding boxes contributed nothing downstream. See the Dockerfile header.
+#
+# No secrets to configure: GITHUB_TOKEN is issued automatically and the
+# packages:write permission below is all the push needs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/video-annotator/Dockerfile'
+      - 'tools/video-annotator/requirements.txt'
+      - 'tools/video-annotator/annotate_video.py'
+      - 'tools/video-annotator/make_cursors.py'
+      - '.github/workflows/annotator-image.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: annotator-image
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/video-annotator
+
+jobs:
+  build:
+    name: Build and push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` for convenience, `sha-<commit>` so a run can be pinned to an
+      # exact build when reproducing a result months later.
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # context is the annotator directory, not the repo root — see the
+      # Dockerfile header. tools/video-annotator/.dockerignore keeps a local
+      # developer venv (~1.7 GB) out of the transfer.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/video-annotator
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A build that pushes a broken image is worse than a failed build, because
+      # annotate-video.yml would then fail confusingly at run time. Prove the
+      # entrypoint starts and cv2 imports — the most likely breakage is a
+      # missing libGL/libglib in the base layer.
+      - name: Smoke-test the pushed image
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_NAME}:latest"
+          docker run --rm --entrypoint python "$IMAGE" -c \
+            "import cv2, numpy; print('cv2', cv2.__version__, '| numpy', numpy.__version__)"
+          docker run --rm "$IMAGE" --help | head -5
+
+      # Reports TWO sizes, because both numbers are correct and the difference is
+      # why this repo carries contradictory size claims. `docker image inspect`
+      # reports the UNCOMPRESSED size of the local image; GHCR's UI shows the
+      # COMPRESSED layer total it actually stores, which is roughly half. A reader
+      # comparing against either source needs to know which one they're looking at.
+      #
+      # `docker image inspect` only resolves here because the smoke-test step above
+      # ran `docker run`, which pulled the image into the local store.
+      # build-push-action with `push: true` builds through buildx and does NOT load
+      # the result locally — move this step before the smoke test and the inspect
+      # fails with "No such image". The compressed lookup goes to the registry
+      # instead, so it does not share that dependency.
+      - name: Report
+        run: |
+          IMAGE="${REGISTRY}/${IMAGE_NAME}:latest"
+          UNCOMPRESSED=$(docker image inspect "$IMAGE" --format '{{.Size}}' \
+            | awk '{printf "%.0f MB", $1/1024/1024}')
+
+          # Best-effort: never fail the build over a summary line. Guarded with an
+          # explicit `if` rather than `&&` because `run:` uses `bash -e`, where a
+          # trailing short-circuited test would exit the step.
+          COMPRESSED=""
+          if RAW=$(docker buildx imagetools inspect "$IMAGE" --raw 2>/dev/null); then
+            # `.layers // []` rather than `.layers[]`: a multi-arch build returns an
+            # index with `manifests` and no `layers`, and iterating null is a jq
+            # error. This yields empty instead, so the row reads "unavailable".
+            BYTES=$(printf '%s' "$RAW" | jq -r '(.layers // []) | map(.size) | add // empty' 2>/dev/null || true)
+            if [ -n "$BYTES" ]; then
+              COMPRESSED=$(awk -v b="$BYTES" 'BEGIN {printf "%.0f MB", b/1024/1024}')
+            fi
+          fi
+
+          {
+            echo "## Annotator image published"
+            echo ""
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo ""
+            echo "| Measured as | Size |"
+            echo "|---|---|"
+            echo "| Uncompressed (local, docker image inspect) | ${UNCOMPRESSED} |"
+            echo "| Compressed (what GHCR stores and displays) | ${COMPRESSED:-unavailable} |"
+          } >> "$GITHUB_STEP_SUMMARY"

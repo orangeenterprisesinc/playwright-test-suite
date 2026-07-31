@@ -140,6 +140,10 @@ function buildPayload(summary: RunSummary): { text: string; attachments: unknown
         blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${summary.runUrl}|Open the CI run →>  _(full video & trace in artifacts)_` } });
     }
 
+    if (summary.reportUrl) {
+        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${summary.reportUrl}|Open test artifacts on S3 →>` } });
+    }
+
     return {
         // `text` is the fallback shown in notifications / unfurl previews.
         text: `${headerText} — ${summary.passed} passed, ${summary.failed} failed, ${summary.flaky} flaky, ${summary.skipped} skipped`,

@@ -24,13 +24,17 @@
         "required_only_role": "Clerk",
         "creatable_role": "Report Viewer",
         "password": "Passw0rd!23",
-        "language": "__none__"
+        "language": "__none__",
+        "access_to_reverse": "All"
     },
     "personal_info": {
         "first_name": "Journey",
         "middle_name": "A1",
         "last_name": "Tester",
         "title": "HR Manager"
+    },
+    "permissions": {
+        "additional_access": ["View Confidential Data", "View SSN", "Can Modify Locked Job Cards"]
     },
     "messages": {
         "user_created": "User created",
