@@ -1,13 +1,10 @@
 /**
  * @fileoverview Variety list — `/setup/varieties`.
- *
- * @module pages/webpet/setup/VarietyListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class VarietyListPage
  * @extends WebpetListPage
  */
 export class VarietyListPage extends WebpetListPage {

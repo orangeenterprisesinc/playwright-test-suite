@@ -8,7 +8,7 @@
  *
  * Because every runner row now carries the catalog's `segments` and `modules`,
  * that derivation is a function instead of a static list — set `TEST_SCOPE` to a
- * file in `src/data/scopes/` and the run covers exactly that customer's
+ * file in `config/scopes/` and the run covers exactly that customer's
  * workflows, recomputed from the rows every time:
  *
  * ```bash
@@ -17,20 +17,18 @@
  *
  * Unset `TEST_SCOPE` means no filtering — every row runs, which is the default and
  * the previous behaviour.
- *
- * @module config/scope
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { Logger } from '../utils/logger';
-import { expandModules } from '../data/shared/modules';
-import { expandSegments } from '../data/shared/segments';
+import { expandModules } from '../data/static/shared/modules';
+import { expandSegments } from '../data/static/shared/segments';
 import type { TestCaseData } from '../types';
 
 const logger = new Logger('Scope');
 
 /** Directory holding the committed customer scope definitions. */
-const SCOPES_DIR = path.resolve(__dirname, '..', 'data', 'scopes');
+const SCOPES_DIR = path.resolve(__dirname, '..', '..', 'config', 'scopes');
 
 /** A customer's enabled segments and licence modules. */
 export interface CustomerScope {

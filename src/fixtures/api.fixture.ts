@@ -2,21 +2,9 @@
  * @fileoverview Standalone Playwright fixtures for API-only test specs — no
  * browser page is created. For UI (or mixed UI+API) specs, use
  * {@link ../fixtures/base.fixture} instead.
- *
- * @module fixtures/api.fixture
- *
- * @example
- * ```typescript
- * import { test } from '../../src/fixtures/api.fixture';
- *
- * test('GET /users returns 200', async ({ api }) => {
- *   const response = await api.get<{ id: number }[]>('users');
- *   api.assertStatus(response, 200);
- * });
- * ```
  */
 import { APIRequestContext, expect, test as base } from '@playwright/test';
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { buildAuthContextOptions } from '../auth/authContextFactory';
 import { executeWithAuthRetry, type HttpMethod, type RequestOptions } from '../auth/requestBuilder';
 import { Logger } from '../utils/logger';

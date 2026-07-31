@@ -1,0 +1,32 @@
+{
+  // The lint configs live under config/lint/ rather than the repo root (see
+  // docs/STRUCTURE.md), so both extensions have to be pointed at them
+  // explicitly — otherwise editors silently lint/format with tool defaults
+  // while `npm run lint` uses the real config.
+  "eslint.options": {
+    "overrideConfigFile": "config/lint/.eslintrc.json"
+  },
+  "eslint.useFlatConfig": false,
+  "eslint.validate": ["typescript"],
+  "prettier.configPath": "config/lint/.prettierrc.json",
+
+  // Formatting is a formatter's job, not a gate's (see docs/LINTING.md) — so
+  // format on save, and never let ESLint --fix rewrite code on save.
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "never"
+  },
+
+  // Run output is a single tree now; collapse it so it stops crowding the
+  // explorer, and never index it for search.
+  "files.exclude": {
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "artifacts/**": true,
+    "docker/db-backup/**": true,
+    "package-lock.json": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

@@ -4,18 +4,6 @@
  * Resolves data source paths from environment variables, with sensible
  * defaults for local development. Supports JSON and CSV sources — data is
  * always read DIRECTLY from the configured file, never converted.
- *
- * @module config/dataSource.config
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { getDataSourceConfig, getCurrentDataSourceType } from '../config/dataSource.config';
- *
- * const config = getDataSourceConfig();
- * console.log(config.type);     // 'json' | 'csv'
- * console.log(config.jsonPath); // '/absolute/path/to/runnerManager.json'
- * ```
  */
 import path from 'path';
 import { loadEnvFiles } from './envLoader';
@@ -23,17 +11,7 @@ import type {DataSourceType} from '../types';
 
 loadEnvFiles({ cwd: path.resolve(__dirname, '..', '..') });
 
-/**
- * Complete configuration for resolving test data sources.
- *
- * @interface DataSourceConfig
- * @property {DataSourceType} type - Active data source type (`'json'` | `'csv'`)
- * @property {string} runnerDir - Absolute path to the directory of per-journey runner files
- * @property {boolean} useRunnerDir - Whether to read the directory (false when a single-file override is set)
- * @property {string} jsonPath - Absolute path to a single JSON test data file (override)
- * @property {string} csvPath - Absolute path to a single CSV test data file (override)
- * @property {string} sheetName - Record-set key for readers that support one
- */
+/** Complete configuration for resolving test data sources. */
 export interface DataSourceConfig {
     type: DataSourceType;
     runnerDir: string;
@@ -61,8 +39,6 @@ export interface DataSourceConfig {
  * | `DATA_FILE_PATH_JSON` | *(unset)*            | Single JSON file override          |
  * | `DATA_FILE_PATH_CSV`  | *(unset)*            | Single CSV file override           |
  * | `DATA_SHEET_NAME`     | `'runnerManager'`    | Record-set key within each JSON    |
- *
- * @returns {DataSourceConfig} Fully resolved data source configuration
  */
 export function getDataSourceConfig(): DataSourceConfig {
     const projectRoot = path.resolve(__dirname, '..', '..');
@@ -86,13 +62,6 @@ export function getDataSourceConfig(): DataSourceConfig {
  * Returns the currently active data source type from the configuration.
  *
  * Shorthand for `getDataSourceConfig().type`.
- *
- * @returns {DataSourceType} The active data source type (`'json'` | `'csv'`)
- *
- * @example
- * ```typescript
- * const sourceType = getCurrentDataSourceType(); // 'json'
- * ```
  */
 export function getCurrentDataSourceType(): DataSourceType {
     return getDataSourceConfig().type;

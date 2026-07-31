@@ -77,8 +77,9 @@ jobs:
       # Materializes the webpet projects in every process (runner + workers).
       # Belt-and-braces with the --project=webpet CLI flag below.
       WEBPET: '1'
-      # Reporting is opt-in via repo variables (shared with the other workflows).
-      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      # workflow_dispatch-only, so no Slack message is posted — see e2e-local.yml.
+      # Email is deprecated and pinned off.
+      SEND_EMAIL: 'no'
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -87,6 +88,10 @@ jobs:
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # With both of these set the reporter uploads the Allure report into the
+      # Slack message's thread instead of posting a summary-only webhook.
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
       # apps/api config — mirrors e2e-local.yml (Windows Integrated Auth to the
       # local SQL Server Express; MinIO + Gotenberg via compose.dev.yml).
       API_PORT: '8080'
@@ -198,6 +203,16 @@ jobs:
           done
           echo "::error::playwright install failed after 3 attempts"; exit 1
 
+      # Before the test run, not after: the email and Slack reporters generate
+      # the single-file Allure report inside Playwright's onEnd, and Allure
+      # needs a JVM. Set up later, and those attachments silently degrade to
+      # "no Java runtime found".
+      - name: Set up Java (for Allure report generation)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Start MinIO + Gotenberg (compose.dev.yml)
         working-directory: app
         run: docker compose -f compose.dev.yml up -d
@@ -301,7 +316,7 @@ jobs:
         run: npm run webpet:runner:check
 
       # NOTE: deliberately no --reporter override. The configured chain already
-      # includes the JSON reporter (writing test-results/results.json, which the
+      # includes the JSON reporter (writing artifacts/results/results.json, which the
       # diff below reads) alongside html/github/allure, and the later steps
       # upload those. Passing --reporter here would REPLACE the whole chain and
       # silently empty both uploaded artifacts.
@@ -346,10 +361,10 @@ jobs:
           if [ ! -f src/data/webpet/baselines/localhost.json ]; then
             echo "::warning::No baseline manifest yet — batch acceptance cannot be verified."
             echo "Capture one: see tests/webpet/README.md 'Baselines'."
-          elif [ ! -f test-results/results.json ]; then
-            echo "::warning::No test-results/results.json — the run produced no JSON report."
+          elif [ ! -f artifacts/results/results.json ]; then
+            echo "::warning::No artifacts/results/results.json — the run produced no JSON report."
           else
-            npm run webpet:diff -- src/data/webpet/baselines/localhost.json test-results/results.json
+            npm run webpet:diff -- src/data/webpet/baselines/localhost.json artifacts/results/results.json
           fi
 
       - name: Dump app logs
@@ -377,27 +392,20 @@ jobs:
             (cd app && docker compose -f compose.dev.yml down -v)
           fi
 
-      - name: Set up Java (for Allure report generation)
-        if: always()
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
       - name: Generate Allure report
         if: always()
-        run: node scripts/generate-allure-report.js
+        run: node scripts/report/allure-generate.js
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-playwright-report
-          path: playwright-report
+          path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: webpet-allure-report
-          path: allure-report
+          path: artifacts/allure/report

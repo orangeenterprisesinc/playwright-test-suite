@@ -1,11 +1,16 @@
 ---
 name: workflow-script-generator
-description: Use when the user asks to generate or update a Playwright workflow test (a UI + API hybrid spec under tests/workflow/ that performs an action in the UI and verifies it via the API) for this repository and provides the scenario directly in chat. Encodes the repo's base.fixture + apiRequest usage, page-object reuse, auth-retry/response-assertion conventions, and data-driven rules so generated specs run without manual correction.
+description: Use when the user asks to generate or update a Playwright workflow test (a UI + API hybrid spec in tests/web/ tagged @Workflow that performs an action in the UI and verifies it via the API) for this repository and provides the scenario directly in chat. Encodes the repo's base.fixture + apiRequest usage, page-object reuse, auth-retry/response-assertion conventions, and data-driven rules so generated specs run without manual correction.
 ---
 
 ## Playwright Workflow Script Generator
 
-Generate **UI + API hybrid** specs under `tests/workflow/`: perform an action through the UI (Page Objects), then verify the resulting state via the API in the same test. This composes the two sibling skills — follow `/ui-script-generator` for the UI half and `/api-script-generator` for the API half; this skill covers how they combine.
+Generate **UI + API hybrid** specs in `tests/web/<journey>/`, tagged `@Workflow`: perform an action through the UI (Page Objects), then verify the resulting state via the API in the same test. This composes the two sibling skills — follow `/ui-script-generator` for the UI half and `/api-script-generator` for the API half; this skill covers how they combine.
+
+> **There is no `tests/workflow/` folder.** A hybrid needs the browser and `auth-setup`
+> exactly like a UI spec, so it runs under the same `chromium` project and lives in
+> `tests/web/`. What marks it as a workflow is the `@Workflow` tag and
+> `category: workflow` on its runner row — not its location.
 
 ### Role
 
@@ -17,11 +22,11 @@ When the user pastes a scenario into chat, make the **smallest runnable change s
 
 ### What makes a spec a "workflow"
 
-Put a spec in `tests/workflow/` only when it **does something in the UI and then verifies it through the API** (or vice-versa) in one test. If it is browser-only, it belongs in `tests/ui/` (`/ui-script-generator`); if it never opens a browser, it belongs in `tests/api/` (`/api-script-generator`).
+Tag a spec `@Workflow` and give its runner row `category: workflow` only when it **does something in the UI and then verifies it through the API** (or vice-versa) in one test. If it is browser-only it is a plain UI spec (`/ui-script-generator`) — same `tests/web/` folder, `category: ui`, no `@Workflow`. If it never opens a browser it belongs in `tests/api/` (`/api-script-generator`).
 
 ### Start by inspecting the repo before generating code
 
-1. Check `tests/workflow/*.spec.ts` for the nearest existing hybrid spec and copy its style
+1. Check `tests/web/**/*.spec.ts` for the nearest existing hybrid (`@Workflow`) spec and copy its style
 2. Check `src/pages/<area>/*.ts` for a page object that already models the UI half — reuse before creating
 3. Read `src/fixtures/base.fixture.ts` to confirm the `apiRequest` fixture and the page-object fixtures available
 4. Confirm the auth model the verifying endpoint needs (`AUTH_TYPE`)
@@ -35,25 +40,25 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: category first, journey second — `tests/{category}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
-  The category comes from the catalog entry's `surface`: `ui` → `tests/ui/`,
-  `device` → `tests/api/`, `calc` → `tests/workflow/`.
+- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
+  on whether a browser is needed. The category comes from the catalog entry's `surface`:
+  `ui` → `tests/web/`, `calc` → `tests/web/` (this skill's case — tag it `@Workflow`),
+  `device` → `tests/api/`.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.
 - **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.
-- **Plan first**: `specs/journey-<x>/<wf>-<slug>.md` (copy `specs/_template.md`).
+- **Plan first**: `test-plans/journey-<x>/<wf>-<slug>.md` (copy `test-plans/_template.md`).
 - **Finish with**: `npm run runner:sync && npm run runner:check`.
 
 ### Repository structure
 
-- Workflow specs: `tests/workflow/*.spec.ts` (import from `src/fixtures/base.fixture`)
+- Workflow specs: `tests/web/<journey>/*.spec.ts`, tagged `@Workflow` (import from `src/fixtures/base.fixture`)
 - Main UI fixture: `src/fixtures/base.fixture.ts` — provides page objects as fixtures **and** `apiRequest: APIRequestContext` (baseURL = `API_URL`) for the verification half
 - Page objects: `src/pages/<area>/*.ts` — grouped by app menu area (`shell/`, `admin/`, `setup/`, `processing/`, `payroll/`, `connectivity/`, `analysis/`). List+form screens extend `SetupScreenPage`; everything else extends `BasePage`; components: `src/components/*.ts` (extend `BaseComponent`)
 - Auth-retry request runner: `src/auth/requestBuilder.ts` (`executeWithAuthRetry`)
-- Response assertions: `src/utils/apiResponseUtils.ts` (`verifyJsonKeyValues`)
 - SQL setup/cleanup: `src/utils/db/cleanupRegistry.ts` (the `cleanup` fixture) for per-test teardown, over `src/utils/db/sqlClient.ts` (`runSql`, `sqlLiteral`)
-- Config/env access: `src/enums/configProperties.ts`
+- Config/env access: `src/config/configProperties.ts`
 - Runner data (`category: "workflow"`): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`); module data: `src/data/journey-<x>/<name>Data.ts`
 
 ### Authentication model
@@ -67,7 +72,6 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 ```typescript
 import { expect, test } from '../../src/fixtures/base.fixture';
 import { executeWithAuthRetry } from '../../src/auth/requestBuilder';
-import { verifyJsonKeyValues } from '../../src/utils/apiResponseUtils';
 
 test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
     test('[User Setup] Verify that a user created in the UI is retrievable via the API', async ({ usersPage, apiRequest }, testInfo) => {
@@ -77,7 +81,7 @@ test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
         // 2. Verify — resolve the entity by name/lookup at runtime, never a hardcoded id
         const res = await executeWithAuthRetry(apiRequest, 'GET', 'users', {}, testInfo);
         expect(res.status()).toBe(200);
-        expect(await verifyJsonKeyValues(res, { email: user.email })).toBeTruthy();
+        expect(JSON.stringify(await res.json())).toContain(user.email);
     });
 });
 ```
@@ -86,7 +90,7 @@ Notes:
 
 - The `testInfo` second callback arg is required for `executeWithAuthRetry` metrics — include it in the test signature
 - `apiRequest` is a raw `APIRequestContext`; `url` is relative to `API_URL` (no host, no leading `/` that escapes the base)
-- `verifyJsonKeyValues` takes the raw `APIResponse` returned by `executeWithAuthRetry` — this is the intended pairing
+- Assert bodies with Playwright's own matchers on the parsed JSON — `toMatchObject` for a known shape, `JSON.stringify(...).toContain(...)` when the nesting is unknown. There is no bespoke body-matcher util in this repo
 
 ### UI half — reuse page objects
 
@@ -97,7 +101,7 @@ Notes:
 
 ### Setup / cleanup
 
-- Prefer creating prerequisite state and cleaning up through the API when an endpoint exists; use the `cleanup` fixture for teardown when the app has no delete path — `cleanup.track('<entity>', name)`, with the entity registered in `src/data/shared/cleanupTargets.ts` (as `tests/ui/journey-a-setup/a01-user-setup.spec.ts` does for users). Do not hand-write `UPDATE … SET Deleted = 1` in a spec
+- Prefer creating prerequisite state and cleaning up through the API when an endpoint exists; use the `cleanup` fixture for teardown when the app has no delete path — `cleanup.track('<entity>', name)`, with the entity registered in `src/data/static/shared/cleanupTargets.ts` (as `tests/web/journey-a-setup/a01-user-setup.spec.ts` does for users). Do not hand-write `UPDATE … SET Deleted = 1` in a spec
 - Track created entities and remove them in `test.afterEach` so runs stay idempotent
 
 ### Avoid hardcoded values
@@ -135,7 +139,7 @@ Return only these sections (write `None` where unused):
 
 ### Self-check before responding
 
-- spec lives under `tests/workflow/`, imports from `base.fixture`, tagged `@Workflow`
+- spec lives under `tests/web/<journey>/`, imports from `base.fixture`, tagged `@Workflow`
 - it genuinely combines UI action + API verification (otherwise it belongs in `ui/` or `api/`)
 - UI half uses page-object fixtures, no inline selectors, no re-implemented login
 - API half uses `executeWithAuthRetry(apiRequest, …, testInfo)` and asserts with `verifyJsonKeyValues` / status checks

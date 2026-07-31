@@ -2,30 +2,38 @@ name: E2E
 
 # Runs the Playwright suite against the DEV STAGING deployment (app.ptdev.xyz).
 # No app is booted here — TEST_ENV=dev is pinned in the job env below, so the
-# framework's env loading (env.dev + .env — see src/config/envLoader.ts) supplies
+# framework's env loading (.env.dev + .env — see src/config/envLoader.ts) supplies
 # BASE_URL/API_URL and USER_NAME, and the DEV_PASSWORD secret supplies the
 # login password (dev-staging only — see the env block for why there is no
 # fallback to a generic PASSWORD secret).
 #
 # Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
-# and loads env.local, pointing the suite at http://localhost:3000 on a
+# and loads .env.local, pointing the suite at http://localhost:3000 on a
 # GitHub-hosted runner where nothing is listening.
 #
 # Need to run against a real localhost instead? See e2e-local.yml, which builds
 # the app from a web-pet source checkout on a self-hosted Windows runner and runs
 # the suite against http://localhost:3000.
 #
-# Runs twice daily on a schedule, on push to main, on manual dispatch, and on
-# repository_dispatch (fired externally, e.g. when the app repo pushes code).
+# This is the **User Journey** half of the daily dry run. It no longer schedules
+# itself: dry-run-daily.yml owns the 4:00 PM IST cron and calls this workflow
+# first, then webpet-e2e-dev.yml — the two must not overlap. What is left here is
+# push to main, manual dispatch, and repository_dispatch (fired externally, e.g.
+# when the app repo pushes code).
+#
+# On a scheduled run the checkout step pins `ref: dry-run`, so the dry-run branch
+# is what actually gets tested. The workflow file still has to live on main,
+# because GitHub only fires `schedule:` from the repository's default branch — a
+# cron block on dry-run itself would be accepted and then never trigger. See
+# BRANCH_OVERRIDE in the job env for how the reports are made to name dry-run
+# rather than main.
+#
+# A bare `npx playwright test` is already exactly the login + user-journey suite:
+# tests/webpet is opt-in behind WEBPET=1 / --project=webpet (see
+# playwright.config.ts), so this run excludes it without any filtering here.
 on:
   push:
     branches: [main]
-  schedule:
-    # IST is UTC+5:30 and GitHub's cron scheduler always runs in UTC — adjust
-    # both entries if IST's offset ever changes. GitHub can also start a
-    # scheduled run several minutes late under load; that's expected.
-    - cron: '30 10 * * *'   # 4:00 PM IST
-    - cron: '30 12 * * *'   # 6:00 PM IST
   workflow_dispatch:
     inputs:
       grep:
@@ -33,9 +41,27 @@ on:
         required: false
         default: ''
       scope:
-        description: 'Customer scope from src/data/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
+        description: 'Customer scope from config/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
         required: false
         default: ''
+  # Called by dry-run-daily.yml. The reusable workflow inherits the caller's
+  # event (`schedule`), which is what keeps the ref expression below and the
+  # Slack gate in src/reporting/deliver/slack/gate.ts working unchanged.
+  workflow_call:
+    inputs:
+      grep:
+        type: string
+        required: false
+        default: ''
+      scope:
+        type: string
+        required: false
+        default: ''
+      suite_name:
+        description: 'Label for the Slack report header.'
+        type: string
+        required: false
+        default: 'User Journey'
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
   # to POST /repos/orangeenterprisesinc/playwright-test-suite/dispatches) — a
@@ -44,8 +70,11 @@ on:
     types:
       - run-playwright
 
+# `github.workflow` is the CALLER's name inside a reusable workflow, so an
+# orchestrated dry run and a direct push/dispatch run land in different groups
+# and cannot cancel each other.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -55,7 +84,7 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # Selects env.dev (BASE_URL=https://app.ptdev.xyz,
+      # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
       # API_URL=https://api.ptdev.xyz/api — the API is a separate host from the
       # static SPA). Applies to every trigger above, so the repository_dispatch
       # the app repo fires also targets dev staging; localhost coverage lives in
@@ -69,11 +98,11 @@ jobs:
       # log stays readable. Set DEV_USER_NAME when dev staging's account changes;
       # leave it unset and the default below applies.
       #
-      # The 'su' default is required, NOT redundant with env.dev's USER_NAME=su:
+      # The 'su' default is required, NOT redundant with .env.dev's USER_NAME=su:
       # Actions exports a job-level env entry even when the expression resolves
       # empty, and envLoader only defers to the file value when the OS variable is
       # undefined — not when it is '' (src/config/envLoader.ts:98). Keep this
-      # default in sync with env.dev.
+      # default in sync with .env.dev.
       USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
       #
       # DEV_PASSWORD is dev-staging only, with NO fallback — mirroring
@@ -84,7 +113,7 @@ jobs:
       # auth-setup. An unset secret must fail loudly (see the guard step below)
       # rather than log in as somewhere else.
       PASSWORD: ${{ secrets.DEV_PASSWORD }}
-      # --- Test-user cleanup via SQL. env.dev sets DB_CLEANUP=yes and
+      # --- Test-user cleanup via SQL. .env.dev sets DB_CLEANUP=yes and
       #     DB_TRUSTED=no, which makes sqlClient.ts use the `mssql` driver rather
       #     than the sqlcmd CLI — a GitHub-hosted runner has neither a Windows
       #     identity to authenticate with nor sqlcmd installed. No SQLCMD_PATH
@@ -101,10 +130,20 @@ jobs:
       DB_CLIENT: ${{ vars.DB_CLIENT }}
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
-      #     'yes' and add the SMTP_*/EMAIL_* secrets to activate it. With the
-      #     variable unset the reporter logs one line and does nothing. ---
-      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      # --- Report attribution. GITHUB_REF_NAME is 'main' on a scheduled run even
+      #     though the checkout step below pins ref: dry-run, because cron only
+      #     fires from the default branch. src/context/executionContext.ts prefers
+      #     this override, so the reports (and therefore the email recipient
+      #     routing in config/notifications/recipients.csv) name the branch whose
+      #     code actually ran. Resolves to '' for every other trigger, which
+      #     detectBranch() treats as unset — Actions exports the key regardless. ---
+      BRANCH_OVERRIDE: ${{ github.event_name == 'schedule' && 'dry-run' || '' }}
+      # --- Email reporting is DEPRECATED (Slack is the primary channel), so this
+      #     is pinned off rather than reading vars.SEND_EMAIL. The reporter and the
+      #     SMTP_*/EMAIL_* secrets stay wired up: set this to 'yes' to bring email
+      #     back for a run. Recipients route per branch+trigger from
+      #     config/notifications/recipients.csv, with EMAIL_TO as the fallback. ---
+      SEND_EMAIL: 'no'
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -112,10 +151,26 @@ jobs:
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       # --- Slack notification (opt-in): set the SEND_SLACK repo variable to
-      #     'yes' and add the SLACK_WEBHOOK_URL secret to activate it. With the
-      #     variable unset the reporter logs one line and does nothing. ---
+      #     'yes' and add the SLACK_BOT_TOKEN secret + SLACK_CHANNEL_ID variable.
+      #
+      #     SLACK_BOT_TOKEN + SLACK_CHANNEL_ID are the richer route: with both
+      #     set the reporter posts via chat.postMessage and uploads the Allure
+      #     report into the message's thread (webhooks cannot carry files), and
+      #     the webhook is left unused. Bot scopes: chat:write, files:write.
+      #
+      #     On top of SEND_SLACK, slack/gate.ts only lets CI events through
+      #     (SLACK_NOTIFY_EVENTS, default `schedule`): a push, a manual dispatch or
+      #     a repository_dispatch run posts NOTHING. Set SLACK_NOTIFY_EVENTS to the
+      #     event you are testing with to force a one-off post. ---
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || 'User Journey' }}
+      # Normally derived from the trigger ('Scheduled Dry Run' on a cron). Set the
+      # variable to keep that wording on a dispatch run used to review the format.
+      SLACK_EXECUTION_LABEL: ${{ vars.SLACK_EXECUTION_LABEL }}
       # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
       #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
       #     With SEND_S3 unset, every AWS step below is skipped and the Slack
@@ -136,8 +191,17 @@ jobs:
             exit 1
           fi
 
+      # Scheduled runs test the dry-run branch, every other trigger tests the ref
+      # that fired it. GitHub only fires `schedule:` from the DEFAULT branch, so a
+      # cron block living on dry-run would never run at all — the workflow file has
+      # to be on main and point its checkout elsewhere. Keep this in step with the
+      # BRANCH_OVERRIDE entry in the job env above: this decides which code runs,
+      # that one decides which branch the reports attribute it to, and they must
+      # agree or the nightly email routes to the wrong list.
       - name: Checkout test suite
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'dry-run' || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -156,7 +220,7 @@ jobs:
         run: npx playwright install --with-deps
 
       # No sqlcmd install step: test-user cleanup goes through the `mssql` driver
-      # (pure JS, comes from npm ci) because env.dev sets DB_TRUSTED=no. The
+      # (pure JS, comes from npm ci) because .env.dev sets DB_TRUSTED=no. The
       # connectivity check lives in src/fixtures/global-setup.ts, which reuses the
       # same runSql() the tests use and emits a ::error:: annotation when the
       # database is unreachable — so a blocked port shows up on the run summary
@@ -172,6 +236,7 @@ jobs:
           PREFIX="automation-reports/tiger-web/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
           echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
           echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
+          echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
 
       # Fails in seconds on a runner-data problem that would otherwise show up as a
       # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
@@ -184,10 +249,10 @@ jobs:
 
       - name: Run Playwright tests
         env:
-          # Narrow the run when dispatched with inputs; both are empty for
-          # scheduled/push/dispatch runs, which therefore behave exactly as before.
-          GREP: ${{ github.event.inputs.grep }}
-          TEST_SCOPE: ${{ github.event.inputs.scope }}
+          # `inputs` covers workflow_dispatch AND workflow_call; both are empty for
+          # push/repository_dispatch runs, which therefore behave exactly as before.
+          GREP: ${{ inputs.grep }}
+          TEST_SCOPE: ${{ inputs.scope }}
         run: |
           if [ -n "$GREP" ]; then
             echo "Filtering to: $GREP"
@@ -204,32 +269,32 @@ jobs:
         if: always()
         uses: actions/cache@v4
         with:
-          path: allure-report/history
+          path: artifacts/allure/report/history
           key: allure-history-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
             allure-history-${{ github.ref_name }}-
 
       # The email reporter (when SEND_EMAIL=yes) already generates this from
-      # allure-results/ before attaching it, but regenerating here is cheap
+      # artifacts/allure/results/ before attaching it, but regenerating here is cheap
       # and idempotent — it guarantees the artifact below exists even when
       # email is off, and regardless of whether the test step above failed.
       - name: Generate Allure report
         if: always()
-        run: node scripts/generate-allure-report.js
+        run: node scripts/report/allure-generate.js
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report
+          path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: allure-report
+          path: artifacts/allure/report
 
       # Publish the raw test-results (traces, videos, screenshots, results.json)
       # to a public S3 bucket so a Slack reader can open them directly, without
@@ -243,6 +308,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # The REMOTE key stays `test-results` on purpose: the S3 layout is a
+      # published contract (REPORT_S3_URL above goes into the Slack message and
+      # into people's bookmarks). Only the local source dir moved.
       - name: Upload test-results to S3
         if: always() && env.SEND_S3 == 'yes'
-        run: aws s3 sync test-results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress
+        run: aws s3 sync artifacts/results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress
+
+      # The whole folder, not just index.html: the Allure report is a static
+      # site with relative asset links. ALLURE_REPORT_URL (computed above) is
+      # what the Slack message links to.
+      - name: Upload Allure report to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync artifacts/allure/report "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/allure-report" --no-progress

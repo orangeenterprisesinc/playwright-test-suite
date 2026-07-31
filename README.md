@@ -50,9 +50,8 @@ The framework implements the **Page Object Model (POM)** design pattern with a *
 | **API Testing** | Typed HTTP helpers, authenticated requests with auto-retry on 401/403, response assertions |
 | **Reporting** | HTML, JSON, Allure, custom Email reporter, Slack notifications, ELK/Elasticsearch dashboard push |
 | **CI/CD** | GitHub Actions workflow ready, artifact collection, scheduled + externally-triggered runs |
-| **Network** | Route mocking, resource blocking, request capture, latency simulation, HAR recording |
 | **Observability** | Structured logging (file + console), execution context tracking, test metrics, screenshots/video/trace |
-| **Utilities** | Soft assertions, visual regression, performance monitoring, retry helpers, API mock server |
+| **Utilities** | Run-unique test-data factories, SQL cleanup registry, Allure label derivation, direct JSON/CSV readers |
 
 ---
 
@@ -74,16 +73,44 @@ Logging is a custom in-repo `Logger` (no external logging library), and Slack/EL
 
 ## 📁 Project Structure
 
+One folder per concern, at most two levels deep. The repo root holds only what a
+tool discovers there by convention (`playwright.config.ts`, `tsconfig.json`,
+`package.json`, `.mcp.json`); everything else is grouped. Each subsystem reads as
+**mechanism / storage / consumers** — see [docs/STRUCTURE.md](docs/STRUCTURE.md)
+for the full map and the rationale.
+
 ```
 playwright-test-suite/
-├── .github/workflows/e2e.yml         # GitHub Actions CI pipeline
-├── playwright.config.ts              # Playwright test configuration
-├── tsconfig.json                     # TypeScript compiler configuration
+├── playwright.config.ts              # Playwright config (root by convention)
+├── tsconfig.json                     # TS compiler config + path aliases
 ├── package.json                      # Dependencies and scripts
-├── env.qa                            # QA environment configuration
-├── env.dev                           # Dev environment configuration
-├── env.local                         # Local environment configuration
-├── env.example                       # Template for local .env files
+├── .mcp.json                         # MCP servers (Claude Code reads root only)
+│
+├── .env.local  .env.dev  .env.qa     # committed per-environment config; any
+│                                     #   sensitive value stored as ENC(...)
+├── .env.example                      # documented template
+├── .env                              # personal overrides + SECRET_KEY (gitignored)
+│
+├── config/                           # ALL configuration, grouped by tool
+│   ├── lint/.eslintrc.json           #   code standards
+│   ├── lint/.prettierrc.json
+│   ├── notifications/recipients.csv  #   per-branch/trigger email routing
+│   └── scopes/anthony-vineyards.json #   per-customer segments + modules (TEST_SCOPE)
+│
+├── docker/                           # ALL Docker
+│   ├── Dockerfile                    #   the test image
+│   ├── Dockerfile.dockerignore       #   BuildKit per-Dockerfile ignore
+│   ├── e2e/                          #   containerized app stack (compose + DB restore)
+│   └── db-backup/                    #   local SQL backups (gitignored, never committed)
+│
+├── .vscode/                          # Editor: points at config/lint, debug configs
+├── .github/workflows/                # 4 pipelines (journey + webpet, dev + local)
+│
+├── artifacts/                        # ALL run output — one .gitignore line
+│   ├── results/                      #   results.json, traces, videos, screenshots
+│   ├── html/                         #   Playwright HTML report
+│   ├── allure/results  allure/report #   Allure raw + generated (report/history = trends)
+│   └── logs/                         #   app-<date>.log
 │
 ├── src/
 │   ├── auth/                         # Authentication layer
@@ -99,9 +126,7 @@ playwright-test-suite/
 │   │   └── DataGridComponent.ts      #   The PET Tiger list grid (filters, rows, totals)
 │   │
 │   ├── config/                       # Configuration management
-│   │   ├── envLoader.ts              #   Loads env.local/dev/qa files
-│   │   ├── environmentManager.ts     #   Singleton for runtime env switching
-│   │   ├── environments.ts           #   Environment definitions
+│   │   ├── envLoader.ts              #   Loads .env.local/dev/qa files
 │   │   ├── dataSource.config.ts      #   Runner directory / JSON+CSV path resolution
 │   │   └── scope.ts                   #   TEST_SCOPE segment + module filtering
 │   │
@@ -112,42 +137,44 @@ playwright-test-suite/
 │   │
 │   ├── core/                          # Single-file framework primitives (no folder each)
 │   │   ├── frameworkConstants.ts      #   Framework-wide path constants
-│   │   ├── frameworkExceptions.ts     #   FrameworkError and subclasses
-│   │   └── errorHandler.decorator.ts  #   @HandleError decorator
+│   │   └── frameworkExceptions.ts     #   FrameworkError and subclasses
 │   │
-│   ├── data/                          # Test data
-│   │   ├── catalog/
-│   │   │   └── workflow-catalog.json  #   The 69 catalog workflows (npm run catalog:import)
-│   │   ├── runner/                    #   Runner rows — one file per journey
+│   ├── data/                          # ONE data home — four kinds + the mechanism
+│   │   ├── runner/                    #   STORAGE: runner rows, one file per journey
 │   │   │   ├── journey-a.csv          #     authored (Excel-friendly)
 │   │   │   ├── journey-a.json         #     generated mirror (npm run runner:sync)
 │   │   │   ├── journey-b..f.{csv,json}
-│   │   │   └── system.{csv,json}      #     login/auth — not catalog workflows
-│   │   ├── scopes/                    #   Per-customer segments + modules (TEST_SCOPE)
-│   │   │   └── anthony-vineyards.json
-│   │   ├── shared/                    #   Cross-journey constants
-│   │   │   ├── modules.ts             #     PetTigerModule union + core expansion
-│   │   │   ├── segments.ts            #     Segment union + all expansion
-│   │   │   └── cleanupTargets.ts      #     Table-driven test-data cleanup
-│   │   ├── journey-a/                 #   Per-journey typed value bags
-│   │   │   └── userSetupData.ts
-│   │   ├── system/
-│   │   │   └── loginModuleData.ts
-│   │   └── runnerList.json            #   Runtime override, by row id (ships as {})
+│   │   │   ├── system.{csv,json}      #     login/auth — not catalog workflows
+│   │   │   └── ../runnerList.json     #     runtime override by row id (ships as {})
+│   │   ├── static/                    #   STORAGE: typed value bags (fixed data)
+│   │   │   ├── journey-a/userSetupData.ts
+│   │   │   ├── system/loginModuleData.ts
+│   │   │   └── shared/                #     modules.ts, segments.ts, cleanupTargets.ts
+│   │   ├── generated/                 #   RANDOMIZED: run-unique factories
+│   │   │   ├── userFactory.ts         #     makeUser(overrides) → unique NewUserData
+│   │   │   └── random.ts              #     uid(), randomInitials(), randomEmail()
+│   │   ├── catalog/workflow-catalog.json  # REFERENCE: 69 workflows (npm run catalog:import)
+│   │   ├── readers/                   #   MECHANISM: how any of it is read
+│   │   │   ├── DataProvider.ts        #     singleton JSON/CSV provider (no conversion step)
+│   │   │   ├── BaseDataReader.ts      #     shared caching/filtering/availability
+│   │   │   ├── JsonDataReader.ts  CsvDataReader.ts
+│   │   │   ├── MultiFileDataReader.ts #     reads the per-journey runner dir as one set
+│   │   │   └── TypeCoercionHelper.ts  #     coerces CSV strings to typed values
+│   │   └── webpet/                    #   the migrated suite's own rows + ids (separate)
 │   │
-│   ├── enums/                         # Enumerations
-│   │   └── configProperties.ts        #   ConfigProperties enum + getConfigValue()
-│   │
-│   ├── fixtures/                      # Playwright test fixtures & lifecycle
+│   ├── fixtures/                      # Playwright fixtures, gate, and run lifecycle
 │   │   ├── base.fixture.ts            #   UI fixtures + the 3-layer execution gate
 │   │   ├── pages.fixture.ts           #   Lazy `pages` accessor for every page object
 │   │   ├── api.fixture.ts             #   API-only test fixtures + ApiHelper class
-│   │   ├── global-setup.ts            #   One-time setup (auth dir, results dirs)
-│   │   └── global-teardown.ts         #   Cleanup (Allure env/executor metadata, summary log)
-│   │
-│   ├── listeners/                     # Test lifecycle listeners
-│   │   ├── testLifecycleManager.ts    #   onTestStart/onTestEnd, pass/fail/skip tracking
-│   │   └── methodInterceptor.ts       #   Runner-list-based test filtering
+│   │   ├── webpet*.fixture.ts         #   the migrated suite's fixtures (separate)
+│   │   ├── gate/                      #   run-or-skip decision (the Runner Manager)
+│   │   │   ├── executionGate.ts       #     the 3-layer rules
+│   │   │   ├── methodInterceptor.ts   #     layer 1: runnerList.json override
+│   │   │   └── webpetGate.ts          #     the migrated suite's gate wrapper
+│   │   └── lifecycle/                 #   one-time + per-test lifecycle
+│   │       ├── global-setup.ts        #     auth dir, artifact dirs, Allure categories
+│   │       ├── global-teardown.ts     #     Allure env/executor metadata, cleanup sweep
+│   │       └── testLifecycleManager.ts#     onTestStart/onTestEnd, pass/fail/skip tracking
 │   │
 │   ├── pages/                         # Page Objects — grouped by app menu area
 │   │   ├── BasePage.ts                #   Abstract base — navigation, waits, screenshots
@@ -160,78 +187,77 @@ playwright-test-suite/
 │   │   ├── connectivity/              #   Import Internet (Post Office)
 │   │   └── analysis/                  #   Reports, dashboards
 │   │
-│   ├── reporting/                     # Custom reporters
-│   │   ├── emailReporter.ts           #   Email report with lean Allure HTML attachment
-│   │   ├── slackReporter.ts           #   Slack run-summary notification
-│   │   └── dashboard.ts               #   ELK/Elasticsearch dashboard push
+│   ├── reporting/                     # generation / delivery / recipients
+│   │   ├── summary/runSummary.ts      #   ONE render-agnostic model, every channel reuses it
+│   │   ├── generate/allure/           #   MECHANISM: how a report is built
+│   │   │   ├── report.ts              #     Allure generation (CI + lean email variant)
+│   │   │   └── labels.ts              #     Allure labels + resolves the runner row id
+│   │   ├── deliver/                   #   CHANNELS: where the summary goes
+│   │   │   ├── slackReporter.ts       #     PRIMARY: one report per suite, per CI run
+│   │   │   ├── slack/                 #     the Slack module
+│   │   │   │   ├── gate.ts            #       CI-events-only rule (no local, no manual)
+│   │   │   │   ├── blocks.ts          #       Block Kit layout (report + reminder)
+│   │   │   │   └── slackApi.ts        #       webhook, chat.postMessage, file upload
+│   │   │   ├── emailReporter.ts       #     DEPRECATED: email + lean Allure attachment
+│   │   │   └── dashboard.ts           #     ELK/Elasticsearch dashboard push
+│   │   └── recipients/recipients.ts   #   WHO: per-branch/trigger routing (email only)
+│   │                                  #     (table: config/notifications/recipients.csv)
+│   │                                  #   WHERE reports are STORED: artifacts/ (above)
 │   │
 │   ├── types/                         # TypeScript type definitions
 │   │   └── index.ts                   #   All interfaces & types
 │   │
-│   └── utils/                         # Utility modules
-│       ├── DataProvider.ts            #   Singleton JSON/CSV data provider (no conversion step)
+│   └── utils/                         # Genuinely cross-cutting only — 3 files
 │       ├── logger.ts                  #   Structured logger (file + console)
-│       ├── networkHelper.ts           #   Route mocking, blocking, capture, HAR
-│       ├── allureHelper.ts            #   Allure report generation (CI + lean email variant)
-│       ├── allureLabels.ts            #   Applies Allure labels + resolves runner row id
-│       ├── apiMockServer.ts           #   API mock server for stubbing
-│       ├── apiResponseUtils.ts        #   JSON key-value verification (verifyJsonKeyValues)
-│       ├── softAssertions.ts          #   Soft assertion utilities
-│       ├── visualRegression.ts        #   Visual diff/regression testing
-│       ├── performanceMonitor.ts      #   Performance metrics collection
-│       ├── customAssertions.ts        #   Extended assertion library
-│       ├── retryHelper.ts             #   Retry-with-backoff helper
-│       ├── testData/                  #   Run-unique test-data factories
-│       │   ├── userFactory.ts         #   makeUser(overrides) → unique NewUserData
-│       │   └── random.ts              #   randomInitials(), uid()
-│       ├── db/                        #   Direct SQL access for setup/cleanup
-│       │   ├── sqlClient.ts           #   runSql(), sqlLiteral()
-│       │   └── cleanupRegistry.ts     #   `cleanup` fixture + end-of-run sweep
-│       └── dataReaders/               #   Data reader implementations
-│           ├── BaseDataReader.ts      #   Shared caching/filtering/availability logic
-│           ├── JsonDataReader.ts
-│           ├── CsvDataReader.ts
-│           ├── MultiFileDataReader.ts #   Reads the per-journey runner directory as one set
-│           └── TypeCoercionHelper.ts  #   Coerces CSV string fields to typed values
+│       └── db/                        #   Direct SQL access for setup/cleanup
+│           ├── sqlClient.ts           #   runSql(), sqlLiteral()
+│           └── cleanupRegistry.ts     #   `cleanup` fixture + end-of-run sweep
 │
-├── tests/                             # Specs — category first, journey second
+├── tests/                             # Specs — TWO folders (browser vs no browser), journey inside
 │   ├── auth.setup.ts                  #   Keycloak login → storageState (auth-setup project)
 │   ├── seed.spec.ts
 │   ├── api/                           #   API-only (api.fixture) — browserless `api` project
 │   │   ├── journey-a-setup/           #     A6 biometric enrollment
 │   │   ├── journey-b-field/           #     B1-B15 device capture — reserved
 │   │   └── journey-c-packhouse/       #     C1-C10 kiosk capture — reserved
-│   ├── ui/                            #   Browser journeys (base.fixture + POM)
+│   ├── web/                           #   Browser-driven (base.fixture + POM): UI-only AND
+│   │   │                              #     UI+API(+DB) hybrids, the latter tagged @Workflow
 │   │   ├── system/login-module.spec.ts#     logged-out login module
 │   │   ├── journey-a-setup/           #     A1-A14 — a01-user-setup.spec.ts is the reference
-│   │   ├── journey-d-office/          #     D1-D8
-│   │   ├── journey-e-payroll/         #     E8-E11
+│   │   ├── journey-b-field/           #     B14 real-time field dashboard
+│   │   ├── journey-d-office/          #     D1-D8, plus D9-D10 transfer-time calculations
+│   │   ├── journey-e-payroll/         #     E8-E11, plus E1-E7/E12-E13 payroll calculations
 │   │   └── journey-f-analysis/        #     F1-F7
-│   ├── workflow/                      #   UI + API hybrid (base.fixture + apiRequest)
-│   │   ├── journey-d-office/          #     D9-D10 calculations
-│   │   └── journey-e-payroll/         #     E1-E7 calculations
 │   └── webpet/                        #   migrated web-pet suite — 406 tests, runs separately
 │                                      #     own fixture/pages/runner/projects; see below
 │
-├── specs/                             # One markdown plan per workflow (written first)
+├── test-plans/                             # One markdown plan per workflow (written first)
 │   ├── _template.md
 │   └── journey-a/a01-user-setup.md    #   worked example
 │
-├── docs/catalog/                      # PET-Tiger-Workflow-Catalog.docx — source of truth
-├── scripts/                           # npm-script helpers (plain JS, no ts-node dependency)
-│   ├── import-catalog.js              #   docx -> workflow-catalog.json
-│   ├── runner-sync.js                 #   runner CSV -> JSON mirror
-│   ├── check-runner.js                #   validates rows <-> specs <-> catalog
-│   ├── coverage-report.js             #   69-workflow automation coverage
-│   ├── webpet-runner-sync.js          #   the web-pet suite's own runner sync / drift check
-│   ├── webpet-ids-check.js            #   static gate: annotations, id maps, tags, imports
-│   └── webpet-baseline{,-diff}.js     #   per-test baseline capture + regression diff
-└── logs/                              # Runtime log output (app-<date>.log)
+├── docs/                              # STRUCTURE.md, FRAMEWORK-GUIDE.md, LINTING.md,
+│   ├── catalog/                       #   PET-Tiger-Workflow-Catalog.docx — source of truth
+│   └── media/                         #   screen recordings referenced by the plans
+└── scripts/                           # npm-script helpers, grouped by what they serve
+    ├── run-playwright.js              #   shim-free launcher (paths with & / spaces)
+    ├── runner/                        #   the Runner Manager's tooling
+    │   ├── sync.js                    #     runner CSV -> JSON mirror
+    │   ├── check.js                   #     validates rows <-> specs <-> catalog
+    │   ├── coverage.js                #     69-workflow automation coverage
+    │   └── lib/runner-data.js         #     shared loader for src/data/runner/
+    ├── report/                        #   allure-generate.js, allure-open.js, ensure-java.js
+    ├── catalog/import-catalog.js      #   docx -> workflow-catalog.json
+    └── webpet/                        #   the migrated suite's own tooling
+        ├── runner-sync.js             #     runner sync / drift check
+        ├── ids-check.js               #     static gate: annotations, id maps, tags, imports
+        └── baseline{,-diff}.js        #     per-test baseline capture + regression diff
 ```
 
 The `src/` tree carries a parallel `webpet/` subtree in four places —
 `src/pages/webpet/`, `src/components/webpet/`, `src/data/webpet/` and the
-`webpet*.fixture.ts` files — for the migrated suite described below.
+`webpet*.fixture.ts` files — for the migrated suite described below. That mirroring
+is deliberate: the migrated suite stays structurally parallel to the journey
+suites and shares no runtime state with them.
 
 ---
 
@@ -253,6 +279,7 @@ suites:
 | ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
 | CI | `e2e.yml`, `e2e-local.yml` | `webpet-e2e-local.yml`, `webpet-e2e-dev.yml` |
+| daily run | `dry-run-daily.yml` calls `e2e.yml` … | … then `webpet-e2e-dev.yml` |
 
 ```bash
 npm run test:webpet                        # whole suite against localhost
@@ -306,9 +333,9 @@ The framework uses environment-specific configuration files in the project root:
 
 | File | Purpose |
 |------|---------|
-| `env.local` | Local environment (default) |
-| `env.dev` | Development environment |
-| `env.qa` | QA environment |
+| `.env.local` | Local environment (default) |
+| `.env.dev` | Development environment |
+| `.env.qa` | QA environment |
 
 Switch environments by setting `TEST_ENV`:
 
@@ -320,7 +347,7 @@ TEST_ENV=dev npm test
 TEST_ENV=qa npm test
 ```
 
-### Environment File Structure (`env.qa`)
+### Environment File Structure (`.env.qa`)
 
 ```properties
 # Application URLs
@@ -420,7 +447,7 @@ Git Push / Schedule / repository_dispatch → GitHub Actions
           → Test Execution (beforeEach → Test Body → afterEach)
             → Reporter Aggregation (HTML, JSON, Allure, Email, Slack, ELK)
               → Global Teardown (Allure env/executor metadata, summary log)
-                → CI Artifacts (playwright-report/, allure-report/)
+                → CI Artifacts (artifacts/html/, artifacts/allure/report/)
 ```
 
 ---
@@ -433,7 +460,7 @@ Every page in the application extends `BasePage`, which deliberately does **not*
 
 **BasePage provides:**
 - **Navigation**: `navigate()` (goes to the page object's own `pageUrl`), `navigateTo(url)`
-- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent), `takeScreenshot()` / `takeElementScreenshot()` (enforce the repo's `test-results/screenshots/<name>.png` path convention)
+- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent), `takeScreenshot()` / `takeElementScreenshot()` (enforce the repo's `artifacts/results/screenshots/<name>.png` path convention)
 
 Everything else — clicking, typing, checkboxes, getters, visibility/state checks, assertions — use the native `Locator` API and `expect()` directly in your page object, the same way `LoginPage` already does:
 
@@ -517,7 +544,7 @@ test('API test', async ({
 
 ### 4. Test Lifecycle (beforeEach / afterEach)
 
-Managed by `src/listeners/testLifecycleManager.ts` via `base.fixture.ts`'s `beforeEach`/`afterEach` hooks:
+Managed by `src/fixtures/lifecycle/testLifecycleManager.ts` via `base.fixture.ts`'s `beforeEach`/`afterEach` hooks:
 
 **beforeEach:**
 1. Resets `TestMetrics` and records test name/file/project/retry
@@ -543,7 +570,7 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 | Field | Description |
 |-------|-------------|
 | `id` | Unique test case ID (e.g., `UI-001`, `USR-001`) |
-| `category` | Test category — `ui` \| `api` \| `workflow` (maps to the `tests/` folder) |
+| `category` | Test category — `ui` \| `api` \| `workflow`. Three values, two folders: `ui`/`workflow` → `tests/web/`, `api` → `tests/api/` (enforced by `runner:check`) |
 | `testName` | Programmatic test name |
 | `testTitle` | Human-readable test title |
 | `testDescription` | Detailed description |
@@ -557,7 +584,7 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 1. `DataProvider.getInstance()` reads the configured source (`TEST_DATA_SOURCE`) directly — a JSON source reads the `.json` file, a CSV source reads the `.csv` file
 2. Per-test → bind a runner row by `id`, then destructure the `testCaseData` fixture, which auto-loads and validates the matching record, skipping the test if it's missing or `enabled: false`
 
-A row is bound either via a per-test **annotation** (the live pattern in `tests/ui/journey-a-setup/a01-user-setup.spec.ts`) or via `test.use({ testCaseId })` — both resolve the same way:
+A row is bound either via a per-test **annotation** (the live pattern in `tests/web/journey-a-setup/a01-user-setup.spec.ts`) or via `test.use({ testCaseId })` — both resolve the same way:
 
 ```typescript
 // Live pattern — annotation on the test options
@@ -694,7 +721,7 @@ Test files go in the `tests/` directory and must match `**/*.spec.ts`. Consume t
 page object as a fixture:
 
 ```typescript
-// tests/ui/products/product-add-to-cart.spec.ts
+// tests/web/products/product-add-to-cart.spec.ts
 import { test } from '../../../src/fixtures/base.fixture';
 
 test.describe('Product Cart Functionality', () => {
@@ -713,8 +740,8 @@ test.describe('Product Cart Functionality', () => {
 #### Step 4: Run the Test
 
 ```bash
-npx playwright test tests/ui/products/product-add-to-cart.spec.ts
-npx playwright test tests/ui/products/product-add-to-cart.spec.ts --project=chromium
+npx playwright test tests/web/products/product-add-to-cart.spec.ts
+npx playwright test tests/web/products/product-add-to-cart.spec.ts --project=chromium
 ```
 
 ---
@@ -724,7 +751,7 @@ npx playwright test tests/ui/products/product-add-to-cart.spec.ts --project=chro
 ### Example 1: UI Login Test (starts logged out)
 
 ```typescript
-// tests/ui/system/login-module.spec.ts
+// tests/web/system/login-module.spec.ts
 import { expect, test } from '../../src/fixtures/base.fixture';
 import { loginModuleData } from '@data/system/loginModuleData';
 
@@ -764,37 +791,16 @@ test.describe('User API Tests', { tag: '@API' }, () => {
 });
 ```
 
-### Example 3: Test with Network Mocking
-
-```typescript
-// tests/mocking/mock-api-response.spec.ts
-import { test, expect } from '../../src/fixtures/base.fixture';
-import { mockRoute, blockResources } from '../../src/utils/networkHelper';
-
-test('mock API response', async ({ page }) => {
-    await mockRoute(page, '**/api/products', {
-        status: 200,
-        body: [{ id: 1, name: 'Mocked Product', price: 9.99 }],
-    });
-
-    await blockResources(page, ['image', 'font']);
-
-    await page.goto('/products');
-    await expect(page.getByText('Mocked Product')).toBeVisible();
-});
-```
-
-### Example 4: Workflow — Create in the UI, Verify via the API
+### Example 3: Workflow — Create in the UI, Verify via the API
 
 A UI + API hybrid: act through Page Objects, then confirm the result through the
 REST API in the same test. Import from `base.fixture` (it provides `apiRequest`).
 
 ```typescript
-// tests/workflow/user-create-verify.spec.ts
+// tests/web/journey-a-setup/user-create-verify.spec.ts
 import { test, expect } from '../../src/fixtures/base.fixture';
 import { executeWithAuthRetry } from '../../src/auth/requestBuilder';
-import { verifyJsonKeyValues } from '../../src/utils/apiResponseUtils';
-import { makeUser } from '../../src/utils/testData';
+import { makeUser } from '../../src/data/generated';
 
 test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
     test('[User Setup] Verify that a user created in the UI is retrievable via the API',
@@ -814,13 +820,14 @@ test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
                 {}, testInfo,
             );
             expect(response.status()).toBe(200);
-            expect(await verifyJsonKeyValues(response, { email: user.email })).toBeTruthy();
+            const body = await response.json();
+            expect(JSON.stringify(body)).toContain(user.email);
         });
 });
 ```
 
 > Prefer `/api-script-generator` and `/workflow-script-generator` (repo skills) to
-> generate `tests/api/` and `tests/workflow/` specs that follow these conventions.
+> generate `tests/api/` and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
 
 ---
 
@@ -887,9 +894,20 @@ npm run report:allure:open
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the suite against the **dev staging** deployment twice a day, plus on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
 
-The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
+It no longer schedules itself. **`dry-run-daily.yml` owns the daily 4:00 PM IST run** and calls `e2e.yml` first, then `webpet-e2e-dev.yml`, so the two suites never run at the same time against the same dev data:
+
+```
+3:50 PM IST   dry-run-reminder.yml   →  one informational Slack message
+4:00 PM IST   dry-run-daily.yml      →  User Journey  →  its own Slack report
+                                              ↓ (needs:)
+                                          WebPet      →  its own Slack report
+```
+
+Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` still runs on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo); those runs post **no** Slack message (see the Slack section below).
+
+The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
 Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names: `e2e-local.yml` uses its own `LOCAL_USER_NAME`/`LOCAL_PASSWORD`, and an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with localhost credentials.
 
@@ -897,15 +915,15 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '30 10 * * *'   # 4:00 PM IST (10:30 AM UTC)
-    - cron: '30 12 * * *'   # 6:00 PM IST (12:30 PM UTC)
   workflow_dispatch:
+  workflow_call:            # dry-run-daily.yml calls this as the User Journey job
   repository_dispatch:
     types: [run-playwright]
 
+# github.workflow is the CALLER's name in a reusable workflow, so an orchestrated
+# dry run and a direct push/dispatch run cannot cancel each other.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -923,13 +941,13 @@ jobs:
       - run: npx playwright test
       - uses: actions/cache@v4              # Allure trend history (keeps graphs across runs)
         if: always()
-        with: { path: allure-report/history, key: allure-history-${{ github.ref_name }}-${{ github.run_id }} }
-      - run: node scripts/generate-allure-report.js
+        with: { path: artifacts/allure/report/history, key: allure-history-${{ github.ref_name }}-${{ github.run_id }} }
+      - run: node scripts/report/allure-generate.js
         if: always()
-      - uses: actions/upload-artifact@v4    # playwright-report/ and allure-report/
+      - uses: actions/upload-artifact@v4    # artifacts/html/ and artifacts/allure/report/
         if: always()
-      # Opt-in (SEND_S3=yes): sync test-results/ (traces, videos, results.json) to S3
-      - run: aws s3 sync test-results "s3://.../test-results" --no-progress
+      # Opt-in (SEND_S3=yes): sync artifacts/results/ (traces, videos, results.json) to S3
+      - run: aws s3 sync artifacts/results "s3://.../test-results" --no-progress
         if: always() && env.SEND_S3 == 'yes'
 ```
 
@@ -938,7 +956,7 @@ jobs:
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
 - Test-user cleanup: PET Tiger has no delete-user action in either the UI or the API, so tests that create users remove them in SQL (`DB_CLEANUP=yes`). `DB_TRUSTED` selects the transport — `no` uses the `mssql` driver (pure JS, arrives with `npm ci`, works on GitHub-hosted runners), `yes` uses the `sqlcmd` CLI with Windows integrated auth (local and self-hosted). The remaining requirement is a network route: `DB_SERVER` must accept connections from GitHub runner IPs. `global-setup.ts` probes the connection once at the start of every run and emits a CI error annotation if it fails, because cleanup that skips silently leaves test users behind in a shared database while the run still reports green.
-- Notifications & artifact upload are all opt-in: **Email** (`SEND_EMAIL=yes` + SMTP secrets), **Slack** (`SEND_SLACK=yes` + `SLACK_WEBHOOK_URL`), and **S3 report upload** (`SEND_S3=yes` + AWS secrets). Unset → each step logs a line and does nothing.
+- Notifications & artifact upload are all opt-in: **Slack** (`SEND_SLACK=yes` + `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`, or a webhook — and only on the CI events in `SLACK_NOTIFY_EVENTS`), **S3 report upload** (`SEND_S3=yes` + AWS secrets), and **Email** (deprecated; `SEND_EMAIL` is pinned to `no`). Unset → each step logs a line and does nothing.
 
 ---
 
@@ -947,13 +965,82 @@ jobs:
 | Reporter | Output | Description |
 |----------|--------|-------------|
 | **List** | Console | Real-time test progress in terminal |
-| **HTML** | `playwright-report/` | Interactive HTML report with traces |
-| **JSON** | `test-results/results.json` | Machine-readable JSON results |
+| **HTML** | `artifacts/html/` | Interactive HTML report with traces |
+| **JSON** | `artifacts/results/results.json` | Machine-readable JSON results |
 | **GitHub** | Console annotations | Inline failure annotations on GitHub Actions |
-| **Allure** | `allure-results/` → `allure-report/` | Rich report with steps, metrics, trend history |
-| **Email** | SMTP delivery | Self-gating (`SEND_EMAIL=yes`); attaches a lean single-file Allure report |
-| **Slack** | Incoming Webhook | Self-gating (`SEND_SLACK=yes`); posts pass/fail/flaky/skipped summary |
+| **Allure** | `artifacts/allure/results/` → `artifacts/allure/report/` | Rich report with steps, metrics, trend history |
+| **Slack** | Incoming Webhook, or Web API with a bot token | **The primary channel.** Self-gating (`SEND_SLACK=yes`) *and* CI-only — see below. One report per suite: counts, duration, top-5 failing modules, and buttons for the Allure report / workflow run / artifacts. With `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` it also uploads the lean single-file Allure report into the message's thread |
+| **Email** | SMTP delivery | **Deprecated** — still works, but `SEND_EMAIL` is pinned to `no` in every workflow. Attaches a lean single-file Allure report; recipients are routed per branch + trigger — see below |
 | **ELK Dashboard** | HTTP POST to `ELK_URL` | Self-gating (`SEND_RESULT_ELK=yes`); pushes a JSON run summary |
+
+### When Slack posts — and when it stays quiet
+
+Slack is a **CI results** channel, so the reporter refuses to post from anywhere else. Three
+things must all be true (`src/reporting/deliver/slack/gate.ts`):
+
+1. `SEND_SLACK=yes`
+2. `GITHUB_ACTIONS=true` — so `npm test`, `npx playwright test`, `--debug`, `--ui` and any
+   laptop run are silent no matter how the env is set
+3. the GitHub event is listed in `SLACK_NOTIFY_EVENTS` (default `schedule`) — so a manual
+   `workflow_dispatch` and a `repository_dispatch` are silent too
+
+Each refusal logs one line naming the setting that blocked it, so "why didn't it post?" is
+answerable from the run log. To get a message out of a test run deliberately, set
+`SLACK_NOTIFY_EVENTS` to include that event; to check the layout without a token, use
+`SLACK_DRY_RUN=1` and paste the logged payload into Slack's Block Kit Builder.
+
+The reminder message at 3:50 PM IST is the one Slack post that is not a reporter —
+`scripts/notify/slack-reminder.ts`, run by `dry-run-reminder.yml`. It applies the same gate.
+Preview it with `npm run notify:reminder -- --dry-run`.
+
+### Getting the Allure report into Slack
+
+An Incoming Webhook can only post text — it cannot carry a file. So the Slack reporter
+has two modes, and it picks the first one that is fully configured:
+
+| Configured | What lands in Slack |
+|------------|---------------------|
+| `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` | Summary via `chat.postMessage`, then the lean single-file **Allure report uploaded as a thread reply** on that message |
+| `SLACK_WEBHOOK_URL` only | Summary only. The report appears as a link when `ALLURE_REPORT_URL` is set (CI does this when `SEND_S3=yes`) |
+
+To enable uploads, create a Slack app in the workspace, give the bot the **`chat:write`**
+and **`files:write`** scopes, install it, invite it to the channel, then set the token
+(`xoxb-…`) and the channel id (`C…`). In CI those are the `SLACK_BOT_TOKEN` secret and the
+`SLACK_CHANNEL_ID` variable — already wired into all four workflows.
+
+The uploaded file is the same screenshots-only, single-file report that gets emailed
+(video and trace are stripped, so it stays small); it is generated once per run and
+shared by both channels. `SLACK_MAX_UPLOAD_MB` (default 20) drops it if it is oversized,
+and every failure here — no JVM, bad scope, oversized file — is logged and swallowed:
+the summary still posts and the run never fails because of a notification.
+
+### Who gets the email (deprecated)
+
+Recipients are **not** a single list. They are routed per run from
+[`config/notifications/recipients.csv`](config/notifications/recipients.csv), so the
+nightly cron can reach the whole team while a push to `main` or a laptop run reaches
+one person. Edit that CSV — no code change needed.
+
+Each row's `scope` is one of `<branch>:<trigger>`, a bare `<branch>`, a bare
+`<trigger>`, or `default`, and the most specific match wins:
+
+```
+branch:trigger   →   branch   →   trigger   →   default
+```
+
+The trigger tokens are exactly the ones the reporters already produce — `push`,
+`scheduled`, `manual`, `external dispatch`, `ci`, `local run` — so there is only one
+vocabulary to learn. An **empty** `recipients` cell mutes that context deliberately;
+if the file is missing or nothing matches, delivery falls back to the `EMAIL_TO`
+variable so a misconfigured table can never silence a report that used to send.
+
+Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives in
+[`src/reporting/recipients/recipients.ts`](src/reporting/recipients/recipients.ts).
+
+> The 4:00 PM IST scheduled run tests the **`dry-run`** branch (both called workflows pin
+> `ref: dry-run` on a `schedule` event), even though `dry-run-daily.yml` itself must live
+> on `main` — GitHub only fires `schedule:` from the default branch. `BRANCH_OVERRIDE`
+> in those jobs makes the reports, and therefore this routing, name `dry-run`.
 
 **Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
 - 📸 Screenshot capture
@@ -966,79 +1053,13 @@ jobs:
 
 ## 🔧 Advanced Features
 
-### Network Helpers
-
-```typescript
-import {
-    mockRoute,           // Mock a single route's response
-    mockRoutes,          // Mock multiple endpoints at once
-    mockApiError,        // Fulfill a route with an error status/body
-    blockResources,      // Block images/fonts/css/scripts/media for speed
-    interceptRequest,    // Intercept and modify outgoing request headers/body
-    waitForRequest,      // Wait for a specific request
-    waitForResponse,     // Wait for a specific response
-    waitForNetworkIdle,  // Wait for the network to go idle
-    captureRequests,     // Capture requests emitted during an action
-    captureResponses,    // Capture responses received during an action
-    simulateSlowNetwork, // Add latency to every route
-    goOffline,           // Set the context offline
-    goOnline,            // Restore connectivity
-    recordHar,           // Record a HAR file for replay
-    replayFromHar,       // Replay a recorded HAR file
-} from '../src/utils/networkHelper';
-```
-
-### API Mock Server
-
-```typescript
-import { ApiMockServer } from '../src/utils/apiMockServer';
-
-const mockServer = new ApiMockServer();
-mockServer.stub('GET', '/api/users', { status: 200, body: [] });
-await mockServer.applyTo(page);
-```
-
-### Soft Assertions
-
-```typescript
-import { SoftAssertions } from '../src/utils/softAssertions';
-
-const soft = new SoftAssertions();
-soft.assertEquals(actual, expected, 'Values should match');
-soft.assertTrue(condition, 'Condition should be true');
-soft.throwIfErrors(); // Throws once, listing every failure
-```
-
-### Visual Regression
-
-```typescript
-import { compareScreenshots } from '../src/utils/visualRegression';
-
-await compareScreenshots(page, 'login-page-baseline');
-```
-
-### Performance Monitoring
-
-```typescript
-import { PerformanceMonitor } from '../src/utils/performanceMonitor';
-
-const monitor = new PerformanceMonitor(page);
-const metrics = await monitor.getPageMetrics();
-console.log(`Load time: ${metrics.loadTime}ms`);
-```
-
-### Error Handler Decorator
-
-```typescript
-import { HandleError } from '../src/core/errorHandler.decorator';
-
-class MyPage extends BasePage {
-    @HandleError('Failed to perform action')
-    async riskyAction(): Promise<void> {
-        // Failures are logged with class/method context, then rethrown as a FrameworkError
-    }
-}
-```
+> **Note on network mocking, soft/custom assertions, visual regression,
+> performance monitoring and the `@HandleError` decorator:** these were
+> speculative utilities that no spec ever imported, and they were removed rather
+> than left as a menu of things that had never been exercised. Playwright covers
+> each natively — `page.route()`, `expect.soft()`, `toHaveScreenshot()` — so reach
+> for the built-in first. The removed implementations are still in git history if
+> one turns out to be worth reviving.
 
 ### Execution Context
 

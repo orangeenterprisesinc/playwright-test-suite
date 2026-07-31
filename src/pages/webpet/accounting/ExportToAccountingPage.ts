@@ -15,14 +15,11 @@
  * counters and review-queue buckets. Merging them would produce one class where
  * half the members are dead on any given page — the exact failure mode that makes
  * a relocated locator silently match nothing.
- *
- * @module pages/webpet/accounting/ExportToAccountingPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ExportToAccountingPage
  * @extends BasePage
  */
 export class ExportToAccountingPage extends BasePage {

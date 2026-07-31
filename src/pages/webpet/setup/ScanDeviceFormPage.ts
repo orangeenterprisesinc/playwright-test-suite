@@ -26,14 +26,11 @@
  *
  * Save is gated on `isSubmitting` only — there is no `isDirty` guard here, unlike
  * the setup forms modelled by `WebpetFormPage`.
- *
- * @module pages/webpet/setup/ScanDeviceFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ScanDeviceFormPage
  * @extends BasePage
  */
 export class ScanDeviceFormPage extends BasePage {

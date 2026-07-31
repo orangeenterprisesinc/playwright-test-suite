@@ -13,14 +13,11 @@
  *   `/Draw .*Boundary/i`; Escape closes it.
  * - The Advanced disclosure starts collapsed and reveals raw `#point` and
  *   `#polygon` inputs — the text fallback for entering coordinates.
- *
- * @module pages/webpet/setup/RanchFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class RanchFormPage
  * @extends WebpetFormPage
  */
 export class RanchFormPage extends WebpetFormPage {

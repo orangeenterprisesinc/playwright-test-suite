@@ -4,8 +4,6 @@
  * Tracks the currently-executing test's status, duration, API response time,
  * HTTP status code, retry count, and tags. Safe as a singleton because
  * Playwright workers run one test at a time.
- *
- * @module context/testMetrics
  */
 export interface TestMetricSnapshot {
     testName: string;

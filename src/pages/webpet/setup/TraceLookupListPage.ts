@@ -9,22 +9,14 @@
  *
  * Everything grid-shaped lives on {@link WebpetDataGridComponent}; this class
  * exists to bind the route and heading.
- *
- * @module pages/webpet/setup/TraceLookupListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class TraceLookupListPage
  * @extends WebpetListPage
  */
 export class TraceLookupListPage extends WebpetListPage {
-    /**
-     * @param page Playwright page
-     * @param listUrl Relative list URL, e.g. `'/setup/traceability/grades'`
-     * @param headingName The page's `<h1>` text, e.g. `'Grades'`
-     */
     constructor(page: Page, listUrl: string, headingName: string) {
         super(page, listUrl, headingName);
     }

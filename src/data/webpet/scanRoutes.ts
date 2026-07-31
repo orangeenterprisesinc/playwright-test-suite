@@ -11,8 +11,6 @@
  * **index-checked at compile time**. Without it a renamed segment yields
  * `undefined`, the `testCaseId` annotation is empty, the runner gate silently
  * skips that test, and the run still reports green.
- *
- * @module data/webpet/scanRoutes
  */
 
 /** One module-gated scan route and the module key that gates it. */

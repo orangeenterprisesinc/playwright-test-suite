@@ -18,13 +18,15 @@
  *
  * ## Why the gate is an auto fixture
  *
- * `base.fixture` applies its gate from a module-level `test.beforeEach`. Such a
- * hook attaches to whichever file suite is loading at that instant, and the
- * fixture module body runs once per worker process, so it fires for the **first
- * spec file each worker loads and no others** — measured, not inferred. An auto
- * fixture fires for every test, and resolves before the test function's declared
- * parameters, so a skip prevents `context`/`page`/`request` from ever being
- * created.
+ * A module-level `test.beforeEach` attaches to whichever file suite is loading at
+ * that instant, and the fixture module body runs once per worker process, so it
+ * fires for the **first spec file each worker loads and no others** — measured,
+ * not inferred. An auto fixture fires for every test, and resolves before the test
+ * function's declared parameters, so a skip prevents `context`/`page`/`request`
+ * from ever being created.
+ *
+ * `base.fixture` made exactly that mistake and has since been converted to a
+ * `gate` auto fixture too; neither suite may go back to a `beforeEach`.
  *
  * ## What must not change
  *
@@ -36,16 +38,14 @@
  * reach the authed request context (that call already passes
  * `extraHTTPHeaders`). Passing an extra key here — even a "more correct" one —
  * silently changes what the API sees.
- *
- * @module fixtures/webpet.fixture
  */
 import { expect, test as base } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
-import { applyWebpetGate } from './webpetGate';
+import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
-import { onTestStart, onTestEnd } from '../listeners/testLifecycleManager';
+import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
 
 export { expect };
 /** Re-exported so specs can type a helper's `page` parameter without a second import. */
@@ -132,14 +132,24 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         // AuthProvider.useEffect → i18n.changeLanguage(user.language).
         // Test-only patch of the response body; the DB is untouched.
         await ctx.route('**/api/session/me', async (route) => {
-            const response = await route.fetch();
-            const body = (await response.json().catch(() => null)) as {
-                user?: Record<string, unknown>;
-            } | null;
-            if (body?.user && typeof body.user === 'object') {
-                body.user.language = 'en';
+            try {
+                const response = await route.fetch();
+                const body = (await response.json().catch(() => null)) as {
+                    user?: Record<string, unknown>;
+                } | null;
+                if (body?.user && typeof body.user === 'object') {
+                    body.user.language = 'en';
+                }
+                await route.fulfill({ response, json: body });
+            } catch (error) {
+                // This handler does a real round trip, so it can still be in
+                // flight when the page closes — any test whose last assertion
+                // resolves on the first poll (toHaveCount(0), toBeHidden on an
+                // element that never mounts) ends before the session bootstrap
+                // lands. Playwright fails the test on a throwing route callback,
+                // so a teardown race would be reported as a product failure.
+                if (!/has been closed/i.test(String(error))) throw error;
             }
-            await route.fulfill({ response, json: body });
         });
 
         await use(ctx);

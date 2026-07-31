@@ -19,12 +19,10 @@
  *
  * `MultiFileDataReader`'s own parse cache is keyed `"${sourceType}:${dir}"`, so
  * two live row sources in one process are safe through this path.
- *
- * @module data/webpet/webpetRunnerSource
  */
 import path from 'node:path';
 import type { TestInfo } from '@playwright/test';
-import { MultiFileDataReader } from '../../utils/dataReaders/MultiFileDataReader';
+import { MultiFileDataReader } from '../readers/MultiFileDataReader';
 import { getCurrentDataSourceType } from '../../config/dataSource.config';
 import { WEBPET_DATA_DIR, webpetSpecPath } from '../../config/webpetPaths';
 import type { WebpetTestCaseData } from '../../types';
@@ -88,7 +86,7 @@ async function build(): Promise<WebpetRunnerIndex> {
  *
  * The `titlePath` filter drops the project name and the spec-file entry, leaving
  * describes + title. Unchanged from the original gate so no row is orphaned by
- * the move, and mirrored exactly by `scripts/webpet-runner-sync.js` — the three
+ * the move, and mirrored exactly by `scripts/webpet/runner-sync.js` — the three
  * must agree or rows silently stop matching.
  */
 export function webpetStructuralKey(testInfo: TestInfo): string {

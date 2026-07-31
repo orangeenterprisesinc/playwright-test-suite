@@ -7,14 +7,11 @@
  * is labelled **"Don't Save"** — which matches neither. (`/cancel|no/i` does not
  * match "Don't Save"; the apostrophe-t is not the word "no".) Reusing it would
  * silently resolve to nothing and time out.
- *
- * @module components/webpet/UnsavedChangesModal
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class UnsavedChangesModal
  * @extends BaseComponent
  */
 export class UnsavedChangesModal extends BaseComponent {

@@ -19,14 +19,11 @@
  *
  * The inspector opens on a **numbered section index**; each entry drills into an
  * area editor, and Back returns to the index. There is no left nav.
- *
- * @module pages/webpet/settings/ReportEditorPage
  */
 import { FrameLocator, Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ReportEditorPage
  * @extends BasePage
  */
 export class ReportEditorPage extends BasePage {

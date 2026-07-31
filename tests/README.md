@@ -1,42 +1,52 @@
 # Test suite layout
 
-Two axes: **category** (what a test proves, and therefore which fixture it imports
-and which Playwright project runs it) and **journey** (which part of the PET Tiger
-Workflow Catalog it covers). Category comes first because it decides the fixture and
-the project; journey is the folder inside it.
+Two axes: **category** (what a test proves) and **journey** (which part of the PET
+Tiger Workflow Catalog it covers).
+
+There are **two folders, not three.** The folder boundary is a *runtime* one — it picks
+the Playwright project — and only one thing actually differs at runtime: whether a test
+needs a browser. `tests/api/` is browserless with its own request context;
+`tests/web/` drives a browser and depends on `auth-setup`. A `workflow` spec acts in the
+UI and verifies through the API, so it needs the browser and lives in `tests/web/`
+alongside the UI-only specs. Journey is the folder inside.
 
 ```
 tests/
 ├── auth.setup.ts                       # one-time browser login → .auth/user.json (shared)
-├── api/                                # API-only tests   → src/fixtures/api.fixture
+├── api/                                # API-only, NO browser → src/fixtures/api.fixture
 │   ├── journey-a-setup/                #   A6 biometric enrollment (device)
 │   ├── journey-b-field/                #   B1–B15 field handheld capture — reserved
 │   └── journey-c-packhouse/            #   C1–C10 kiosk capture — reserved
-├── ui/                                 # Browser journeys → src/fixtures/base.fixture
+├── web/                                # Browser-driven → src/fixtures/base.fixture
+│   │                                   #   UI-only AND UI+API(+DB) workflow hybrids
 │   ├── system/                         #   login and other non-catalog framework tests
 │   │   └── login-module.spec.ts
 │   ├── journey-a-setup/                #   A1–A14 office setup and configuration
 │   │   └── a01-user-setup.spec.ts      #     the working reference spec
 │   ├── journey-b-field/                #   B14 real-time field dashboard
-│   ├── journey-d-office/               #   D1–D8 daily office processing
-│   ├── journey-e-payroll/              #   E8–E11 payroll close and export
+│   ├── journey-d-office/               #   D1–D8 processing, D9–D10 transfer-time calcs
+│   ├── journey-e-payroll/              #   E8–E11 payroll close, E1–E7/E12–E13 calcs
 │   └── journey-f-analysis/             #   F1–F7 analysis and monitoring
-├── workflow/                           # UI + API hybrid → src/fixtures/base.fixture
-│   ├── journey-d-office/               #   D9–D10 transfer-time calculations
-│   └── journey-e-payroll/              #   E1–E7, E12–E13 payroll calculations
 └── webpet/                             # migrated web-pet suite — SEPARATE, see below
 ```
 
 ## Which category?
 
-There are exactly **three**: `api/`, `ui/`, `workflow/`. Take it from the workflow's
-`surface` in `src/data/catalog/workflow-catalog.json`:
+The category stays **three-valued** even though there are two folders, because it
+mirrors the catalog's `surface` field — collapsing it would throw away the distinction
+between a screen flow and a calculation verified against data. Take it from the
+workflow's `surface` in `src/data/catalog/workflow-catalog.json`:
 
-| `surface` | Category | Why |
-|---|---|---|
-| `ui` | `ui/` | A browser screen drives it |
-| `device` | `api/` | Handheld or kiosk capture — no web screen exists, so it is driven through the sync API |
-| `calc` | `workflow/` | A calculation verified against data, set up via preconditions |
+| `surface` | Category | Folder | Why |
+|---|---|---|---|
+| `ui` | `ui` | `web/` | A browser screen drives it |
+| `device` | `api` | `api/` | Handheld or kiosk capture — no web screen exists, so it is driven through the sync API |
+| `calc` | `workflow` | `web/` | A calculation verified against data — acts in the UI, verifies via API/DB |
+
+`npm run runner:check` enforces the category → folder mapping (`CATEGORY_FOLDER` in
+`scripts/runner/check.js`), so a spec filed in the wrong folder fails in seconds rather
+than running under the wrong project. Within `web/`, tag hybrids `@Workflow` —
+`npm run test:workflow` greps for it.
 
 Journeys B and C are **25 of the 69 workflows** and are device/kiosk flows. Their
 folders and runner rows are reserved, but no specs exist yet — there is no confirmed
@@ -81,12 +91,11 @@ Use the path aliases, not deep relative paths — specs sit three folders down:
 | `@fixtures/…` | `src/fixtures/` |
 | `@pages/…` | `src/pages/` |
 | `@components/…` | `src/components/` |
-| `@data/…` | `src/data/` |
-| `@utils/…` | `src/utils/` |
-| `@enums/…` | `src/enums/` |
-| `@config/…` | `src/config/` |
+| `@data/…` | `src/data/` — `runner/` rows, `static/` value bags, `generated/` factories, `readers/` |
+| `@utils/…` | `src/utils/` — `logger.ts` + `db/` only |
+| `@reporting/…` | `src/reporting/` — `summary/`, `generate/`, `deliver/`, `recipients/` |
+| `@config/…` | `src/config/` — env loading + `configProperties` |
 | `@core/…` | `src/core/` |
-| `@preconditions/…` | `src/preconditions/` |
 | `@apptypes` | `src/types/index.ts` |
 
 ---
@@ -112,12 +121,16 @@ test('GET returns 200', async ({ api }) => {
 - Base URL comes from `API_URL`; paths are relative to it.
 - Tag with `@API`.
 
-## 2. UI — `tests/ui/`
+## 2. Browser-driven — `tests/web/`
 
-Browser journeys through Page Objects. Tests start **already authenticated** from
+Everything that opens a browser lives here: UI-only specs **and** the UI+API(+DB)
+hybrids. Both import `base.fixture` and run under the `chromium` project, so there is no
+runtime reason to separate them — see §3 for the hybrid pattern and its `@Workflow` tag.
+
+Journeys through Page Objects. Tests start **already authenticated** from
 `.auth/user.json` (written by the `auth-setup` project), so never re-implement login.
 A test that must start logged out resets storage state at the top of the file — see
-`ui/system/login-module.spec.ts`.
+`web/system/login-module.spec.ts`.
 
 ```ts
 import { test, expect } from '@fixtures/base.fixture';
@@ -138,20 +151,23 @@ test('reaches the Users list', async ({ pages }) => {
 - Records a test creates: `cleanup.track('<entity>', name)` — never hand-write SQL.
 - Tag with `@UI` (and `@Smoke` for critical-path).
 
-## 3. Workflow — `tests/workflow/`
+## 3. Workflow hybrids — also `tests/web/`, tagged `@Workflow`
 
 UI + API hybrid: perform an action in the UI, then verify it via the API in the same
-test. Imports `base.fixture` (which also provides `apiRequest`).
+test. **Not a separate folder** — it needs the browser and `auth-setup` exactly like a
+UI spec, so it sits in `tests/web/<journey>/` and is distinguished by the `@Workflow`
+tag plus `category: workflow` on its runner row. Imports `base.fixture` (which also
+provides `apiRequest`).
 
 ```ts
 import { test, expect } from '@fixtures/base.fixture';
 import { executeWithAuthRetry } from '@utils/../auth/requestBuilder';
-import { verifyJsonKeyValues } from '@utils/apiResponseUtils';
 
 test('create in UI, verify via API', async ({ apiRequest, pages }, testInfo) => {
   // …UI steps…
   const res = await executeWithAuthRetry(apiRequest, 'GET', 'guarantor/28114/notes', {}, testInfo);
-  expect(await verifyJsonKeyValues(res, { accountNote: 'x' })).toBeTruthy();
+  expect(res.status()).toBe(200);
+  expect(await res.json()).toMatchObject({ accountNote: 'x' });
 });
 ```
 
@@ -197,6 +213,6 @@ Start at [tests/webpet/README.md](webpet/README.md); the page-object rules are i
 
 ## Adding a spec
 
-See [`specs/README.md`](../specs/README.md) — plan first, then runner rows, then the
+See [`test-plans/README.md`](../specs/README.md) — plan first, then runner rows, then the
 spec. Finish with `npm run runner:sync && npm run runner:check`; the checker fails if
 a spec and its runner row disagree, so the two cannot drift.

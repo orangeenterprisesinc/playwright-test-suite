@@ -17,9 +17,6 @@
  * test, so a spec touching one screen never pays for the other thirty-nine.
  *
  * Grouped by the app's own menu areas, matching `src/pages/`.
- *
- * @module fixtures/pages.fixture
- * @since 1.0.0
  */
 import type { Page } from '@playwright/test';
 import { LoginPage } from '../pages/shell/LoginPage';

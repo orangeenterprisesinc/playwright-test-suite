@@ -9,14 +9,11 @@
  *
  * On the edit form Name, Code and Export Identifier are readonly while those
  * three stay editable — the read-only set is wider here than on Job Group.
- *
- * @module pages/webpet/setup/DepartmentFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class DepartmentFormPage
  * @extends WebpetFormPage
  */
 export class DepartmentFormPage extends WebpetFormPage {

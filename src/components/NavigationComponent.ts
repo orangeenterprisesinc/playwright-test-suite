@@ -3,18 +3,6 @@
  *
  * Provides methods for interacting with site navigation elements including logo,
  * menu items, search, user menu (login/logout), and mobile/hamburger menu.
- *
- * @module components/NavigationComponent
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * const nav = new NavigationComponent(page);
- * await nav.search('playwright');
- * await nav.clickMenuItem('Products');
- * await nav.assertLoggedIn();
- * ```
  */
 import { expect, Locator, Page } from '@playwright/test';
 import { BaseComponent } from './BaseComponent';
@@ -25,7 +13,6 @@ import { BaseComponent } from './BaseComponent';
  * Auto-discovers common navigation elements (logo, links, search, user menu,
  * mobile toggle) and provides interaction and assertion methods.
  *
- * @class NavigationComponent
  * @extends {BaseComponent}
  */
 export class NavigationComponent extends BaseComponent {
@@ -50,11 +37,7 @@ export class NavigationComponent extends BaseComponent {
     /** Mobile menu container. */
     readonly mobileMenu: Locator;
 
-    /**
-     * Creates a NavigationComponent scoped to the given root selector.
-     * @param {Page} page - Playwright Page instance
-     * @param {string} [rootSelector='nav, header, [role="navigation"]'] - CSS selector for the nav root
-     */
+    /** Creates a NavigationComponent scoped to the given root selector. */
     constructor(page: Page, rootSelector: string = 'nav, header, [role="navigation"]') {
         super(page, rootSelector);
         this.logo = this.locator('.logo').or(this.getByRole('img', { name: /logo/i }));
@@ -85,29 +68,20 @@ export class NavigationComponent extends BaseComponent {
         await this.homeLink.click();
     }
 
-    /**
-     * Clicks a menu item by its link name.
-     * @param {string} name - The visible link text
-     */
+    /** Clicks a menu item by its link name. */
     async clickMenuItem(name: string): Promise<void> {
         this.logger.info(`Clicking menu item: ${name}`);
         await this.getByRole('link', { name }).click();
     }
 
-    /**
-     * Types a search term and clicks the search button.
-     * @param {string} term - The search query
-     */
+    /** Types a search term and clicks the search button. */
     async search(term: string): Promise<void> {
         this.logger.info(`Searching for: ${term}`);
         await this.searchInput.fill(term);
         await this.searchButton.click();
     }
 
-    /**
-     * Types a search term and presses Enter to submit.
-     * @param {string} term - The search query
-     */
+    /** Types a search term and presses Enter to submit. */
     async searchWithEnter(term: string): Promise<void> {
         this.logger.info(`Searching for: ${term}`);
         await this.searchInput.fill(term);
@@ -155,18 +129,12 @@ export class NavigationComponent extends BaseComponent {
         }
     }
 
-    /**
-     * Returns the text contents of all menu items.
-     * @returns {Promise<string[]>} Menu item texts
-     */
+    /** Returns the text contents of all menu items. */
     async getMenuItemTexts(): Promise<string[]> {
         return await this.menuItems.allTextContents();
     }
 
-    /**
-     * Returns the current value of the search input.
-     * @returns {Promise<string>} The search input value
-     */
+    /** Returns the current value of the search input. */
     async getSearchValue(): Promise<string> {
         return await this.searchInput.inputValue();
     }
@@ -183,10 +151,7 @@ export class NavigationComponent extends BaseComponent {
         await expect(this.userMenu).toBeHidden();
     }
 
-    /**
-     * Asserts that a menu item with the given name exists and is visible.
-     * @param {string} name - The menu item link text
-     */
+    /** Asserts that a menu item with the given name exists and is visible. */
     async assertMenuItemExists(name: string): Promise<void> {
         await expect(this.getByRole('link', { name })).toBeVisible();
     }

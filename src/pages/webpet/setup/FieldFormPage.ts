@@ -16,8 +16,6 @@
  *
  * Crop → Variety cascades: changing the crop refilters the variety list and
  * clears any selection.
- *
- * @module pages/webpet/setup/FieldFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
@@ -25,7 +23,6 @@ import { ParentPickerComponent } from '../../../components/webpet/ParentPickerCo
 import { EntitySheetComponent } from '../../../components/webpet/EntitySheetComponent';
 
 /**
- * @class FieldFormPage
  * @extends WebpetFormPage
  */
 export class FieldFormPage extends WebpetFormPage {

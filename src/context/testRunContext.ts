@@ -6,8 +6,6 @@
  * (decorators, loggers, reporters) look up which test is executing right
  * now. Safe as a singleton because Playwright workers run one test at a time
  * — same assumption as {@link ../context/testMetrics}.
- *
- * @module context/testRunContext
  */
 export interface CurrentTest {
     title: string;

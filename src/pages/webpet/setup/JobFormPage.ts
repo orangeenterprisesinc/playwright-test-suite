@@ -12,15 +12,12 @@
  * rendered as shadcn Checkboxes with legacy `NOT NULL DEFAULT` values (PET-60).
  * Both tests covering them are skipped pending rework — their locators are kept
  * here so the skip can be lifted without re-deriving anything.
- *
- * @module pages/webpet/setup/JobFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
 
 /**
- * @class JobFormPage
  * @extends WebpetFormPage
  */
 export class JobFormPage extends WebpetFormPage {

@@ -128,21 +128,35 @@ export default defineConfig({
     // already be flushed to disk.
     reporter: [
         ['list'],
-        ['html', { outputFolder: 'playwright-report', open: 'never' }],
-        ['json', { outputFile: 'test-results/results.json' }],
+        ['html', { outputFolder: 'artifacts/html', open: 'never' }],
+        ['json', { outputFile: 'artifacts/results/results.json' }],
         ['github'],
-        ['allure-playwright', { outputFolder: 'allure-results', detail: true, suiteTitle: false }],
-        ['./src/reporting/emailReporter.ts'], // gated by SEND_EMAIL + SMTP_*
-        ['./src/reporting/slackReporter.ts'], // gated by SEND_SLACK + SLACK_WEBHOOK_URL
-        ['./src/reporting/dashboard.ts'],     // gated by SEND_RESULT_ELK + ELK_URL
+        // NOTE: the key is `resultsDir`, NOT `outputFolder`. allure-playwright v3
+        // reads `options.resultsDir` (AllurePlaywrightReporterConfig extends
+        // allure-js-commons' ReporterConfig); an `outputFolder` key is silently
+        // ignored, and its default happens to be `allure-results` — so the old
+        // `outputFolder: 'allure-results'` only ever "worked" by coincidence and
+        // would have kept writing to the repo root once that default no longer
+        // matched. Playwright types reporter options as `any`, so nothing warns.
+        ['allure-playwright', { resultsDir: 'artifacts/allure/results', detail: true, suiteTitle: false }],
+        ['./src/reporting/deliver/emailReporter.ts'], // DEPRECATED; gated by SEND_EMAIL + SMTP_*
+        // The primary channel. Gated by SEND_SLACK + a route, and additionally by
+        // src/reporting/deliver/slack/gate.ts: CI events only (SLACK_NOTIFY_EVENTS),
+        // so local and manual runs never post.
+        ['./src/reporting/deliver/slackReporter.ts'],
+        ['./src/reporting/deliver/dashboard.ts'],     // gated by SEND_RESULT_ELK + ELK_URL
     ],
 
-    // Root folder for per-test artifacts (traces, videos, screenshots).
-    outputDir: 'test-results/',
+    // Root folder for per-test artifacts (traces, videos, screenshots). Every
+    // run output in this repo lives under a single `artifacts/` tree — results,
+    // the HTML report, the Allure results/report, and the framework logs — so
+    // "where did the report go" has one answer and .gitignore has one line.
+    // See docs/STRUCTURE.md.
+    outputDir: 'artifacts/results/',
 
     // One-time setup/teardown around the whole run.
-    globalSetup: require.resolve('./src/fixtures/global-setup.ts'),
-    globalTeardown: require.resolve('./src/fixtures/global-teardown.ts'),
+    globalSetup: require.resolve('./src/fixtures/lifecycle/global-setup.ts'),
+    globalTeardown: require.resolve('./src/fixtures/lifecycle/global-teardown.ts'),
 
     // Defaults applied to every project below.
     use: {

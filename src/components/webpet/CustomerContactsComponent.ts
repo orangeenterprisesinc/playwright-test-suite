@@ -18,14 +18,11 @@
  * Inline validation messages are deferred (WEBPET-831), so the specs assert the
  * reliable signal instead: FormFooter keeps Save disabled while the form is
  * invalid. That assertion lives on the footer, not here.
- *
- * @module components/webpet/CustomerContactsComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class CustomerContactsComponent
  * @extends BaseComponent
  */
 export class CustomerContactsComponent extends BaseComponent {

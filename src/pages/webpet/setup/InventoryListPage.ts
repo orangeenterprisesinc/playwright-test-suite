@@ -10,14 +10,11 @@
  * originally an `InventoryStubPage` placeholder; the assertion that it has
  * **zero** matches is what proves the real list page shipped, and it would still
  * pass vacuously if the heading check were dropped — hence both.
- *
- * @module pages/webpet/setup/InventoryListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class InventoryListPage
  * @extends WebpetListPage
  */
 export class InventoryListPage extends WebpetListPage {
@@ -37,11 +34,6 @@ export class InventoryListPage extends WebpetListPage {
      */
     readonly newLink: Locator;
 
-    /**
-     * @param page Playwright page
-     * @param listUrl Relative list URL, e.g. `'/setup/inventory/centers'`
-     * @param headingName The page's `<h1>` text, e.g. `'Inventory Centers'`
-     */
     constructor(page: Page, listUrl: string, headingName: string) {
         super(page, listUrl, headingName);
 

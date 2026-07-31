@@ -1,6 +1,5 @@
 /**
  * @fileoverview Framework-wide path constants.
- * @module core/frameworkConstants
  */
 import path from 'node:path';
 

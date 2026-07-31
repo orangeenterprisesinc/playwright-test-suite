@@ -11,14 +11,11 @@
  * traceability screens use, nor the `input#active` checkbox Employee and
  * Customer use. Three different controls across the suite; each screen declares
  * its own so none is silently widened.
- *
- * @module pages/webpet/setup/BillingCenterFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class BillingCenterFormPage
  * @extends WebpetFormPage
  */
 export class BillingCenterFormPage extends WebpetFormPage {
@@ -34,12 +31,7 @@ export class BillingCenterFormPage extends WebpetFormPage {
         this.activeSwitch = page.getByRole('switch', { name: /active/i });
     }
 
-    /**
-     * Open the create form, or report that the module is not licensed.
-     *
-     * @returns `false` when the route 403s because GrowerBilling is absent from
-     *   `PT_MODULES` — the caller should return without asserting.
-     */
+    /** Open the create form, or report that the module is not licensed. */
     async gotoNewOrForbidden(): Promise<boolean> {
         const response = await this.page.goto(`${this.config.listUrl}/new`);
         return !(response && response.status() === 403);

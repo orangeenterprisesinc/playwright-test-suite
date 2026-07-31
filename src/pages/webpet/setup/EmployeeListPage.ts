@@ -1,13 +1,10 @@
 /**
  * @fileoverview Employee list — `/setup/employees`.
- *
- * @module pages/webpet/setup/EmployeeListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class EmployeeListPage
  * @extends WebpetListPage
  */
 export class EmployeeListPage extends WebpetListPage {

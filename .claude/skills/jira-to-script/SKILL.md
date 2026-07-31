@@ -15,7 +15,7 @@ the Playwright test agents (planner / generator / healer).
   `uv`/`uvx` installed. If unavailable, ask the user to paste the story
   text instead and continue from step 2.
 - The app under test reachable at `BASE_URL` (local stack running for
-  `env.local`). The planner/generator drive a real browser — without the
+  `.env.local`). The planner/generator drive a real browser — without the
   app, stop after the plan draft and say so.
 
 ### Pipeline
@@ -27,7 +27,7 @@ the Playwright test agents (planner / generator / healer).
 2. **Plan** — invoke the `playwright-test-planner` agent with the story's
    ACs and relevant app area. It explores the live app (via the
    playwright-test MCP + `tests/seed.spec.ts`) and produces a test plan.
-   Save the plan under `specs/<ISSUE-KEY>-<slug>.md` with a link back to
+   Save the plan under `test-plans/<ISSUE-KEY>-<slug>.md` with a link back to
    the Jira key.
 
 3. **Generate** — invoke the `playwright-test-generator` agent per planned

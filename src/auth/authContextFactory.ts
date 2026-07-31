@@ -1,16 +1,8 @@
 /**
  * @fileoverview Factory that builds `APIRequestContext` creation options for
  * the configured authentication strategy (OAuth2, Basic, API Key, or none).
- *
- * @module auth/authContextFactory
- *
- * @example
- * ```typescript
- * const authOptions = await buildAuthContextOptions();
- * const context = await playwright.request.newContext({ baseURL, ...authOptions });
- * ```
  */
-import { ConfigProperties, getConfigValue } from '../enums/configProperties';
+import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { getAccessToken } from './authorizationManager';
 
 export type AuthType = 'oauth2' | 'basic' | 'apikey' | 'none';

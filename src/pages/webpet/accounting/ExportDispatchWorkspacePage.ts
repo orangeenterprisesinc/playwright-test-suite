@@ -15,15 +15,12 @@
  * grid. Both vocabularies are still asserted by the suite (`export-v2-counter-*`
  * on the redesigned page, `export-v2-readiness-*` on the mobile layout), so both
  * are exposed here rather than one being "corrected" away.
- *
- * @module pages/webpet/accounting/ExportDispatchWorkspacePage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 import { DateRangeFilterComponent } from '../../../components/webpet/DateRangeFilterComponent';
 
 /**
- * @class ExportDispatchWorkspacePage
  * @extends BasePage
  */
 export class ExportDispatchWorkspacePage extends BasePage {

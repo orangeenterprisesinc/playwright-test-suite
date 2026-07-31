@@ -20,13 +20,10 @@
  * Connection config (env, loaded per TEST_ENV): `DB_SERVER`, `DB_CLIENT`,
  * `DB_MASTER`, `DB_TRUSTED` (+ `DB_USER`/`DB_PASSWORD` for SQL auth),
  * `SQLCMD_PATH` (trusted path only), and the `DB_CLEANUP` master switch.
- *
- * @module utils/db/sqlClient
- * @since 1.0.0
  */
 import { spawnSync } from 'node:child_process';
 import { ConnectionPool, type config as MssqlConfig } from 'mssql';
-import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../enums/configProperties';
+import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../config/configProperties';
 import { Logger } from '../logger';
 
 const logger = new Logger('SqlClient');
@@ -78,8 +75,6 @@ interface ServerTarget {
  * `[tcp:]host[\INSTANCE][,port]` — e.g. `localhost,1433` or
  * `SQLBOX\SQLEXPRESS01`. The driver wants these as separate fields, so they have
  * to be pulled apart here rather than passed through.
- *
- * @param raw the raw `DB_SERVER` value
  */
 function parseServer(raw: string): ServerTarget {
     let value = raw.trim().replace(/^tcp:/i, '');
@@ -248,19 +243,6 @@ function runViaSqlcmd(query: string, label: string, params: SqlParams): SqlRunRe
  *
  * Prefer `@name` placeholders with `params` over interpolating values into the
  * query: the driver binds them properly, and the `sqlcmd` path escapes them.
- *
- * @param query  the SQL batch to execute, using `@name` placeholders for values
- * @param label  short description for logs (e.g. the user name being removed)
- * @param params values to bind to the query's placeholders
- *
- * @example
- * ```typescript
- * await runSql(
- *     'UPDATE dbo.Users SET Deleted = 1 WHERE Name LIKE @name AND Deleted = 0;',
- *     name,
- *     { name },
- * );
- * ```
  */
 export async function runSql(
     query: string,

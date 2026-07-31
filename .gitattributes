@@ -1,0 +1,28 @@
+# Normalize line endings on commit, check out native. Without this the repo is
+# EOL-mixed (some sources are LF, some CRLF), and a CRLF checkout has already
+# broken a validation gate once — commit e87512e, "runner:check must not fail on
+# a CRLF checkout". This prevents that whole class rather than patching parsers.
+* text=auto
+
+# The authored runner rows are read by PapaParse and diffed against their JSON
+# mirrors by runner:check / webpet:runner:check. Pin them to LF so a Windows
+# checkout cannot introduce a phantom CSV-vs-JSON drift.
+*.csv text eol=lf
+*.json text eol=lf
+*.ts   text eol=lf
+*.js   text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+
+# Shell scripts run inside Linux containers (docker/e2e/restore.sh) — CRLF here
+# makes the shebang fail with a bare "not found".
+*.sh text eol=lf
+
+# Binary: never normalize, never diff.
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.mp4  binary
+*.bak  binary
+*.docx binary
+*.zip  binary

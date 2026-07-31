@@ -11,21 +11,6 @@
  * Without this component each of those page objects re-implements filtering, row
  * lookup, row counting and absence-checking; `UsersPage` already had all four.
  * Page objects now hold one of these instead.
- *
- * @module components/DataGridComponent
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * class RanchPage extends SetupScreenPage {
- *   readonly grid = new DataGridComponent(this.page, 'Ranches', 'Ranch');
- *
- *   async findRanch(name: string) {
- *     await this.grid.filterByName(name);
- *     return this.grid.rowFor(name);
- *   }
- * }
- * ```
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseComponent } from './BaseComponent';
@@ -33,7 +18,6 @@ import { BaseComponent } from './BaseComponent';
 /**
  * A PET Tiger list grid.
  *
- * @class DataGridComponent
  * @extends BaseComponent
  */
 export class DataGridComponent extends BaseComponent {
@@ -43,11 +27,6 @@ export class DataGridComponent extends BaseComponent {
      */
     private readonly entity: string;
 
-    /**
-     * @param page Playwright page
-     * @param gridName Accessible name of the grid (e.g. `'Users'`)
-     * @param entity Singular entity name used by the row edit link (e.g. `'User'`)
-     */
     constructor(page: Page, gridName: string, entity: string) {
         super(page, page.getByRole('grid', { name: gridName }));
         this.entity = entity;

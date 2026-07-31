@@ -13,14 +13,11 @@
  *
  * The date filters narrow the grid to a populated day so the first data rows are
  * reliably in the DOM, below the 100-row virtualization threshold.
- *
- * @module pages/webpet/input/TimeInListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class TimeInListPage
  * @extends WebpetListPage
  */
 export class TimeInListPage extends WebpetListPage {

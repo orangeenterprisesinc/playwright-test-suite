@@ -1,0 +1,56 @@
+name: Scheduled Dry Run
+
+# The daily dry run of the whole automation suite, in a fixed order:
+#
+#   User Journey (e2e.yml)  →  its Slack report
+#            ↓
+#   WebPet (webpet-e2e-dev.yml)  →  its Slack report
+#
+# The two are NEVER parallel: they hit the same dev-staging data, and WebPet
+# mutates it. `needs:` is what enforces that — each suite keeps its own tests,
+# artifacts, Allure report and Slack message; nothing is merged.
+#
+# This file must live on main, because GitHub only fires `schedule:` from the
+# default branch. The called workflows check out `dry-run` on a scheduled event
+# (they inherit this run's event name), so dry-run's code is what gets tested.
+#
+# The 3:50 PM reminder is dry-run-reminder.yml — a separate workflow, because a
+# second cron here would run this whole chain twice.
+on:
+  schedule:
+    # IST is UTC+5:30 and GitHub's cron scheduler always runs in UTC. GitHub can
+    # start a scheduled run several minutes late under load; that's expected, and
+    # it is why the reminder says "starts at 4:00 PM" rather than counting down.
+    - cron: '30 10 * * *'   # 4:00 PM IST
+  # For testing the chain. Slack stays silent on a manual run (slack/gate.ts
+  # allows `schedule` only) — set the SLACK_NOTIFY_EVENTS repo variable to
+  # `schedule,workflow_dispatch` to get real messages out of a dispatch run.
+  workflow_dispatch:
+
+# Never overlap with yesterday's run if that one is somehow still going; queue
+# instead of cancelling, so a long WebPet run is not killed mid-suite.
+concurrency:
+  group: dry-run-daily
+  cancel-in-progress: false
+
+jobs:
+  user-journey:
+    name: User Journey
+    uses: ./.github/workflows/e2e.yml
+    with:
+      suite_name: User Journey
+    secrets: inherit
+
+  webpet:
+    name: WebPet
+    needs: user-journey
+    # Runs whether User Journey passed or failed — the two suites are independent
+    # and a red journey run must not hide WebPet's results.
+    if: always()
+    uses: ./.github/workflows/webpet-e2e-dev.yml
+    with:
+      suite_name: WebPet
+      # Serial: this suite is not parallel-safe on dev and the committed baseline
+      # was captured at 1 worker.
+      workers: '1'
+    secrets: inherit

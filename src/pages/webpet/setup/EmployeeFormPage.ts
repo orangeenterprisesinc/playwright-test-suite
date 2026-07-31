@@ -12,8 +12,6 @@
  * Export Identifier deliberately does **not** auto-populate from Name here:
  * legacy `EmployeeForm.cs` never did, and the web divergence (`handleNameBlur`)
  * was removed in PET-581 (GAP-016). Two tests guard that it stays removed.
- *
- * @module pages/webpet/setup/EmployeeFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
@@ -21,7 +19,6 @@ import { ParentPickerComponent } from '../../../components/webpet/ParentPickerCo
 import { EmployeeDocumentsComponent } from '../../../components/webpet/EmployeeDocumentsComponent';
 
 /**
- * @class EmployeeFormPage
  * @extends WebpetFormPage
  */
 export class EmployeeFormPage extends WebpetFormPage {

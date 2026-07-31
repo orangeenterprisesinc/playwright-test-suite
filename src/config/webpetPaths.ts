@@ -14,8 +14,6 @@
  * by the `webpet-setup` project and read by the specs, and relocating it while
  * the fixture also moves would change two variables at once. `.gitignore`'s
  * unanchored `.auth/` rule covers it either way.
- *
- * @module config/webpetPaths
  */
 import path from 'node:path';
 
@@ -60,7 +58,7 @@ export const WEBPET_IDS_DIR = path.join(WEBPET_DATA_DIR, 'ids');
 /**
  * Structural identity of a spec file: its path relative to `tests/webpet`, with
  * posix separators. Pairs with the test's title path to form the runner key
- * that `scripts/webpet-runner-sync.js` writes and the gate reproduces.
+ * that `scripts/webpet/runner-sync.js` writes and the gate reproduces.
  */
 export function webpetSpecPath(absoluteFile: string): string {
     return path.relative(WEBPET_TESTS_ROOT, absoluteFile).split(path.sep).join('/');

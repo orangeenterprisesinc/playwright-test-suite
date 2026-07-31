@@ -1,13 +1,10 @@
 /**
  * @fileoverview Crew list — `/setup/crews`.
- *
- * @module pages/webpet/setup/CrewListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class CrewListPage
  * @extends WebpetListPage
  */
 export class CrewListPage extends WebpetListPage {

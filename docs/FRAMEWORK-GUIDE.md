@@ -51,7 +51,7 @@ Two conventions drive everything else:
 
 ## 2. Writing a UI spec
 
-Reference: [`tests/ui/journey-a-setup/a01-user-setup.spec.ts`](../tests/ui/journey-a-setup/a01-user-setup.spec.ts).
+Reference: [`tests/web/journey-a-setup/a01-user-setup.spec.ts`](../tests/web/journey-a-setup/a01-user-setup.spec.ts).
 A spec has four parts.
 
 **(1) Imports** — always from the fixture, plus data and helpers:
@@ -59,7 +59,7 @@ A spec has four parts.
 ```ts
 import { expect, test } from '../../src/fixtures/base.fixture';    // NOT @playwright/test
 import { userSetupData as userData } from '@data/journey-a/userSetupData'; // journey value bag
-import { makeUser, randomInitials } from '../../src/utils/testData';// data factories
+import { makeUser, randomInitials } from '../../src/data/generated';// data factories
 import { runSql } from '../../src/utils/db/sqlClient';               // cleanup helper
 ```
 
@@ -89,7 +89,7 @@ await expect(row).toContainText(user.role);
 **(4) Lifecycle/cleanup** — PET Tiger has no UI delete, so created users are soft-deleted in
 SQL via `afterEach`.
 
-The logged-out variant — [`tests/ui/system/login-module.spec.ts`](../tests/ui/system/login-module.spec.ts) —
+The logged-out variant — [`tests/web/system/login-module.spec.ts`](../tests/web/system/login-module.spec.ts) —
 discards the pre-auth session at file scope:
 
 ```ts
@@ -139,20 +139,20 @@ clicks. Workflow methods return semantic outcomes (e.g. `submit()` → `'created
 
 Three kinds:
 
-- **Journey value bags** — [`src/data/journey-a/userSetupData.ts`](../src/data/journey-a/userSetupData.ts),
-  [`src/data/system/loginModuleData.ts`](../src/data/system/loginModuleData.ts). Static strings (role lists,
+- **Journey value bags** — [`src/data/static/journey-a/userSetupData.ts`](../src/data/static/journey-a/userSetupData.ts),
+  [`src/data/static/system/loginModuleData.ts`](../src/data/static/system/loginModuleData.ts). Static strings (role lists,
   expected messages, defaults), exported as typed consts and imported directly by the spec.
   TypeScript rather than JSON because `test_user_prefix` is shared by `userFactory` (which
   *names* test users) and `global-teardown` (which *sweeps* them) — a drift between those two
   would silently orphan test users, so it is single-source and compile-checked.
 - **Runner rows** — [`src/data/runner/`](../src/data/runner/), one file per journey
   (`journey-a.csv` authored, `journey-a.json` a generated mirror), read as one combined set by
-  [`MultiFileDataReader`](../src/utils/dataReaders/MultiFileDataReader.ts) and selected by
+  [`MultiFileDataReader`](../src/data/readers/MultiFileDataReader.ts) and selected by
   `TEST_DATA_SOURCE` (exactly one format is read;
   no conversion step). One row per managed test case (see §6). Loaded through `DataProvider`.
 - **Runtime overrides** — [`src/data/runnerList.json`](../src/data/runnerList.json). Ships as
   `{}`. See §6 for how it overrides the runner rows.
-- **Generated data** — [`src/utils/testData/`](../src/utils/testData/): `makeUser(overrides)`
+- **Generated data** — [`src/data/generated/`](../src/data/generated/): `makeUser(overrides)`
   builds a run-unique New-User payload; `random.ts` provides `uid()`, `randomInitials()`,
   `randomEmail()`, etc. (not seeded, so parallel create-flows never collide).
 
@@ -187,8 +187,8 @@ Provides `apiContext` (raw), `authenticatedApi` (auth pre-applied), and `api` �
 `ApiHelper` with `get/post/put/...`, `authGet/authPost` (401/403 auto-retry), and
 `assertStatus`/`assertSuccess`.
 
-[`global-setup.ts`](../src/fixtures/global-setup.ts) / [`global-teardown.ts`](../src/fixtures/global-teardown.ts)
-— create `.auth/` + output dirs, reset `allure-results/`, and (teardown) write Allure
+[`global-setup.ts`](../src/fixtures/lifecycle/global-setup.ts) / [`global-teardown.ts`](../src/fixtures/lifecycle/global-teardown.ts)
+— create `.auth/` + output dirs, reset `artifacts/allure/results/`, and (teardown) write Allure
 env/executor files and run a safety-net SQL sweep of leftover test users.
 
 ### `src/utils/` — general helpers
@@ -196,20 +196,12 @@ env/executor files and run a safety-net SQL sweep of leftover test users.
 | File | What it does |
 |---|---|
 | [`logger.ts`](../src/utils/logger.ts) | `Logger` — colored console + daily JSON-lines log files; `child()` for nested context |
-| [`DataProvider.ts`](../src/utils/DataProvider.ts) | Singleton unifying JSON/CSV test-data access — `getTestCaseById`, `getRunnerData`, `getEnabledTestData`, `forSource` |
-| [`dataReaders/`](../src/utils/dataReaders/) | `BaseDataReader` (caching + `readById`/`readEnabled`) with `JsonDataReader`, `CsvDataReader`, `TypeCoercionHelper` (pipe-delimited arrays for CSV) |
-| [`retryHelper.ts`](../src/utils/retryHelper.ts) | `RetryHelper.retry/retryUntil` with linear/exponential/fibonacci backoff |
-| [`networkHelper.ts`](../src/utils/networkHelper.ts) | `mockRoute`, `blockResources`, `waitForResponse`, `waitForNetworkIdle`, HAR record/replay |
-| [`customAssertions.ts`](../src/utils/customAssertions.ts) | `assertElementCount`, `assertAllVisible`, `assertHasClass` |
-| [`softAssertions.ts`](../src/utils/softAssertions.ts) | `SoftAssertions` — accumulate failures, `throwIfErrors()` once |
-| [`apiResponseUtils.ts`](../src/utils/apiResponseUtils.ts) | `verifyJsonKeyValues` — deep JSON body matcher |
-| [`performanceMonitor.ts`](../src/utils/performanceMonitor.ts) | `measure()`, `getReport()`, `getSlowOperations()` |
-| [`visualRegression.ts`](../src/utils/visualRegression.ts) | `compareScreenshots` wrapper over `toHaveScreenshot` |
-| [`apiMockServer.ts`](../src/utils/apiMockServer.ts) | register a set of stubs and `applyTo(page)` |
-| [`allureHelper.ts`](../src/utils/allureHelper.ts) | generate Allure reports via JS API; `prepareLeanEmailReport` (screenshot-only single file) |
-| [`allureLabels.ts`](../src/utils/allureLabels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
+| [`DataProvider.ts`](../src/data/readers/DataProvider.ts) | Singleton unifying JSON/CSV test-data access — `getTestCaseById`, `getRunnerData`, `getEnabledTestData`, `forSource` |
+| [`dataReaders/`](../src/data/readers/) | `BaseDataReader` (caching + `readById`/`readEnabled`) with `JsonDataReader`, `CsvDataReader`, `TypeCoercionHelper` (pipe-delimited arrays for CSV) |
+| [`allureHelper.ts`](../src/reporting/generate/allure/report.ts) | generate Allure reports via JS API; `acquireLeanReport` (screenshot-only single file, built once per run and shared by the email + Slack channels) |
+| [`allureLabels.ts`](../src/reporting/generate/allure/labels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
 | [`db/sqlClient.ts`](../src/utils/db/sqlClient.ts) | `runSql` (async, `@name` bound params) — test-user cleanup over the `mssql` driver or `sqlcmd`, chosen by `DB_TRUSTED` |
-| [`testData/`](../src/utils/testData/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
+| [`testData/`](../src/data/generated/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
 
 ### `src/auth/` — API auth (separate from browser login)
 
@@ -285,16 +277,17 @@ The mechanism spans four pieces:
    top of [`playwright.config.ts`](../playwright.config.ts) with precedence:
    ```
    1. OS / CI environment variables   ← never overridden (CI secrets always win)
-   2. env.<name>  (env.local / env.dev / env.qa)
+   2. env.<name>  (.env.local / .env.dev / .env.qa)
    3. .env        (optional shared base)
    ```
-3. **Per-env URLs** live in the env files: `env.local` → `http://localhost:3000` +
-   `http://localhost:8080/api`; `env.dev` / `env.qa` → the dev/qa hosts (+`/api`). A typed
-   map also exists in [`src/config/environments.ts`](../src/config/environments.ts) for the
-   programmatic `EnvironmentManager`.
+3. **Per-env URLs** live in the env files: `.env.local` → `http://localhost:3000` +
+   `http://localhost:8080/api`; `.env.dev` / `.env.qa` → the dev/qa hosts (+`/api`). The env
+   files are the only source — a second typed map and a programmatic `EnvironmentManager`
+   used to exist alongside them, reading `DEV_APP_URL`/`QA_APP_URL` variables that nothing
+   ever set; both were removed so there is exactly one place to look.
 4. **Resolution at runtime:** `use.baseURL = process.env.BASE_URL`; the API base is read via
    `getConfigValue(ConfigProperties.API_URL)` and normalized to a trailing slash.
-   [`src/enums/configProperties.ts`](../src/enums/configProperties.ts) maps logical names →
+   [`src/config/configProperties.ts`](../src/config/configProperties.ts) maps logical names →
    env-var names (`getConfigValue`, `getConfigBoolean`, `getEnvLabel`).
 
 **How you switch, in practice:**
@@ -302,21 +295,22 @@ The mechanism spans four pieces:
 | Where | How env is selected |
 |---|---|
 | **Local** | `npm test` → local · `npm run test:dev` → dev · `npm run test:qa` → qa. The launcher pins `TEST_ENV`; envLoader loads `env.<name>`. |
-| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
+| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `.env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
 | **CI — [`e2e-local.yml`](../.github/workflows/e2e-local.yml)** (self-hosted, localhost) | Hard-sets `TEST_ENV=local`, `BASE_URL=http://localhost:3000`, `API_URL=...:8080/api` as job env — OS-env precedence makes these win over env files. |
 
 ---
 
 ## 8. GitHub CI
 
-Four workflows: two for the journey suites and two for the migrated web-pet suite. The
-journey pair listen for the same external `repository_dispatch` (`run-playwright`), so one
-app-side build fans out to both; the web-pet pair are independent and never triggered by a
+Six workflows: two suite runners for the journey suites, two for the migrated web-pet suite,
+and two schedulers (`dry-run-daily.yml` + `dry-run-reminder.yml`) that own the only cron in the
+repo. The journey pair listen for the same external `repository_dispatch` (`run-playwright`), so
+one app-side build fans out to both; the web-pet pair are independent and never triggered by a
 push.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **twice-daily cron — 4pm IST (`30 10 * * *`) and 6pm IST (`30 12 * * *`)** — plus
-  push to `main`, manual dispatch, and external `repository_dispatch`.
+- Triggers: **`workflow_call` from `dry-run-daily.yml`** (the daily 4:00 PM IST run), plus push
+  to `main`, manual dispatch, and external `repository_dispatch`. It has no cron of its own.
 - Runner: `ubuntu-latest` (GitHub-hosted), 15-min timeout.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
@@ -330,7 +324,7 @@ push.
   **variable** (not a secret — a login name isn't a credential, and masking a short value
   like `su` mangles unrelated words in the log), defaulting to `su`.
   Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
-- Test-user cleanup runs over SQL, same as everywhere else — `env.dev` sets `DB_CLEANUP=yes`
+- Test-user cleanup runs over SQL, same as everywhere else — `.env.dev` sets `DB_CLEANUP=yes`
   and `DB_TRUSTED=no`, with `DB_SERVER`/`DB_USER`/`DB_PASSWORD` as secrets and `DB_CLIENT` as
   a repo variable. `DB_TRUSTED=no` selects the `mssql` driver rather than the `sqlcmd` CLI,
   so no CLI install step is needed — the transport table is in
@@ -350,21 +344,54 @@ push.
 **[`webpet-e2e-local.yml`](../.github/workflows/webpet-e2e-local.yml) and
 [`webpet-e2e-dev.yml`](../.github/workflows/webpet-e2e-dev.yml)** — the migrated web-pet
 suite (see §9). The local one is the same self-hosted Windows stack boot as `e2e-local.yml`
-plus the DelLlano seed, and is **manual dispatch only**; the dev one runs nightly at 4:00 AM
-IST against app.ptdev.xyz and is report-only. Both export `WEBPET=1` job-wide to materialize
+plus the DelLlano seed, and is **manual dispatch only**; the dev one runs against app.ptdev.xyz
+as the second half of the daily dry run (below) and is report-only. Both export `WEBPET=1` job-wide to materialize
 the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check` and
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
+**The daily dry run** is one chain, not two crons.
+[`dry-run-reminder.yml`](../.github/workflows/dry-run-reminder.yml) posts an informational
+Slack message at 3:50 PM IST; [`dry-run-daily.yml`](../.github/workflows/dry-run-daily.yml)
+fires at 4:00 PM IST and calls `e2e.yml` (User Journey) and then — via `needs:` —
+`webpet-e2e-dev.yml`, so the two never run at once against the same dev data:
+
+```
+3:50 PM  reminder  →  4:00 PM  User Journey  →  its Slack report
+                                    ↓
+                               WebPet  →  its Slack report
+```
+
+Both are `workflow_call` reusable workflows here; neither schedules itself. They keep separate
+tests, artifacts, Allure reports and Slack messages — nothing is merged. All three files must
+live on `main` (cron only fires from the default branch); on a scheduled event they check out
+`dry-run`, which is the code that actually gets tested.
+
 **Reporting** ([`src/reporting/`](../src/reporting/)) runs *inside* Playwright's `onEnd` — no
-separate CI send step. All three are self-gating (do nothing unless their `SEND_*` flag +
-endpoint are set, and never fail the run):
-- [`slackReporter.ts`](../src/reporting/slackReporter.ts) — Slack Block Kit via webhook.
-- [`emailReporter.ts`](../src/reporting/emailReporter.ts) — HTML email via nodemailer,
-  attaches the lean Allure report.
-- [`dashboard.ts`](../src/reporting/dashboard.ts) — POSTs run summary to ELK.
-- [`runSummary.ts`](../src/reporting/runSummary.ts) — shared collector that builds the
+separate CI send step. All three channels are self-gating (do nothing unless their `SEND_*` flag
++ endpoint are set, and never fail the run):
+- [`slackReporter.ts`](../src/reporting/deliver/slackReporter.ts) — **the primary channel**. One
+  report per suite: status, environment, execution, branch, run number, the five counts, the top
+  five failing modules (`+N more...` for the rest) and buttons for the Allure report, the
+  workflow run and the artifacts. Layout in
+  [`slack/blocks.ts`](../src/reporting/deliver/slack/blocks.ts), transport in
+  [`slack/slackApi.ts`](../src/reporting/deliver/slack/slackApi.ts) — webhook (summary only) or
+  `chat.postMessage` + an Allure upload in the thread when `SLACK_BOT_TOKEN` +
+  `SLACK_CHANNEL_ID` are set, since webhooks cannot carry files.
+  [`slack/gate.ts`](../src/reporting/deliver/slack/gate.ts) makes it **CI-only**: `SEND_SLACK`,
+  plus `GITHUB_ACTIONS=true`, plus the event being in `SLACK_NOTIFY_EVENTS` (default
+  `schedule`). So `npm test`, `--debug`, `--ui`, a manual `workflow_dispatch` and a
+  `repository_dispatch` all post nothing. `SLACK_DRY_RUN=1` logs the payload instead of sending
+  it.
+- [`emailReporter.ts`](../src/reporting/deliver/emailReporter.ts) — **deprecated**. Still works
+  (HTML email via nodemailer + the lean Allure report), but `SEND_EMAIL` is pinned to `no` in
+  every workflow and nothing new lands here.
+- [`dashboard.ts`](../src/reporting/deliver/dashboard.ts) — POSTs run summary to ELK.
+- [`runSummary.ts`](../src/reporting/summary/runSummary.ts) — shared collector that builds the
   render-agnostic summary all three consume.
+- [`scripts/notify/slack-reminder.ts`](../scripts/notify/slack-reminder.ts) — the pre-run
+  reminder, the one Slack message not sent by a reporter. Run it with
+  `npm run notify:reminder -- --dry-run` to see the payload.
 
 **npm scripts** ([`package.json`](../package.json)) all go through `run-playwright.js <env>`:
 `test` / `test:dev` / `test:qa`, plus `test:headed`, `test:ui`, `test:debug`, `test:smoke`

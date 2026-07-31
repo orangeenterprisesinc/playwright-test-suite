@@ -3,14 +3,11 @@
  *
  * Note this is the parent route of Job Group (`/setup/jobs/groups`), so the
  * grid's exact-href row matching matters more here than elsewhere.
- *
- * @module pages/webpet/setup/JobListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class JobListPage
  * @extends WebpetListPage
  */
 export class JobListPage extends WebpetListPage {
