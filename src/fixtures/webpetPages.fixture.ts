@@ -17,8 +17,6 @@
  *   await pages.cropForm.gotoNew();
  * });
  * ```
- *
- * @module fixtures/webpetPages.fixture
  */
 import type { Page } from '@playwright/test';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';

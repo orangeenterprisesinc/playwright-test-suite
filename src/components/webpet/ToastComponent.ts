@@ -8,14 +8,11 @@
  * reported success. Toast **absence**, by contrast, is asserted against the
  * container's own attributes — `[data-sonner-toast][data-type="error"]` — since
  * "no error text anywhere on the page" would be far too broad a claim.
- *
- * @module components/webpet/ToastComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class ToastComponent
  * @extends BaseComponent
  */
 export class ToastComponent extends BaseComponent {

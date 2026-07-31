@@ -16,8 +16,6 @@
  *
  * Most row-level helpers take the row `Locator` rather than reading state, so a
  * spec can hold a row and interrogate it repeatedly without re-querying.
- *
- * @module components/webpet/WebpetDataGridComponent
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
@@ -28,7 +26,6 @@ function escapeRe(value: string): string {
 }
 
 /**
- * @class WebpetDataGridComponent
  * @extends BaseComponent
  */
 export class WebpetDataGridComponent extends BaseComponent {
@@ -70,10 +67,6 @@ export class WebpetDataGridComponent extends BaseComponent {
     /** Collapses the insights strip again. */
     readonly shrinkFromTopButton: Locator;
 
-    /**
-     * @param page Playwright page
-     * @param listUrl Relative list URL, e.g. `'/setup/ranches'`
-     */
     constructor(page: Page, listUrl: string) {
         super(page, page.locator('[role="grid"]'));
         this.listUrl = listUrl;

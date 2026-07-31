@@ -1,13 +1,10 @@
 /**
  * @fileoverview Job Group list — `/setup/jobs/groups`.
- *
- * @module pages/webpet/setup/JobGroupListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class JobGroupListPage
  * @extends WebpetListPage
  */
 export class JobGroupListPage extends WebpetListPage {

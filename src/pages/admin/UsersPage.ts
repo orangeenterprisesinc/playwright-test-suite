@@ -26,12 +26,10 @@
  * `src/utils/db/sqlClient.ts`, setting `Deleted = 1` to free the
  * Name/Initials/Email. This needs the run host to reach SQL Server and is gated by
  * `DB_CLEANUP`.
- *
- * @module pages/admin/UsersPage
- * @since 1.0.0
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { SetupScreenPage } from '../SetupScreenPage';
+import { randomInitials } from '../../data/generated';
 
 /** Values used to fill the New User form. */
 export interface NewUserData {
@@ -62,7 +60,6 @@ export type SaveOutcome = 'created' | 'duplicate-initials';
 /**
  * Page Object for the Users list and the New/Edit User form.
  *
- * @class UsersPage
  * @extends SetupScreenPage
  */
 export class UsersPage extends SetupScreenPage {
@@ -261,6 +258,54 @@ export class UsersPage extends SetupScreenPage {
     async submit(): Promise<SaveOutcome> {
         const outcome = await this.submitForm();
         return outcome === 'created' ? 'created' : 'duplicate-initials';
+    }
+
+    // ── Composite flows ─────────────────────────────────────────────
+
+    /**
+     * Fill and save the New User form, returning the data actually saved.
+     *
+     * Initials are capped at 3 characters and must be unique, so a generated value
+     * can collide with an existing user; retry with a fresh one. The retry has to
+     * live here rather than in the data layer because it is driven by what
+     * {@link submit} reports back from the UI.
+     */
+    async createUser(base: NewUserData, maxAttempts = 5): Promise<NewUserData> {
+        const user: NewUserData = { ...base };
+        await this.gotoUsersList();
+        await this.openNewUserForm();
+        await this.fillGeneral(user);
+        await this.fillPermissions(user);
+        await this.fillPersonalInfo(user);
+
+        let outcome = await this.submit();
+        for (let attempt = 0; outcome === 'duplicate-initials' && attempt < maxAttempts; attempt++) {
+            user.initials = randomInitials();
+            await this.initialsInput.fill(user.initials);
+            outcome = await this.submit();
+        }
+
+        expect(outcome, 'user should be created with a unique Initials').toBe('created');
+        return user;
+    }
+
+    /**
+     * Assert the grid shows exactly this user, with the details it was created
+     * with. The counterpart to {@link SetupScreenPage.expectAbsentFromList}.
+     *
+     * Filters by name rather than scanning the list, so it holds whatever else is
+     * in the database.
+     */
+    async expectListedWithDetails(user: NewUserData): Promise<void> {
+        await this.filterByName(user.name);
+
+        const row = this.userRow(user.name);
+        await expect(row).toHaveCount(1);
+        await expect.poll(() => this.totalRowCount()).toBe(1);
+
+        await expect(row).toContainText(user.initials);
+        await expect(row).toContainText(user.role);
+        await expect(row).toContainText(user.email);
     }
 }
 

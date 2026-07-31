@@ -4,8 +4,6 @@
  * Distinguishes framework/infrastructure failures (bad config, missing auth
  * secrets, unreadable data source) from ordinary Playwright assertion
  * failures, so callers and reporters can tell the two apart.
- *
- * @module core/frameworkExceptions
  */
 
 /** Base class for every framework-level error. */

@@ -5,8 +5,6 @@
  * operation it applies to, or `all`. Combined with the module list, this is what
  * lets a customer scope be *derived* rather than hand-maintained — see
  * `src/config/scope.ts` and `config/scopes/`.
- *
- * @module data/shared/segments
  */
 
 /** A kind of operation the product is sold into. */

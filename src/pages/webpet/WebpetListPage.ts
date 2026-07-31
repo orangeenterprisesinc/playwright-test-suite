@@ -6,8 +6,6 @@
  * list pages migrated to the new DataGrid library (PET-424) while form pages
  * were untouched. Modelling them as one object would tie a stable surface to a
  * volatile one.
- *
- * @module pages/webpet/WebpetListPage
  */
 import { Locator, Page, Response, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
@@ -15,7 +13,6 @@ import { WebpetDataGridComponent } from '../../components/webpet/WebpetDataGridC
 
 /**
  * @abstract
- * @class WebpetListPage
  * @extends BasePage
  */
 export abstract class WebpetListPage extends BasePage {
@@ -35,11 +32,6 @@ export abstract class WebpetListPage extends BasePage {
      */
     readonly reportButton: Locator;
 
-    /**
-     * @param page Playwright page
-     * @param listUrl Relative list URL, e.g. `'/setup/crops'`
-     * @param headingName Accessible name of the page's `<h1>`
-     */
     constructor(page: Page, listUrl: string, headingName: string | RegExp) {
         super(page);
         this.pageUrl = listUrl;

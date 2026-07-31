@@ -4,14 +4,11 @@
  * One card per scan screen. Wired cards render as `<a>` links carrying the screen
  * segment; deferred cards render as a disabled Card with `aria-disabled="true"`
  * and no `href`, so the card's *tag name* is part of the contract, not incidental.
- *
- * @module pages/webpet/scan/ScanLandingPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ScanLandingPage
  * @extends BasePage
  */
 export class ScanLandingPage extends BasePage {

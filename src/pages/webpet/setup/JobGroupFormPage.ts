@@ -7,14 +7,11 @@
  *
  * The read-only set is narrower here than on Department or Crew: only Name
  * locks after save, while Export Identifier and Code stay editable.
- *
- * @module pages/webpet/setup/JobGroupFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class JobGroupFormPage
  * @extends WebpetFormPage
  */
 export class JobGroupFormPage extends WebpetFormPage {

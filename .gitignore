@@ -20,9 +20,17 @@ node_modules/
 .auth/
 
 # Personal env overrides (SMTP credentials etc.) — loaded by envLoader as the
-# base file, never committed. Committed env/env.local|dev|qa hold no real
-# secrets. All environment inputs live in env/ (see docs/STRUCTURE.md).
-env/.env
+# base file, never committed. The committed .env.local/.dev/.qa hold no real
+# plaintext secrets: anything sensitive there is stored as ENC(...) ciphertext
+# and decrypted at read time (see src/config/secrets.ts). The master key
+# SECRET_KEY lives HERE, in this untracked file, and in CI secrets — never in a
+# committed file, or the encryption buys nothing.
+.env
+# ...but never ignore the committed per-environment files or the template.
+!.env.example
+!.env.local
+!.env.dev
+!.env.qa
 
 # Claude Code — the shared .claude/ folder IS committed; only personal
 # local overrides are ignored.

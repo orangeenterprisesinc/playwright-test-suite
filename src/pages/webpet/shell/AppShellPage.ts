@@ -5,14 +5,11 @@
  * `PT_MODULES`, its route 403s **and** its sidebar entry disappears, and the
  * second half of that has to be checked from `/dashboard`. Kept deliberately
  * thin — Batch 6 converts the dashboard specs and will grow it.
- *
- * @module pages/webpet/shell/AppShellPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class AppShellPage
  * @extends BasePage
  */
 export class AppShellPage extends BasePage {

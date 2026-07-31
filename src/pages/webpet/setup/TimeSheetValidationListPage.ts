@@ -12,14 +12,11 @@
  *
  * No multi-update surface: Validation has no bulk-editable fields (no Active
  * column), so nothing here drives the SelectedRowsBar.
- *
- * @module pages/webpet/setup/TimeSheetValidationListPage
  */
 import { Locator, Page, Response } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class TimeSheetValidationListPage
  * @extends WebpetListPage
  */
 export class TimeSheetValidationListPage extends WebpetListPage {
@@ -37,12 +34,7 @@ export class TimeSheetValidationListPage extends WebpetListPage {
         return `${this.pageUrl}/deleted`;
     }
 
-    /**
-     * Navigate to the live list, reporting whether the module is licensed.
-     *
-     * @returns `false` when the route 403s because TimeSheetEntry is absent from
-     *   `PT_MODULES` — the caller should return without asserting.
-     */
+    /** Navigate to the live list, reporting whether the module is licensed. */
     async gotoOrForbidden(): Promise<boolean> {
         return this.isAllowed(await this.page.goto(this.pageUrl));
     }

@@ -7,22 +7,6 @@
  *
  * Also exposes {@link DataProvider.toRunnerData} for wrapping test data in
  * the `RunnerData` format.
- *
- * @module utils/DataProvider
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { DataProvider } from '@utils/DataProvider';
- *
- * const provider = DataProvider.getInstance();
- * const { data, totalCount } = await provider.getTestData<MyTestCase>();
- * console.log(`Loaded ${totalCount} test cases`);
- *
- * // Switch source without mutating singleton
- * const csvProvider = DataProvider.forSource('csv');
- * const csvData = await csvProvider.getTestData<MyTestCase>();
- * ```
  */
 import type {DataProviderResult, DataSourceType, IDataReader, RunnerData, TestCaseData} from '../../types';
 import {type DataSourceConfig, getDataSourceConfig} from '../../config/dataSource.config';
@@ -32,14 +16,6 @@ import {Logger} from '../../utils/logger';
 /**
  * Singleton data provider that reads test data from multiple sources and
  * returns it in a uniform format.
- *
- * @class DataProvider
- *
- * @example
- * ```typescript
- * const provider = DataProvider.getInstance();
- * const enabled = await provider.getEnabledTestData<TodoItem>();
- * ```
  */
 export class DataProvider {
     /** @private Singleton instance */
@@ -49,21 +25,14 @@ export class DataProvider {
     /** @private Active data source configuration */
     private readonly config: DataSourceConfig;
 
-    /**
-     * Private constructor — use {@link getInstance} or {@link forSource}.
-     * @param {DataSourceConfig} [configOverride] - Optional configuration override
-     */
+    /** Private constructor — use {@link getInstance} or {@link forSource}. */
     private constructor(configOverride?: DataSourceConfig) {
         this.logger = new Logger('DataProvider');
         this.config = configOverride ?? getDataSourceConfig();
         this.logger.info(`Data source configured: ${this.config.type}`);
     }
 
-    /**
-     * Returns the shared singleton instance, creating it on the first call.
-     *
-     * @returns {DataProvider} The singleton instance
-     */
+    /** Returns the shared singleton instance, creating it on the first call. */
     static getInstance(): DataProvider {
         if (!DataProvider.instance) {
             DataProvider.instance = new DataProvider();
@@ -84,8 +53,6 @@ export class DataProvider {
      * Loads all test data from the configured (or specified) source.
      *
      * @template T - Shape of each test-data record
-     * @param {DataSourceType} [sourceType] - Override the default source type
-     * @returns {Promise<DataProviderResult<T>>} Wrapped result with data, counts, and metadata
      */
     async getTestData<T>(sourceType?: DataSourceType): Promise<DataProviderResult<T>> {
         const type = sourceType || this.config.type;
@@ -112,8 +79,6 @@ export class DataProvider {
      * Returns only test data records where `enabled !== false`.
      *
      * @template T - Record shape (must optionally include `enabled`)
-     * @param {DataSourceType} [sourceType] - Override the default source type
-     * @returns {Promise<T[]>} Array of enabled test records
      */
     async getEnabledTestData<T extends { enabled?: boolean }>(
         sourceType?: DataSourceType,
@@ -126,9 +91,6 @@ export class DataProvider {
      * Looks up a single test data record by its `id` field.
      *
      * @template T - Record shape (must include `id`)
-     * @param {string} id - The record ID to look up
-     * @param {DataSourceType} [sourceType] - Override the default source type
-     * @returns {Promise<T | null>} The matching record, or `null`
      */
     async getTestDataById<T extends { id: string }>(
         id: string,
@@ -142,39 +104,25 @@ export class DataProvider {
      * Returns test data records matching all key-value pairs in the filter.
      *
      * @template T - Record shape
-     * @param {Partial<T>} filter - Key-value pairs to match against
-     * @param {DataSourceType} [sourceType] - Override the default source type
-     * @returns {Promise<T[]>} Matching records
      */
     async getFilteredTestData<T>(filter: Partial<T>, sourceType?: DataSourceType): Promise<T[]> {
         const reader = await this.getReader(sourceType);
         return reader.readFiltered<T>(filter);
     }
 
-    /**
-     * Returns the active data source configuration.
-     * @returns {DataSourceConfig} Current configuration
-     */
+    /** Returns the active data source configuration. */
     getConfig(): DataSourceConfig {
         return this.config;
     }
 
 
-    /**
-     * Returns the currently configured source type.
-     * @returns {DataSourceType} The active data source type
-     */
+    /** Returns the currently configured source type. */
     getCurrentSourceType(): DataSourceType {
         return this.config.type;
     }
 
 
-    /**
-     * Checks whether the specified (or default) data source is accessible.
-     *
-     * @param {DataSourceType} [sourceType] - Source type to check
-     * @returns {Promise<boolean>} `true` if the source file/database exists and is readable
-     */
+    /** Checks whether the specified (or default) data source is accessible. */
     async isSourceAvailable(sourceType?: DataSourceType): Promise<boolean> {
         const reader = await this.getReader(sourceType);
         return reader.isAvailable();
@@ -190,13 +138,7 @@ export class DataProvider {
         return this.getDirectReader(type);
     }
 
-    /**
-     * Factory method that instantiates the appropriate {@link IDataReader} subclass.
-     *
-     * @param {DataSourceType} sourceType - Which reader to create
-     * @returns {IDataReader} A data reader for the given source
-     * @private
-     */
+    /** Factory method that instantiates the appropriate {@link IDataReader} subclass. */
     private getDirectReader(sourceType: DataSourceType): IDataReader {
         // Normal path: the per-journey files under src/data/runner/ read as one
         // combined set. A DATA_FILE_PATH_* override clears `useRunnerDir` and
@@ -219,20 +161,12 @@ export class DataProvider {
     /**
      * Returns the raw configured path for the given source type. Data is read
      * directly from this file — no converted copy exists.
-     * @param {DataSourceType} sourceType - The data source type
-     * @returns {string} Raw source path from configuration
-     * @private
      */
     private getResolvedFilePath(sourceType: DataSourceType): string {
         return this.getRawSourcePath(sourceType);
     }
 
-    /**
-     * Returns the raw configured path for the given source type.
-     * @param {DataSourceType} sourceType - The data source type
-     * @returns {string} Raw source path from configuration
-     * @private
-     */
+    /** Returns the raw configured path for the given source type. */
     private getRawSourcePath(sourceType: DataSourceType): string {
         switch (sourceType) {
             case 'csv':
@@ -243,9 +177,7 @@ export class DataProvider {
         }
     }
 
-    /**
-     * Convert test data into RunnerData format (replaces RunnerManager).
-     */
+    /** Convert test data into RunnerData format (replaces RunnerManager). */
     async toRunnerData<T>(sourceType?: DataSourceType): Promise<RunnerData<T>> {
         const type = sourceType || this.config.type;
         const reader = this.getDirectReader(type);
@@ -273,18 +205,7 @@ export class DataProvider {
 
 }
 
-/**
- * Convenience function that retrieves enabled test data from the singleton DataProvider.
- *
- * @param {DataSourceType} [sourceType] - Optional source type override
- * @returns {Promise<TestCaseData[]>} Array of enabled test case records
- *
- * @example
- * ```typescript
- * import { getEnabledTestData } from '@utils/DataProvider';
- * const testCases = await getEnabledTestData('csv');
- * ```
- */
+/** Convenience function that retrieves enabled test data from the singleton DataProvider. */
 export async function getEnabledTestData(sourceType?: DataSourceType): Promise<TestCaseData[]> {
     const provider = DataProvider.getInstance();
     return provider.getEnabledTestData<TestCaseData>(sourceType);
@@ -306,20 +227,6 @@ export async function getEnabledTestData(sourceType?: DataSourceType): Promise<T
  * ```
  *
  * @template T - Record shape (must include `id: string`)
- * @param {string} id - The test case ID to look up (e.g. `'TC-AUTH-001'`)
- * @returns {Promise<T | null>} The matching record, or `null` if not found
- *
- * @example
- * ```typescript
- * import { getTestCaseById } from '@data/readers/DataProvider';
- * import type { TestCaseData } from '../../src/types';
- *
- * let testCase: TestCaseData | null;
- *
- * test.beforeAll(async () => {
- *     testCase = await getTestCaseById<TestCaseData>('TC-AUTH-001');
- * });
- * ```
  */
 export async function getTestCaseById<T extends { id: string }>(id: string): Promise<T | null> {
     const provider = DataProvider.getInstance();
@@ -342,20 +249,6 @@ export async function getTestCaseById<T extends { id: string }>(id: string): Pro
  * ```
  *
  * @template T - Record shape for individual test case records
- * @returns {Promise<RunnerData<T>>} Structured runner data with metadata and test cases
- *
- * @example
- * ```typescript
- * import { getRunnerData } from '@data/readers/DataProvider';
- * import type { TestCaseData, RunnerData } from '../../src/types';
- *
- * let runnerData: RunnerData<TestCaseData>;
- *
- * test.beforeAll(async () => {
- *     runnerData = await getRunnerData<TestCaseData>();
- *     const testCase = runnerData.testCases.find(tc => tc.testName === 'myTest');
- * });
- * ```
  */
 export async function getRunnerData<T>(): Promise<RunnerData<T>> {
     const provider = DataProvider.getInstance();

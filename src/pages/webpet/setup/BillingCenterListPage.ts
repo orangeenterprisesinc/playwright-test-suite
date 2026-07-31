@@ -2,14 +2,11 @@
  * @fileoverview Billing Center list — `/setup/billing-centers`.
  *
  * Module-gated on GrowerBilling; see {@link BillingCenterFormPage}.
- *
- * @module pages/webpet/setup/BillingCenterListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class BillingCenterListPage
  * @extends WebpetListPage
  */
 export class BillingCenterListPage extends WebpetListPage {

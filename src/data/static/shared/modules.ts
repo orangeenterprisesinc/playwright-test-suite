@@ -12,8 +12,6 @@
  *
  * Keep in step with `src/data/catalog/workflow-catalog.json` → `modules`, which
  * `npm run catalog:import` regenerates from the document.
- *
- * @module data/shared/modules
  */
 
 /** A PET Tiger licence module name, exactly as the appendix spells it. */

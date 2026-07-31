@@ -11,15 +11,14 @@
  * that config, so `process.env` is already populated by the time any of these
  * constants are read. Adding a second load here would change the precedence
  * order for a suite whose whole acceptance criterion is "nothing changed".
- *
- * @module config/webpetEnv
  */
+import { decryptIfNeeded } from './secrets';
 
 /**
  * Web (SPA) origin — what the browser navigates to and what the `Origin` header
  * carries on direct API calls. `PLAYWRIGHT_BASE_URL` is honoured first for parity
  * with the source repo's config; `BASE_URL`/`APP_URL` are this repo's canonical
- * vars (env.local / env.dev / CI).
+ * vars (.env.local / .env.dev / CI).
  */
 export const WEB_BASE_URL: string =
     process.env.PLAYWRIGHT_BASE_URL ??
@@ -35,7 +34,7 @@ export const WEB_BASE_URL: string =
  * - **localhost**: `WEBPET_API_ORIGIN` is unset → falls back to `WEB_BASE_URL` so
  *   calls go through the Vite proxy exactly as in the source repo (parity is
  *   load-bearing — same-origin cookies + Origin checks).
- * - **dev staging**: `env.dev` sets `WEBPET_API_ORIGIN=https://api.ptdev.xyz`.
+ * - **dev staging**: `.env.dev` sets `WEBPET_API_ORIGIN=https://api.ptdev.xyz`.
  *   Logging in against the API host means its host-only (`__Host-` prefixed)
  *   session + CSRF cookies are captured for `api.ptdev.xyz` — the host the
  *   deployed SPA fetches cross-origin with credentials, so browser contexts
@@ -49,18 +48,26 @@ export const API_BASE_URL: string = (process.env.WEBPET_API_ORIGIN ?? WEB_BASE_U
 /**
  * Admin login used by `provision.ts` and `notifications.spec.ts`.
  *
- * `E2E_ADMIN_*` are the source repo's variables and always win (env.local and
+ * `E2E_ADMIN_*` are the source repo's variables and always win (.env.local and
  * both web-pet CI workflows set them explicitly). When absent — e.g. a local
- * `npm run test:webpet:dev`, where env.dev deliberately carries no password —
- * fall back to the framework's own `USER_NAME`/`PASSWORD` (env.dev supplies
+ * `npm run test:webpet:dev`, where .env.dev deliberately carries no password —
+ * fall back to the framework's own `USER_NAME`/`PASSWORD` (.env.dev supplies
  * `USER_NAME=su`, the gitignored `.env` supplies the real dev `PASSWORD`), so a
  * dev run needs no secret duplication. The final `'Admin'` default matches the
  * source repo and is dead in every real environment (login goes through
  * TigerMaster) — it only produces a clear 401 instead of an undefined crash.
  */
-export const ADMIN_USER: string = process.env.E2E_ADMIN_USER ?? process.env.USER_NAME ?? 'Admin';
-export const ADMIN_PASSWORD: string =
-    process.env.E2E_ADMIN_PASSWORD ?? process.env.PASSWORD ?? 'Admin';
+// decryptIfNeeded, not getConfigValue: this module deliberately keeps the source
+// repo's own resolution chain (see the file header) rather than routing through
+// the framework's config layer. Wrapping preserves that chain exactly while still
+// decrypting an `ENC(...)` credential — without it, an encrypted PASSWORD would
+// reach the admin API login as ciphertext and surface as an opaque 401.
+export const ADMIN_USER: string = decryptIfNeeded(
+    process.env.E2E_ADMIN_USER ?? process.env.USER_NAME ?? 'Admin',
+);
+export const ADMIN_PASSWORD: string = decryptIfNeeded(
+    process.env.E2E_ADMIN_PASSWORD ?? process.env.PASSWORD ?? 'Admin',
+);
 
 /**
  * Non-empty ⇒ `employee-documents.spec.ts` runs (it needs MinIO). Read at module

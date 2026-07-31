@@ -16,8 +16,6 @@
  * Do not reorder to tidy it: the ids are keyed by `key`, not position, so
  * reordering is safe for the ids — but the order is the API's, and matching it
  * keeps the two readable side by side.
- *
- * @module data/webpet/bonusTypes
  */
 
 /** One bonus type's routing and test-id surface. */

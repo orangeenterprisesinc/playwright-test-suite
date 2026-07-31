@@ -1,13 +1,10 @@
 /**
  * @fileoverview Department list — `/setup/departments`.
- *
- * @module pages/webpet/setup/DepartmentListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class DepartmentListPage
  * @extends WebpetListPage
  */
 export class DepartmentListPage extends WebpetListPage {

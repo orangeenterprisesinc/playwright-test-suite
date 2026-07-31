@@ -2,7 +2,7 @@ name: WebPet E2E (dev staging)
 
 # Runs the MIGRATED web-pet suite (tests/webpet — 406 tests) against the DEV
 # STAGING deployment (app.ptdev.xyz). Boots nothing; TEST_ENV=dev makes the
-# framework's env loading supply BASE_URL/API_URL, and env.dev additionally
+# framework's env loading supply BASE_URL/API_URL, and .env.dev additionally
 # sets WEBPET_API_ORIGIN=https://api.ptdev.xyz so the suite's direct API calls
 # (admin login, data-factory) target the API host — the SPA host serves
 # index.html for every path including /api/*.
@@ -59,7 +59,7 @@ jobs:
     timeout-minutes: 90
 
     env:
-      # Selects env.dev (BASE_URL=https://app.ptdev.xyz, API_URL and
+      # Selects .env.dev (BASE_URL=https://app.ptdev.xyz, API_URL and
       # WEBPET_API_ORIGIN=https://api.ptdev.xyz). See e2e.yml for why
       # USER_NAME is a variable (masking) and why the 'su' default is required.
       TEST_ENV: dev

@@ -8,27 +8,12 @@
  * The `test_user_prefix` used for the Name is the same constant
  * `global-teardown.ts` sweeps on — see that module's note on why it is shared
  * rather than duplicated.
- *
- * @module utils/testData/userFactory
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { makeUser } from '@data/generated';
- *
- * const admin = makeUser({ role: 'Administrator' });
- * const minimal = makeUser();               // defaults from the data file
- * ```
  */
 import { userSetupData as userData } from '../static/journey-a/userSetupData';
 import type { NewUserData } from '../../pages/admin/UsersPage';
 import { randomInitials, uid } from './random';
 
-/**
- * Build New User form data with unique Name/Initials/Email.
- *
- * @param overrides fields to override the generated/default values
- */
+/** Build New User form data with unique Name/Initials/Email. */
 export function makeUser(overrides: Partial<NewUserData> = {}): NewUserData {
     const token = uid();
     return {

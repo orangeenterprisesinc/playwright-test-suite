@@ -20,8 +20,6 @@
  * sets:
  * - `testCaseId` (Allure history id) + a visible `Test Case ID` parameter
  * - `description` (from the row's `testDescription`)
- *
- * @module utils/allureLabels
  */
 import type { TestInfo } from '@playwright/test';
 import {
@@ -56,10 +54,6 @@ function stripSpecSuffix(name: string): string {
  * Splits a spec path under `tests/` into its `category` (1st folder) and
  * `module` (2nd folder, or the file basename when the spec sits directly under
  * the category).
- *
- * @example
- * deriveAllureParts('.../tests/web/system/login-module.spec.ts') // { category: 'web', module: 'system' }
- * deriveAllureParts('.../tests/api/example-api.spec.ts')       // { category: 'api', module: 'example-api' }
  */
 export function deriveAllureParts(specFile: string): AllureParts {
     const relative = path.relative(path.join(process.cwd(), 'tests'), specFile);

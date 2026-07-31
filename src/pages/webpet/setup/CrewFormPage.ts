@@ -7,15 +7,12 @@
  *
  * On the edit form Name, Code and Export Identifier are readonly while Short
  * Name stays editable.
- *
- * @module pages/webpet/setup/CrewFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
 
 /**
- * @class CrewFormPage
  * @extends WebpetFormPage
  */
 export class CrewFormPage extends WebpetFormPage {

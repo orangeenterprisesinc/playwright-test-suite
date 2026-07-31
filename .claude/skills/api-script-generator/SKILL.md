@@ -50,7 +50,7 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 - Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
 - Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts`
-- Environments: `env/env.local` / `env/env.dev` / `env/env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
+- Environments: `.env.local` / `.env.dev` / `.env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
 
 ### Test structure rules — standard Playwright only
 

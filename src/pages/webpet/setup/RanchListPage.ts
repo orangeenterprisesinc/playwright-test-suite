@@ -6,14 +6,11 @@
  * propagate-or-not, Undo via the SelectedRowsBar, and sort/filter state
  * reflected in the URL. Everything grid-shaped lives on
  * {@link WebpetDataGridComponent}; only the ranch-specific bits are here.
- *
- * @module pages/webpet/setup/RanchListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class RanchListPage
  * @extends WebpetListPage
  */
 export class RanchListPage extends WebpetListPage {
@@ -39,9 +36,7 @@ export class RanchListPage extends WebpetListPage {
         this.misspelledTitle = page.getByText('Ranchs', { exact: true });
     }
 
-    /**
-     * A ranch name anywhere on the list. Page-scoped, matching the lifted spec.
-     */
+    /** A ranch name anywhere on the list. Page-scoped, matching the lifted spec. */
     ranchNamed(name: string): Locator {
         return this.page.getByText(name);
     }

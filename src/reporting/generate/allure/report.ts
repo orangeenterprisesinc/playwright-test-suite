@@ -17,8 +17,6 @@
  * The static multi-file report for CI artifacts / `npm run report:allure` is
  * generated separately by `scripts/report/allure-generate.js` (plain JS, so it
  * runs from npm/CI without a TypeScript runtime).
- *
- * @module utils/allureHelper
  */
 import allureCommandline from 'allure-commandline';
 import { execFileSync } from 'node:child_process';

@@ -277,11 +277,11 @@ The mechanism spans four pieces:
    top of [`playwright.config.ts`](../playwright.config.ts) with precedence:
    ```
    1. OS / CI environment variables   ← never overridden (CI secrets always win)
-   2. env.<name>  (env/env.local / env/env.dev / env/env.qa)
+   2. env.<name>  (.env.local / .env.dev / .env.qa)
    3. .env        (optional shared base)
    ```
-3. **Per-env URLs** live in the env files: `env/env.local` → `http://localhost:3000` +
-   `http://localhost:8080/api`; `env/env.dev` / `env/env.qa` → the dev/qa hosts (+`/api`). The env
+3. **Per-env URLs** live in the env files: `.env.local` → `http://localhost:3000` +
+   `http://localhost:8080/api`; `.env.dev` / `.env.qa` → the dev/qa hosts (+`/api`). The env
    files are the only source — a second typed map and a programmatic `EnvironmentManager`
    used to exist alongside them, reading `DEV_APP_URL`/`QA_APP_URL` variables that nothing
    ever set; both were removed so there is exactly one place to look.
@@ -295,7 +295,7 @@ The mechanism spans four pieces:
 | Where | How env is selected |
 |---|---|
 | **Local** | `npm test` → local · `npm run test:dev` → dev · `npm run test:qa` → qa. The launcher pins `TEST_ENV`; envLoader loads `env.<name>`. |
-| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `env/env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
+| **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `.env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
 | **CI — [`e2e-local.yml`](../.github/workflows/e2e-local.yml)** (self-hosted, localhost) | Hard-sets `TEST_ENV=local`, `BASE_URL=http://localhost:3000`, `API_URL=...:8080/api` as job env — OS-env precedence makes these win over env files. |
 
 ---
@@ -323,7 +323,7 @@ push.
   **variable** (not a secret — a login name isn't a credential, and masking a short value
   like `su` mangles unrelated words in the log), defaulting to `su`.
   Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
-- Test-user cleanup runs over SQL, same as everywhere else — `env/env.dev` sets `DB_CLEANUP=yes`
+- Test-user cleanup runs over SQL, same as everywhere else — `.env.dev` sets `DB_CLEANUP=yes`
   and `DB_TRUSTED=no`, with `DB_SERVER`/`DB_USER`/`DB_PASSWORD` as secrets and `DB_CLIENT` as
   a repo variable. `DB_TRUSTED=no` selects the `mssql` driver rather than the `sqlcmd` CLI,
   so no CLI install step is needed — the transport table is in

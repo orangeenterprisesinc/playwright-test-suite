@@ -18,8 +18,6 @@
  * deliberately left untouched: test records there are keyed by an email/identifier
  * that is unique per run, so a leftover row never blocks re-creation, whereas
  * writing to a shared master database from a test run could affect other clients.
- *
- * @module data/shared/cleanupTargets
  */
 
 /** How to find and soft-delete one kind of record. */

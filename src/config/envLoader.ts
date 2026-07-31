@@ -1,64 +1,29 @@
 /**
- * @fileoverview Environment file loader supporting env.local/dev/qa with OS-env precedence.
+ * @fileoverview Environment file loader supporting .env.local/dev/qa with OS-env precedence.
  *
- * Loads a base `env/.env` (if present) and an environment-specific
- * `env/env.<name>` file, where name is resolved from `TEST_ENV` (preferred) or
- * `ENV`, defaulting to `'local'`. OS-level environment variables always take
- * precedence.
- *
- * @module config/envLoader
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { loadEnvFiles } from '@config/envLoader';
- *
- * // Load env.local (default)
- * const result = loadEnvFiles();
- *
- * // Load env.dev explicitly
- * const devResult = loadEnvFiles({ envName: 'dev' });
- * ```
+ * Loads a base `.env` (if present) and an environment-specific `.env.<name>`
+ * file, where name is resolved from `TEST_ENV` (preferred) or `ENV`, defaulting
+ * to `'local'`. OS-level environment variables always take precedence.
  */
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
-/**
- * Result of loading environment files.
- *
- * @interface EnvLoadResult
- * @property {string} envName - Resolved environment name (e.g. `'local'`, `'dev'`)
- * @property {string[]} loadedFiles - Absolute paths of files that were loaded
- * @property {string[]} missingFiles - Absolute paths of files that were not found
- */
+/** Result of loading environment files. */
 export interface EnvLoadResult {
     envName: string;
     loadedFiles: string[];
     missingFiles: string[];
 }
 
-/**
- * Parses a dotenv file if it exists on disk.
- *
- * @private
- * @param {string} filePath - Absolute path to the env file
- * @returns {Record<string, string>} Parsed key/value pairs, or empty object if missing
- */
+/** Parses a dotenv file if it exists on disk. */
 function parseIfExists(filePath: string): Record<string, string> {
     if (!fs.existsSync(filePath)) return {};
     const content = fs.readFileSync(filePath, 'utf-8');
     return dotenv.parse(content);
 }
 
-/**
- * Resolves the environment name from an explicit value, `TEST_ENV`, or `ENV`.
- *
- * @private
- * @param {string} [explicitEnv] - Explicit environment name override
- * @returns {string} Normalised environment name (defaults to `'local'`)
- */
+/** Resolves the environment name from an explicit value, `TEST_ENV`, or `ENV`. */
 function resolveEnvName(explicitEnv?: string): string {
     const raw =
         (explicitEnv || process.env.TEST_ENV || process.env.ENV || 'local').toString().toLowerCase();
@@ -82,11 +47,13 @@ export function loadEnvFiles(options?: {
     const baseFile = options?.baseFileName || '.env';
     const warnOnMissing = options?.warnOnMissing !== false;
 
-    // All environment inputs live in one folder (`env/`) rather than scattered
-    // across the repo root — see docs/STRUCTURE.md.
-    const envDir = path.resolve(cwd, 'env');
-    const basePath = path.resolve(envDir, baseFile);
-    const envPath = path.resolve(envDir, `env.${envName}`);
+    // Dotfile naming at the repo root — the Node/dotenv convention: `.env` for
+    // personal overrides (gitignored) and `.env.<name>` per environment. Tooling
+    // (dotenv, editors, `docker --env-file`, most CI actions) looks for `.env` in
+    // the working directory, so this is the one group of config files that stays
+    // at the root rather than moving into a folder. See docs/STRUCTURE.md.
+    const basePath = path.resolve(cwd, baseFile);
+    const envPath = path.resolve(cwd, `.env.${envName}`);
 
     const loadedFiles: string[] = [];
     const missingFiles: string[] = [];

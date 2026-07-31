@@ -3,19 +3,6 @@
  *
  * Provides methods for closing (via button, overlay click, or Escape key), confirming,
  * canceling, reading title/content, and asserting modal state.
- *
- * @module components/ModalComponent
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * const modal = new ModalComponent(page);
- * await modal.getRoot().waitFor({ state: 'visible' });
- * await modal.assertTitle('Confirm Deletion');
- * await modal.confirm();
- * await modal.assertClosed();
- * ```
  */
 import { expect, Locator, Page } from '@playwright/test';
 import { BaseComponent } from './BaseComponent';
@@ -26,7 +13,6 @@ import { BaseComponent } from './BaseComponent';
  * Auto-discovers common modal elements (title, content, close/confirm/cancel buttons, overlay)
  * and provides high-level methods for interaction and assertion.
  *
- * @class ModalComponent
  * @extends {BaseComponent}
  */
 export class ModalComponent extends BaseComponent {
@@ -43,11 +29,7 @@ export class ModalComponent extends BaseComponent {
     /** Background overlay/backdrop. */
     readonly overlay: Locator;
 
-    /**
-     * Creates a ModalComponent scoped to the given root selector.
-     * @param {Page} page - Playwright Page instance
-     * @param {string} [rootSelector='[role="dialog"]'] - CSS selector for the modal root
-     */
+    /** Creates a ModalComponent scoped to the given root selector. */
     constructor(page: Page, rootSelector: string = '[role="dialog"]') {
         super(page, rootSelector);
         this.title = this.getByRole('heading').or(this.locator('.modal-title'));
@@ -94,19 +76,13 @@ export class ModalComponent extends BaseComponent {
         await this.root.waitFor({ state: 'hidden' });
     }
 
-    /**
-     * Returns the modal title text (trimmed).
-     * @returns {Promise<string>} The modal title
-     */
+    /** Returns the modal title text (trimmed). */
     async getTitle(): Promise<string> {
         const text = await this.title.textContent();
         return text?.trim() || '';
     }
 
-    /**
-     * Returns the modal body content text (trimmed).
-     * @returns {Promise<string>} The modal content
-     */
+    /** Returns the modal body content text (trimmed). */
     async getContent(): Promise<string> {
         const text = await this.content.textContent();
         return text?.trim() || '';
@@ -122,18 +98,12 @@ export class ModalComponent extends BaseComponent {
         await expect(this.root).toBeHidden();
     }
 
-    /**
-     * Asserts the modal title matches the expected text or pattern.
-     * @param {string | RegExp} expectedTitle - Expected title
-     */
+    /** Asserts the modal title matches the expected text or pattern. */
     async assertTitle(expectedTitle: string | RegExp): Promise<void> {
         await expect(this.title).toHaveText(expectedTitle);
     }
 
-    /**
-     * Asserts the modal content contains the given text.
-     * @param {string} text - Text to search for
-     */
+    /** Asserts the modal content contains the given text. */
     async assertContentContains(text: string): Promise<void> {
         await expect(this.content).toContainText(text);
     }
@@ -148,18 +118,12 @@ export class ModalComponent extends BaseComponent {
         await expect(this.cancelButton).toBeVisible();
     }
 
-    /**
-     * Checks whether the modal is currently open.
-     * @returns {Promise<boolean>} `true` if the modal is visible
-     */
+    /** Checks whether the modal is currently open. */
     async isOpen(): Promise<boolean> {
         return await this.root.isVisible();
     }
 
-    /**
-     * Checks whether the confirm button is enabled.
-     * @returns {Promise<boolean>} `true` if the confirm button is enabled
-     */
+    /** Checks whether the confirm button is enabled. */
     async isConfirmEnabled(): Promise<boolean> {
         return await this.confirmButton.isEnabled();
     }

@@ -38,8 +38,6 @@
  * reach the authed request context (that call already passes
  * `extraHTTPHeaders`). Passing an extra key here — even a "more correct" one —
  * silently changes what the API sees.
- *
- * @module fixtures/webpet.fixture
  */
 import { expect, test as base } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
@@ -134,14 +132,24 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         // AuthProvider.useEffect → i18n.changeLanguage(user.language).
         // Test-only patch of the response body; the DB is untouched.
         await ctx.route('**/api/session/me', async (route) => {
-            const response = await route.fetch();
-            const body = (await response.json().catch(() => null)) as {
-                user?: Record<string, unknown>;
-            } | null;
-            if (body?.user && typeof body.user === 'object') {
-                body.user.language = 'en';
+            try {
+                const response = await route.fetch();
+                const body = (await response.json().catch(() => null)) as {
+                    user?: Record<string, unknown>;
+                } | null;
+                if (body?.user && typeof body.user === 'object') {
+                    body.user.language = 'en';
+                }
+                await route.fulfill({ response, json: body });
+            } catch (error) {
+                // This handler does a real round trip, so it can still be in
+                // flight when the page closes — any test whose last assertion
+                // resolves on the first poll (toHaveCount(0), toBeHidden on an
+                // element that never mounts) ends before the session bootstrap
+                // lands. Playwright fails the test on a throwing route callback,
+                // so a teardown race would be reported as a product failure.
+                if (!/has been closed/i.test(String(error))) throw error;
             }
-            await route.fulfill({ response, json: body });
         });
 
         await use(ctx);

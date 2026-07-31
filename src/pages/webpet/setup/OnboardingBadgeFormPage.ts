@@ -9,14 +9,11 @@
  *
  * Note the route/resource split: the section is routed under `/setup/badge`
  * (AppRouter path `'badge'`), while the API resource is `/api/onboarding-badges`.
- *
- * @module pages/webpet/setup/OnboardingBadgeFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class OnboardingBadgeFormPage
  * @extends WebpetFormPage
  */
 export class OnboardingBadgeFormPage extends WebpetFormPage {

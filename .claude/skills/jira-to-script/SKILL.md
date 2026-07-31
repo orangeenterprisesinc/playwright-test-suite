@@ -15,7 +15,7 @@ the Playwright test agents (planner / generator / healer).
   `uv`/`uvx` installed. If unavailable, ask the user to paste the story
   text instead and continue from step 2.
 - The app under test reachable at `BASE_URL` (local stack running for
-  `env/env.local`). The planner/generator drive a real browser — without the
+  `.env.local`). The planner/generator drive a real browser — without the
   app, stop after the plan draft and say so.
 
 ### Pipeline

@@ -21,15 +21,12 @@
  * The dry-run POST that backs the preview count uses the same URL, which is why
  * every mock in the spec inspects `postData()` for `"dryRun":true` and falls back
  * rather than fulfilling.
- *
- * @module pages/webpet/accounting/ReconcileJobCardsPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 import { DateRangeFilterComponent } from '../../../components/webpet/DateRangeFilterComponent';
 
 /**
- * @class ReconcileJobCardsPage
  * @extends BasePage
  */
 export class ReconcileJobCardsPage extends BasePage {

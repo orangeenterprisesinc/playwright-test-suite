@@ -20,14 +20,11 @@
  * and once for mobile (`md:hidden`), giving two functionally identical inputs
  * wired to the same mutation. `.first()` deterministically picks the desktop
  * copy, which matches this project's Desktop Chrome viewport.
- *
- * @module pages/webpet/settings/ProfilePage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ProfilePage
  * @extends BasePage
  */
 export class ProfilePage extends BasePage {

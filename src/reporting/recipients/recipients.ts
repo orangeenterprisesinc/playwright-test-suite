@@ -27,8 +27,6 @@
  * environment variable, which is what every workflow still sets. The one way to
  * send nothing is an explicit empty `recipients` cell — a deliberate mute, which
  * is why that case is distinguished from "no row".
- *
- * @module reporting/recipients
  */
 import path from 'node:path';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
@@ -60,13 +58,7 @@ interface Resolution {
     matchedScope: string | null;
 }
 
-/**
- * Resolves the recipient list for the current run.
- *
- * @param branch Branch name as the reporters see it (`summary.branch`).
- * @param trigger Friendly trigger (`summary.trigger`), e.g. `scheduled`.
- * @returns Comma-joined recipient addresses, or `''` to send nothing.
- */
+/** Resolves the recipient list for the current run. */
 export async function resolveRecipients(branch: string, trigger: string): Promise<string> {
     const fallback = getConfigValue(ConfigProperties.EMAIL_TO);
     const file = getConfigValue(ConfigProperties.EMAIL_RECIPIENTS_FILE, DEFAULT_RECIPIENTS_FILE);

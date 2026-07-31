@@ -31,8 +31,6 @@
  *   }
  * }
  * ```
- *
- * @module listeners/methodInterceptor
  */
 import fs from 'node:fs';
 import { Logger } from '../../utils/logger';
@@ -101,8 +99,6 @@ export function getActiveTests(): RunnerListEntry[] {
  * matching on `id` keeps a single join key between spec annotation,
  * runnerManager row, and this list, and a `--grep` pattern was never viable
  * because ids do not appear in test titles.
- *
- * @param id runnerManager row id, e.g. `'USR-001'`
  */
 export function getRunnerListDecision(id: string): boolean | null {
     const entries = loadRunnerList();

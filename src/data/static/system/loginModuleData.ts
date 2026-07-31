@@ -5,8 +5,6 @@
  * credentials deliberately live elsewhere — they come from `USER_NAME` /
  * `PASSWORD` per environment (see `src/config/envLoader.ts`), so only the
  * *invalid* values and the expected error belong here.
- *
- * @module data/loginModuleData
  */
 
 /** Shape of the login module value bag. */

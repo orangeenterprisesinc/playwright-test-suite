@@ -7,9 +7,6 @@
  * the way a human does instead of jumping straight to a URL with `page.goto`.
  * Driving the actual menu is what lets the recorded video capture the
  * navigation steps (see the journey specs under tests/web/).
- *
- * @module pages/LeftNavigationPage
- * @since 1.0.0
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
@@ -17,7 +14,6 @@ import { BasePage } from '../BasePage';
 /**
  * Page Object representing the authenticated shell's left navigation.
  *
- * @class LeftNavigationPage
  * @extends BasePage
  */
 export class LeftNavigationPage extends BasePage {
@@ -61,9 +57,6 @@ export class LeftNavigationPage extends BasePage {
      * PET Tiger collapses it, so this only clicks when the target child is
      * hidden — keeping the walkthrough idempotent regardless of the sidebar's
      * starting state.
-     *
-     * @param group the group label to expand (e.g. "File")
-     * @param child a child label used to detect whether the group is open
      */
     async expandGroup(group: string, child: string): Promise<void> {
         if (await this.menuItem(child).isVisible().catch(() => false)) return;
@@ -77,9 +70,6 @@ export class LeftNavigationPage extends BasePage {
      * `['File', 'Administration', 'Users']`, `['Input', 'Setup', 'Ranch']`,
      * `['Input', 'Transfer to Job Card']` — so the whole catalog navigates through
      * this one method.
-     *
-     * @param menuPath group labels followed by the leaf label
-     * @param expectedUrl relative URL the leaf routes to; a trailing query string is tolerated
      */
     async openViaMenu(menuPath: string[], expectedUrl: string): Promise<void> {
         if (menuPath.length < 1) throw new Error('openViaMenu needs at least a leaf label');

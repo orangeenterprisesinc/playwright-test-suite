@@ -3,14 +3,11 @@
  *
  * See {@link OnboardingBadgeFormPage} for the RecordType split and the
  * route-versus-resource naming difference.
- *
- * @module pages/webpet/setup/OnboardingBadgeListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class OnboardingBadgeListPage
  * @extends WebpetListPage
  */
 export class OnboardingBadgeListPage extends WebpetListPage {

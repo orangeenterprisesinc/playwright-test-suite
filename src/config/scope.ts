@@ -17,8 +17,6 @@
  *
  * Unset `TEST_SCOPE` means no filtering — every row runs, which is the default and
  * the previous behaviour.
- *
- * @module config/scope
  */
 import fs from 'node:fs';
 import path from 'node:path';

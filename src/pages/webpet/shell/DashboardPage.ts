@@ -19,8 +19,6 @@
  * The board tabs strip (`[data-slot="tabs-list"]`) was removed from the shell —
  * `DashboardTabs` is no longer mounted — so the canvas and its widget cells are
  * the render signals.
- *
- * @module pages/webpet/shell/DashboardPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
@@ -29,7 +27,6 @@ import { BasePage } from '../../BasePage';
 const DASHBOARDS_STORAGE_KEY = 'pt.dashboards.v2';
 
 /**
- * @class DashboardPage
  * @extends BasePage
  */
 export class DashboardPage extends BasePage {

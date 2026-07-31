@@ -21,9 +21,6 @@
  * Encoding that once here means a new setup-screen page object is little more than
  * its locators and `fill*` methods — see `src/pages/admin/UsersPage.ts`, which is
  * the reference implementation.
- *
- * @module pages/SetupScreenPage
- * @since 1.0.0
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
@@ -65,7 +62,6 @@ export interface SetupScreenConfig {
  * Abstract base for a list + New/Edit form screen.
  *
  * @abstract
- * @class SetupScreenPage
  * @extends BasePage
  */
 export abstract class SetupScreenPage extends BasePage {

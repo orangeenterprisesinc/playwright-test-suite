@@ -8,8 +8,6 @@
  * `onTestEnd` to it, and calls {@link RunSummaryCollector.build} in `onEnd` to
  * get one fully-populated, render-agnostic {@link RunSummary}. Each reporter is
  * then only responsible for turning that object into HTML / Slack blocks / JSON.
- *
- * @module reporting/runSummary
  */
 import type { FullResult, TestCase, TestResult } from '@playwright/test/reporter';
 import path from 'node:path';

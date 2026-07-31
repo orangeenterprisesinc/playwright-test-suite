@@ -8,8 +8,6 @@
  * Always wire this as an `{ auto: true }` fixture, never a module-level
  * `test.beforeEach` — see `src/fixtures/executionGate.ts` for the measurement
  * showing why a module-scope hook only fires for one spec file per worker.
- *
- * @module fixtures/webpetGate
  */
 import type { TestInfo } from '@playwright/test';
 import { getWebpetRunnerIndex, webpetStructuralKey } from '../../data/webpet/webpetRunnerSource';

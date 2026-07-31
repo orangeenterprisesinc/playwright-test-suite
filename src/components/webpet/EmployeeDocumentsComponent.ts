@@ -14,14 +14,11 @@
  *
  * The row-action buttons are icon-only and are addressed by `aria-label`, which
  * is their only accessible handle.
- *
- * @module components/webpet/EmployeeDocumentsComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class EmployeeDocumentsComponent
  * @extends BaseComponent
  */
 export class EmployeeDocumentsComponent extends BaseComponent {

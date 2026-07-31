@@ -13,14 +13,11 @@
  * Scoping them to `this.root` would match nothing — so they resolve against the
  * page, exactly as the lifted specs do. This is the one place in the web-pet
  * components where reaching past the root is correct rather than sloppy.
- *
- * @module components/webpet/DateRangeFilterComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class DateRangeFilterComponent
  * @extends BaseComponent
  */
 export class DateRangeFilterComponent extends BaseComponent {

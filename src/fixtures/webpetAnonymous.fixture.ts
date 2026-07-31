@@ -14,8 +14,6 @@
  * The spec that uses it imports both objects (`test` and `cleanTest`) in one
  * file, which is why this is a separate export rather than a role option on the
  * main fixture.
- *
- * @module fixtures/webpetAnonymous.fixture
  */
 import { expect, test as base } from '@playwright/test';
 import { applyWebpetGate } from './gate/webpetGate';

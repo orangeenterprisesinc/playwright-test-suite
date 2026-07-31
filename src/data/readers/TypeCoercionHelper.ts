@@ -8,24 +8,8 @@
  * Columns are mapped to their expected type based on well-known column name lists.
  * Unknown columns undergo heuristic coercion (boolean strings, null detection,
  * optional numeric auto-conversion).
- *
- * @module utils/dataReaders/TypeCoercionHelper
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * const helper = new TypeCoercionHelper('|');
- * const row = helper.transformRowToJson({ tags: 'a|b|c', enabled: 'true', price: '9.99' });
- * // { tags: ['a', 'b', 'c'], enabled: true, price: 9.99 }
- * ```
  */
 export class TypeCoercionHelper {
-    /**
-     * @private Columns that should be converted to string arrays.
-     * `segments` and `modules` are runner-row columns holding the catalog's
-     * multi-value fields (`grower|perennial-grower`, `Windows|Network`).
-     */
     private static readonly ARRAY_COLUMNS = ['tags', 'segments', 'modules'];
 
     /** @private Columns that should be converted to numbers */
@@ -38,9 +22,6 @@ export class TypeCoercionHelper {
         'enabled', 'shouldComplete', 'completed', 'active', 'demo',
     ];
 
-    /**
-     * @param {string} [arrayDelimiter='|'] - Delimiter used to split array column values
-     */
     constructor(private readonly arrayDelimiter: string = '|') {}
 
     /**
@@ -48,11 +29,6 @@ export class TypeCoercionHelper {
      *
      * Applies column-specific coercion based on well-known column names,
      * then falls back to heuristic type detection for remaining fields.
-     *
-     * @param {Record<string, unknown>} row - Raw row data
-     * @param {object} [options] - Transformation options
-     * @param {boolean} [options.autoConvertNumericStrings=false] - Auto-convert numeric strings
-     * @returns {Record<string, unknown>} Coerced record
      */
     transformRowToJson(
         row: Record<string, unknown>,
@@ -100,12 +76,7 @@ export class TypeCoercionHelper {
         return jsonObject;
     }
 
-    /**
-     * Converts a value to a string array by splitting on the configured delimiter.
-     *
-     * @param {unknown} value - Raw value
-     * @returns {string[]} Array of trimmed, non-empty strings
-     */
+    /** Converts a value to a string array by splitting on the configured delimiter. */
     convertToArray(value: unknown): string[] {
         if (Array.isArray(value)) {
             return value.map(String);
@@ -119,12 +90,7 @@ export class TypeCoercionHelper {
         return [];
     }
 
-    /**
-     * Converts a value to a boolean. Recognises `true/false`, `yes/no`, `1/0`.
-     *
-     * @param {unknown} value - Raw value
-     * @returns {boolean} Coerced boolean
-     */
+    /** Converts a value to a boolean. Recognises `true/false`, `yes/no`, `1/0`. */
     convertToBoolean(value: unknown): boolean {
         if (typeof value === 'boolean') return value;
         if (typeof value === 'number') return value === 1;
@@ -135,12 +101,7 @@ export class TypeCoercionHelper {
         return false;
     }
 
-    /**
-     * Converts a value to a number. Returns `0` for non-numeric input.
-     *
-     * @param {unknown} value - Raw value
-     * @returns {number} Coerced number
-     */
+    /** Converts a value to a number. Returns `0` for non-numeric input. */
     convertToNumber(value: unknown): number {
         if (typeof value === 'number') return value;
         if (typeof value === 'string') {
@@ -150,12 +111,7 @@ export class TypeCoercionHelper {
         return 0;
     }
 
-    /**
-     * Checks whether a string represents a boolean value.
-     *
-     * @param {string} value - String to test
-     * @returns {boolean} `true` if the string is `'true'`, `'false'`, `'yes'`, `'no'`, `'1'`, or `'0'`
-     */
+    /** Checks whether a string represents a boolean value. */
     isBooleanString(value: string): boolean {
         const lowerValue = value.toLowerCase();
         return ['true', 'false', 'yes', 'no', '1', '0'].includes(lowerValue);

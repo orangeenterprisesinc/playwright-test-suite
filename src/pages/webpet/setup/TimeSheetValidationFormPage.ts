@@ -8,14 +8,11 @@
  * (`ValidationAuditLogPage`), not an inline section on the edit form — it used to
  * be inline, and the route change is the kind of thing a bare heading assertion
  * hides.
- *
- * @module pages/webpet/setup/TimeSheetValidationFormPage
  */
 import { Locator, Page, Response } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class TimeSheetValidationFormPage
  * @extends WebpetFormPage
  */
 export class TimeSheetValidationFormPage extends WebpetFormPage {

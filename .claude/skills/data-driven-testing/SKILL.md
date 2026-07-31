@@ -33,7 +33,7 @@ Plus two supporting data sets:
 
 ### Source selection
 
-- `TEST_DATA_SOURCE=json | csv` in `env/env.local` / `env/env.dev` / `env/env.qa`
+- `TEST_DATA_SOURCE=json | csv` in `.env.local` / `.env.dev` / `.env.qa`
   (OS env vars override; default is JSON).
 - `RUNNER_DATA_DIR` overrides the runner directory (default `src/data/runner`).
 - `DATA_FILE_PATH_JSON` / `DATA_FILE_PATH_CSV` switch to a single file instead of the

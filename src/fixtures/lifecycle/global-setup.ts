@@ -1,8 +1,6 @@
 /**
  * @fileoverview Global Setup configuration
  * @description Performs one-time setup before all tests run.
- * @module fixtures/global-setup
- * @since 1.0.0
  */
 
 import { FullConfig, request } from '@playwright/test';
@@ -44,10 +42,6 @@ const ALLURE_CATEGORIES = [
 
 /**
  * Global setup function
- *
- * @async
- * @param {FullConfig} _config - Playwright full configuration
- * @returns {Promise<void>}
  *
  * @description
  * Performs one-time setup before all tests:
@@ -107,21 +101,15 @@ async function globalSetup(_config: FullConfig): Promise<void> {
 }
 
 /**
- * Wait for the app (and the API, when it lives on another host) to actually
- * answer before any test starts.
+ * Warm the app so a cold environment's start-up cost lands here, not on the
+ * auth-setup login. Seen in CI: `goto('/login')` took 28s and blew the redirect
+ * wait; the retry against the warm app loaded in under a second.
  *
- * A cold environment charges its start-up cost to whichever request arrives
- * first, and that request is the auth-setup login. A CI run has been seen where
- * `goto('/login')` alone took 28s and the login POST then blew the redirect
- * wait, while the retry — against the now-warm app — loaded the same page in
- * under a second. Paying that cost here instead means the cost lands on setup,
- * where it is visible and harmless, rather than on a test with a deadline.
+ * BASE_URL only. API_URL was dropped — browser specs enter through the app and
+ * API specs build their own context, so it warmed nothing, and on dev its
+ * routeless root logged a misleading `HTTP 404`.
  *
- * Deliberately never throws: the probe is an optimisation, and a URL that
- * answers oddly (or not at all) should not discard the run before the tests
- * have had their say. auth-setup remains the real gate — it now reports a
- * credential rejection distinctly from a slow app, so a genuine outage still
- * fails loudly with an accurate message.
+ * Never throws; auth-setup is the real gate.
  */
 async function warmUpTargets(logger: Logger): Promise<void> {
     if (!Number.isFinite(WARMUP_TIMEOUT_MS) || WARMUP_TIMEOUT_MS <= 0) {
@@ -129,38 +117,20 @@ async function warmUpTargets(logger: Logger): Promise<void> {
         return;
     }
 
-    const candidates = [
-        { label: 'App', url: getConfigValue(ConfigProperties.APP_URL) },
-        { label: 'API', url: getConfigValue(ConfigProperties.API_URL) },
-    ];
-
-    // The SPA and the API can share a host (local) or be split across two
-    // (dev: S3 SPA + api.*), so probe by distinct origin — one GET per host is
-    // enough to wake it, and probing the same origin twice just wastes time.
-    const seenOrigins = new Set<string>();
-    const targets: Array<{ label: string; url: string }> = [];
-    for (const candidate of candidates) {
-        if (!candidate.url) continue;
-        let origin: string;
-        try {
-            origin = new URL(candidate.url).origin;
-        } catch {
-            logger.warn(`${candidate.label} URL is not parseable, skipping warm-up: ${candidate.url}`);
-            continue;
-        }
-        if (seenOrigins.has(origin)) continue;
-        seenOrigins.add(origin);
-        targets.push({ label: candidate.label, url: candidate.url });
-    }
-
-    if (targets.length === 0) {
-        logger.warn('No BASE_URL/API_URL configured — skipping the readiness probe');
+    const url = getConfigValue(ConfigProperties.APP_URL);
+    if (!url) {
+        logger.warn('No BASE_URL configured — skipping the readiness probe');
         return;
     }
 
-    for (const target of targets) {
-        await probeUntilReady(logger, target.label, target.url);
+    try {
+        new URL(url);
+    } catch {
+        logger.warn(`BASE_URL is not parseable, skipping warm-up: ${url}`);
+        return;
     }
+
+    await probeUntilReady(logger, 'App', url);
 }
 
 /**

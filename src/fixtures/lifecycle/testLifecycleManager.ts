@@ -1,6 +1,5 @@
 /**
  * @fileoverview Test lifecycle manager — tracks per-test state and suite-level pass/fail/skip counters.
- * @module listeners/testLifecycleManager
  */
 import type { TestInfo } from '@playwright/test';
 import { Logger } from '../../utils/logger';

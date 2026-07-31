@@ -14,8 +14,6 @@
  * Required environment variables when enabled:
  * - `SEND_RESULT_ELK=yes`
  * - `ELK_URL` (ingest endpoint the run summary is POSTed to)
- *
- * @module reporting/dashboard
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import http from 'node:http';

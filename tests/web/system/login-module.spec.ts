@@ -12,7 +12,23 @@
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { loginModuleData } from '@data/static/system/loginModuleData';
+import { ConfigProperties, getConfigValue } from '@config/configProperties';
 import type { LoginPage } from '@pages/shell/LoginPage';
+
+/**
+ * The valid credentials, read through the config layer rather than `process.env`.
+ *
+ * `loginModuleData` deliberately holds only the INVALID inputs — the valid pair is
+ * per-environment and comes from the env files / CI secrets. Going through
+ * `getConfigValue` also decrypts an `ENC(...)` credential
+ * (src/config/secrets.ts); a raw `process.env` read would type the ciphertext
+ * into the login form and fail as an indistinguishable "invalid credentials".
+ *
+ * Read per test rather than at module scope so a `test.use` env override still
+ * applies.
+ */
+const validUserName = (): string => getConfigValue(ConfigProperties.USER_NAME);
+const validPassword = (): string => getConfigValue(ConfigProperties.PASSWORD);
 
 // The login module must always start from a logged-out state, so discard any
 // stored authentication for every test in this file.
@@ -58,7 +74,7 @@ test.describe('Login', { tag: ['@System'] }, () => {
             { type: 'requirement', description: 'UI-R1' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage, leftNavigationPage }) => {
-        await loginPage.loginPetTiger(process.env.USER_NAME!, process.env.PASSWORD!);
+        await loginPage.loginPetTiger(validUserName(), validPassword());
         await expect(leftNavigationPage.searchMenu).toBeVisible();
         await expect(leftNavigationPage.welcomeBack).toBeVisible();
     });
@@ -70,7 +86,7 @@ test.describe('Login', { tag: ['@System'] }, () => {
             { type: 'requirement', description: 'UI-R2|UI-R3' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
-        await expectLoginRejected(loginPage, process.env.USER_NAME!, loginModuleData.wrong_password);
+        await expectLoginRejected(loginPage, validUserName(), loginModuleData.wrong_password);
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username.', {
@@ -80,7 +96,7 @@ test.describe('Login', { tag: ['@System'] }, () => {
             { type: 'requirement', description: 'UI-R2|UI-R3' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
-        await expectLoginRejected(loginPage, loginModuleData.wrong_username, process.env.PASSWORD!);
+        await expectLoginRejected(loginPage, loginModuleData.wrong_username, validPassword());
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username and password.', {

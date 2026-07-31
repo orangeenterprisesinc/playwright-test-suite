@@ -19,9 +19,6 @@
  * Recipients are routed per branch and trigger by {@link ../reporting/recipients}
  * from `config/notifications/recipients.csv`, falling back to the `EMAIL_TO`
  * variable when that table is absent or has no matching row.
- *
- * @module reporting/emailReporter
- * @since 1.0.0
  */
 import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter';
 import fs from 'node:fs';

@@ -18,14 +18,11 @@
  * controls page-wide (`page.getByRole('button', { name: 'Save' })`), and there
  * is only ever one form on screen. Narrowing the root would change which
  * element resolves — a behaviour change this migration must not make.
- *
- * @module components/webpet/FormFooterComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class FormFooterComponent
  * @extends BaseComponent
  */
 export class FormFooterComponent extends BaseComponent {

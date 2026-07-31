@@ -1,13 +1,10 @@
 /**
  * @fileoverview Equipment list — `/setup/equipments`.
- *
- * @module pages/webpet/setup/EquipmentListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class EquipmentListPage
  * @extends WebpetListPage
  */
 export class EquipmentListPage extends WebpetListPage {

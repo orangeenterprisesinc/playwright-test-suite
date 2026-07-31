@@ -1,13 +1,10 @@
 /**
  * @fileoverview Customer list — `/setup/customers`.
- *
- * @module pages/webpet/setup/CustomerListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class CustomerListPage
  * @extends WebpetListPage
  */
 export class CustomerListPage extends WebpetListPage {

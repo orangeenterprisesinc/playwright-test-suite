@@ -6,14 +6,11 @@
  * hidden too. Both outcomes are acceptable, which is why
  * {@link WebpetListPage.goto} returns the response — the status is the branch
  * condition, and it is only readable from the return value.
- *
- * @module pages/webpet/setup/TermListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class TermListPage
  * @extends WebpetListPage
  */
 export class TermListPage extends WebpetListPage {

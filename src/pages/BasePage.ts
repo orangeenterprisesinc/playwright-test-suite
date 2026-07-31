@@ -7,24 +7,6 @@
  * convention. Everything else — clicking, typing, getters, assertions — has
  * a native `Locator`/`expect` equivalent, so page objects call those
  * directly instead of going through a pass-through wrapper here.
- *
- * @module pages/BasePage
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { BasePage } from '@pages/BasePage';
- *
- * class LoginPage extends BasePage {
- *   readonly pageUrl = '/login';
- *   readonly pageTitle = 'Login';
- *   readonly usernameInput = this.page.locator('#username');
- *
- *   async login(user: string, pass: string) {
- *     await this.usernameInput.fill(user);
- *   }
- * }
- * ```
  */
 import { BrowserContext, Locator, Page } from '@playwright/test';
 import { Logger } from '../utils/logger';
@@ -35,7 +17,6 @@ import { Logger } from '../utils/logger';
  * application.
  *
  * @abstract
- * @class BasePage
  */
 export abstract class BasePage {
     /** The relative URL path for this page (e.g., '/home', '/login'). */
@@ -51,10 +32,6 @@ export abstract class BasePage {
     /** Base URL for the application, from the `BASE_URL` environment variable. */
     protected readonly baseUrl: string;
 
-    /**
-     * @param {Page} page - Playwright Page instance
-     * @param {BrowserContext} [context] - Optional browser context
-     */
     constructor(page: Page, context?: BrowserContext) {
         this.page = page;
         this.context = context;
@@ -62,13 +39,7 @@ export abstract class BasePage {
         this.baseUrl = process.env.BASE_URL || '';
     }
 
-    /**
-     * Navigates to this page's own `pageUrl`.
-     *
-     * @example
-     * const loginPage = new LoginPage(page);
-     * await loginPage.navigate();
-     */
+    /** Navigates to this page's own `pageUrl`. */
     async navigate(): Promise<void> {
         this.logger.info(`Navigating to: ${this.pageUrl}`);
         await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
@@ -77,9 +48,6 @@ export abstract class BasePage {
     /**
      * Navigates to an arbitrary URL — useful for pages not represented by a
      * page object of their own.
-     *
-     * @example
-     * await basePage.navigateTo('https://example.com/special-page');
      */
     async navigateTo(url: string): Promise<void> {
         this.logger.info(`Navigating to: ${url}`);
@@ -91,12 +59,6 @@ export abstract class BasePage {
      * Playwright wait covers an arbitrary async predicate like this.
      *
      * @throws {Error} If condition is not met within timeout
-     *
-     * @example
-     * await basePage.waitForCondition(
-     *   async () => (await page.locator('.items').count()) > 5,
-     *   { timeout: 10000, interval: 500 }
-     * );
      */
     async waitForCondition(
         condition: () => Promise<boolean>,
@@ -118,9 +80,6 @@ export abstract class BasePage {
     /**
      * Captures a full-page screenshot under this repo's
      * `artifacts/results/screenshots/<name>.png` convention.
-     *
-     * @example
-     * await basePage.takeScreenshot('homepage-loaded');
      */
     async takeScreenshot(name: string): Promise<Buffer> {
         this.logger.info(`Taking screenshot: ${name}`);
@@ -133,9 +92,6 @@ export abstract class BasePage {
     /**
      * Captures a screenshot of a single element under the same
      * `artifacts/results/screenshots/<name>.png` convention as {@link takeScreenshot}.
-     *
-     * @example
-     * await basePage.takeElementScreenshot(chart, 'chart-screenshot');
      */
     async takeElementScreenshot(locator: Locator, name: string): Promise<Buffer> {
         return await locator.screenshot({

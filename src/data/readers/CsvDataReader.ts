@@ -3,30 +3,13 @@
  *
  * {@link CsvDataReader} extends {@link BaseDataReader} to parse CSV files, auto-detect
  * types via `dynamicTyping`, and apply {@link TypeCoercionHelper} transformations.
- *
- * @module utils/dataReaders/CsvDataReader
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * const reader = new CsvDataReader('./data/users.csv', { delimiter: ';' });
- * const users = await reader.readAll<User>();
- * ```
  */
 import {BaseDataReader} from './BaseDataReader';
 import {TypeCoercionHelper} from './TypeCoercionHelper';
 import fs from 'fs/promises';
 import Papa from 'papaparse';
 
-/**
- * Configuration for CSV parsing behaviour.
- *
- * @interface CsvDataReaderOptions
- * @property {string} [delimiter=','] - Column separator character
- * @property {boolean} [hasHeader=true] - Whether the first row is a header
- * @property {string} [arrayDelimiter='|'] - Delimiter for pipe-separated array columns
- */
+/** Configuration for CSV parsing behaviour. */
 interface CsvDataReaderOptions {
     delimiter?: string;
     hasHeader?: boolean;
@@ -36,7 +19,6 @@ interface CsvDataReaderOptions {
 /**
  * Reads and parses CSV files using PapaParse with type coercion.
  *
- * @class CsvDataReader
  * @extends {BaseDataReader}
  */
 export class CsvDataReader extends BaseDataReader {
@@ -50,10 +32,6 @@ export class CsvDataReader extends BaseDataReader {
     /** @private Coercion helper for type transformations */
     private readonly coercionHelper: TypeCoercionHelper;
 
-    /**
-     * @param {string} filePath - Path to the CSV file
-     * @param {CsvDataReaderOptions} [options] - Parsing options
-     */
     constructor(filePath: string, options?: CsvDataReaderOptions) {
         super(filePath, 'csv');
         this.delimiter = options?.delimiter || ',';
@@ -66,13 +44,6 @@ export class CsvDataReader extends BaseDataReader {
      * Reads all rows and remaps column names according to the provided mapping.
      *
      * @template T - Target record shape
-     * @param {Record<string, string>} columnMapping - `{ csvColumnName: targetPropertyName }`
-     * @returns {Promise<T[]>} Remapped records
-     *
-     * @example
-     * ```typescript
-     * const mapped = await reader.readWithMapping<User>({ 'user_name': 'name' });
-     * ```
      */
     async readWithMapping<T>(columnMapping: Record<string, string>): Promise<T[]> {
         const rawData = await this.readAll<Record<string, unknown>>();
@@ -89,11 +60,7 @@ export class CsvDataReader extends BaseDataReader {
     }
 
 
-    /**
-     * Reads and returns the header column names from the CSV file.
-     *
-     * @returns {Promise<string[]>} Header names, or empty array if no header row
-     */
+    /** Reads and returns the header column names from the CSV file. */
     async getHeaders(): Promise<string[]> {
         const fileContent = await fs.readFile(this.filePath, 'utf-8');
         const firstLine = fileContent.split('\n')[0];
@@ -110,7 +77,6 @@ export class CsvDataReader extends BaseDataReader {
      *
      * @protected
      * @template T - Record shape
-     * @returns {Promise<T[]>} Parsed and transformed records
      */
     protected async parseData<T>(): Promise<T[]> {
         const fileContent = await fs.readFile(this.filePath, 'utf-8');

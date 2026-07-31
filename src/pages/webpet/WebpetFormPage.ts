@@ -25,8 +25,6 @@
  *   surfaces as an inline field error with Save left disabled — on several
  *   screens the form never submits at all.
  * - Navigation is by URL. No web-pet spec walks the sidebar.
- *
- * @module pages/webpet/WebpetFormPage
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
@@ -51,7 +49,6 @@ export type WebpetFormOutcome = 'created' | 'rejected';
 
 /**
  * @abstract
- * @class WebpetFormPage
  * @extends BasePage
  */
 export abstract class WebpetFormPage extends BasePage {

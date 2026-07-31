@@ -9,14 +9,11 @@
  *
  * Reached from an **unauthenticated** context. Specs asserting against it use
  * the anonymous fixture, not the admin one.
- *
- * @module pages/webpet/shell/LoginPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class LoginPage
  * @extends BasePage
  */
 export class LoginPage extends BasePage {

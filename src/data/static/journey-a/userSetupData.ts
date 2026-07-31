@@ -13,8 +13,6 @@
  * factory creates and would silently orphan them in a shared database — the same
  * class of problem the SQL cleanup exists to prevent. Keeping it single-source
  * here, behind a compile-checked type, makes that drift impossible.
- *
- * @module data/userSetupData
  */
 
 /** Shape of the User Setup value bag. */

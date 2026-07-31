@@ -17,6 +17,7 @@ style choice — moving them breaks discovery:
 | `tsconfig.json` | Path aliases + `include` are resolved relative to it; the IDE and `tsc` expect it at the root. |
 | `.mcp.json` | Claude Code reads MCP servers from the project root only. |
 | `.gitattributes` / `.gitignore` | Git reads these from the root (and per-directory), not from a config folder. |
+| `.env` / `.env.<name>` | The Node/dotenv convention is `.env` in the working directory. Editors' dotenv plugins, `docker run --env-file`, and most CI actions assume it, and every Node developer looks for it there first. |
 
 Lint configs *did* move (`config/lint/`) because ESLint and Prettier both accept
 `--config`. The cost is that editors must be told where to look — that is what
@@ -40,10 +41,10 @@ playwright-test-suite/
 ├── playwright.config.ts  tsconfig.json  package.json  .mcp.json
 ├── .gitattributes  .gitignore  .nvmrc  README.md
 │
-├── env/                  ALL environment inputs
-│   ├── env.local  env.dev  env.qa     committed; no real secrets
-│   ├── env.example                    the documented template
-│   └── .env                           personal overrides (gitignored)
+├── .env.local  .env.dev  .env.qa    committed per-environment config; sensitive
+│                                    values stored as ENC(...) ciphertext
+├── .env.example                     the documented template
+├── .env                             personal overrides + SECRET_KEY (gitignored)
 │
 ├── config/               ALL configuration
 │   ├── lint/             .eslintrc.json + .prettierrc.json
@@ -66,8 +67,9 @@ playwright-test-suite/
 │   └── logs/             app-<date>.log
 │
 ├── test-plans/           markdown plan per workflow, written before the spec
-├── docs/                 STRUCTURE.md (this file), FRAMEWORK-GUIDE.md, LINTING.md,
-│                         AI-INTEGRATION.md, adr/, catalog/, media/
+├── docs/                 STRUCTURE.md (this file), ENVIRONMENTS.md,
+│                         FRAMEWORK-GUIDE.md, LINTING.md, AI-INTEGRATION.md,
+│                         adr/, catalog/, media/
 │
 ├── src/
 │   ├── config/           envLoader, configProperties, dataSource, scope, webpetEnv/Paths
@@ -123,6 +125,54 @@ The mechanism that reads all of it is `src/data/readers/`. There is **no
 conversion step**: JSON runs from JSON and CSV runs from CSV, selected by
 `TEST_DATA_SOURCE`. `npm run runner:sync` regenerates the JSON mirror at author
 time; `npm run runner:check` proves the two agree.
+
+## Secrets
+
+Environment inputs are the one group of config files that stays at the repo root,
+because `.env` in the working directory is what dotenv, editors, `docker run
+--env-file` and most CI actions look for.
+
+The `.env.<name>` files are kept **terse on purpose** — settings, not prose. An env
+file whose 8 values are buried in 37 lines of commentary is not documentation, it
+is a file nobody reads. Every "why" lives in
+[ENVIRONMENTS.md](ENVIRONMENTS.md) instead: precedence, the SPA-vs-API host trap,
+the `DB_TRUSTED` transport split, and the web-pet parity rules.
+
+Any value in `.env` or `.env.<name>` may be stored encrypted:
+
+```properties
+PASSWORD=ENC(v1:8Kf7…:9pQ2…:Zm9vYmFy:dGFnZ2Vk)
+```
+
+`getConfigValue()` decrypts transparently, so **no test or page object changes** —
+that is the whole reason the accessor exists. Plaintext still works, so encryption
+is opt-in per key.
+
+```bash
+npm run secret:keygen                    # once — generate SECRET_KEY for .env
+npm run secret:encrypt -- "myPassword"   # prints ENC(v1:...)
+npm run secret:decrypt -- "ENC(v1:...)"  # verify a token
+```
+
+AES-256-GCM with a scrypt-derived key, via Node's built-in `node:crypto` — no new
+dependency. See [ADR 0006](adr/0006-encrypted-env-values.md) for why this rather
+than the `crypto-js` approach the sibling frameworks use.
+
+**What this does and does not do.** It protects secrets *at rest*: a screen-share, a
+pasted log, a stray `cat .env`, or an accidental commit shows ciphertext instead of
+a working password. It is **not a vault** — anyone holding both the file and
+`SECRET_KEY` can read every value. Therefore:
+
+- `SECRET_KEY` lives only in the gitignored `.env` and in CI secrets. In a tracked
+  file it reduces the whole scheme to obfuscation.
+- The committed `.env.dev` / `.env.qa` stay **credential-free**. Real secrets come
+  from CI secrets, which can be rotated; ciphertext in git history cannot be
+  un-published.
+- Reading a credential straight from `process.env` **bypasses decryption**. Use
+  `getConfigValue()`, or `decryptIfNeeded()` where a module deliberately keeps its
+  own resolution chain (`src/config/webpetEnv.ts`).
+- A missing or wrong key throws at config-read time rather than passing ciphertext
+  through — an opaque 401 from the app is much harder to diagnose.
 
 ## Where reports live
 

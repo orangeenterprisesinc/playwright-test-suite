@@ -23,15 +23,12 @@
  * end-to-end **without** per-type DB seeding. The empty-results banner is a
  * sanctioned pass for the flow sweep (WEBPET-861); compute *maths* is covered by
  * Go tests.
- *
- * @module pages/webpet/bonus/BonusWizardPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 import type { BonusTypeCase } from '../../../data/webpet/bonusTypes';
 
 /**
- * @class BonusWizardPage
  * @extends BasePage
  */
 export class BonusWizardPage extends BasePage {

@@ -22,14 +22,11 @@
  * In" alertdialog whose confirm is **"Continue Anyway"** — not the
  * `/confirm|ok|yes|submit/i` vocabulary the framework's generic modal component
  * matches, which is why it is spelled out here.
- *
- * @module pages/webpet/input/TimeCardFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class TimeCardFormPage
  * @extends BasePage
  */
 export class TimeCardFormPage extends BasePage {

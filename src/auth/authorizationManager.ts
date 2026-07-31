@@ -5,8 +5,6 @@
  * and caches it until shortly before it expires, refreshing automatically on
  * the next call past that point. Only relevant when `AUTH_TYPE=oauth2` —
  * other auth strategies never call this module.
- *
- * @module auth/authorizationManager
  */
 import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { AuthenticationError } from '../core/frameworkExceptions';

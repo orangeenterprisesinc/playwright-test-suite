@@ -10,7 +10,7 @@ playwright/.auth/
 .auth/
 
 # Personal secrets — never bake these into an image layer.
-env/.env
+.env
 
 .git/
 .github/

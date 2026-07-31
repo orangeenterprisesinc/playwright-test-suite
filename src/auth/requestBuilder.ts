@@ -2,8 +2,6 @@
  * @fileoverview Executes a single API request under the configured auth
  * strategy, automatically retrying once — with a freshly fetched OAuth2
  * token — on a 401/403 response.
- *
- * @module auth/requestBuilder
  */
 import type { APIRequestContext, APIResponse, TestInfo } from '@playwright/test';
 import { ConfigProperties, getConfigValue } from '../config/configProperties';
@@ -39,12 +37,6 @@ async function buildAuthHeaders(forceRefresh: boolean): Promise<Record<string, s
  * Sends one HTTP request via `apiRequest`, injecting auth headers for the
  * configured `AUTH_TYPE`. On a 401/403 with `AUTH_TYPE=oauth2`, clears the
  * cached token and retries exactly once with a freshly fetched one.
- *
- * @example
- * ```typescript
- * const response = await executeWithAuthRetry(apiRequest, 'GET', './guarantor/28114/notes', {}, testInfo);
- * expect(response.status()).toBe(200);
- * ```
  */
 export async function executeWithAuthRetry(
     apiRequest: APIRequestContext,

@@ -13,9 +13,6 @@
  * Required environment variables when enabled:
  * - `SEND_SLACK=yes`
  * - `SLACK_WEBHOOK_URL` (from the workspace's Incoming Webhook app config)
- *
- * @module reporting/slackReporter
- * @since 1.0.0
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import https from 'node:https';

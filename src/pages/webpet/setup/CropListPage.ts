@@ -6,14 +6,11 @@
  * — hence `[role="grid"]` and no `<td>` elements — while the form was untouched.
  * `crop.spec.ts` records exactly that, which is why its list assertions are so
  * thin: the substantive list coverage moved to `setup-batch-b-smoke.spec.ts`.
- *
- * @module pages/webpet/setup/CropListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class CropListPage
  * @extends WebpetListPage
  */
 export class CropListPage extends WebpetListPage {

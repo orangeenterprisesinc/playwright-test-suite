@@ -12,15 +12,12 @@
  *   FK, so the form is invalid until both are set.
  * - **Export Identifier is composed**, `"<crop>,<name>"` rather than a copy of
  *   Name — and still only while the field is empty.
- *
- * @module pages/webpet/setup/VarietyFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
 
 /**
- * @class VarietyFormPage
  * @extends WebpetFormPage
  */
 export class VarietyFormPage extends WebpetFormPage {

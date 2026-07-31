@@ -109,10 +109,10 @@ jobs:
       MSSQL_SERVER: localhost
       MSSQL_PORT: '1433'
       # DelLlano is this machine's client DB (holds the app Users the tests
-      # create). Test-user cleanup runs against the SAME DB — env.local supplies
+      # create). Test-user cleanup runs against the SAME DB — .env.local supplies
       # DB_CLIENT=DelLlano / DB_CLEANUP=yes / DB_TRUSTED=yes, and sqlcmd uses the
       # runner service's own Windows account for auth. Keep this in sync with
-      # env.local's DB_CLIENT so create and cleanup never target different DBs.
+      # .env.local's DB_CLIENT so create and cleanup never target different DBs.
       MSSQL_DB: DelLlano
       MSSQL_ENCRYPT: 'false'
       MSSQL_TRUST_SERVER_CERTIFICATE: 'true'

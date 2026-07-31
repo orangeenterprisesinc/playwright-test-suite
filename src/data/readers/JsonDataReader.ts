@@ -5,17 +5,6 @@
  * - Top-level arrays (`[{...}, ...]`)
  * - Section-based objects (`{ "sectionA": [...], "sectionB": [...] }`)
  * - Objects with a `data` property
- *
- * @module utils/dataReaders/JsonDataReader
- * @author Gukan
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * const reader = new JsonDataReader('./data/tests.json', 'loginTests');
- * const tests = await reader.readAll<TestCaseData>();
- * const sections = await reader.getSections();
- * ```
  */
 import {BaseDataReader} from './BaseDataReader';
 import fs from 'fs/promises';
@@ -23,7 +12,6 @@ import fs from 'fs/promises';
 /**
  * Reads JSON files and resolves records from sections or top-level arrays.
  *
- * @class JsonDataReader
  * @extends {BaseDataReader}
  */
 export class JsonDataReader extends BaseDataReader {
@@ -31,10 +19,6 @@ export class JsonDataReader extends BaseDataReader {
     /** @private Optional section key to read from the JSON object */
     private readonly sheetName?: string;
 
-    /**
-     * @param {string} filePath - Path to the JSON file
-     * @param {string} [sheetName] - Optional section key within the JSON object
-     */
     constructor(filePath: string, sheetName?: string) {
         super(filePath, 'json');
         this.sheetName = sheetName;
@@ -44,8 +28,6 @@ export class JsonDataReader extends BaseDataReader {
      * Reads records from a named section within the JSON file.
      *
      * @template T - Record shape
-     * @param {string} sectionName - Key in the root JSON object
-     * @returns {Promise<T[]>} Records from the section (empty array if not found)
      */
     async readSection<T>(sectionName: string): Promise<T[]> {
         const fileContent = await fs.readFile(this.filePath, 'utf-8');
@@ -61,11 +43,7 @@ export class JsonDataReader extends BaseDataReader {
     }
 
 
-    /**
-     * Returns the top-level section keys of the JSON file.
-     *
-     * @returns {Promise<string[]>} Section names (empty array if root is an array)
-     */
+    /** Returns the top-level section keys of the JSON file. */
     async getSections(): Promise<string[]> {
         const fileContent = await fs.readFile(this.filePath, 'utf-8');
         const jsonData = JSON.parse(fileContent);
@@ -88,7 +66,6 @@ export class JsonDataReader extends BaseDataReader {
      *
      * @protected
      * @template T - Record shape
-     * @returns {Promise<T[]>} Parsed records
      */
     protected async parseData<T>(): Promise<T[]> {
         const fileContent = await fs.readFile(this.filePath, 'utf-8');

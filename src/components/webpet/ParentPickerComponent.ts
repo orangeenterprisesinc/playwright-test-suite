@@ -30,8 +30,6 @@
  * `tests/webpet/parent-picker-helpers.ts` — deliberately not "improved", since
  * the suite is accepted by diffing against a per-test baseline and a better
  * selector is indistinguishable from a regression.
- *
- * @module components/webpet/ParentPickerComponent
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
@@ -56,7 +54,6 @@ function pickerCellLocator(page: Page, labelText: string): Locator {
 /**
  * One ParentPicker control, scoped to the grid cell carrying `labelText`.
  *
- * @class ParentPickerComponent
  * @extends BaseComponent
  */
 export class ParentPickerComponent extends BaseComponent {

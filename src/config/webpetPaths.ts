@@ -14,8 +14,6 @@
  * by the `webpet-setup` project and read by the specs, and relocating it while
  * the fixture also moves would change two variables at once. `.gitignore`'s
  * unanchored `.auth/` rule covers it either way.
- *
- * @module config/webpetPaths
  */
 import path from 'node:path';
 

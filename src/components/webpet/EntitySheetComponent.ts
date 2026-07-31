@@ -4,14 +4,11 @@
  * Opened from a ParentPicker's pencil button, it hosts a full nested form —
  * which is what makes the combobox-inside-sheet case worth its own regression
  * test: a portaled combobox popup opening from inside a portaled sheet.
- *
- * @module components/webpet/EntitySheetComponent
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /**
- * @class EntitySheetComponent
  * @extends BaseComponent
  */
 export class EntitySheetComponent extends BaseComponent {

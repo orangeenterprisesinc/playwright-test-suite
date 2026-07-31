@@ -27,15 +27,12 @@
  *   from the `<label for>` up to the shared container and back down. The form
  *   also scrolls in an inner `overflow-y-auto`, so the click has to be preceded
  *   by `scrollIntoViewIfNeeded` — {@link clickPermission} does both.
- *
- * @module pages/webpet/settings/UsersFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
 
 /**
- * @class UsersFormPage
  * @extends BasePage
  */
 export class UsersFormPage extends BasePage {

@@ -1,8 +1,6 @@
 /**
  * @fileoverview Global Teardown configuration
  * @description Performs cleanup actions after all tests have finished.
- * @module fixtures/global-teardown
- * @since 1.0.0
  */
 
 import { FullConfig } from '@playwright/test';
@@ -74,10 +72,6 @@ function writeAllureExecutorInfo(): void {
 
 /**
  * Global teardown function
- *
- * @async
- * @param {FullConfig} config - Playwright full configuration
- * @returns {Promise<void>}
  *
  * @description
  * Logs a run summary from Playwright's native JSON output (when present)

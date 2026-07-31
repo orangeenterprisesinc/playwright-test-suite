@@ -86,10 +86,10 @@ playwright-test-suite/
 ├── package.json                      # Dependencies and scripts
 ├── .mcp.json                         # MCP servers (Claude Code reads root only)
 │
-├── env/                              # ALL environment inputs
-│   ├── env.local  env.dev  env.qa    #   committed, no real secrets
-│   ├── env.example                   #   documented template
-│   └── .env                          #   personal overrides (gitignored)
+├── .env.local  .env.dev  .env.qa     # committed per-environment config; any
+│                                     #   sensitive value stored as ENC(...)
+├── .env.example                      # documented template
+├── .env                              # personal overrides + SECRET_KEY (gitignored)
 │
 ├── config/                           # ALL configuration, grouped by tool
 │   ├── lint/.eslintrc.json           #   code standards
@@ -126,7 +126,7 @@ playwright-test-suite/
 │   │   └── DataGridComponent.ts      #   The PET Tiger list grid (filters, rows, totals)
 │   │
 │   ├── config/                       # Configuration management
-│   │   ├── envLoader.ts              #   Loads env/env.local/dev/qa files
+│   │   ├── envLoader.ts              #   Loads .env.local/dev/qa files
 │   │   ├── dataSource.config.ts      #   Runner directory / JSON+CSV path resolution
 │   │   └── scope.ts                   #   TEST_SCOPE segment + module filtering
 │   │
@@ -328,9 +328,9 @@ The framework uses environment-specific configuration files in the project root:
 
 | File | Purpose |
 |------|---------|
-| `env/env.local` | Local environment (default) |
-| `env/env.dev` | Development environment |
-| `env/env.qa` | QA environment |
+| `.env.local` | Local environment (default) |
+| `.env.dev` | Development environment |
+| `.env.qa` | QA environment |
 
 Switch environments by setting `TEST_ENV`:
 
@@ -342,7 +342,7 @@ TEST_ENV=dev npm test
 TEST_ENV=qa npm test
 ```
 
-### Environment File Structure (`env/env.qa`)
+### Environment File Structure (`.env.qa`)
 
 ```properties
 # Application URLs
@@ -891,7 +891,7 @@ npm run report:allure:open
 
 `.github/workflows/e2e.yml` runs the suite against the **dev staging** deployment twice a day, plus on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
 
-The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `env/env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
+The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
 Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names: `e2e-local.yml` uses its own `LOCAL_USER_NAME`/`LOCAL_PASSWORD`, and an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with localhost credentials.
 

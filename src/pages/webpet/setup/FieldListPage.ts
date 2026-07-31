@@ -7,14 +7,11 @@
  * exists to bind the route and heading.
  *
  * `field.spec.ts` covers the list only — there are no field form tests.
- *
- * @module pages/webpet/setup/FieldListPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
- * @class FieldListPage
  * @extends WebpetListPage
  */
 export class FieldListPage extends WebpetListPage {

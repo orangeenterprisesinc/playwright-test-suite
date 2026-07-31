@@ -43,7 +43,7 @@ If the live code and older documentation disagree, trust the **live code**.
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
 - Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts` (typed TS module, e.g. `src/data/static/journey-a/userSetupData.ts`)
 - Data helpers: `src/data/readers/DataProvider.ts`
-- Environments: `env/env.local` / `env/env.dev` / `env/env.qa`, selected via `TEST_ENV` (default `local`)
+- Environments: `.env.local` / `.env.dev` / `.env.qa`, selected via `TEST_ENV` (default `local`)
 
 ### Catalog workflows — where a spec goes and what it is called
 

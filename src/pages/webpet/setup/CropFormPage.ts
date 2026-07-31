@@ -18,14 +18,11 @@
  *   form never navigates. Submitting a duplicate instead returns a structured
  *   409 that maps to an inline Name error.
  * - Name and Export Identifier are `readonly` once the record exists.
- *
- * @module pages/webpet/setup/CropFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 
 /**
- * @class CropFormPage
  * @extends WebpetFormPage
  */
 export class CropFormPage extends WebpetFormPage {

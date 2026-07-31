@@ -11,15 +11,12 @@
  * On the edit form the Equipment Type picker is **disabled** rather than
  * readonly — it is a combobox, not a text input, so `toBeDisabled()` is the
  * right assertion and `toHaveAttribute('readonly')` would never pass.
- *
- * @module pages/webpet/setup/EquipmentFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
 import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
 
 /**
- * @class EquipmentFormPage
  * @extends WebpetFormPage
  */
 export class EquipmentFormPage extends WebpetFormPage {

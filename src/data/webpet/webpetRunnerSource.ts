@@ -19,8 +19,6 @@
  *
  * `MultiFileDataReader`'s own parse cache is keyed `"${sourceType}:${dir}"`, so
  * two live row sources in one process are safe through this path.
- *
- * @module data/webpet/webpetRunnerSource
  */
 import path from 'node:path';
 import type { TestInfo } from '@playwright/test';

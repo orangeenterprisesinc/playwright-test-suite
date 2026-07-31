@@ -24,14 +24,11 @@
  *     strict-mode error that hides it.
  *
  * Do not consolidate them.
- *
- * @module pages/webpet/scan/ScanScreenPage
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
- * @class ScanScreenPage
  * @extends BasePage
  */
 export class ScanScreenPage extends BasePage {

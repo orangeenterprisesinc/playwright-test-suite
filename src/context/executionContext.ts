@@ -2,8 +2,6 @@
  * @fileoverview Run-level execution metadata — created once per
  * `npx playwright test` invocation (module-level singleton), as opposed to
  * {@link ../context/testMetrics} which tracks the currently-executing test.
- *
- * @module context/executionContext
  */
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -76,11 +74,5 @@ class ExecutionContextManager {
 /**
  * Singleton run-level context. Safe across workers since `runId`/`triggeredBy`/
  * `branch`/`commit` are constant for the whole run — only `environment` is read live.
- *
- * @example
- * ```typescript
- * const ctx = ExecutionContext.snapshot();
- * console.log(ctx.runId, ctx.triggeredBy, ctx.branch, ctx.commit, ctx.environment);
- * ```
  */
 export const ExecutionContext = new ExecutionContextManager();

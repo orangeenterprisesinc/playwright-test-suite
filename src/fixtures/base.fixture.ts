@@ -16,20 +16,6 @@
  * Its `beforeEach` also applies the three-layer execution gate — `runnerList.json`
  * override, the runner row's `enabled` flag, then the `TEST_SCOPE` segment/module
  * filter (see `src/config/scope.ts`).
- *
- * @module fixtures/base.fixture
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { test, expect } from '../fixtures/base.fixture';
- *
- * test('login flow', async ({ page, navigation, logger }) => {
- *   await page.goto('/login');
- *   await navigation.clickLogin();
- *   logger.info('Login test completed');
- * });
- * ```
  */
 import { APIRequestContext, expect, Page, test as base } from '@playwright/test';
 import { NavigationComponent } from '../components/NavigationComponent';
@@ -48,10 +34,7 @@ import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
 
-/**
- * Per-test fixture types.
- * @typedef {object} CustomFixtures
- */
+/** Per-test fixture types. */
 type CustomFixtures = {
     /**
      * Every page object, lazily constructed — `pages.users`, `pages.leftNav`, …
@@ -115,10 +98,7 @@ type CustomFixtures = {
     gate: void;
 };
 
-/**
- * Worker-scoped fixture types.
- * @typedef {object} WorkerFixtures
- */
+/** Worker-scoped fixture types. */
 type WorkerFixtures = {
     /** Per-worker logger. */
     workerLogger: Logger;

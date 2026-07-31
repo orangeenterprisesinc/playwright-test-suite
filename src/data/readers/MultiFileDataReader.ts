@@ -13,8 +13,6 @@
  * to arrays via `TypeCoercionHelper`, but the JSON path returns whatever the file
  * literally contains. Normalising here means a spec sees the same row whichever
  * `TEST_DATA_SOURCE` is active.
- *
- * @module utils/dataReaders/MultiFileDataReader
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -48,18 +46,12 @@ export function clearMultiFileCache(): void {
 /**
  * Reads every `*.json` or `*.csv` file in a directory as one combined record set.
  *
- * @class MultiFileDataReader
  * @extends BaseDataReader
  */
 export class MultiFileDataReader extends BaseDataReader {
     /** @private Section key passed to each JSON reader (e.g. `'runnerManager'`). */
     private readonly sheetName?: string;
 
-    /**
-     * @param directoryPath Directory holding the per-journey data files
-     * @param sourceType Which extension to read — `'json'` or `'csv'`
-     * @param sheetName Section key within each JSON file
-     */
     constructor(directoryPath: string, sourceType: DataSourceType, sheetName?: string) {
         super(directoryPath, sourceType);
         this.sheetName = sheetName;

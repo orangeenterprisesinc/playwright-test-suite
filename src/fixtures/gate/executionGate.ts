@@ -29,8 +29,6 @@
  * parameters, so a skip decided here prevents `context`/`page`/`request` from
  * ever being created — which is both faster and the only way a gate can stop a
  * test that would otherwise fail during fixture setup.
- *
- * @module fixtures/executionGate
  */
 import { getRunnerListDecision } from './methodInterceptor';
 import { evaluateScope } from '../../config/scope';
@@ -44,15 +42,7 @@ export interface GateDecision {
 
 const RUN: GateDecision = { skip: false, reason: '' };
 
-/**
- * Decides execution for one test.
- *
- * @param caseId Resolved runner id. `''` for a deliberately unmanaged test —
- *   `auth.setup.ts`, `webpet.setup.ts`, and any spec not yet converted. This
- *   short-circuits every layer to RUN, which is load-bearing: without it a
- *   browser project would lose its session on the very first run.
- * @param row The matching runner row, or `null` when none exists.
- */
+/** Decides execution for one test. */
 export function decideExecution(caseId: string, row: TestCaseData | null): GateDecision {
     // Layer 1 — runnerList.json wins outright for any id it lists, including
     // re-enabling a row whose `enabled` is false. Per-entry, so an id absent

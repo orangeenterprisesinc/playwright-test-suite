@@ -22,9 +22,6 @@
  *
  * All of it is a no-op when `DB_CLEANUP` is off or the DB is unreachable —
  * `runSql` reports `skipped` and logs, rather than failing the run.
- *
- * @module utils/db/cleanupRegistry
- * @since 1.0.0
  */
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { CLEANUP_TARGETS, cleanupTarget, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
@@ -41,8 +38,6 @@ interface TrackedRecord {
  * Collects the records a single test created and removes them afterwards.
  *
  * One instance per test, supplied by the `cleanup` fixture.
- *
- * @class CleanupRegistry
  */
 export class CleanupRegistry {
     private readonly logger = new Logger('CleanupRegistry');
@@ -53,9 +48,6 @@ export class CleanupRegistry {
      *
      * Call this immediately after creating the record — before any assertion that
      * could fail — so a mid-test failure still cleans up.
-     *
-     * @param entity entity key from `CLEANUP_TARGETS` (e.g. `'user'`)
-     * @param name the record's name, as typed into the form
      */
     track(entity: string, name: string): void {
         cleanupTarget(entity); // fail fast on an unregistered entity
@@ -131,8 +123,6 @@ export class CleanupRegistry {
  * Per-test cleanup already removes the happy-path records; this catches what an
  * interrupted or crashed run left behind, so test data never accumulates in a
  * shared database. Called once from global teardown.
- *
- * @param targets entities to sweep — defaults to all registered ones
  */
 export async function sweepLeftovers(
     targets: readonly CleanupTarget[] = CLEANUP_TARGETS,

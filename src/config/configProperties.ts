@@ -8,25 +8,18 @@
  * Variable names use the standard convention (`BASE_URL`, `USER_NAME`,
  * `PASSWORD`) that the CI secrets are configured against.
  *
- * @module enums/configProperties
- * @since 1.0.0
- *
- * @example
- * ```typescript
- * import { ConfigProperties, getConfigValue, getConfigBoolean } from '../enums/configProperties';
- *
- * const baseUrl = getConfigValue(ConfigProperties.APP_URL, 'http://localhost:3000');
- * const userName = getConfigValue(ConfigProperties.USER_NAME);
- * ```
+ * Any value may be stored encrypted as `ENC(...)` — {@link getConfigValue}
+ * decrypts transparently (see src/config/secrets.ts). Because every consumer in
+ * the suite already reads config through this accessor, encryption required no
+ * call-site changes.
  */
+import { decryptIfNeeded } from './secrets';
 
 /**
  * Enumeration of all framework configuration property keys.
  *
  * Each member maps a logical configuration name to its environment variable key.
  * Use with {@link getConfigValue} or {@link getConfigBoolean} to retrieve values.
- *
- * @enum {string}
  */
 export enum ConfigProperties {
     /* ── Application URLs ────────────────────────────── */
@@ -148,18 +141,16 @@ export enum ConfigProperties {
  * Looks up the environment variable corresponding to the given {@link ConfigProperties} key.
  * Returns the fallback value if the environment variable is not set.
  *
- * @param {ConfigProperties} key - The configuration property key to look up
- * @param {string} [fallback=''] - Default value if the environment variable is not set
- * @returns {string} The environment variable value, or the fallback
+ * Values stored as `ENC(...)` are decrypted here (see src/config/secrets.ts), so
+ * a credential can be protected at rest without touching any call site. Plaintext
+ * passes through untouched, so encryption is opt-in per key.
  *
- * @example
- * ```typescript
- * // Returns process.env.BASE_URL or 'http://localhost:3000' if not set
- * const appUrl = getConfigValue(ConfigProperties.APP_URL, 'http://localhost:3000');
- * ```
+ * @throws {Error} When the value is `ENC(...)` but `SECRET_KEY` is missing or wrong
  */
 export function getConfigValue(key: ConfigProperties, fallback: string = ''): string {
-    return process.env[key] ?? fallback;
+    const raw = process.env[key];
+    if (raw === undefined) return fallback;
+    return decryptIfNeeded(raw);
 }
 
 /**
@@ -167,16 +158,6 @@ export function getConfigValue(key: ConfigProperties, fallback: string = ''): st
  *
  * Interprets `'yes'`, `'true'`, and `'1'` (case-insensitive) as `true`.
  * All other values (including unset) return the fallback.
- *
- * @param {ConfigProperties} key - The configuration property key to look up
- * @param {boolean} [fallback=false] - Default value if the environment variable is not set
- * @returns {boolean} The interpreted boolean value, or the fallback
- *
- * @example
- * ```typescript
- * // Returns true if process.env.RETRY is 'yes', 'true', or '1'
- * const shouldRetry = getConfigBoolean(ConfigProperties.RETRY, false);
- * ```
  */
 export function getConfigBoolean(key: ConfigProperties, fallback: boolean = false): boolean {
     const raw = process.env[key];

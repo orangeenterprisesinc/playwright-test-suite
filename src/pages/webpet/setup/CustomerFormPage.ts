@@ -14,8 +14,6 @@
  * `#active` ActiveField Switch the traceability screens use.
  *
  * Export Identifier does not auto-populate from Name (GAP-033).
- *
- * @module pages/webpet/setup/CustomerFormPage
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetFormPage } from '../WebpetFormPage';
@@ -23,7 +21,6 @@ import { ParentPickerComponent } from '../../../components/webpet/ParentPickerCo
 import { CustomerContactsComponent } from '../../../components/webpet/CustomerContactsComponent';
 
 /**
- * @class CustomerFormPage
  * @extends WebpetFormPage
  */
 export class CustomerFormPage extends WebpetFormPage {
