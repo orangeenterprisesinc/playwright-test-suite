@@ -9,9 +9,7 @@ name: Scheduled Dry Run Reminder
 # branch.
 on:
   schedule:
-    # ⚠️ TEMPORARY (2026-08-01) — see dry-run-daily.yml. REVERT to '20 10 * * *'
-    # (3:50 PM IST) together with that file's cron and REMINDER_STARTS_AT below.
-    - cron: '55 19 * * *'   # 1:25 AM IST (was: '20 10 * * *' = 3:50 PM IST)
+    - cron: '20 10 * * *'   # 3:50 PM IST (UTC+5:30)
   workflow_dispatch:
     inputs:
       confirm:
@@ -37,8 +35,7 @@ jobs:
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
       # Keep in step with dry-run-daily.yml's cron and job list — this message is
       # a promise about what is about to run.
-      # ⚠️ TEMPORARY (2026-08-01) — revert to '4:00 PM IST' with the crons.
-      REMINDER_STARTS_AT: '1:30 AM IST'
+      REMINDER_STARTS_AT: '4:00 PM IST'
       REMINDER_JOBS: 'User Journey,WebPet'
 
     steps:
