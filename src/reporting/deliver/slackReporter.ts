@@ -42,12 +42,17 @@ class SlackReporter implements Reporter {
     }
 
     async onEnd(result: FullResult): Promise<void> {
-        // Checked before the gate and before any credential: previewing the
-        // layout must not require pretending to be CI, because a developer who
-        // exported GITHUB_ACTIONS=true and then forgot SLACK_DRY_RUN would post
-        // a laptop run to the team channel.
+        const botToken = getConfigValue(ConfigProperties.SLACK_BOT_TOKEN);
+        const channel = getConfigValue(ConfigProperties.SLACK_CHANNEL_ID);
+        const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
+        const uploadsAllure = !!(botToken && channel);
+
+        // Checked before the gate: previewing the layout must not require
+        // pretending to be CI, because a developer who exported
+        // GITHUB_ACTIONS=true and then forgot SLACK_DRY_RUN would post a laptop
+        // run to the team channel.
         if (isSlackDryRun()) {
-            const message = this.buildMessage(this.collector.build(result), false);
+            const message = this.buildMessage(this.collector.build(result), uploadsAllure);
             this.logger.info(`Slack dry run — payload not sent:\n${JSON.stringify(message, null, 2)}`);
             return;
         }
@@ -58,10 +63,6 @@ class SlackReporter implements Reporter {
             return;
         }
 
-        const botToken = getConfigValue(ConfigProperties.SLACK_BOT_TOKEN);
-        const channel = getConfigValue(ConfigProperties.SLACK_CHANNEL_ID);
-        const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
-
         if (!(botToken && channel) && !webhookUrl) {
             this.logger.warn(
                 'SEND_SLACK=yes but neither SLACK_BOT_TOKEN+SLACK_CHANNEL_ID nor SLACK_WEBHOOK_URL is set — skipping Slack notification',
@@ -70,7 +71,7 @@ class SlackReporter implements Reporter {
         }
 
         const summary = this.collector.build(result);
-        const message = this.buildMessage(summary, !!(botToken && channel));
+        const message = this.buildMessage(summary, uploadsAllure);
 
         try {
             if (botToken && channel) {

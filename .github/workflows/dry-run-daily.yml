@@ -20,8 +20,12 @@ on:
   schedule:
     # IST is UTC+5:30 and GitHub's cron scheduler always runs in UTC. GitHub can
     # start a scheduled run several minutes late under load; that's expected, and
-    # it is why the reminder says "starts at 4:00 PM" rather than counting down.
-    - cron: '30 10 * * *'   # 4:00 PM IST
+    # it is why the reminder says "starts at 1:30 AM" rather than counting down.
+    #
+    # ⚠️ TEMPORARY (2026-08-01) — moved off the production slot for a one-off
+    # Slack format review. REVERT to '30 10 * * *' (4:00 PM IST) once the format
+    # is signed off, and revert dry-run-reminder.yml's cron in the same commit.
+    - cron: '0 20 * * *'    # 1:30 AM IST (was: '30 10 * * *' = 4:00 PM IST)
   # For testing the chain. Slack stays silent on a manual run (slack/gate.ts
   # allows `schedule` only) — set the SLACK_NOTIFY_EVENTS repo variable to
   # `schedule,workflow_dispatch` to get real messages out of a dispatch run.

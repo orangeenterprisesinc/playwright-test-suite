@@ -59,16 +59,17 @@ function reportBlocks(input: RunMessageInput): unknown[] {
     if (input.allureUrl) buttons.push(linkButton('📊 Open Allure Report', input.allureUrl));
     if (input.runUrl) buttons.push(linkButton('🔗 Open GitHub Workflow', input.runUrl));
     if (input.artifactsUrl) buttons.push(linkButton('📦 Download Artifacts', input.artifactsUrl));
-    if (!buttons.length) return [];
 
-    const blocks: unknown[] = [
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: '*Reports*' } },
-        { type: 'actions', elements: buttons },
-    ];
     // Say so explicitly, otherwise a report with no Allure button reads as if the
-    // report were missing rather than arriving seconds later.
-    if (!input.allureUrl && input.allureInThread) {
+    // report were missing rather than arriving seconds later. Not gated on the
+    // buttons: a local run has no CI URLs at all, and the thread upload still
+    // happens.
+    const threadNote = !input.allureUrl && input.allureInThread;
+    if (!buttons.length && !threadNote) return [];
+
+    const blocks: unknown[] = [divider(), { type: 'section', text: { type: 'mrkdwn', text: '*Reports*' } }];
+    if (buttons.length) blocks.push({ type: 'actions', elements: buttons });
+    if (threadNote) {
         blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: '📎 Allure report attached in the thread' }] });
     }
     return blocks;
