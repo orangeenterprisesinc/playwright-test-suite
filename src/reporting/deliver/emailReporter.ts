@@ -1,6 +1,10 @@
 /**
  * @fileoverview Custom Playwright reporter that emails a rich run summary.
  *
+ * @deprecated Slack is the framework's primary reporting channel — see
+ * {@link ./slackReporter}. This reporter still works and is still registered, but
+ * `SEND_EMAIL` is pinned to `no` in every workflow and no new features land here.
+ *
  * Self-gating: it only sends when `SEND_EMAIL=yes` AND the SMTP settings
  * are present — otherwise it logs one line and does nothing, so local
  * runs and CI runs without SMTP secrets are unaffected.
@@ -24,7 +28,7 @@ import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } fr
 import fs from 'node:fs';
 import nodemailer from 'nodemailer';
 import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../config/configProperties';
-import { prepareLeanEmailReport } from '../generate/allure/report';
+import { acquireLeanReport } from '../generate/allure/report';
 import { Logger } from '../../utils/logger';
 import { resolveRecipients } from '../recipients/recipients';
 import { RunSummaryCollector, statusColor, type EnvBadge, type RunSummary, type TestRecord } from '../summary/runSummary';
@@ -41,6 +45,7 @@ const OUTCOME_COLORS = {
     skipped: '#6b7280',
 } as const;
 
+/** @deprecated Superseded by the Slack reporter; kept working for backward compatibility. */
 class EmailReporter implements Reporter {
     private readonly logger = new Logger('EmailReporter');
     private readonly collector = new RunSummaryCollector();
@@ -59,6 +64,8 @@ class EmailReporter implements Reporter {
             return;
         }
 
+        this.logger.warn('Email reporting is deprecated — Slack is the primary channel (see slackReporter.ts)');
+
         const host = getConfigValue(ConfigProperties.SMTP_HOST);
         const from = getConfigValue(ConfigProperties.EMAIL_FROM);
         if (!host || !from) {
@@ -76,7 +83,7 @@ class EmailReporter implements Reporter {
             return;
         }
 
-        const { attachments, cleanup } = await this.prepareAttachments();
+        const attachments = await this.prepareAttachments();
 
         try {
             const user = getConfigValue(ConfigProperties.SMTP_USER);
@@ -102,8 +109,6 @@ class EmailReporter implements Reporter {
             // Never fail the test run because the notification failed.
             const msg = error instanceof Error ? error.message : String(error);
             this.logger.error(`Email notification failed: ${msg}`);
-        } finally {
-            cleanup();
         }
     }
 
@@ -117,28 +122,25 @@ class EmailReporter implements Reporter {
      * `index.html`. Built entirely under the OS temp dir, so `artifacts/allure/results/`
      * itself is untouched. The Playwright HTML report has no single-file mode,
      * so it's left out of email; the CI artifact link covers it.
-     *
-     * Always returns a `cleanup()` — call it once the email send settles.
      */
-    private async prepareAttachments(): Promise<{ attachments: ReportAttachment[]; cleanup: () => void }> {
-        let report: { htmlPath: string; cleanup: () => void };
+    private async prepareAttachments(): Promise<ReportAttachment[]> {
+        let report: { htmlPath: string };
         try {
-            report = await prepareLeanEmailReport();
+            report = await acquireLeanReport();
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Allure report generation failed — email won't include it: ${msg}`);
-            return { attachments: [], cleanup: () => {} };
+            return [];
         }
 
         const maxBytes = parseInt(getConfigValue(ConfigProperties.EMAIL_MAX_ATTACHMENT_MB, '20'), 10) * 1024 * 1024;
         const size = fs.statSync(report.htmlPath).size;
         if (size > maxBytes) {
             this.logger.warn(`${report.htmlPath} is ${(size / 1024 / 1024).toFixed(1)}MB, over the ${maxBytes / 1024 / 1024}MB cap — skipping the email attachment`);
-            report.cleanup();
-            return { attachments: [], cleanup: () => {} };
+            return [];
         }
 
-        return { attachments: [{ filename: 'allure-report.html', path: report.htmlPath }], cleanup: report.cleanup };
+        return [{ filename: 'allure-report.html', path: report.htmlPath }];
     }
 }
 
@@ -193,6 +195,12 @@ function buildHtml(summary: RunSummary, attachments: ReportAttachment[]): string
         ? `<p style="margin:16px 0 0;"><a href="${summary.runUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;">Open the CI run →</a></p>`
         : '';
 
+    // The hosted (full) report, when CI published one — the attachment above is
+    // the screenshots-only copy.
+    const allureLink = summary.allureUrl
+        ? `<p style="margin:10px 0 0;"><a href="${summary.allureUrl}" style="font-size:13px;color:#2563eb;">Open the full Allure report →</a></p>`
+        : '';
+
     return `
 <div style="background:#f3f4f6;padding:24px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="640" align="center" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
@@ -231,6 +239,7 @@ function buildHtml(summary: RunSummary, attachments: ReportAttachment[]): string
         ${failuresSection}
         ${attachmentNote}
         ${runLink}
+        ${allureLink}
       </td>
     </tr>
   </table>

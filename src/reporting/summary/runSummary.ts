@@ -64,8 +64,12 @@ export interface RunSummary {
     finishedAt: string;
     /** CI run URL, or empty string when not running in CI. */
     runUrl: string;
+    /** CI run number without the `#`, or empty string outside CI. */
+    runNumber: string;
     /** Public URL of this run's uploaded artifacts (S3), or empty string when not uploaded. */
     reportUrl: string;
+    /** Public URL of this run's hosted Allure report, or empty string when not published. */
+    allureUrl: string;
     /** Only the unexpected (failed) records, for the failures section. */
     failures: TestRecord[];
     /** Every test record. */
@@ -209,7 +213,9 @@ export class RunSummaryCollector {
             nodeVersion: process.version,
             finishedAt: new Date().toISOString(),
             runUrl: resolveRunUrl(),
+            runNumber: process.env.GITHUB_RUN_NUMBER ?? '',
             reportUrl: getConfigValue(ConfigProperties.REPORT_URL, ''),
+            allureUrl: getConfigValue(ConfigProperties.ALLURE_REPORT_URL, ''),
             failures: records.filter((r) => r.outcome === 'unexpected'),
             records,
         };

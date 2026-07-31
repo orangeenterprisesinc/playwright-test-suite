@@ -23,13 +23,12 @@ name: WebPet E2E (dev staging)
 # Capture the first runs as the dev baseline (tests/webpet/README.md) and
 # disable dev-incompatible tests via src/data/webpet/webpetRunnerManager.json.
 #
-# Nightly + manual only — deliberately NOT on push and NOT on the
+# This is the **WebPet** half of the daily dry run, and it no longer schedules
+# itself: dry-run-daily.yml owns the 4:00 PM IST cron and calls this workflow
+# after e2e.yml has finished, so the two never run at the same time against the
+# same dev data. Otherwise manual only — deliberately NOT on push and NOT on the
 # run-playwright repository_dispatch (e2e.yml owns those for dev staging).
 on:
-  schedule:
-    # 4:00 AM IST (UTC+5:30) — clear of e2e.yml's 10:30/12:30 UTC slots and
-    # webpet-e2e-local.yml's 20:30 UTC slot.
-    - cron: '30 22 * * *'
   workflow_dispatch:
     inputs:
       grep:
@@ -44,9 +43,34 @@ on:
         description: 'Playwright workers. Leave at 1 for a baseline-comparable run; raise only for a quick smoke (results then are NOT comparable).'
         required: false
         default: '1'
+  # Called by dry-run-daily.yml. The reusable workflow inherits the caller's
+  # event (`schedule`), which is what makes the dry-run checkout below and the
+  # CI-only Slack gate fire.
+  workflow_call:
+    inputs:
+      grep:
+        type: string
+        required: false
+        default: ''
+      batch:
+        type: string
+        required: false
+        default: ''
+      workers:
+        type: string
+        required: false
+        default: '1'
+      suite_name:
+        description: 'Label for the Slack report header.'
+        type: string
+        required: false
+        default: 'WebPet'
 
+# `github.workflow` is the CALLER's name inside a reusable workflow, so an
+# orchestrated dry run and a direct dispatch land in different groups and cannot
+# cancel each other.
 concurrency:
-  group: webpet-e2e-dev
+  group: webpet-e2e-dev-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
@@ -75,15 +99,38 @@ jobs:
       # framework's SQL sweep targets 'QA User %' rows this suite never creates.
       # With DB_SERVER/DB_CLIENT unset, isDbCleanupEnabled() is false and the
       # global-setup probe just logs a warning.
-      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      # --- Report attribution. On a scheduled run GITHUB_REF_NAME is 'main' (cron
+      #     only fires from the default branch) even though the checkout below pins
+      #     ref: dry-run, so the reports would name the wrong branch without this.
+      #     See e2e.yml for the full rationale. ---
+      BRANCH_OVERRIDE: ${{ github.event_name == 'schedule' && 'dry-run' || '' }}
+      # Email reporting is DEPRECATED — pinned off; see e2e.yml.
+      SEND_EMAIL: 'no'
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      # Slack is the primary channel. On top of SEND_SLACK, slack/gate.ts only
+      # lets CI events through (SLACK_NOTIFY_EVENTS, default `schedule`), so a
+      # manual dispatch of this workflow posts nothing.
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # With both of these set the reporter uploads the Allure report into the
+      # Slack message's thread instead of posting a summary-only webhook.
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || 'WebPet' }}
+      # See e2e.yml — set the variable to keep 'Scheduled Dry Run' wording on a
+      # dispatch run used to review the format.
+      SLACK_EXECUTION_LABEL: ${{ vars.SLACK_EXECUTION_LABEL }}
+      # --- S3 report upload (opt-in, same switches as e2e.yml). Its own prefix
+      #     below keeps the two suites' reports from overwriting each other. ---
+      SEND_S3: ${{ vars.SEND_S3 || 'no' }}
+      S3_REPORT_BUCKET: ${{ vars.S3_REPORT_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
     steps:
       # Fail in seconds with the actual cause instead of a login timeout later.
@@ -94,9 +141,16 @@ jobs:
             exit 1
           fi
 
+      # Scheduled (i.e. orchestrated dry run) tests the dry-run branch; a manual
+      # dispatch tests the ref it was fired from. Without this the orchestrator —
+      # which runs from main, since that is the only branch cron fires from —
+      # would silently test main's webpet suite. Keep in step with BRANCH_OVERRIDE
+      # above: that decides which branch the reports name, this decides which code
+      # actually runs, and they must agree.
       - name: Checkout test suite
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'schedule' && 'dry-run' || github.ref }}
           # Full history + tags — the relocation audit reads each spec's
           # pre-conversion form out of the webpet-lift-v1 tag, which a shallow
           # clone does not fetch.
@@ -145,6 +199,19 @@ jobs:
       - name: Validate webpet runner data
         run: npm run webpet:runner:check
 
+      # Computed BEFORE the test run so the Playwright process — and thus the
+      # Slack reporter, which posts in its onEnd before the sync steps below —
+      # sees ALLURE_REPORT_URL. The path is deterministic, so the link is valid
+      # once the upload finishes seconds later. The `webpet/` segment keeps this
+      # suite's report separate from tiger-web's (e2e.yml).
+      - name: Compute S3 report location
+        if: env.SEND_S3 == 'yes'
+        run: |
+          PREFIX="automation-reports/webpet/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
+          echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
+          echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
+          echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
+
       # NOTE: no --reporter override — that would REPLACE the configured chain
       # and empty the html/allure artifacts uploaded below. The chain's JSON
       # reporter already writes artifacts/results/results.json for the diff.
@@ -157,17 +224,18 @@ jobs:
       # 6m11s against the baseline's 56.5m, with a failure set that matched
       # per-file but could not be trusted to match per-test.
       #
-      # `workers` is a dispatch input so a quick smoke is still one click away;
-      # the scheduled nightly always runs serial.
+      # `workers` is an input so a quick smoke is still one click away; the daily
+      # dry run passes '1' explicitly.
       - name: Run webpet Playwright tests
         env:
-          GREP: ${{ github.event.inputs.grep }}
-          BATCH: ${{ github.event.inputs.batch }}
-          WORKERS: ${{ github.event.inputs.workers }}
+          # `inputs` covers workflow_dispatch AND workflow_call.
+          GREP: ${{ inputs.grep }}
+          BATCH: ${{ inputs.batch }}
+          WORKERS: ${{ inputs.workers }}
         run: |
           FILTER="$GREP"
           if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
-          # Empty on a scheduled run (dispatch inputs are unset there) → serial.
+          # Defaults to 1 when the input is unset or empty → serial.
           W="${WORKERS:-1}"
           if [ -z "$W" ]; then W=1; fi
           if [ "$W" != "1" ]; then
@@ -220,3 +288,24 @@ jobs:
         with:
           name: webpet-allure-report
           path: artifacts/allure/report
+
+      # Publishes the report the Slack message links to. Same bucket and switches
+      # as e2e.yml, different prefix; the bucket must allow public read on
+      # automation-reports/* (bucket policy, not ACLs).
+      - name: Configure AWS credentials
+        if: always() && env.SEND_S3 == 'yes'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload test-results to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync artifacts/results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress
+
+      # The whole folder, not just index.html: the Allure report is a static site
+      # with relative asset links.
+      - name: Upload Allure report to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync artifacts/allure/report "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/allure-report" --no-progress

@@ -1,0 +1,62 @@
+name: Scheduled Dry Run Reminder
+
+# Posts one informational Slack message 10 minutes before dry-run-daily.yml
+# starts, so the channel knows results are coming rather than being surprised by
+# them.
+#
+# Separate from dry-run-daily.yml on purpose: a second cron there would run the
+# whole test chain twice. Must live on main — cron only fires from the default
+# branch.
+on:
+  schedule:
+    - cron: '20 10 * * *'   # 3:50 PM IST (UTC+5:30)
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Set to yes to actually post. Anything else prints the payload and posts nothing.'
+        required: false
+        default: 'no'
+
+concurrency:
+  group: dry-run-reminder
+  cancel-in-progress: true
+
+jobs:
+  remind:
+    name: Post Slack reminder
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
+      # Keep in step with dry-run-daily.yml's cron and job list — this message is
+      # a promise about what is about to run.
+      REMINDER_STARTS_AT: '4:00 PM IST'
+      REMINDER_JOBS: 'User Journey,WebPet'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci`: the reminder script imports nothing outside node builtins, and
+      # Node runs the .ts sources directly. Installing the suite's dependencies
+      # here would add minutes to a job that posts one message.
+      - name: Post reminder
+        env:
+          # slack/gate.ts allows `schedule` only. An explicit confirm=yes is the
+          # human opt-in that lets a dispatch run through it for testing.
+          SLACK_NOTIFY_EVENTS: ${{ inputs.confirm == 'yes' && 'schedule,workflow_dispatch' || vars.SLACK_NOTIFY_EVENTS }}
+        run: |
+          if [ "${{ inputs.confirm }}" = "yes" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            npm run notify:reminder
+          else
+            echo "Dispatch without confirm=yes — printing the payload only."
+            npm run notify:reminder -- --dry-run
+          fi

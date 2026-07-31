@@ -1,27 +1,33 @@
 /**
- * @fileoverview Custom Playwright reporter that posts a rich run summary to Slack.
+ * @fileoverview Custom Playwright reporter that posts one run report per suite
+ * to Slack — the framework's primary reporting channel (email is deprecated).
  *
- * Self-gating: it only posts when `SEND_SLACK=yes` AND `SLACK_WEBHOOK_URL` is
- * present — otherwise it logs one line and does nothing, so local runs and CI
- * runs without the webhook secret are unaffected.
+ * Gated by {@link shouldNotifySlack}: CI events only, so local and manual runs
+ * post nothing. Two delivery routes, in order of preference:
  *
- * Uses a Slack Incoming Webhook (not a bot token) — no OAuth flow, just a URL
- * created in the target Slack workspace. The run data (counts, pass rate,
- * metadata, env badges, failures) comes from the shared
- * {@link RunSummaryCollector}; this file only turns that into Slack Block Kit.
+ * 1. **Bot token** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`) — posts with
+ *    `chat.postMessage`, then uploads the single-file Allure report into that
+ *    message's thread. Needs the `chat:write` + `files:write` scopes.
+ * 2. **Incoming Webhook** (`SLACK_WEBHOOK_URL`) — summary only; webhooks cannot
+ *    carry files, so the report appears only as a link (`ALLURE_REPORT_URL`).
  *
- * Required environment variables when enabled:
- * - `SEND_SLACK=yes`
- * - `SLACK_WEBHOOK_URL` (from the workspace's Incoming Webhook app config)
+ * Run data comes from the shared {@link RunSummaryCollector} and the Block Kit
+ * layout from {@link buildRunMessage}; this file only shapes one into the other.
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
-import https from 'node:https';
-import { ConfigProperties, getConfigBoolean, getConfigValue } from '../../config/configProperties';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ConfigProperties, getConfigValue } from '../../config/configProperties';
+import { acquireLeanReport } from '../generate/allure/report';
+import { deriveAllureParts } from '../generate/allure/labels';
 import { Logger } from '../../utils/logger';
-import { RunSummaryCollector, statusColor, type RunSummary } from '../summary/runSummary';
+import { buildRunMessage, type FailureGroup } from './slack/blocks';
+import { isSlackDryRun, shouldNotifySlack } from './slack/gate';
+import { postMessage, postWebhook, uploadFile, type SlackMessage } from './slack/slackApi';
+import { RunSummaryCollector, statusColor, type RunSummary, type TestRecord } from '../summary/runSummary';
 
-/** Slack caps a single text block at 3000 characters. */
-const MAX_FAILURE_LIST_CHARS = 2500;
+/** Failing modules listed before collapsing the rest into `+N more...`. */
+const TOP_FAILURE_GROUPS = 5;
 
 class SlackReporter implements Reporter {
     private readonly logger = new Logger('SlackReporter');
@@ -36,24 +42,48 @@ class SlackReporter implements Reporter {
     }
 
     async onEnd(result: FullResult): Promise<void> {
-        if (!getConfigBoolean(ConfigProperties.SEND_SLACK, false)) {
-            this.logger.info('Slack notification skipped (SEND_SLACK != yes)');
+        // Checked before the gate and before any credential: previewing the
+        // layout must not require pretending to be CI, because a developer who
+        // exported GITHUB_ACTIONS=true and then forgot SLACK_DRY_RUN would post
+        // a laptop run to the team channel.
+        if (isSlackDryRun()) {
+            const message = this.buildMessage(this.collector.build(result), false);
+            this.logger.info(`Slack dry run — payload not sent:\n${JSON.stringify(message, null, 2)}`);
             return;
         }
 
-        const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
-        if (!webhookUrl) {
-            this.logger.warn('SEND_SLACK=yes but SLACK_WEBHOOK_URL is not set — skipping Slack notification');
+        const gate = shouldNotifySlack();
+        if (!gate.allowed) {
+            this.logger.info(`Slack notification skipped (${gate.reason})`);
             return;
         }
+
+        const botToken = getConfigValue(ConfigProperties.SLACK_BOT_TOKEN);
+        const channel = getConfigValue(ConfigProperties.SLACK_CHANNEL_ID);
+        const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
+
+        if (!(botToken && channel) && !webhookUrl) {
+            this.logger.warn(
+                'SEND_SLACK=yes but neither SLACK_BOT_TOKEN+SLACK_CHANNEL_ID nor SLACK_WEBHOOK_URL is set — skipping Slack notification',
+            );
+            return;
+        }
+
+        const summary = this.collector.build(result);
+        const message = this.buildMessage(summary, !!(botToken && channel));
 
         try {
-            const { status, body } = await this.post(webhookUrl, buildPayload(this.collector.build(result)));
-            if (status < 200 || status >= 300) {
-                this.logger.error(`Slack notification failed: ${status} ${body}`);
+            if (botToken && channel) {
+                const ts = await postMessage(botToken, channel, message);
+                this.logger.info('Slack notification sent');
+                await this.uploadAllureReport(botToken, channel, ts, summary);
                 return;
             }
-            this.logger.info('Slack notification sent');
+
+            await postWebhook(webhookUrl, message);
+            this.logger.info(
+                'Slack notification sent (webhook — no Allure attachment; set SLACK_BOT_TOKEN + SLACK_CHANNEL_ID to upload it)',
+            );
         } catch (error: unknown) {
             // Never fail the test run because the notification failed.
             const msg = error instanceof Error ? error.message : String(error);
@@ -61,36 +91,66 @@ class SlackReporter implements Reporter {
         }
     }
 
-    /**
-     * POSTs JSON via Node's `https` module with `agent: false` — global
-     * `fetch` (undici) pools a keep-alive socket that crashes the process on
-     * exit on Windows (`UV_HANDLE_CLOSING` assertion in libuv), turning a
-     * green run into a non-zero exit code. A one-shot, non-pooled request
-     * avoids that entirely.
-     */
-    private post(url: string, payload: unknown): Promise<{ status: number; body: string }> {
-        return new Promise((resolve, reject) => {
-            const body = JSON.stringify(payload);
-            const req = https.request(
-                url,
-                {
-                    method: 'POST',
-                    agent: false,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(body),
-                        Connection: 'close',
-                    },
-                },
-                (res) => {
-                    const chunks: Buffer[] = [];
-                    res.on('data', (chunk: Buffer) => chunks.push(chunk));
-                    res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8') }));
-                },
-            );
-            req.on('error', reject);
-            req.end(body);
+    private buildMessage(summary: RunSummary, uploadsAllure: boolean): SlackMessage {
+        const { groups, remaining } = groupFailures(summary.failures);
+
+        return buildRunMessage({
+            suiteName: resolveSuiteName(),
+            executionLabel: resolveExecutionLabel(summary.trigger),
+            passed: summary.status === 'passed',
+            color: statusColor(summary.status),
+            environment: summary.env,
+            branch: summary.branch,
+            runNumber: summary.runNumber,
+            counts: {
+                passed: summary.passed,
+                failed: summary.failed,
+                flaky: summary.flaky,
+                skipped: summary.skipped,
+            },
+            passRate: summary.passRate,
+            durationText: summary.durationText,
+            topFailures: groups,
+            remainingFailures: remaining,
+            allureUrl: summary.allureUrl,
+            runUrl: summary.runUrl,
+            artifactsUrl: summary.runUrl ? `${summary.runUrl}#artifacts` : '',
+            allureInThread: uploadsAllure,
         });
+    }
+
+    /**
+     * Generates the screenshot-only single-file Allure report and uploads it
+     * into the report's thread. Every failure here is logged and swallowed: the
+     * summary is already posted, and a missing JVM or an oversized report must
+     * not fail the run.
+     */
+    private async uploadAllureReport(token: string, channel: string, threadTs: string, summary: RunSummary): Promise<void> {
+        try {
+            const { htmlPath } = await acquireLeanReport();
+
+            const maxBytes = parseInt(getConfigValue(ConfigProperties.SLACK_MAX_UPLOAD_MB, '20'), 10) * 1024 * 1024;
+            const size = fs.statSync(htmlPath).size;
+            if (size > maxBytes) {
+                this.logger.warn(
+                    `Allure report is ${(size / 1024 / 1024).toFixed(1)}MB, over the ${maxBytes / 1024 / 1024}MB SLACK_MAX_UPLOAD_MB cap — not uploading it to Slack`,
+                );
+                return;
+            }
+
+            await uploadFile(token, {
+                channel,
+                filePath: htmlPath,
+                filename: 'allure-report.html',
+                title: `Allure report — ${summary.passed} passed, ${summary.failed} failed`,
+                threadTs,
+                comment: 'Allure report (screenshots only — download and open in a browser). Full video & trace are in the CI run artifacts.',
+            });
+            this.logger.info('Allure report uploaded to Slack');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Allure report upload to Slack failed: ${msg}`);
+        }
     }
 
     /** Reporter output goes to the logger; keep Playwright's stdio clean. */
@@ -99,54 +159,52 @@ class SlackReporter implements Reporter {
     }
 }
 
-function buildPayload(summary: RunSummary): { text: string; attachments: unknown[] } {
-    const icon = summary.status === 'passed' ? '✅' : '❌';
-    const envLabel = summary.badges.map((b) => `\`${b.label}\``).join(' ');
-    const headerText = `${icon} Playwright — ${summary.status.toUpperCase()}`;
+/**
+ * Which suite this run is — the two dry-run jobs post separate reports and must
+ * be told apart at a glance. Falls back to the `WEBPET` marker so a workflow
+ * that forgets `SLACK_SUITE_NAME` still labels itself correctly.
+ */
+function resolveSuiteName(): string {
+    const configured = getConfigValue(ConfigProperties.SLACK_SUITE_NAME).trim();
+    if (configured) return configured;
+    return process.env.WEBPET === '1' ? 'WebPet' : 'User Journey';
+}
 
-    const blocks: unknown[] = [
-        { type: 'header', text: { type: 'plain_text', text: `${icon} Playwright — ${summary.status.toUpperCase()}`, emoji: true } },
-        {
-            type: 'section',
-            fields: [
-                { type: 'mrkdwn', text: `*Passed:*\n${summary.passed}` },
-                { type: 'mrkdwn', text: `*Failed:*\n${summary.failed}` },
-                { type: 'mrkdwn', text: `*Flaky:*\n${summary.flaky}` },
-                { type: 'mrkdwn', text: `*Skipped:*\n${summary.skipped}` },
-                { type: 'mrkdwn', text: `*Pass rate:*\n${summary.passRate}%` },
-                { type: 'mrkdwn', text: `*Duration:*\n${summary.durationText}` },
-            ],
-        },
-        {
-            type: 'context',
-            elements: [
-                { type: 'mrkdwn', text: `${envLabel}  •  *${summary.trigger}*  •  \`${summary.branch}@${summary.commit}\`  •  ${summary.projects}` },
-            ],
-        },
-    ];
+function resolveExecutionLabel(trigger: string): string {
+    const configured = getConfigValue(ConfigProperties.SLACK_EXECUTION_LABEL).trim();
+    if (configured) return configured;
+    return trigger === 'scheduled' ? 'Scheduled Dry Run' : titleCase(trigger);
+}
 
-    if (summary.failures.length) {
-        let list = summary.failures.map((r) => `• *${r.title}*\n   \`${r.spec}\`${r.error ? `\n   ${r.error}` : ''}`).join('\n');
-        if (list.length > MAX_FAILURE_LIST_CHARS) {
-            list = `${list.slice(0, MAX_FAILURE_LIST_CHARS)}\n… (${summary.failures.length} total failures, truncated)`;
-        }
-        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*Failures:*\n${list}` } });
+function titleCase(value: string): string {
+    return value
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+/**
+ * Collapses failed tests into their feature areas: a run with 44 reds is a
+ * handful of broken modules, and listing every test would bury that. Reuses the
+ * Allure module derivation so the Slack grouping and the report agree.
+ *
+ * `remaining` counts the failures NOT covered by the listed modules, so it is 0
+ * when everything fits and the `+N more...` line is dropped.
+ */
+function groupFailures(failures: TestRecord[]): { groups: FailureGroup[]; remaining: number } {
+    const counts = new Map<string, number>();
+    for (const record of failures) {
+        const { module } = deriveAllureParts(path.resolve(record.spec));
+        const label = titleCase(module);
+        counts.set(label, (counts.get(label) ?? 0) + 1);
     }
 
-    if (summary.runUrl) {
-        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${summary.runUrl}|Open the CI run →>  _(full video & trace in artifacts)_` } });
-    }
+    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const groups = ranked.slice(0, TOP_FAILURE_GROUPS).map(([label, count]) => ({ label, count }));
+    const shown = groups.reduce((sum, g) => sum + g.count, 0);
 
-    if (summary.reportUrl) {
-        blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `<${summary.reportUrl}|Open test artifacts on S3 →>` } });
-    }
-
-    return {
-        // `text` is the fallback shown in notifications / unfurl previews.
-        text: `${headerText} — ${summary.passed} passed, ${summary.failed} failed, ${summary.flaky} flaky, ${summary.skipped} skipped`,
-        // A coloured attachment wrapper gives the message a green/red side bar.
-        attachments: [{ color: statusColor(summary.status), blocks }],
-    };
+    return { groups, remaining: failures.length - shown };
 }
 
 export default SlackReporter;

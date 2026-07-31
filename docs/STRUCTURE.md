@@ -89,7 +89,8 @@ playwright-test-suite/
 │   ├── reporting/
 │   │   ├── summary/      runSummary.ts — ONE model, every channel renders it
 │   │   ├── generate/     allure/{report,labels}.ts
-│   │   ├── deliver/      emailReporter, slackReporter, dashboard
+│   │   ├── deliver/      slackReporter + slack/{gate,blocks,slackApi}.ts (primary),
+│   │   │                 emailReporter (deprecated), dashboard
 │   │   └── recipients/   recipients.ts → config/notifications/recipients.csv
 │   └── utils/            genuinely cross-cutting only: logger.ts + db/
 │

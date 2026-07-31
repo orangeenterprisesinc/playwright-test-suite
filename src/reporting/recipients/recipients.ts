@@ -2,6 +2,9 @@
  * @fileoverview Resolves email recipients for a run from a per-context routing
  * table, so one suite can mail different people depending on where and why it ran.
  *
+ * @deprecated Only the deprecated email reporter uses this. Slack posts to a
+ * single channel and needs no routing table.
+ *
  * The daily cron on `dry-run` goes to the whole team; a push to `main`, the
  * `dev-qe` branch, and laptop runs go to one person. That is a routing decision,
  * not a delivery one, so it lives in an editable CSV rather than in code:

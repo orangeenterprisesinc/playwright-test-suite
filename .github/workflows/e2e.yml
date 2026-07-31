@@ -15,27 +15,25 @@ name: E2E
 # the app from a web-pet source checkout on a self-hosted Windows runner and runs
 # the suite against http://localhost:3000.
 #
-# Runs twice daily on a schedule, on push to main, on manual dispatch, and on
-# repository_dispatch (fired externally, e.g. when the app repo pushes code).
+# This is the **User Journey** half of the daily dry run. It no longer schedules
+# itself: dry-run-daily.yml owns the 4:00 PM IST cron and calls this workflow
+# first, then webpet-e2e-dev.yml — the two must not overlap. What is left here is
+# push to main, manual dispatch, and repository_dispatch (fired externally, e.g.
+# when the app repo pushes code).
 #
-# The two scheduled runs test the **dry-run** branch, not main: the checkout step
-# pins `ref: dry-run`. This file still has to live on main, because GitHub only
-# fires `schedule:` from the repository's default branch — a cron block on
-# dry-run itself would be accepted and then never trigger. See BRANCH_OVERRIDE in
-# the job env for how the reports are made to name dry-run rather than main.
+# On a scheduled run the checkout step pins `ref: dry-run`, so the dry-run branch
+# is what actually gets tested. The workflow file still has to live on main,
+# because GitHub only fires `schedule:` from the repository's default branch — a
+# cron block on dry-run itself would be accepted and then never trigger. See
+# BRANCH_OVERRIDE in the job env for how the reports are made to name dry-run
+# rather than main.
 #
 # A bare `npx playwright test` is already exactly the login + user-journey suite:
 # tests/webpet is opt-in behind WEBPET=1 / --project=webpet (see
-# playwright.config.ts), so the nightly run excludes it without any filtering here.
+# playwright.config.ts), so this run excludes it without any filtering here.
 on:
   push:
     branches: [main]
-  schedule:
-    # IST is UTC+5:30 and GitHub's cron scheduler always runs in UTC — adjust
-    # both entries if IST's offset ever changes. GitHub can also start a
-    # scheduled run several minutes late under load; that's expected.
-    - cron: '30 10 * * *'   # 4:00 PM IST
-    - cron: '30 12 * * *'   # 6:00 PM IST
   workflow_dispatch:
     inputs:
       grep:
@@ -46,6 +44,24 @@ on:
         description: 'Customer scope from config/scopes/ (e.g. anthony-vineyards). Blank = no segment/module filtering.'
         required: false
         default: ''
+  # Called by dry-run-daily.yml. The reusable workflow inherits the caller's
+  # event (`schedule`), which is what keeps the ref expression below and the
+  # Slack gate in src/reporting/deliver/slack/gate.ts working unchanged.
+  workflow_call:
+    inputs:
+      grep:
+        type: string
+        required: false
+        default: ''
+      scope:
+        type: string
+        required: false
+        default: ''
+      suite_name:
+        description: 'Label for the Slack report header.'
+        type: string
+        required: false
+        default: 'User Journey'
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
   # to POST /repos/orangeenterprisesinc/playwright-test-suite/dispatches) — a
@@ -54,8 +70,11 @@ on:
     types:
       - run-playwright
 
+# `github.workflow` is the CALLER's name inside a reusable workflow, so an
+# orchestrated dry run and a direct push/dispatch run land in different groups
+# and cannot cancel each other.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -119,15 +138,12 @@ jobs:
       #     code actually ran. Resolves to '' for every other trigger, which
       #     detectBranch() treats as unset — Actions exports the key regardless. ---
       BRANCH_OVERRIDE: ${{ github.event_name == 'schedule' && 'dry-run' || '' }}
-      # --- Email notification (opt-in): set the SEND_EMAIL repo variable to
-      #     'yes' and add the SMTP_*/EMAIL_* secrets to activate it. With the
-      #     variable unset the reporter logs one line and does nothing.
-      #
-      #     EMAIL_TO is now only a FALLBACK. Recipients are routed per
-      #     branch+trigger from config/notifications/recipients.csv (see
-      #     src/reporting/recipients/recipients.ts); EMAIL_TO is used when that file is
-      #     missing or has no matching row, so this stays set deliberately. ---
-      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      # --- Email reporting is DEPRECATED (Slack is the primary channel), so this
+      #     is pinned off rather than reading vars.SEND_EMAIL. The reporter and the
+      #     SMTP_*/EMAIL_* secrets stay wired up: set this to 'yes' to bring email
+      #     back for a run. Recipients route per branch+trigger from
+      #     config/notifications/recipients.csv, with EMAIL_TO as the fallback. ---
+      SEND_EMAIL: 'no'
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -135,10 +151,26 @@ jobs:
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       # --- Slack notification (opt-in): set the SEND_SLACK repo variable to
-      #     'yes' and add the SLACK_WEBHOOK_URL secret to activate it. With the
-      #     variable unset the reporter logs one line and does nothing. ---
+      #     'yes' and add the SLACK_BOT_TOKEN secret + SLACK_CHANNEL_ID variable.
+      #
+      #     SLACK_BOT_TOKEN + SLACK_CHANNEL_ID are the richer route: with both
+      #     set the reporter posts via chat.postMessage and uploads the Allure
+      #     report into the message's thread (webhooks cannot carry files), and
+      #     the webhook is left unused. Bot scopes: chat:write, files:write.
+      #
+      #     On top of SEND_SLACK, slack/gate.ts only lets CI events through
+      #     (SLACK_NOTIFY_EVENTS, default `schedule`): a push, a manual dispatch or
+      #     a repository_dispatch run posts NOTHING. Set SLACK_NOTIFY_EVENTS to the
+      #     event you are testing with to force a one-off post. ---
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || 'User Journey' }}
+      # Normally derived from the trigger ('Scheduled Dry Run' on a cron). Set the
+      # variable to keep that wording on a dispatch run used to review the format.
+      SLACK_EXECUTION_LABEL: ${{ vars.SLACK_EXECUTION_LABEL }}
       # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
       #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
       #     With SEND_S3 unset, every AWS step below is skipped and the Slack
@@ -204,6 +236,7 @@ jobs:
           PREFIX="automation-reports/tiger-web/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
           echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
           echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
+          echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
 
       # Fails in seconds on a runner-data problem that would otherwise show up as a
       # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
@@ -216,10 +249,10 @@ jobs:
 
       - name: Run Playwright tests
         env:
-          # Narrow the run when dispatched with inputs; both are empty for
-          # scheduled/push/dispatch runs, which therefore behave exactly as before.
-          GREP: ${{ github.event.inputs.grep }}
-          TEST_SCOPE: ${{ github.event.inputs.scope }}
+          # `inputs` covers workflow_dispatch AND workflow_call; both are empty for
+          # push/repository_dispatch runs, which therefore behave exactly as before.
+          GREP: ${{ inputs.grep }}
+          TEST_SCOPE: ${{ inputs.scope }}
         run: |
           if [ -n "$GREP" ]; then
             echo "Filtering to: $GREP"
@@ -281,3 +314,10 @@ jobs:
       - name: Upload test-results to S3
         if: always() && env.SEND_S3 == 'yes'
         run: aws s3 sync artifacts/results "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/test-results" --no-progress
+
+      # The whole folder, not just index.html: the Allure report is a static
+      # site with relative asset links. ALLURE_REPORT_URL (computed above) is
+      # what the Slack message links to.
+      - name: Upload Allure report to S3
+        if: always() && env.SEND_S3 == 'yes'
+        run: aws s3 sync artifacts/allure/report "s3://${S3_REPORT_BUCKET}/${REPORT_S3_PREFIX}/allure-report" --no-progress

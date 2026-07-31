@@ -78,6 +78,34 @@ export enum ConfigProperties {
     SEND_SLACK = 'SEND_SLACK',
     /** Slack Incoming Webhook URL (env: `SLACK_WEBHOOK_URL`) */
     SLACK_WEBHOOK_URL = 'SLACK_WEBHOOK_URL',
+    /**
+     * Slack bot token, `xoxb-…` (env: `SLACK_BOT_TOKEN`).
+     *
+     * Optional. Set it together with {@link SLACK_CHANNEL_ID} to get the Allure
+     * report itself uploaded to the channel — webhooks cannot carry files.
+     * Needs the `chat:write` and `files:write` scopes.
+     */
+    SLACK_BOT_TOKEN = 'SLACK_BOT_TOKEN',
+    /** Target channel id for bot-token mode, e.g. `C0123456789` (env: `SLACK_CHANNEL_ID`) */
+    SLACK_CHANNEL_ID = 'SLACK_CHANNEL_ID',
+    /** Max size (MB) of the Allure report uploaded to Slack — larger ones are dropped (env: `SLACK_MAX_UPLOAD_MB`, default 20) */
+    SLACK_MAX_UPLOAD_MB = 'SLACK_MAX_UPLOAD_MB',
+    /**
+     * Comma-separated GitHub event names allowed to post (env: `SLACK_NOTIFY_EVENTS`,
+     * default `schedule`).
+     *
+     * Slack carries CI results only, so `workflow_dispatch` and
+     * `repository_dispatch` are deliberately excluded — set this to the event you
+     * are testing with to force a one-off post. Read by
+     * src/reporting/deliver/slack/gate.ts straight from `process.env`.
+     */
+    SLACK_NOTIFY_EVENTS = 'SLACK_NOTIFY_EVENTS',
+    /** Suite label in the report header, e.g. `User Journey` / `WebPet` (env: `SLACK_SUITE_NAME`) */
+    SLACK_SUITE_NAME = 'SLACK_SUITE_NAME',
+    /** How the run was started, e.g. `Scheduled Dry Run` — derived from the trigger when unset (env: `SLACK_EXECUTION_LABEL`) */
+    SLACK_EXECUTION_LABEL = 'SLACK_EXECUTION_LABEL',
+    /** Log the Slack payload instead of posting it — for verifying layout (env: `SLACK_DRY_RUN`) */
+    SLACK_DRY_RUN = 'SLACK_DRY_RUN',
 
     /* ── Allure Report ───────────────────────────────── */
 
@@ -88,6 +116,8 @@ export enum ConfigProperties {
 
     /** Public URL of this run's uploaded artifacts, injected by CI (env: `REPORT_S3_URL`) */
     REPORT_URL = 'REPORT_S3_URL',
+    /** Public URL of this run's hosted Allure report, injected by CI (env: `ALLURE_REPORT_URL`) */
+    ALLURE_REPORT_URL = 'ALLURE_REPORT_URL',
 
     /* ── ELK Dashboard Notification ───────────────────── */
 

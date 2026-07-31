@@ -198,7 +198,7 @@ env/executor files and run a safety-net SQL sweep of leftover test users.
 | [`logger.ts`](../src/utils/logger.ts) | `Logger` — colored console + daily JSON-lines log files; `child()` for nested context |
 | [`DataProvider.ts`](../src/data/readers/DataProvider.ts) | Singleton unifying JSON/CSV test-data access — `getTestCaseById`, `getRunnerData`, `getEnabledTestData`, `forSource` |
 | [`dataReaders/`](../src/data/readers/) | `BaseDataReader` (caching + `readById`/`readEnabled`) with `JsonDataReader`, `CsvDataReader`, `TypeCoercionHelper` (pipe-delimited arrays for CSV) |
-| [`allureHelper.ts`](../src/reporting/generate/allure/report.ts) | generate Allure reports via JS API; `prepareLeanEmailReport` (screenshot-only single file) |
+| [`allureHelper.ts`](../src/reporting/generate/allure/report.ts) | generate Allure reports via JS API; `acquireLeanReport` (screenshot-only single file, built once per run and shared by the email + Slack channels) |
 | [`allureLabels.ts`](../src/reporting/generate/allure/labels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
 | [`db/sqlClient.ts`](../src/utils/db/sqlClient.ts) | `runSql` (async, `@name` bound params) — test-user cleanup over the `mssql` driver or `sqlcmd`, chosen by `DB_TRUSTED` |
 | [`testData/`](../src/data/generated/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
@@ -302,14 +302,15 @@ The mechanism spans four pieces:
 
 ## 8. GitHub CI
 
-Four workflows: two for the journey suites and two for the migrated web-pet suite. The
-journey pair listen for the same external `repository_dispatch` (`run-playwright`), so one
-app-side build fans out to both; the web-pet pair are independent and never triggered by a
+Six workflows: two suite runners for the journey suites, two for the migrated web-pet suite,
+and two schedulers (`dry-run-daily.yml` + `dry-run-reminder.yml`) that own the only cron in the
+repo. The journey pair listen for the same external `repository_dispatch` (`run-playwright`), so
+one app-side build fans out to both; the web-pet pair are independent and never triggered by a
 push.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **twice-daily cron — 4pm IST (`30 10 * * *`) and 6pm IST (`30 12 * * *`)** — plus
-  push to `main`, manual dispatch, and external `repository_dispatch`.
+- Triggers: **`workflow_call` from `dry-run-daily.yml`** (the daily 4:00 PM IST run), plus push
+  to `main`, manual dispatch, and external `repository_dispatch`. It has no cron of its own.
 - Runner: `ubuntu-latest` (GitHub-hosted), 15-min timeout.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
@@ -343,21 +344,54 @@ push.
 **[`webpet-e2e-local.yml`](../.github/workflows/webpet-e2e-local.yml) and
 [`webpet-e2e-dev.yml`](../.github/workflows/webpet-e2e-dev.yml)** — the migrated web-pet
 suite (see §9). The local one is the same self-hosted Windows stack boot as `e2e-local.yml`
-plus the DelLlano seed, and is **manual dispatch only**; the dev one runs nightly at 4:00 AM
-IST against app.ptdev.xyz and is report-only. Both export `WEBPET=1` job-wide to materialize
+plus the DelLlano seed, and is **manual dispatch only**; the dev one runs against app.ptdev.xyz
+as the second half of the daily dry run (below) and is report-only. Both export `WEBPET=1` job-wide to materialize
 the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check` and
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
+**The daily dry run** is one chain, not two crons.
+[`dry-run-reminder.yml`](../.github/workflows/dry-run-reminder.yml) posts an informational
+Slack message at 3:50 PM IST; [`dry-run-daily.yml`](../.github/workflows/dry-run-daily.yml)
+fires at 4:00 PM IST and calls `e2e.yml` (User Journey) and then — via `needs:` —
+`webpet-e2e-dev.yml`, so the two never run at once against the same dev data:
+
+```
+3:50 PM  reminder  →  4:00 PM  User Journey  →  its Slack report
+                                    ↓
+                               WebPet  →  its Slack report
+```
+
+Both are `workflow_call` reusable workflows here; neither schedules itself. They keep separate
+tests, artifacts, Allure reports and Slack messages — nothing is merged. All three files must
+live on `main` (cron only fires from the default branch); on a scheduled event they check out
+`dry-run`, which is the code that actually gets tested.
+
 **Reporting** ([`src/reporting/`](../src/reporting/)) runs *inside* Playwright's `onEnd` — no
-separate CI send step. All three are self-gating (do nothing unless their `SEND_*` flag +
-endpoint are set, and never fail the run):
-- [`slackReporter.ts`](../src/reporting/deliver/slackReporter.ts) — Slack Block Kit via webhook.
-- [`emailReporter.ts`](../src/reporting/deliver/emailReporter.ts) — HTML email via nodemailer,
-  attaches the lean Allure report.
+separate CI send step. All three channels are self-gating (do nothing unless their `SEND_*` flag
++ endpoint are set, and never fail the run):
+- [`slackReporter.ts`](../src/reporting/deliver/slackReporter.ts) — **the primary channel**. One
+  report per suite: status, environment, execution, branch, run number, the five counts, the top
+  five failing modules (`+N more...` for the rest) and buttons for the Allure report, the
+  workflow run and the artifacts. Layout in
+  [`slack/blocks.ts`](../src/reporting/deliver/slack/blocks.ts), transport in
+  [`slack/slackApi.ts`](../src/reporting/deliver/slack/slackApi.ts) — webhook (summary only) or
+  `chat.postMessage` + an Allure upload in the thread when `SLACK_BOT_TOKEN` +
+  `SLACK_CHANNEL_ID` are set, since webhooks cannot carry files.
+  [`slack/gate.ts`](../src/reporting/deliver/slack/gate.ts) makes it **CI-only**: `SEND_SLACK`,
+  plus `GITHUB_ACTIONS=true`, plus the event being in `SLACK_NOTIFY_EVENTS` (default
+  `schedule`). So `npm test`, `--debug`, `--ui`, a manual `workflow_dispatch` and a
+  `repository_dispatch` all post nothing. `SLACK_DRY_RUN=1` logs the payload instead of sending
+  it.
+- [`emailReporter.ts`](../src/reporting/deliver/emailReporter.ts) — **deprecated**. Still works
+  (HTML email via nodemailer + the lean Allure report), but `SEND_EMAIL` is pinned to `no` in
+  every workflow and nothing new lands here.
 - [`dashboard.ts`](../src/reporting/deliver/dashboard.ts) — POSTs run summary to ELK.
 - [`runSummary.ts`](../src/reporting/summary/runSummary.ts) — shared collector that builds the
   render-agnostic summary all three consume.
+- [`scripts/notify/slack-reminder.ts`](../scripts/notify/slack-reminder.ts) — the pre-run
+  reminder, the one Slack message not sent by a reporter. Run it with
+  `npm run notify:reminder -- --dry-run` to see the payload.
 
 **npm scripts** ([`package.json`](../package.json)) all go through `run-playwright.js <env>`:
 `test` / `test:dev` / `test:qa`, plus `test:headed`, `test:ui`, `test:debug`, `test:smoke`

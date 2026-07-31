@@ -6,13 +6,13 @@
  * Windows, and cmd.exe treats `&` as a command separator, which breaks when
  * the repo lives in a path containing one (see scripts/run-playwright.js).
  *
- * {@link prepareLeanEmailReport} embeds ONLY screenshots (plus tiny step logs)
+ * {@link acquireLeanReport} embeds ONLY screenshots (plus tiny step logs)
  * and drops the heavy video/trace attachments before generating — that keeps
- * the single-file email report small enough that it never hits the "file too
- * large" failure. The full video/trace remain available in the Playwright HTML
- * report and raw artifacts/results/ artifacts. It is written entirely under the OS
- * temp dir (no zip — many mail gateways strip those), so it never shows up as a
- * folder in the repo tree; call the returned `cleanup()` once the email is sent.
+ * the single-file report small enough that it never hits the "file too large"
+ * failure when emailed or uploaded to Slack. The full video/trace remain
+ * available in the Playwright HTML report and raw artifacts/results/ artifacts.
+ * It is written entirely under the OS temp dir (no zip — many mail gateways
+ * strip those), so it never shows up as a folder in the repo tree.
  *
  * The static multi-file report for CI artifacts / `npm run report:allure` is
  * generated separately by `scripts/report/allure-generate.js` (plain JS, so it
@@ -201,22 +201,42 @@ function createLeanAllureResults(sourceDir: string, destDir: string): void {
     }
 }
 
-/**
- * Builds a lean, single-file Allure report (screenshots + step logs only, no
- * video/trace) for emailing. Everything is written under the OS temp dir —
- * call the returned `cleanup()` once you're done reading `htmlPath` (e.g. after
- * `sendMail`).
- */
-export async function prepareLeanEmailReport(resultsDir = path.join('artifacts', 'allure', 'results')): Promise<{ htmlPath: string; cleanup: () => void }> {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'allure-email-'));
+/** One in-flight/finished build per results dir — see {@link acquireLeanReport}. */
+const leanReports = new Map<string, Promise<{ htmlPath: string }>>();
+
+async function buildLeanReport(resultsDir: string): Promise<{ htmlPath: string }> {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'allure-lean-'));
     const leanResultsDir = path.join(tmpRoot, 'results');
     const reportDir = path.join(tmpRoot, 'report');
+
+    // Registered before the (slow, killable) generate so a half-built report is
+    // still cleaned up on exit.
+    process.once('exit', () => fs.rmSync(tmpRoot, { recursive: true, force: true }));
 
     createLeanAllureResults(resultsDir, leanResultsDir);
     await runAllure(['generate', leanResultsDir, '--single-file', '--clean', '-o', reportDir]);
 
-    return {
-        htmlPath: path.join(reportDir, 'index.html'),
-        cleanup: () => fs.rmSync(tmpRoot, { recursive: true, force: true }),
-    };
+    return { htmlPath: path.join(reportDir, 'index.html') };
+}
+
+/**
+ * Builds (once per process) a lean, single-file Allure report — screenshots and
+ * step logs only, no video/trace — and returns the path to its `index.html`.
+ *
+ * Memoised because the email and Slack reporters both attach it and each build
+ * spawns a JVM; the file lives under the OS temp dir and is removed on process
+ * exit, so neither caller owns its lifetime.
+ */
+export function acquireLeanReport(resultsDir = path.join('artifacts', 'allure', 'results')): Promise<{ htmlPath: string }> {
+    const key = path.resolve(resultsDir);
+    let report = leanReports.get(key);
+    if (!report) {
+        report = buildLeanReport(resultsDir);
+        // A failed build is remembered too (no point re-spawning a JVM that has
+        // already failed), so pre-empt an unhandled rejection if only one of the
+        // reporters ever awaits it.
+        report.catch(() => {});
+        leanReports.set(key, report);
+    }
+    return report;
 }

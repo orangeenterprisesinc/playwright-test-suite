@@ -89,11 +89,12 @@ jobs:
       # leaked the localhost password into the dev-staging run.
       USER_NAME: ${{ secrets.LOCAL_USER_NAME }}
       PASSWORD: ${{ secrets.LOCAL_PASSWORD }}
-      # Reporting is opt-in via repo variables (shared with e2e.yml): set
-      # SEND_EMAIL / SEND_SLACK to 'yes' once and both workflows report. The
-      # reporters run inside Playwright's onEnd (see playwright.config.ts), so
-      # no extra send step is needed — they just need these env vars present.
-      SEND_EMAIL: ${{ vars.SEND_EMAIL || 'no' }}
+      # This workflow is workflow_dispatch-only, so it posts NO Slack message:
+      # slack/gate.ts allows CI events only (SLACK_NOTIFY_EVENTS, default
+      # `schedule`), and a manual run is not one. The Slack env below stays wired
+      # up so setting SLACK_NOTIFY_EVENTS=workflow_dispatch is enough to get a
+      # message out of a debugging run. Email is deprecated and pinned off.
+      SEND_EMAIL: 'no'
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -102,6 +103,10 @@ jobs:
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
       SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # With both of these set the reporter uploads the Allure report into the
+      # Slack message's thread instead of posting a summary-only webhook.
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
       # apps/api config — mirrors the local apps/api/.env in web-pet.
       # MSSQL_SERVER/PORT/DB aren't secrets (no credentials involved at all —
       # Windows Integrated Auth via whichever account this runner runs as).
@@ -239,6 +244,16 @@ jobs:
             sleep 15
           done
           echo "::error::playwright install failed after 3 attempts"; exit 1
+
+      # Before the test run, not after: the email and Slack reporters generate
+      # the single-file Allure report inside Playwright's onEnd, and Allure
+      # needs a JVM. Set up later, and those attachments silently degrade to
+      # "no Java runtime found".
+      - name: Set up Java (for Allure report generation)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Start MinIO + Gotenberg (compose.dev.yml)
         working-directory: app
@@ -383,13 +398,6 @@ jobs:
           if [ -f app/compose.dev.yml ]; then
             (cd app && docker compose -f compose.dev.yml down -v)
           fi
-
-      - name: Set up Java (for Allure report generation)
-        if: always()
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
 
       - name: Generate Allure report
         if: always()

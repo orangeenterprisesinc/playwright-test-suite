@@ -193,10 +193,14 @@ playwright-test-suite/
 │   │   │   ├── report.ts              #     Allure generation (CI + lean email variant)
 │   │   │   └── labels.ts              #     Allure labels + resolves the runner row id
 │   │   ├── deliver/                   #   CHANNELS: where the summary goes
-│   │   │   ├── emailReporter.ts       #     email + lean Allure HTML attachment
-│   │   │   ├── slackReporter.ts       #     Slack run-summary notification
+│   │   │   ├── slackReporter.ts       #     PRIMARY: one report per suite, per CI run
+│   │   │   ├── slack/                 #     the Slack module
+│   │   │   │   ├── gate.ts            #       CI-events-only rule (no local, no manual)
+│   │   │   │   ├── blocks.ts          #       Block Kit layout (report + reminder)
+│   │   │   │   └── slackApi.ts        #       webhook, chat.postMessage, file upload
+│   │   │   ├── emailReporter.ts       #     DEPRECATED: email + lean Allure attachment
 │   │   │   └── dashboard.ts           #     ELK/Elasticsearch dashboard push
-│   │   └── recipients/recipients.ts   #   WHO: per-branch/trigger routing
+│   │   └── recipients/recipients.ts   #   WHO: per-branch/trigger routing (email only)
 │   │                                  #     (table: config/notifications/recipients.csv)
 │   │                                  #   WHERE reports are STORED: artifacts/ (above)
 │   │
@@ -275,6 +279,7 @@ suites:
 | ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
 | CI | `e2e.yml`, `e2e-local.yml` | `webpet-e2e-local.yml`, `webpet-e2e-dev.yml` |
+| daily run | `dry-run-daily.yml` calls `e2e.yml` … | … then `webpet-e2e-dev.yml` |
 
 ```bash
 npm run test:webpet                        # whole suite against localhost
@@ -889,7 +894,18 @@ npm run report:allure:open
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the suite against the **dev staging** deployment twice a day, plus on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo). It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+
+It no longer schedules itself. **`dry-run-daily.yml` owns the daily 4:00 PM IST run** and calls `e2e.yml` first, then `webpet-e2e-dev.yml`, so the two suites never run at the same time against the same dev data:
+
+```
+3:50 PM IST   dry-run-reminder.yml   →  one informational Slack message
+4:00 PM IST   dry-run-daily.yml      →  User Journey  →  its own Slack report
+                                              ↓ (needs:)
+                                          WebPet      →  its own Slack report
+```
+
+Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` still runs on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo); those runs post **no** Slack message (see the Slack section below).
 
 The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
@@ -899,15 +915,15 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '30 10 * * *'   # 4:00 PM IST (10:30 AM UTC)
-    - cron: '30 12 * * *'   # 6:00 PM IST (12:30 PM UTC)
   workflow_dispatch:
+  workflow_call:            # dry-run-daily.yml calls this as the User Journey job
   repository_dispatch:
     types: [run-playwright]
 
+# github.workflow is the CALLER's name in a reusable workflow, so an orchestrated
+# dry run and a direct push/dispatch run cannot cancel each other.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -940,7 +956,7 @@ jobs:
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
 - Test-user cleanup: PET Tiger has no delete-user action in either the UI or the API, so tests that create users remove them in SQL (`DB_CLEANUP=yes`). `DB_TRUSTED` selects the transport — `no` uses the `mssql` driver (pure JS, arrives with `npm ci`, works on GitHub-hosted runners), `yes` uses the `sqlcmd` CLI with Windows integrated auth (local and self-hosted). The remaining requirement is a network route: `DB_SERVER` must accept connections from GitHub runner IPs. `global-setup.ts` probes the connection once at the start of every run and emits a CI error annotation if it fails, because cleanup that skips silently leaves test users behind in a shared database while the run still reports green.
-- Notifications & artifact upload are all opt-in: **Email** (`SEND_EMAIL=yes` + SMTP secrets), **Slack** (`SEND_SLACK=yes` + `SLACK_WEBHOOK_URL`), and **S3 report upload** (`SEND_S3=yes` + AWS secrets). Unset → each step logs a line and does nothing.
+- Notifications & artifact upload are all opt-in: **Slack** (`SEND_SLACK=yes` + `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`, or a webhook — and only on the CI events in `SLACK_NOTIFY_EVENTS`), **S3 report upload** (`SEND_S3=yes` + AWS secrets), and **Email** (deprecated; `SEND_EMAIL` is pinned to `no`). Unset → each step logs a line and does nothing.
 
 ---
 
@@ -953,11 +969,52 @@ jobs:
 | **JSON** | `artifacts/results/results.json` | Machine-readable JSON results |
 | **GitHub** | Console annotations | Inline failure annotations on GitHub Actions |
 | **Allure** | `artifacts/allure/results/` → `artifacts/allure/report/` | Rich report with steps, metrics, trend history |
-| **Email** | SMTP delivery | Self-gating (`SEND_EMAIL=yes`); attaches a lean single-file Allure report. Recipients are routed per branch + trigger — see below |
-| **Slack** | Incoming Webhook | Self-gating (`SEND_SLACK=yes`); posts pass/fail/flaky/skipped summary |
+| **Slack** | Incoming Webhook, or Web API with a bot token | **The primary channel.** Self-gating (`SEND_SLACK=yes`) *and* CI-only — see below. One report per suite: counts, duration, top-5 failing modules, and buttons for the Allure report / workflow run / artifacts. With `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` it also uploads the lean single-file Allure report into the message's thread |
+| **Email** | SMTP delivery | **Deprecated** — still works, but `SEND_EMAIL` is pinned to `no` in every workflow. Attaches a lean single-file Allure report; recipients are routed per branch + trigger — see below |
 | **ELK Dashboard** | HTTP POST to `ELK_URL` | Self-gating (`SEND_RESULT_ELK=yes`); pushes a JSON run summary |
 
-### Who gets the email
+### When Slack posts — and when it stays quiet
+
+Slack is a **CI results** channel, so the reporter refuses to post from anywhere else. Three
+things must all be true (`src/reporting/deliver/slack/gate.ts`):
+
+1. `SEND_SLACK=yes`
+2. `GITHUB_ACTIONS=true` — so `npm test`, `npx playwright test`, `--debug`, `--ui` and any
+   laptop run are silent no matter how the env is set
+3. the GitHub event is listed in `SLACK_NOTIFY_EVENTS` (default `schedule`) — so a manual
+   `workflow_dispatch` and a `repository_dispatch` are silent too
+
+Each refusal logs one line naming the setting that blocked it, so "why didn't it post?" is
+answerable from the run log. To get a message out of a test run deliberately, set
+`SLACK_NOTIFY_EVENTS` to include that event; to check the layout without a token, use
+`SLACK_DRY_RUN=1` and paste the logged payload into Slack's Block Kit Builder.
+
+The reminder message at 3:50 PM IST is the one Slack post that is not a reporter —
+`scripts/notify/slack-reminder.ts`, run by `dry-run-reminder.yml`. It applies the same gate.
+Preview it with `npm run notify:reminder -- --dry-run`.
+
+### Getting the Allure report into Slack
+
+An Incoming Webhook can only post text — it cannot carry a file. So the Slack reporter
+has two modes, and it picks the first one that is fully configured:
+
+| Configured | What lands in Slack |
+|------------|---------------------|
+| `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` | Summary via `chat.postMessage`, then the lean single-file **Allure report uploaded as a thread reply** on that message |
+| `SLACK_WEBHOOK_URL` only | Summary only. The report appears as a link when `ALLURE_REPORT_URL` is set (CI does this when `SEND_S3=yes`) |
+
+To enable uploads, create a Slack app in the workspace, give the bot the **`chat:write`**
+and **`files:write`** scopes, install it, invite it to the channel, then set the token
+(`xoxb-…`) and the channel id (`C…`). In CI those are the `SLACK_BOT_TOKEN` secret and the
+`SLACK_CHANNEL_ID` variable — already wired into all four workflows.
+
+The uploaded file is the same screenshots-only, single-file report that gets emailed
+(video and trace are stripped, so it stays small); it is generated once per run and
+shared by both channels. `SLACK_MAX_UPLOAD_MB` (default 20) drops it if it is oversized,
+and every failure here — no JVM, bad scope, oversized file — is logged and swallowed:
+the summary still posts and the run never fails because of a notification.
+
+### Who gets the email (deprecated)
 
 Recipients are **not** a single list. They are routed per run from
 [`config/notifications/recipients.csv`](config/notifications/recipients.csv), so the
@@ -980,10 +1037,10 @@ variable so a misconfigured table can never silence a report that used to send.
 Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives in
 [`src/reporting/recipients/recipients.ts`](src/reporting/recipients/recipients.ts).
 
-> The 4:00 PM IST scheduled run in `e2e.yml` tests the **`dry-run`** branch (the
-> checkout step pins `ref: dry-run`), even though the workflow file itself must live
+> The 4:00 PM IST scheduled run tests the **`dry-run`** branch (both called workflows pin
+> `ref: dry-run` on a `schedule` event), even though `dry-run-daily.yml` itself must live
 > on `main` — GitHub only fires `schedule:` from the default branch. `BRANCH_OVERRIDE`
-> in that job makes the reports, and therefore this routing, name `dry-run`.
+> in those jobs makes the reports, and therefore this routing, name `dry-run`.
 
 **Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
 - 📸 Screenshot capture

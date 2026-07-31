@@ -139,8 +139,11 @@ export default defineConfig({
         // would have kept writing to the repo root once that default no longer
         // matched. Playwright types reporter options as `any`, so nothing warns.
         ['allure-playwright', { resultsDir: 'artifacts/allure/results', detail: true, suiteTitle: false }],
-        ['./src/reporting/deliver/emailReporter.ts'], // gated by SEND_EMAIL + SMTP_*
-        ['./src/reporting/deliver/slackReporter.ts'], // gated by SEND_SLACK + SLACK_WEBHOOK_URL
+        ['./src/reporting/deliver/emailReporter.ts'], // DEPRECATED; gated by SEND_EMAIL + SMTP_*
+        // The primary channel. Gated by SEND_SLACK + a route, and additionally by
+        // src/reporting/deliver/slack/gate.ts: CI events only (SLACK_NOTIFY_EVENTS),
+        // so local and manual runs never post.
+        ['./src/reporting/deliver/slackReporter.ts'],
         ['./src/reporting/deliver/dashboard.ts'],     // gated by SEND_RESULT_ELK + ELK_URL
     ],
 
