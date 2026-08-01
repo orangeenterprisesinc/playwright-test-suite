@@ -96,6 +96,16 @@ export function statusColor(status: FullResult['status']): string {
     return status === 'passed' ? '#22c55e' : '#ef4444';
 }
 
+/**
+ * Playwright colours its error messages for a terminal, and those escape codes
+ * survive into any renderer that is not a terminal — Slack showed
+ * `[2mexpect([22m[31mlocator[39m…` verbatim. Strips SGR sequences (`ESC[` … `m`).
+ */
+function stripAnsi(value: string): string {
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
 /** Formats a millisecond duration as `Xm Ys` (or `Ys` under a minute). */
 export function formatDuration(durationMs: number): string {
     const totalSeconds = Math.round(durationMs / 1000);
@@ -166,7 +176,7 @@ export class RunSummaryCollector {
             project: titlePath[1] ?? '',
             spec: path.relative(process.cwd(), test.location.file),
             outcome: test.outcome(),
-            error: result.error?.message?.split('\n')[0],
+            error: result.error?.message ? stripAnsi(result.error.message).split('\n')[0] : undefined,
             durationMs: result.duration,
         });
     }

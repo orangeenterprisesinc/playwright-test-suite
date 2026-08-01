@@ -17,18 +17,13 @@
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import fs from 'node:fs';
-import path from 'node:path';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { acquireLeanReport } from '../generate/allure/report';
-import { deriveAllureParts } from '../generate/allure/labels';
 import { Logger } from '../../utils/logger';
-import { buildRunMessage, type FailureGroup } from './slack/blocks';
+import { buildRunMessage } from './slack/blocks';
 import { isSlackDryRun, shouldNotifySlack } from './slack/gate';
 import { postMessage, postWebhook, updateMessage, uploadFile, type SlackMessage } from './slack/slackApi';
-import { RunSummaryCollector, statusColor, type RunSummary, type TestRecord } from '../summary/runSummary';
-
-/** Failing modules listed before collapsing the rest into `+N more...`. */
-const TOP_FAILURE_GROUPS = 5;
+import { RunSummaryCollector, statusColor, type RunSummary } from '../summary/runSummary';
 
 class SlackReporter implements Reporter {
     private readonly logger = new Logger('SlackReporter');
@@ -108,8 +103,6 @@ class SlackReporter implements Reporter {
     }
 
     private buildMessage(summary: RunSummary, uploadsAllure: boolean, allureUrl = summary.allureUrl): SlackMessage {
-        const { groups, remaining } = groupFailures(summary.failures);
-
         return buildRunMessage({
             suiteName: resolveSuiteName(),
             executionLabel: resolveExecutionLabel(summary.trigger),
@@ -129,8 +122,7 @@ class SlackReporter implements Reporter {
             },
             passRate: summary.passRate,
             durationText: summary.durationText,
-            topFailures: groups,
-            remainingFailures: remaining,
+            failures: summary.failures.map((f) => ({ title: f.title, spec: f.spec, error: f.error })),
             allureUrl,
             runUrl: summary.runUrl,
             artifactsUrl: summary.runUrl ? `${summary.runUrl}#artifacts` : '',
@@ -204,29 +196,6 @@ function titleCase(value: string): string {
         .filter(Boolean)
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-}
-
-/**
- * Collapses failed tests into their feature areas: a run with 44 reds is a
- * handful of broken modules, and listing every test would bury that. Reuses the
- * Allure module derivation so the Slack grouping and the report agree.
- *
- * `remaining` counts the failures NOT covered by the listed modules, so it is 0
- * when everything fits and the `+N more...` line is dropped.
- */
-function groupFailures(failures: TestRecord[]): { groups: FailureGroup[]; remaining: number } {
-    const counts = new Map<string, number>();
-    for (const record of failures) {
-        const { module } = deriveAllureParts(path.resolve(record.spec));
-        const label = titleCase(module);
-        counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-
-    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    const groups = ranked.slice(0, TOP_FAILURE_GROUPS).map(([label, count]) => ({ label, count }));
-    const shown = groups.reduce((sum, g) => sum + g.count, 0);
-
-    return { groups, remaining: failures.length - shown };
 }
 
 export default SlackReporter;

@@ -14,10 +14,14 @@
  */
 import type { SlackMessage } from './slackApi';
 
-/** One line of the Top Failures list: a module (feature area) and how many of its tests failed. */
-export interface FailureGroup {
-    label: string;
-    count: number;
+/** One failed test in the Failures list. */
+export interface FailureDetail {
+    /** Test title path, e.g. `Edit employee form › [Employee] Verify …`. */
+    title: string;
+    /** Repo-relative spec path — the list is grouped by this. */
+    spec: string;
+    /** First line of the failure message, already ANSI-stripped. */
+    error?: string;
 }
 
 export interface RunMessageInput {
@@ -41,10 +45,8 @@ export interface RunMessageInput {
     counts: { passed: number; failed: number; flaky: number; skipped: number };
     passRate: number;
     durationText: string;
-    /** Up to five modules with failures, most-failing first. */
-    topFailures: FailureGroup[];
-    /** Failed tests not represented by the lines above — rendered as `+N more...`. */
-    remainingFailures: number;
+    /** Every failed test, in the order they finished. */
+    failures: FailureDetail[];
     allureUrl: string;
     runUrl: string;
     artifactsUrl: string;
@@ -89,16 +91,116 @@ function reportBlocks(input: RunMessageInput): unknown[] {
     return blocks;
 }
 
+/** Slack's hard cap on one section's text. Exceeding it rejects the whole message. */
+const SECTION_LIMIT = 3000;
+/** A single Playwright diff can run to thousands of chars; the full text is in the trace. */
+const MAX_ERROR_CHARS = 200;
+const MAX_TITLE_CHARS = 300;
+/**
+ * ~45k characters of failure text, or roughly 250 failures with their errors —
+ * far past any run worth reading in a channel, and it is 20 blocks all-in against
+ * Slack's 50-block cap.
+ *
+ * Not set to the ~40 the block limits would allow: Slack documents 3000 chars per
+ * section and 50 blocks but no aggregate payload ceiling, and a message it refuses
+ * posts NOTHING (the reporter logs the error and swallows it). A stated `+N more`
+ * beats discovering that ceiling on a 400-red night.
+ */
+const MAX_FAILURE_SECTIONS = 15;
+
+/**
+ * Collapses whitespace and clips to `max`, so one entry cannot swallow a whole
+ * block. Also drops ANSI colour codes: runSummary strips them at capture, but
+ * Playwright puts them in every assertion message and a caller that skips that
+ * step would print `[2mexpect([22m[31mlocator[39m` into the channel.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1b\[[0-9;]*m/g;
+
+function clip(value: string, max: number): string {
+    const flat = value.replace(ANSI, '').replace(/\s+/g, ' ').trim();
+    return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
+}
+
+/**
+ * `&`, `<` and `>` are mrkdwn control characters. Playwright errors are full of
+ * them — `Unexpected token '<', "<!doctype "` would otherwise be parsed as link
+ * syntax and mangle the line.
+ */
+function escapeMrkdwn(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function failureEntry(failure: FailureDetail): string {
+    const title = escapeMrkdwn(clip(failure.title, MAX_TITLE_CHARS));
+    if (!failure.error) return `\n • ${title}`;
+    return `\n • ${title}\n   _${escapeMrkdwn(clip(failure.error, MAX_ERROR_CHARS))}_`;
+}
+
+/**
+ * Every failed test, grouped by spec file, spread over as many section blocks as
+ * it takes.
+ *
+ * The point of the pagination is that a single block silently truncated the list
+ * at SECTION_LIMIT — a 43-failure run stopped partway through the 43rd. Grouping
+ * by spec is what buys most of the room back, since one spec routinely owns
+ * several failures and its path only needs printing once.
+ */
 function failureBlocks(input: RunMessageInput): unknown[] {
-    if (!input.topFailures.length) return [];
+    if (!input.failures.length) return [];
 
-    const lines = input.topFailures.map((f) => `• ${f.label}${f.count > 1 ? `  _(${f.count})_` : ''}`);
-    if (input.remainingFailures > 0) lines.push(`_+${input.remainingFailures} more..._`);
+    const bySpec = new Map<string, FailureDetail[]>();
+    for (const failure of input.failures) {
+        const spec = failure.spec || 'unknown spec';
+        const group = bySpec.get(spec);
+        if (group) group.push(failure);
+        else bySpec.set(spec, [failure]);
+    }
 
-    return [
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: `*Top Failures*\n${lines.join('\n')}` } },
-    ];
+    const texts: string[] = [];
+    let current = `*Failures* (${input.failures.length})`;
+    let shown = 0;
+    let capped = false;
+
+    for (const [spec, group] of bySpec) {
+        if (capped) break;
+        const label = `\`${escapeMrkdwn(spec)}\``;
+        // Held back so the spec path is only spent when an entry under it fits.
+        let pending = `\n\n${label}`;
+
+        for (const failure of group) {
+            const entry = failureEntry(failure);
+            if (current.length + pending.length + entry.length > SECTION_LIMIT) {
+                if (texts.length + 1 >= MAX_FAILURE_SECTIONS) {
+                    capped = true;
+                    break;
+                }
+                texts.push(current);
+                current = '';
+                // Re-label: a group split across blocks would otherwise leave the
+                // continuation entries with no visible spec.
+                pending = `${label} _(cont.)_`;
+            }
+            current += pending + entry;
+            pending = '';
+            shown++;
+        }
+    }
+
+    if (current) texts.push(current);
+
+    const blocks: unknown[] = [divider()];
+    for (const text of texts) blocks.push({ type: 'section', text: { type: 'mrkdwn', text } });
+    // Say the count out loud rather than cutting off mid-sentence.
+    if (capped) {
+        blocks.push({
+            type: 'context',
+            elements: [
+                { type: 'mrkdwn', text: `_+${input.failures.length - shown} more failures — see the Allure report._` },
+            ],
+        });
+    }
+    return blocks;
 }
 
 /** `https://app.ptdev.xyz/` → `app.ptdev.xyz`, for use as a link label. */
