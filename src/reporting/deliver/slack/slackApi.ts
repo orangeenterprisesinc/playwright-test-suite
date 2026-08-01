@@ -12,9 +12,12 @@
 import fs from 'node:fs';
 import https from 'node:https';
 
-/** A Block Kit message: `text` is the notification fallback, blocks live in the attachment. */
+/**
+ * A Block Kit message. Blocks live inside the attachment (that is what carries
+ * the green/red side bar), and the notification text is the attachment's
+ * `fallback` — a top-level `text` would render as a duplicate line above it.
+ */
 export interface SlackMessage {
-    text: string;
     attachments: unknown[];
 }
 
@@ -103,6 +106,16 @@ export async function postMessage(token: string, channel: string, message: Slack
     return String(result.ts ?? '');
 }
 
+/** Replaces an already-posted message in place. Same `chat:write` scope as {@link postMessage}. */
+export async function updateMessage(
+    token: string,
+    channel: string,
+    ts: string,
+    message: SlackMessage,
+): Promise<void> {
+    await callApi('chat.update', token, { channel, ts, ...message });
+}
+
 /**
  * Posts to an Incoming Webhook. Webhooks answer with the literal body `ok`
  * rather than JSON and cannot carry files, so this is the summary-only route.
@@ -130,12 +143,14 @@ function multipartBody(boundary: string, filename: string, content: Buffer): Buf
 
 /**
  * Uploads `filePath` to `channel`, optionally inside the thread of `threadTs`.
- * Requires the `files:write` scope.
+ * Requires the `files:write` scope. Returns the file's permalink, or `''` if
+ * Slack did not report one — the bytes are stored either way, so a missing
+ * permalink must not read as a failed upload.
  */
 export async function uploadFile(
     token: string,
     options: { channel: string; filePath: string; filename: string; title: string; threadTs?: string; comment?: string },
-): Promise<void> {
+): Promise<string> {
     const content = fs.readFileSync(options.filePath);
 
     const upload = await callApi(
@@ -156,10 +171,13 @@ export async function uploadFile(
     );
     if (status < 200 || status >= 300) throw new Error(`file upload → HTTP ${status} ${body.slice(0, 200)}`);
 
-    await callApi('files.completeUploadExternal', token, {
+    const completed = await callApi('files.completeUploadExternal', token, {
         files: [{ id: fileId, title: options.title }],
         channel_id: options.channel,
         ...(options.threadTs ? { thread_ts: options.threadTs } : {}),
         ...(options.comment ? { initial_comment: options.comment } : {}),
     });
+
+    const files = Array.isArray(completed.files) ? (completed.files as { permalink?: string }[]) : [];
+    return files[0]?.permalink ?? '';
 }

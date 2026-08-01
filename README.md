@@ -278,8 +278,8 @@ suites:
 | runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
 | ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
-| CI | `e2e.yml`, `e2e-local.yml` | `webpet-e2e-local.yml`, `webpet-e2e-dev.yml` |
-| daily run | `dry-run-daily.yml` calls `e2e.yml` … | … then `webpet-e2e-dev.yml` |
+| CI | `e2e.yml` (`suite: journey`), `e2e-local.yml` | `e2e.yml` (`suite: webpet`), `webpet-e2e-local.yml` |
+| dev-staging run | `e2e.yml -f suite=journey` | `e2e.yml -f suite=webpet` |
 
 ```bash
 npm run test:webpet                        # whole suite against localhost
@@ -896,14 +896,16 @@ npm run report:allure:open
 
 `.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
 
-It no longer schedules itself. **`dry-run-daily.yml` owns the daily 4:00 PM IST run** and calls `e2e.yml` first, then `webpet-e2e-dev.yml`, so the two suites never run at the same time against the same dev data:
+`e2e.yml` serves **both** suites. Its `suite` input (`journey` | `webpet`) switches the timeout, the `WEBPET`/`DB_*` env, the checkout depth, the validation gates, the test command, the S3 prefix and the artifact names — so the two never share artifacts or overwrite each other's reports:
 
 ```
-3:50 PM IST   dry-run-reminder.yml   →  one informational Slack message
-4:00 PM IST   dry-run-daily.yml      →  User Journey  →  its own Slack report
-                                              ↓ (needs:)
-                                          WebPet      →  its own Slack report
+gh workflow run e2e.yml --ref dry-run -f suite=journey
+gh workflow run e2e.yml --ref dry-run -f suite=webpet -f batch=01
 ```
+
+> **There is currently no cron in this repo.** The scheduled dry run is switched off — the orchestrator (`dry-run-daily.yml`) and the pre-run announcement (`dry-run-reminder.yml`) were removed, so nothing runs on a timer. Runs happen on push to `main`, manual dispatch, and `repository_dispatch`.
+>
+> When the daily run is brought back, add a `schedule:` block to `e2e.yml`. Two notes for whoever does that: cron only fires from the **default branch**, and a single workflow cannot run both suites sequentially from one cron without a `strategy.matrix` plus `max-parallel: 1` — they must not overlap, because both hit the same dev data and the webpet suite mutates it. Also expect the fire time to slip; GitHub queues scheduled runs best-effort and has been 20+ minutes late here, which is why nothing in the reporting states a fixed clock time.
 
 Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` still runs on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo); those runs post **no** Slack message (see the Slack section below).
 
@@ -916,7 +918,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  workflow_call:            # dry-run-daily.yml calls this as the User Journey job
+  workflow_call:            # reusable: an orchestrator can call this per suite
   repository_dispatch:
     types: [run-playwright]
 
@@ -989,9 +991,11 @@ answerable from the run log. To get a message out of a test run deliberately, se
 `SLACK_NOTIFY_EVENTS` to include that event; to check the layout without a token, use
 `SLACK_DRY_RUN=1` and paste the logged payload into Slack's Block Kit Builder.
 
-The reminder message at 3:50 PM IST is the one Slack post that is not a reporter —
-`scripts/notify/slack-reminder.ts`, run by `dry-run-reminder.yml`. It applies the same gate.
-Preview it with `npm run notify:reminder -- --dry-run`.
+The pre-run announcement is the one Slack post that is not a reporter —
+`scripts/notify/slack-reminder.ts`. **No workflow currently runs it**; it survives as a CLI for
+when the scheduled run is brought back. It applies the same gate, and computes its start time as
+*now + `REMINDER_LEAD_MINUTES`* rather than stating a fixed clock time. Preview it with
+`npm run notify:reminder -- --dry-run`.
 
 ### Getting the Allure report into Slack
 
@@ -1000,8 +1004,12 @@ has two modes, and it picks the first one that is fully configured:
 
 | Configured | What lands in Slack |
 |------------|---------------------|
-| `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` | Summary via `chat.postMessage`, then the lean single-file **Allure report uploaded as a thread reply** on that message |
-| `SLACK_WEBHOOK_URL` only | Summary only. The report appears as a link when `ALLURE_REPORT_URL` is set (CI does this when `SEND_S3=yes`) |
+| `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` | Summary via `chat.postMessage`, then the lean single-file **Allure report uploaded as a thread reply**, then the summary is edited to link that file from an **📊 Open Allure Report** button |
+| `SLACK_WEBHOOK_URL` only | Summary only — a webhook cannot upload and cannot edit. The report appears as a link only when `ALLURE_REPORT_URL` is set (CI does this when `SEND_S3=yes`) |
+
+The button arrives a few seconds after the summary, because the link does not exist until the file
+is uploaded. Until the edit lands the message says "📎 Allure report attached in the thread",
+which is accurate; if the upload or the edit fails, that note is what stays.
 
 To enable uploads, create a Slack app in the workspace, give the bot the **`chat:write`**
 and **`files:write`** scopes, install it, invite it to the channel, then set the token
@@ -1037,10 +1045,12 @@ variable so a misconfigured table can never silence a report that used to send.
 Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives in
 [`src/reporting/recipients/recipients.ts`](src/reporting/recipients/recipients.ts).
 
-> The 4:00 PM IST scheduled run tests the **`dry-run`** branch (both called workflows pin
-> `ref: dry-run` on a `schedule` event), even though `dry-run-daily.yml` itself must live
-> on `main` — GitHub only fires `schedule:` from the default branch. `BRANCH_OVERRIDE`
-> in those jobs makes the reports, and therefore this routing, name `dry-run`.
+> `e2e.yml` pins `ref: dry-run` on a `schedule` event, so a scheduled run tests the
+> **`dry-run`** branch even though the workflow file must live on `main` — GitHub only fires
+> `schedule:` from the default branch. `BRANCH_OVERRIDE` in that job makes the reports, and
+> therefore this routing, name `dry-run`. A **manual dispatch** instead tests whatever ref it
+> was fired from, and `BRANCH_OVERRIDE` stays empty so the branch name comes from
+> `GITHUB_REF_NAME` — which is already correct in that case.
 
 **Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
 - 📸 Screenshot capture

@@ -302,15 +302,16 @@ The mechanism spans four pieces:
 
 ## 8. GitHub CI
 
-Six workflows: two suite runners for the journey suites, two for the migrated web-pet suite,
-and two schedulers (`dry-run-daily.yml` + `dry-run-reminder.yml`) that own the only cron in the
-repo. The journey pair listen for the same external `repository_dispatch` (`run-playwright`), so
-one app-side build fans out to both; the web-pet pair are independent and never triggered by a
-push.
+Three workflows: `e2e.yml` against dev staging (both suites), plus `e2e-local.yml` and
+`webpet-e2e-local.yml` against a self-hosted localhost stack. There is **no scheduler and no cron
+in this repo** — the daily dry run is currently switched off. `e2e.yml` listens for the external
+`repository_dispatch` (`run-playwright`), so an app-side build reaches dev staging; the local pair
+are manual-dispatch only and never triggered by a push.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **`workflow_call` from `dry-run-daily.yml`** (the daily 4:00 PM IST run), plus push
-  to `main`, manual dispatch, and external `repository_dispatch`. It has no cron of its own.
+- Triggers: push to `main`, manual dispatch, external `repository_dispatch`, and `workflow_call`
+  (reusable, so an orchestrator can drive it per suite). **No cron.**
+- Serves **both** suites via its `suite` input (`journey` | `webpet`) — see §9.
 - Runner: `ubuntu-latest` (GitHub-hosted), 15-min timeout.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
@@ -342,30 +343,37 @@ push.
   upload Allure report.
 
 **[`webpet-e2e-local.yml`](../.github/workflows/webpet-e2e-local.yml) and
-[`webpet-e2e-dev.yml`](../.github/workflows/webpet-e2e-dev.yml)** — the migrated web-pet
+[`e2e.yml`](../.github/workflows/e2e.yml) with `suite: webpet`** — the migrated web-pet
 suite (see §9). The local one is the same self-hosted Windows stack boot as `e2e-local.yml`
-plus the DelLlano seed, and is **manual dispatch only**; the dev one runs against app.ptdev.xyz
-as the second half of the daily dry run (below) and is report-only. Both export `WEBPET=1` job-wide to materialize
+plus the DelLlano seed, and is **manual dispatch only**; the dev one is `e2e.yml`'s webpet mode,
+running against app.ptdev.xyz as the second half of the daily dry run (below) and report-only.
+Both export `WEBPET=1` job-wide to materialize
 the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check` and
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
-**The daily dry run** is one chain, not two crons.
-[`dry-run-reminder.yml`](../.github/workflows/dry-run-reminder.yml) posts an informational
-Slack message at 3:50 PM IST; [`dry-run-daily.yml`](../.github/workflows/dry-run-daily.yml)
-fires at 4:00 PM IST and calls `e2e.yml` (User Journey) and then — via `needs:` —
-`webpet-e2e-dev.yml`, so the two never run at once against the same dev data:
+**The daily dry run is currently OFF.** There is no cron in the repo; both suites run on demand:
 
 ```
-3:50 PM  reminder  →  4:00 PM  User Journey  →  its Slack report
-                                    ↓
-                               WebPet  →  its Slack report
+gh workflow run e2e.yml --ref dry-run -f suite=journey
+gh workflow run e2e.yml --ref dry-run -f suite=webpet
 ```
 
-Both are `workflow_call` reusable workflows here; neither schedules itself. They keep separate
-tests, artifacts, Allure reports and Slack messages — nothing is merged. All three files must
-live on `main` (cron only fires from the default branch); on a scheduled event they check out
-`dry-run`, which is the code that actually gets tested.
+Each keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. To bring
+the schedule back, four things have to hold:
+
+1. The `schedule:` block must live on the **default branch** — GitHub fires cron only from there. A
+   cron block on `dry-run` is accepted and then never triggers.
+2. The two suites must not overlap: both hit the same dev data and the webpet suite mutates it. From
+   a single workflow that means `strategy.matrix` with `max-parallel: 1`, or a separate orchestrator
+   calling `e2e.yml` twice with `needs:`.
+3. On a `schedule` event `e2e.yml` already checks out `dry-run` and sets `BRANCH_OVERRIDE`, so the
+   right code runs and the reports name the right branch. A reusable workflow inherits its caller's
+   event, so that keeps working through an orchestrator.
+4. Expect the fire time to slip — GitHub queues scheduled runs best-effort and has been 20+ minutes
+   late here. Avoid `:00`/`:30`, the most contended minutes. This is why nothing in the reporting
+   states a fixed clock time; `scripts/notify/slack-reminder.ts` computes
+   *now + `REMINDER_LEAD_MINUTES`* instead.
 
 **Reporting** ([`src/reporting/`](../src/reporting/)) runs *inside* Playwright's `onEnd` — no
 separate CI send step. All three channels are self-gating (do nothing unless their `SEND_*` flag

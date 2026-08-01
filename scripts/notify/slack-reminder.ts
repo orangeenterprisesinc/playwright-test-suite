@@ -17,14 +17,34 @@ import { buildReminderMessage } from '../../src/reporting/deliver/slack/blocks.t
 import { shouldNotifySlack } from '../../src/reporting/deliver/slack/gate.ts';
 import { postMessage, postWebhook } from '../../src/reporting/deliver/slack/slackApi.ts';
 
-const DEFAULT_STARTS_AT = '4:00 PM IST';
 const DEFAULT_JOBS = 'User Journey,WebPet';
+const DEFAULT_LEAD_MINUTES = 10;
 const INFO_COLOR = '#3b82f6';
 
 const dryRun = process.argv.slice(2).includes('--dry-run');
 
+const parsedLead = parseInt(process.env.REMINDER_LEAD_MINUTES ?? '', 10);
+const leadMinutes = Number.isFinite(parsedLead) && parsedLead >= 0 ? parsedLead : DEFAULT_LEAD_MINUTES;
+
+/**
+ * The start time is COMPUTED, never hardcoded. GitHub can fire a cron 30+
+ * minutes late, so a fixed "4:00 PM IST" was routinely a promise the run could
+ * not keep — and the workflow dispatches the run itself after this same lead, so
+ * now + lead is what actually happens.
+ */
+function istTime(at: Date): string {
+    const time = at.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+    return `${time.toUpperCase()} IST`;
+}
+
 const message = buildReminderMessage({
-    startsAt: process.env.REMINDER_STARTS_AT || DEFAULT_STARTS_AT,
+    startsAt: process.env.REMINDER_STARTS_AT || istTime(new Date(Date.now() + leadMinutes * 60_000)),
+    leadMinutes,
     jobs: (process.env.REMINDER_JOBS || DEFAULT_JOBS)
         .split(',')
         .map((job) => job.trim())

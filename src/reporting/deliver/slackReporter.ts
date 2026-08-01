@@ -6,8 +6,9 @@
  * post nothing. Two delivery routes, in order of preference:
  *
  * 1. **Bot token** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`) — posts with
- *    `chat.postMessage`, then uploads the single-file Allure report into that
- *    message's thread. Needs the `chat:write` + `files:write` scopes.
+ *    `chat.postMessage`, uploads the single-file Allure report into that
+ *    message's thread, then edits the message to link the uploaded file from an
+ *    "Open Allure Report" button. Needs the `chat:write` + `files:write` scopes.
  * 2. **Incoming Webhook** (`SLACK_WEBHOOK_URL`) — summary only; webhooks cannot
  *    carry files, so the report appears only as a link (`ALLURE_REPORT_URL`).
  *
@@ -23,7 +24,7 @@ import { deriveAllureParts } from '../generate/allure/labels';
 import { Logger } from '../../utils/logger';
 import { buildRunMessage, type FailureGroup } from './slack/blocks';
 import { isSlackDryRun, shouldNotifySlack } from './slack/gate';
-import { postMessage, postWebhook, uploadFile, type SlackMessage } from './slack/slackApi';
+import { postMessage, postWebhook, updateMessage, uploadFile, type SlackMessage } from './slack/slackApi';
 import { RunSummaryCollector, statusColor, type RunSummary, type TestRecord } from '../summary/runSummary';
 
 /** Failing modules listed before collapsing the rest into `+N more...`. */
@@ -45,7 +46,11 @@ class SlackReporter implements Reporter {
         const botToken = getConfigValue(ConfigProperties.SLACK_BOT_TOKEN);
         const channel = getConfigValue(ConfigProperties.SLACK_CHANNEL_ID);
         const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
-        const uploadsAllure = !!(botToken && channel);
+        // Gates the thread note as well as the upload itself — a message that
+        // promises "attached in the thread" and then attaches nothing is worse
+        // than one that never mentions Allure.
+        const attachAllure = getConfigValue(ConfigProperties.SLACK_ATTACH_ALLURE, 'yes').toLowerCase() !== 'no';
+        const uploadsAllure = !!(botToken && channel) && attachAllure;
 
         // Checked before the gate: previewing the layout must not require
         // pretending to be CI, because a developer who exported
@@ -77,7 +82,17 @@ class SlackReporter implements Reporter {
             if (botToken && channel) {
                 const ts = await postMessage(botToken, channel, message);
                 this.logger.info('Slack notification sent');
-                await this.uploadAllureReport(botToken, channel, ts, summary);
+
+                // Two phases, because the Allure link does not exist until the
+                // file is uploaded and the file has to land in this message's
+                // thread. Until the edit lands the message says "attached in the
+                // thread", which is true; the edit upgrades that to a button.
+                if (attachAllure) {
+                    const permalink = await this.uploadAllureReport(botToken, channel, ts, summary);
+                    if (permalink) {
+                        await updateMessage(botToken, channel, ts, this.buildMessage(summary, false, permalink));
+                    }
+                }
                 return;
             }
 
@@ -92,7 +107,7 @@ class SlackReporter implements Reporter {
         }
     }
 
-    private buildMessage(summary: RunSummary, uploadsAllure: boolean): SlackMessage {
+    private buildMessage(summary: RunSummary, uploadsAllure: boolean, allureUrl = summary.allureUrl): SlackMessage {
         const { groups, remaining } = groupFailures(summary.failures);
 
         return buildRunMessage({
@@ -100,9 +115,12 @@ class SlackReporter implements Reporter {
             executionLabel: resolveExecutionLabel(summary.trigger),
             passed: summary.status === 'passed',
             color: statusColor(summary.status),
-            environment: summary.env,
+            badges: summary.badges.map((b) => b.label),
             branch: summary.branch,
+            commit: summary.commit,
             runNumber: summary.runNumber,
+            projects: summary.projects,
+            baseUrl: summary.baseUrl,
             counts: {
                 passed: summary.passed,
                 failed: summary.failed,
@@ -113,7 +131,7 @@ class SlackReporter implements Reporter {
             durationText: summary.durationText,
             topFailures: groups,
             remainingFailures: remaining,
-            allureUrl: summary.allureUrl,
+            allureUrl,
             runUrl: summary.runUrl,
             artifactsUrl: summary.runUrl ? `${summary.runUrl}#artifacts` : '',
             allureInThread: uploadsAllure,
@@ -122,11 +140,12 @@ class SlackReporter implements Reporter {
 
     /**
      * Generates the screenshot-only single-file Allure report and uploads it
-     * into the report's thread. Every failure here is logged and swallowed: the
-     * summary is already posted, and a missing JVM or an oversized report must
-     * not fail the run.
+     * into the report's thread, returning the uploaded file's permalink (`''`
+     * when there is nothing to link). Every failure here is logged and
+     * swallowed: the summary is already posted, and a missing JVM or an
+     * oversized report must not fail the run.
      */
-    private async uploadAllureReport(token: string, channel: string, threadTs: string, summary: RunSummary): Promise<void> {
+    private async uploadAllureReport(token: string, channel: string, threadTs: string, summary: RunSummary): Promise<string> {
         try {
             const { htmlPath } = await acquireLeanReport();
 
@@ -136,10 +155,10 @@ class SlackReporter implements Reporter {
                 this.logger.warn(
                     `Allure report is ${(size / 1024 / 1024).toFixed(1)}MB, over the ${maxBytes / 1024 / 1024}MB SLACK_MAX_UPLOAD_MB cap — not uploading it to Slack`,
                 );
-                return;
+                return '';
             }
 
-            await uploadFile(token, {
+            const permalink = await uploadFile(token, {
                 channel,
                 filePath: htmlPath,
                 filename: 'allure-report.html',
@@ -148,9 +167,11 @@ class SlackReporter implements Reporter {
                 comment: 'Allure report (screenshots only — download and open in a browser). Full video & trace are in the CI run artifacts.',
             });
             this.logger.info('Allure report uploaded to Slack');
+            return permalink;
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);
             this.logger.error(`Allure report upload to Slack failed: ${msg}`);
+            return '';
         }
     }
 

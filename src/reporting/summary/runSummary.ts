@@ -50,6 +50,8 @@ export interface RunSummary {
     durationText: string;
     /** Resolved `TEST_ENV` (e.g. `local`, `dev`, `qa`). */
     env: string;
+    /** Base URL of the environment under test, from `BASE_URL`. */
+    baseUrl: string;
     isCI: boolean;
     /** Env + CI badges for the report header. */
     badges: EnvBadge[];
@@ -204,6 +206,7 @@ export class RunSummaryCollector {
             durationMs,
             durationText: formatDuration(durationMs),
             env,
+            baseUrl: getConfigValue(ConfigProperties.APP_URL, ''),
             isCI,
             badges: buildBadges(env, isCI),
             branch: ctx.branch,

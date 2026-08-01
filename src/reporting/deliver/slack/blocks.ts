@@ -2,16 +2,17 @@
  * @fileoverview Block Kit builders for the two Slack messages this framework
  * posts: the per-suite run report and the pre-run reminder.
  *
- * Deliberately import-free (not even the run summary type): scripts/notify/
+ * Kept deliberately short. Slack collapses a long message behind "Show more",
+ * which hid the Duration row when this carried the HTML email's full field set
+ * (commit, projects, node, finished time). Those live in the Allure report and
+ * on the run page; the Slack message is a glance, not an archive.
+ *
+ * Import-free by design (not even the run summary type): scripts/notify/
  * slack-reminder.ts is executed by Node's TypeScript type stripping, which
  * cannot resolve extensionless relative imports. Every input arrives as a plain
  * object so the caller — reporter or CLI — owns the data shaping.
  */
 import type { SlackMessage } from './slackApi';
-
-const RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━';
-const BOT_NAME = '🧪 Playwright QA Bot';
-const FOOTER = 'Generated automatically by Playwright QA Bot';
 
 /** One line of the Top Failures list: a module (feature area) and how many of its tests failed. */
 export interface FailureGroup {
@@ -27,10 +28,16 @@ export interface RunMessageInput {
     passed: boolean;
     /** Hex colour for the attachment's side bar. */
     color: string;
-    environment: string;
+    /** Env + CI labels, e.g. `DEV`, `CI`. */
+    badges: string[];
     branch: string;
+    commit: string;
     /** CI run number, without the `#`. */
     runNumber: string;
+    /** Playwright projects that ran, comma-joined. */
+    projects: string;
+    /** Base URL of the environment under test, e.g. `https://app.ptdev.xyz`. */
+    baseUrl: string;
     counts: { passed: number; failed: number; flaky: number; skipped: number };
     passRate: number;
     durationText: string;
@@ -45,15 +52,20 @@ export interface RunMessageInput {
     allureInThread: boolean;
 }
 
+/**
+ * Slack's native rule. Drawn with `━` characters in a context block it renders
+ * flush against the text above and below it; the real block carries its own
+ * vertical spacing, which is what makes the message readable.
+ */
 function divider(): unknown {
-    return { type: 'context', elements: [{ type: 'mrkdwn', text: RULE }] };
+    return { type: 'divider' };
 }
 
 function linkButton(text: string, url: string): unknown {
     return { type: 'button', text: { type: 'plain_text', text, emoji: true }, url };
 }
 
-/** `*Reports*` buttons — only the destinations that actually exist. */
+/** Report buttons — only the destinations that actually exist. */
 function reportBlocks(input: RunMessageInput): unknown[] {
     const buttons: unknown[] = [];
     if (input.allureUrl) buttons.push(linkButton('📊 Open Allure Report', input.allureUrl));
@@ -67,7 +79,9 @@ function reportBlocks(input: RunMessageInput): unknown[] {
     const threadNote = !input.allureUrl && input.allureInThread;
     if (!buttons.length && !threadNote) return [];
 
-    const blocks: unknown[] = [divider(), { type: 'section', text: { type: 'mrkdwn', text: '*Reports*' } }];
+    // No divider and no `*Reports*` heading: a bold one-word section is a whole
+    // block of vertical padding to label two self-describing buttons.
+    const blocks: unknown[] = [];
     if (buttons.length) blocks.push({ type: 'actions', elements: buttons });
     if (threadNote) {
         blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: '📎 Allure report attached in the thread' }] });
@@ -79,7 +93,7 @@ function failureBlocks(input: RunMessageInput): unknown[] {
     if (!input.topFailures.length) return [];
 
     const lines = input.topFailures.map((f) => `• ${f.label}${f.count > 1 ? `  _(${f.count})_` : ''}`);
-    if (input.remainingFailures > 0) lines.push(`\n_+${input.remainingFailures} more..._`);
+    if (input.remainingFailures > 0) lines.push(`_+${input.remainingFailures} more..._`);
 
     return [
         divider(),
@@ -87,53 +101,74 @@ function failureBlocks(input: RunMessageInput): unknown[] {
     ];
 }
 
-/** Builds the per-suite run report. */
+/** `https://app.ptdev.xyz/` → `app.ptdev.xyz`, for use as a link label. */
+function hostOf(url: string): string {
+    return url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+/**
+ * Builds the per-suite run report: one line of counts, one context line of run
+ * metadata, the top failing modules, and the report links.
+ *
+ * The suite name replaces the generic "Playwright" in the header — the dry run
+ * posts two of these and they have to be distinguishable at a glance.
+ */
 export function buildRunMessage(input: RunMessageInput): SlackMessage {
-    const icon = input.passed ? '🟢' : '🔴';
-    const headline = `${icon} ${input.suiteName.toUpperCase()} ${input.passed ? 'PASSED' : 'FAILED'}`;
+    const icon = input.passed ? '✅' : '❌';
+    const headline = `${icon} ${input.suiteName} — ${input.passed ? 'PASSED' : 'FAILED'}`;
     const { passed, failed, flaky, skipped } = input.counts;
 
+    // One line, not a `fields` grid: Slack lays fields out two per row and each
+    // `*Label:*\n0` costs two rendered lines, so six counters filled six lines
+    // with four zeros. Zeros stay visible — a missing "0 failed" reads as
+    // unreported rather than none.
+    const stats = [
+        `*${passed}* passed`,
+        `*${failed}* failed`,
+        `*${flaky}* flaky`,
+        `*${skipped}* skipped`,
+        `*${input.passRate}%* pass rate`,
+        `*${input.durationText}*`,
+    ].join('  ·  ');
+
+    const context = [
+        input.badges.map((b) => `\`${b}\``).join(' '),
+        input.executionLabel,
+        `\`${input.branch}@${input.commit}\``,
+        ...(input.runNumber ? [`run *#${input.runNumber}*`] : []),
+        ...(input.baseUrl ? [`<${input.baseUrl}|${hostOf(input.baseUrl)}>`] : []),
+        input.projects,
+    ]
+        .filter(Boolean)
+        .join('  ·  ');
+
     const blocks: unknown[] = [
-        { type: 'context', elements: [{ type: 'mrkdwn', text: BOT_NAME }] },
-        divider(),
         { type: 'header', text: { type: 'plain_text', text: headline, emoji: true } },
-        {
-            type: 'section',
-            fields: [
-                { type: 'mrkdwn', text: `*Environment*\n${input.environment.toUpperCase()}` },
-                { type: 'mrkdwn', text: `*Execution*\n${input.executionLabel}` },
-                { type: 'mrkdwn', text: `*Branch*\n\`${input.branch}\`` },
-                { type: 'mrkdwn', text: `*Run*\n${input.runNumber ? `#${input.runNumber}` : 'n/a'}` },
-            ],
-        },
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: '*Summary*' } },
-        {
-            type: 'section',
-            fields: [
-                { type: 'mrkdwn', text: `*Passed*\n${passed}` },
-                { type: 'mrkdwn', text: `*Failed*\n${failed}` },
-                { type: 'mrkdwn', text: `*Flaky*\n${flaky}` },
-                { type: 'mrkdwn', text: `*Skipped*\n${skipped}` },
-                { type: 'mrkdwn', text: `*Duration*\n${input.durationText}` },
-                { type: 'mrkdwn', text: `*Pass rate*\n${input.passRate}%` },
-            ],
-        },
+        { type: 'section', text: { type: 'mrkdwn', text: stats } },
+        { type: 'context', elements: [{ type: 'mrkdwn', text: context }] },
         ...failureBlocks(input),
         ...reportBlocks(input),
-        divider(),
-        { type: 'context', elements: [{ type: 'mrkdwn', text: FOOTER }] },
     ];
 
     return {
-        text: `${headline} — ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`,
-        attachments: [{ color: input.color, blocks }],
+        // `fallback`, not a top-level `text`: Slack renders top-level text as a
+        // line ABOVE the attachment, which duplicated the header verbatim.
+        // Notifications and unformatted clients use this instead.
+        attachments: [
+            {
+                color: input.color,
+                fallback: `${headline} — ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`,
+                blocks,
+            },
+        ],
     };
 }
 
 export interface ReminderInput {
-    /** Human-readable start time, e.g. `4:00 PM IST`. */
+    /** Human-readable start time, e.g. `4:31 PM IST`. */
     startsAt: string;
+    /** Minutes until `startsAt`; omitted from the message when 0. */
+    leadMinutes: number;
     /** Suite names in execution order. */
     jobs: string[];
     color: string;
@@ -143,17 +178,24 @@ export interface ReminderInput {
 export function buildReminderMessage(input: ReminderInput): SlackMessage {
     const headline = '🧪 Scheduled Playwright Dry Run';
 
+    const lead = input.leadMinutes > 0 ? ` (in ~${input.leadMinutes} min)` : '';
+    const line = [
+        `Starts at *${input.startsAt}*${lead}`,
+        ...(input.jobs.length ? [`Jobs: ${input.jobs.map((j) => `*${j}*`).join(' → ')}`] : []),
+    ].join('  ·  ');
+
     const blocks: unknown[] = [
         { type: 'header', text: { type: 'plain_text', text: headline, emoji: true } },
-        { type: 'section', text: { type: 'mrkdwn', text: `Execution starts at *${input.startsAt}*.` } },
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: `*Jobs*\n${input.jobs.map((j) => `• ${j}`).join('\n')}` } },
-        divider(),
-        { type: 'context', elements: [{ type: 'mrkdwn', text: '_This is only an informational reminder._' }] },
+        { type: 'section', text: { type: 'mrkdwn', text: line } },
     ];
 
     return {
-        text: `${headline} — starts at ${input.startsAt} (${input.jobs.join(', ')})`,
-        attachments: [{ color: input.color, blocks }],
+        attachments: [
+            {
+                color: input.color,
+                fallback: `${headline} — starts at ${input.startsAt} (${input.jobs.join(', ')})`,
+                blocks,
+            },
+        ],
     };
 }

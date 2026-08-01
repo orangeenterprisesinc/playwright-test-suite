@@ -80,8 +80,9 @@ its workers); for anything fancier set `WEBPET=1` yourself.
 CI: [.github/workflows/webpet-e2e-local.yml](../../.github/workflows/webpet-e2e-local.yml)
 (self-hosted, boots the stack, applies the seed, **manual dispatch only** — it has no
 `schedule:` block, despite what earlier revisions of this file claimed) and
-[webpet-e2e-dev.yml](../../.github/workflows/webpet-e2e-dev.yml) (ubuntu →
-app.ptdev.xyz, nightly 4:00 AM IST + manual). Neither runs on push.
+[e2e.yml](../../.github/workflows/e2e.yml) with `suite: webpet` (ubuntu →
+app.ptdev.xyz, called as the second half of the daily dry run + manual — it has no `schedule:`
+block either). Neither runs on push.
 
 ### Environment variables
 
@@ -270,9 +271,9 @@ because it is a coverage hole wearing a green hat).
 Dev runs are a triage baseline, not a pass/fail gate — dev's DB is not the
 seeded DelLlano, and the suite **mutates dev data** (test crews/employees/jobs,
 Ranch/Field inline edits, a `RestrictedTest_*` user, user preferences).
-Expected dev-failure classes are listed in the header of
-`webpet-e2e-dev.yml`; disable dev-incompatible tests via the runner file after
-the first baseline runs.
+Expected dev-failure classes are summarised in the header of
+`e2e.yml` and listed in full below; disable dev-incompatible tests via the runner
+file after the first baseline runs.
 
 **First dev baseline (2026-07-29): 319 passed / 47 failed / 22 skipped /
 19 did-not-run (56.5 m, workers 1)** — full categorized failure list in
