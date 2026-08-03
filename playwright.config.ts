@@ -170,6 +170,12 @@ export default defineConfig({
         screenshot: 'on',
         trace: 'retain-on-failure',
         video: 'on',
+
+        // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
+        // runs are untouched. Set SLOW_MO when the recorded video has to be
+        // watchable by a human — bug-report evidence, demos — because at full
+        // speed the interaction is over before it reads on screen.
+        launchOptions: { slowMo: Number(process.env.SLOW_MO ?? 0) },
     },
 
     projects: [

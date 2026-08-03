@@ -114,6 +114,7 @@ behaviour.
 | `DATA_FILE_PATH_JSON` / `_CSV` | Read one hand-made file instead of the per-journey directory. Escape hatch; unset by default. |
 | `WARMUP_TIMEOUT_MS` | Budget for the app readiness probe in global setup. `0` disables it — useful against an already-hot environment. |
 | `RETRY` | Override retry count (defaults: CI 2, local 0). |
+| `SLOW_MO` | Delay in ms between browser actions (default `0`). Set it when the recorded video has to be readable by a person — bug evidence, demos. Inflates wall-clock, so raise `--timeout` alongside it. |
 | `EMAIL_RECIPIENTS_FILE` | **Deprecated** (email only). The routing table. Recipients are resolved per branch+trigger from `config/notifications/recipients.csv`; `EMAIL_TO` is only the fallback when that file is missing or has no matching row. Edit the table, not the env file. |
 | `EMAIL_MAX_ATTACHMENT_MB` | **Deprecated.** Cap per attached report (default 20 — safely under Gmail's ~25MB limit after base64 overhead). Oversized reports are dropped in favour of the run link. |
 | `SEND_EMAIL` / `SEND_SLACK` / `SEND_S3` / `SEND_RESULT_ELK` | Opt-in reporting channels, all off by default. Each reporter logs one line and does nothing when its flag is unset. **Slack is the primary channel; `SEND_EMAIL` is pinned to `no` in every workflow.** |
