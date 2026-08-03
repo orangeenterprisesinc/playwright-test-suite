@@ -61,4 +61,4 @@ files (ranch / report-editor / setup-batch-b …) whose earlier test failed.
    dev runs go green-by-baseline.
 2. Re-check `POST /api/users` 500 on dev (blocks RestrictedTest provisioning —
    also the same class of bug as the existing framework's user-creation specs).
-3. This file is the comparison point for the nightly `webpet-e2e-dev.yml` runs.
+3. This file is the comparison point for the nightly `e2e.yml` `suite: webpet` runs.

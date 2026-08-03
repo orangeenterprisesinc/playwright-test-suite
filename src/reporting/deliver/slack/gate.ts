@@ -31,7 +31,16 @@ export function shouldNotifySlack(): GateDecision {
         return { allowed: false, reason: 'SEND_SLACK is not yes' };
     }
     if (process.env.GITHUB_ACTIONS !== 'true') {
-        return { allowed: false, reason: 'not a GitHub Actions run — Slack reports CI results only' };
+        // Deliberate local override, for reviewing the report format against a
+        // real run. It exists so nobody has to fake GITHUB_ACTIONS=true, which
+        // lingers in a shell and silently turns every later run into a post.
+        if (isTruthy(process.env.SLACK_ALLOW_LOCAL)) {
+            return { allowed: true, reason: '' };
+        }
+        return {
+            allowed: false,
+            reason: 'not a GitHub Actions run — Slack reports CI results only (set SLACK_ALLOW_LOCAL=yes to post from a local run)',
+        };
     }
 
     const event = process.env.GITHUB_EVENT_NAME ?? '';

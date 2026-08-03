@@ -6,8 +6,9 @@
  * post nothing. Two delivery routes, in order of preference:
  *
  * 1. **Bot token** (`SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`) — posts with
- *    `chat.postMessage`, then uploads the single-file Allure report into that
- *    message's thread. Needs the `chat:write` + `files:write` scopes.
+ *    `chat.postMessage`, uploads the single-file Allure report into that
+ *    message's thread, then edits the message to link the uploaded file from an
+ *    "Open Allure Report" button. Needs the `chat:write` + `files:write` scopes.
  * 2. **Incoming Webhook** (`SLACK_WEBHOOK_URL`) — summary only; webhooks cannot
  *    carry files, so the report appears only as a link (`ALLURE_REPORT_URL`).
  *
@@ -16,18 +17,13 @@
  */
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import fs from 'node:fs';
-import path from 'node:path';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { acquireLeanReport } from '../generate/allure/report';
-import { deriveAllureParts } from '../generate/allure/labels';
 import { Logger } from '../../utils/logger';
-import { buildRunMessage, type FailureGroup } from './slack/blocks';
+import { buildRunMessage } from './slack/blocks';
 import { isSlackDryRun, shouldNotifySlack } from './slack/gate';
-import { postMessage, postWebhook, uploadFile, type SlackMessage } from './slack/slackApi';
-import { RunSummaryCollector, statusColor, type RunSummary, type TestRecord } from '../summary/runSummary';
-
-/** Failing modules listed before collapsing the rest into `+N more...`. */
-const TOP_FAILURE_GROUPS = 5;
+import { postMessage, postWebhook, updateMessage, uploadFile, type SlackMessage } from './slack/slackApi';
+import { RunSummaryCollector, statusColor, type RunSummary } from '../summary/runSummary';
 
 class SlackReporter implements Reporter {
     private readonly logger = new Logger('SlackReporter');
@@ -45,7 +41,11 @@ class SlackReporter implements Reporter {
         const botToken = getConfigValue(ConfigProperties.SLACK_BOT_TOKEN);
         const channel = getConfigValue(ConfigProperties.SLACK_CHANNEL_ID);
         const webhookUrl = getConfigValue(ConfigProperties.SLACK_WEBHOOK_URL);
-        const uploadsAllure = !!(botToken && channel);
+        // Gates the thread note as well as the upload itself — a message that
+        // promises "attached in the thread" and then attaches nothing is worse
+        // than one that never mentions Allure.
+        const attachAllure = getConfigValue(ConfigProperties.SLACK_ATTACH_ALLURE, 'yes').toLowerCase() !== 'no';
+        const uploadsAllure = !!(botToken && channel) && attachAllure;
 
         // Checked before the gate: previewing the layout must not require
         // pretending to be CI, because a developer who exported
@@ -77,7 +77,17 @@ class SlackReporter implements Reporter {
             if (botToken && channel) {
                 const ts = await postMessage(botToken, channel, message);
                 this.logger.info('Slack notification sent');
-                await this.uploadAllureReport(botToken, channel, ts, summary);
+
+                // Two phases, because the Allure link does not exist until the
+                // file is uploaded and the file has to land in this message's
+                // thread. Until the edit lands the message says "attached in the
+                // thread", which is true; the edit upgrades that to a button.
+                if (attachAllure) {
+                    const permalink = await this.uploadAllureReport(botToken, channel, ts, summary);
+                    if (permalink) {
+                        await updateMessage(botToken, channel, ts, this.buildMessage(summary, false, permalink));
+                    }
+                }
                 return;
             }
 
@@ -92,17 +102,18 @@ class SlackReporter implements Reporter {
         }
     }
 
-    private buildMessage(summary: RunSummary, uploadsAllure: boolean): SlackMessage {
-        const { groups, remaining } = groupFailures(summary.failures);
-
+    private buildMessage(summary: RunSummary, uploadsAllure: boolean, allureUrl = summary.allureUrl): SlackMessage {
         return buildRunMessage({
             suiteName: resolveSuiteName(),
             executionLabel: resolveExecutionLabel(summary.trigger),
             passed: summary.status === 'passed',
             color: statusColor(summary.status),
-            environment: summary.env,
+            badges: summary.badges.map((b) => b.label),
             branch: summary.branch,
+            commit: summary.commit,
             runNumber: summary.runNumber,
+            projects: summary.projects,
+            baseUrl: summary.baseUrl,
             counts: {
                 passed: summary.passed,
                 failed: summary.failed,
@@ -111,9 +122,8 @@ class SlackReporter implements Reporter {
             },
             passRate: summary.passRate,
             durationText: summary.durationText,
-            topFailures: groups,
-            remainingFailures: remaining,
-            allureUrl: summary.allureUrl,
+            failures: summary.failures.map((f) => ({ title: f.title, spec: f.spec, error: f.error })),
+            allureUrl,
             runUrl: summary.runUrl,
             artifactsUrl: summary.runUrl ? `${summary.runUrl}#artifacts` : '',
             allureInThread: uploadsAllure,
@@ -122,11 +132,12 @@ class SlackReporter implements Reporter {
 
     /**
      * Generates the screenshot-only single-file Allure report and uploads it
-     * into the report's thread. Every failure here is logged and swallowed: the
-     * summary is already posted, and a missing JVM or an oversized report must
-     * not fail the run.
+     * into the report's thread, returning the uploaded file's permalink (`''`
+     * when there is nothing to link). Every failure here is logged and
+     * swallowed: the summary is already posted, and a missing JVM or an
+     * oversized report must not fail the run.
      */
-    private async uploadAllureReport(token: string, channel: string, threadTs: string, summary: RunSummary): Promise<void> {
+    private async uploadAllureReport(token: string, channel: string, threadTs: string, summary: RunSummary): Promise<string> {
         try {
             const { htmlPath } = await acquireLeanReport();
 
@@ -136,10 +147,10 @@ class SlackReporter implements Reporter {
                 this.logger.warn(
                     `Allure report is ${(size / 1024 / 1024).toFixed(1)}MB, over the ${maxBytes / 1024 / 1024}MB SLACK_MAX_UPLOAD_MB cap — not uploading it to Slack`,
                 );
-                return;
+                return '';
             }
 
-            await uploadFile(token, {
+            const permalink = await uploadFile(token, {
                 channel,
                 filePath: htmlPath,
                 filename: 'allure-report.html',
@@ -148,9 +159,11 @@ class SlackReporter implements Reporter {
                 comment: 'Allure report (screenshots only — download and open in a browser). Full video & trace are in the CI run artifacts.',
             });
             this.logger.info('Allure report uploaded to Slack');
+            return permalink;
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);
             this.logger.error(`Allure report upload to Slack failed: ${msg}`);
+            return '';
         }
     }
 
@@ -183,29 +196,6 @@ function titleCase(value: string): string {
         .filter(Boolean)
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-}
-
-/**
- * Collapses failed tests into their feature areas: a run with 44 reds is a
- * handful of broken modules, and listing every test would bury that. Reuses the
- * Allure module derivation so the Slack grouping and the report agree.
- *
- * `remaining` counts the failures NOT covered by the listed modules, so it is 0
- * when everything fits and the `+N more...` line is dropped.
- */
-function groupFailures(failures: TestRecord[]): { groups: FailureGroup[]; remaining: number } {
-    const counts = new Map<string, number>();
-    for (const record of failures) {
-        const { module } = deriveAllureParts(path.resolve(record.spec));
-        const label = titleCase(module);
-        counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-
-    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    const groups = ranked.slice(0, TOP_FAILURE_GROUPS).map(([label, count]) => ({ label, count }));
-    const shown = groups.reduce((sum, g) => sum + g.count, 0);
-
-    return { groups, remaining: failures.length - shown };
 }
 
 export default SlackReporter;

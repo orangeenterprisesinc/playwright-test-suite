@@ -50,6 +50,8 @@ export interface RunSummary {
     durationText: string;
     /** Resolved `TEST_ENV` (e.g. `local`, `dev`, `qa`). */
     env: string;
+    /** Base URL of the environment under test, from `BASE_URL`. */
+    baseUrl: string;
     isCI: boolean;
     /** Env + CI badges for the report header. */
     badges: EnvBadge[];
@@ -92,6 +94,16 @@ const CI_BADGE_COLOR = '#6b7280'; // slate grey
 /** Green when the run passed, red otherwise — used for banners / colour bars. */
 export function statusColor(status: FullResult['status']): string {
     return status === 'passed' ? '#22c55e' : '#ef4444';
+}
+
+/**
+ * Playwright colours its error messages for a terminal, and those escape codes
+ * survive into any renderer that is not a terminal — Slack showed
+ * `[2mexpect([22m[31mlocator[39m…` verbatim. Strips SGR sequences (`ESC[` … `m`).
+ */
+function stripAnsi(value: string): string {
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
 /** Formats a millisecond duration as `Xm Ys` (or `Ys` under a minute). */
@@ -164,7 +176,7 @@ export class RunSummaryCollector {
             project: titlePath[1] ?? '',
             spec: path.relative(process.cwd(), test.location.file),
             outcome: test.outcome(),
-            error: result.error?.message?.split('\n')[0],
+            error: result.error?.message ? stripAnsi(result.error.message).split('\n')[0] : undefined,
             durationMs: result.duration,
         });
     }
@@ -204,6 +216,7 @@ export class RunSummaryCollector {
             durationMs,
             durationText: formatDuration(durationMs),
             env,
+            baseUrl: getConfigValue(ConfigProperties.APP_URL, ''),
             isCI,
             badges: buildBadges(env, isCI),
             branch: ctx.branch,

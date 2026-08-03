@@ -91,6 +91,15 @@ export enum ConfigProperties {
     /** Max size (MB) of the Allure report uploaded to Slack — larger ones are dropped (env: `SLACK_MAX_UPLOAD_MB`, default 20) */
     SLACK_MAX_UPLOAD_MB = 'SLACK_MAX_UPLOAD_MB',
     /**
+     * Attach the Allure report to the Slack message — `'yes'`/`'no'` (env:
+     * `SLACK_ATTACH_ALLURE`, default on).
+     *
+     * Set to `'no'` for a summary-only channel. Clearing SLACK_BOT_TOKEN would
+     * also stop the upload, but that drops delivery to the webhook — which is
+     * bound to whichever channel it was created for and cannot be repointed.
+     */
+    SLACK_ATTACH_ALLURE = 'SLACK_ATTACH_ALLURE',
+    /**
      * Comma-separated GitHub event names allowed to post (env: `SLACK_NOTIFY_EVENTS`,
      * default `schedule`).
      *
@@ -106,6 +115,14 @@ export enum ConfigProperties {
     SLACK_EXECUTION_LABEL = 'SLACK_EXECUTION_LABEL',
     /** Log the Slack payload instead of posting it — for verifying layout (env: `SLACK_DRY_RUN`) */
     SLACK_DRY_RUN = 'SLACK_DRY_RUN',
+    /**
+     * Let a LOCAL run post to Slack — `'yes'`/`'no'` (env: `SLACK_ALLOW_LOCAL`,
+     * default off).
+     *
+     * Escape hatch for reviewing the report format against a real run. Keep it
+     * out of CI and out of a shared `.env`: every `npm test` posts while it is on.
+     */
+    SLACK_ALLOW_LOCAL = 'SLACK_ALLOW_LOCAL',
 
     /* ── Allure Report ───────────────────────────────── */
 

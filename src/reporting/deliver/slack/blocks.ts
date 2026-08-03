@@ -2,21 +2,26 @@
  * @fileoverview Block Kit builders for the two Slack messages this framework
  * posts: the per-suite run report and the pre-run reminder.
  *
- * Deliberately import-free (not even the run summary type): scripts/notify/
+ * Kept deliberately short. Slack collapses a long message behind "Show more",
+ * which hid the Duration row when this carried the HTML email's full field set
+ * (commit, projects, node, finished time). Those live in the Allure report and
+ * on the run page; the Slack message is a glance, not an archive.
+ *
+ * Import-free by design (not even the run summary type): scripts/notify/
  * slack-reminder.ts is executed by Node's TypeScript type stripping, which
  * cannot resolve extensionless relative imports. Every input arrives as a plain
  * object so the caller — reporter or CLI — owns the data shaping.
  */
 import type { SlackMessage } from './slackApi';
 
-const RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━';
-const BOT_NAME = '🧪 Playwright QA Bot';
-const FOOTER = 'Generated automatically by Playwright QA Bot';
-
-/** One line of the Top Failures list: a module (feature area) and how many of its tests failed. */
-export interface FailureGroup {
-    label: string;
-    count: number;
+/** One failed test in the Failures list. */
+export interface FailureDetail {
+    /** Test title path, e.g. `Edit employee form › [Employee] Verify …`. */
+    title: string;
+    /** Repo-relative spec path — the list is grouped by this. */
+    spec: string;
+    /** First line of the failure message, already ANSI-stripped. */
+    error?: string;
 }
 
 export interface RunMessageInput {
@@ -27,17 +32,21 @@ export interface RunMessageInput {
     passed: boolean;
     /** Hex colour for the attachment's side bar. */
     color: string;
-    environment: string;
+    /** Env + CI labels, e.g. `DEV`, `CI`. */
+    badges: string[];
     branch: string;
+    commit: string;
     /** CI run number, without the `#`. */
     runNumber: string;
+    /** Playwright projects that ran, comma-joined. */
+    projects: string;
+    /** Base URL of the environment under test, e.g. `https://app.ptdev.xyz`. */
+    baseUrl: string;
     counts: { passed: number; failed: number; flaky: number; skipped: number };
     passRate: number;
     durationText: string;
-    /** Up to five modules with failures, most-failing first. */
-    topFailures: FailureGroup[];
-    /** Failed tests not represented by the lines above — rendered as `+N more...`. */
-    remainingFailures: number;
+    /** Every failed test, in the order they finished. */
+    failures: FailureDetail[];
     allureUrl: string;
     runUrl: string;
     artifactsUrl: string;
@@ -45,15 +54,20 @@ export interface RunMessageInput {
     allureInThread: boolean;
 }
 
+/**
+ * Slack's native rule. Drawn with `━` characters in a context block it renders
+ * flush against the text above and below it; the real block carries its own
+ * vertical spacing, which is what makes the message readable.
+ */
 function divider(): unknown {
-    return { type: 'context', elements: [{ type: 'mrkdwn', text: RULE }] };
+    return { type: 'divider' };
 }
 
 function linkButton(text: string, url: string): unknown {
     return { type: 'button', text: { type: 'plain_text', text, emoji: true }, url };
 }
 
-/** `*Reports*` buttons — only the destinations that actually exist. */
+/** Report buttons — only the destinations that actually exist. */
 function reportBlocks(input: RunMessageInput): unknown[] {
     const buttons: unknown[] = [];
     if (input.allureUrl) buttons.push(linkButton('📊 Open Allure Report', input.allureUrl));
@@ -67,7 +81,9 @@ function reportBlocks(input: RunMessageInput): unknown[] {
     const threadNote = !input.allureUrl && input.allureInThread;
     if (!buttons.length && !threadNote) return [];
 
-    const blocks: unknown[] = [divider(), { type: 'section', text: { type: 'mrkdwn', text: '*Reports*' } }];
+    // No divider and no `*Reports*` heading: a bold one-word section is a whole
+    // block of vertical padding to label two self-describing buttons.
+    const blocks: unknown[] = [];
     if (buttons.length) blocks.push({ type: 'actions', elements: buttons });
     if (threadNote) {
         blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: '📎 Allure report attached in the thread' }] });
@@ -75,65 +91,186 @@ function reportBlocks(input: RunMessageInput): unknown[] {
     return blocks;
 }
 
-function failureBlocks(input: RunMessageInput): unknown[] {
-    if (!input.topFailures.length) return [];
+/** Slack's hard cap on one section's text. Exceeding it rejects the whole message. */
+const SECTION_LIMIT = 3000;
+/** A single Playwright diff can run to thousands of chars; the full text is in the trace. */
+const MAX_ERROR_CHARS = 200;
+const MAX_TITLE_CHARS = 300;
+/**
+ * ~45k characters of failure text, or roughly 250 failures with their errors —
+ * far past any run worth reading in a channel, and it is 20 blocks all-in against
+ * Slack's 50-block cap.
+ *
+ * Not set to the ~40 the block limits would allow: Slack documents 3000 chars per
+ * section and 50 blocks but no aggregate payload ceiling, and a message it refuses
+ * posts NOTHING (the reporter logs the error and swallows it). A stated `+N more`
+ * beats discovering that ceiling on a 400-red night.
+ */
+const MAX_FAILURE_SECTIONS = 15;
 
-    const lines = input.topFailures.map((f) => `• ${f.label}${f.count > 1 ? `  _(${f.count})_` : ''}`);
-    if (input.remainingFailures > 0) lines.push(`\n_+${input.remainingFailures} more..._`);
+/**
+ * Collapses whitespace and clips to `max`, so one entry cannot swallow a whole
+ * block. Also drops ANSI colour codes: runSummary strips them at capture, but
+ * Playwright puts them in every assertion message and a caller that skips that
+ * step would print `[2mexpect([22m[31mlocator[39m` into the channel.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1b\[[0-9;]*m/g;
 
-    return [
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: `*Top Failures*\n${lines.join('\n')}` } },
-    ];
+function clip(value: string, max: number): string {
+    const flat = value.replace(ANSI, '').replace(/\s+/g, ' ').trim();
+    return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
 
-/** Builds the per-suite run report. */
+/**
+ * `&`, `<` and `>` are mrkdwn control characters. Playwright errors are full of
+ * them — `Unexpected token '<', "<!doctype "` would otherwise be parsed as link
+ * syntax and mangle the line.
+ */
+function escapeMrkdwn(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function failureEntry(failure: FailureDetail): string {
+    const title = escapeMrkdwn(clip(failure.title, MAX_TITLE_CHARS));
+    if (!failure.error) return `\n • ${title}`;
+    return `\n • ${title}\n   _${escapeMrkdwn(clip(failure.error, MAX_ERROR_CHARS))}_`;
+}
+
+/**
+ * Every failed test, grouped by spec file, spread over as many section blocks as
+ * it takes.
+ *
+ * The point of the pagination is that a single block silently truncated the list
+ * at SECTION_LIMIT — a 43-failure run stopped partway through the 43rd. Grouping
+ * by spec is what buys most of the room back, since one spec routinely owns
+ * several failures and its path only needs printing once.
+ */
+function failureBlocks(input: RunMessageInput): unknown[] {
+    if (!input.failures.length) return [];
+
+    const bySpec = new Map<string, FailureDetail[]>();
+    for (const failure of input.failures) {
+        const spec = failure.spec || 'unknown spec';
+        const group = bySpec.get(spec);
+        if (group) group.push(failure);
+        else bySpec.set(spec, [failure]);
+    }
+
+    const texts: string[] = [];
+    let current = `*Failures* (${input.failures.length})`;
+    let shown = 0;
+    let capped = false;
+
+    for (const [spec, group] of bySpec) {
+        if (capped) break;
+        const label = `\`${escapeMrkdwn(spec)}\``;
+        // Held back so the spec path is only spent when an entry under it fits.
+        let pending = `\n\n${label}`;
+
+        for (const failure of group) {
+            const entry = failureEntry(failure);
+            if (current.length + pending.length + entry.length > SECTION_LIMIT) {
+                if (texts.length + 1 >= MAX_FAILURE_SECTIONS) {
+                    capped = true;
+                    break;
+                }
+                texts.push(current);
+                current = '';
+                // Re-label: a group split across blocks would otherwise leave the
+                // continuation entries with no visible spec.
+                pending = `${label} _(cont.)_`;
+            }
+            current += pending + entry;
+            pending = '';
+            shown++;
+        }
+    }
+
+    if (current) texts.push(current);
+
+    const blocks: unknown[] = [divider()];
+    for (const text of texts) blocks.push({ type: 'section', text: { type: 'mrkdwn', text } });
+    // Say the count out loud rather than cutting off mid-sentence.
+    if (capped) {
+        blocks.push({
+            type: 'context',
+            elements: [
+                { type: 'mrkdwn', text: `_+${input.failures.length - shown} more failures — see the Allure report._` },
+            ],
+        });
+    }
+    return blocks;
+}
+
+/** `https://app.ptdev.xyz/` → `app.ptdev.xyz`, for use as a link label. */
+function hostOf(url: string): string {
+    return url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+/**
+ * Builds the per-suite run report: one line of counts, one context line of run
+ * metadata, the top failing modules, and the report links.
+ *
+ * The suite name replaces the generic "Playwright" in the header — the dry run
+ * posts two of these and they have to be distinguishable at a glance.
+ */
 export function buildRunMessage(input: RunMessageInput): SlackMessage {
-    const icon = input.passed ? '🟢' : '🔴';
-    const headline = `${icon} ${input.suiteName.toUpperCase()} ${input.passed ? 'PASSED' : 'FAILED'}`;
+    const icon = input.passed ? '✅' : '❌';
+    const headline = `${icon} ${input.suiteName} — ${input.passed ? 'PASSED' : 'FAILED'}`;
     const { passed, failed, flaky, skipped } = input.counts;
 
+    // One line, not a `fields` grid: Slack lays fields out two per row and each
+    // `*Label:*\n0` costs two rendered lines, so six counters filled six lines
+    // with four zeros. Zeros stay visible — a missing "0 failed" reads as
+    // unreported rather than none.
+    const stats = [
+        `*${passed}* passed`,
+        `*${failed}* failed`,
+        `*${flaky}* flaky`,
+        `*${skipped}* skipped`,
+        `*${input.passRate}%* pass rate`,
+        `*${input.durationText}*`,
+    ].join('  ·  ');
+
+    const context = [
+        input.badges.map((b) => `\`${b}\``).join(' '),
+        input.executionLabel,
+        `\`${input.branch}@${input.commit}\``,
+        ...(input.runNumber ? [`run *#${input.runNumber}*`] : []),
+        ...(input.baseUrl ? [`<${input.baseUrl}|${hostOf(input.baseUrl)}>`] : []),
+        input.projects,
+    ]
+        .filter(Boolean)
+        .join('  ·  ');
+
     const blocks: unknown[] = [
-        { type: 'context', elements: [{ type: 'mrkdwn', text: BOT_NAME }] },
-        divider(),
         { type: 'header', text: { type: 'plain_text', text: headline, emoji: true } },
-        {
-            type: 'section',
-            fields: [
-                { type: 'mrkdwn', text: `*Environment*\n${input.environment.toUpperCase()}` },
-                { type: 'mrkdwn', text: `*Execution*\n${input.executionLabel}` },
-                { type: 'mrkdwn', text: `*Branch*\n\`${input.branch}\`` },
-                { type: 'mrkdwn', text: `*Run*\n${input.runNumber ? `#${input.runNumber}` : 'n/a'}` },
-            ],
-        },
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: '*Summary*' } },
-        {
-            type: 'section',
-            fields: [
-                { type: 'mrkdwn', text: `*Passed*\n${passed}` },
-                { type: 'mrkdwn', text: `*Failed*\n${failed}` },
-                { type: 'mrkdwn', text: `*Flaky*\n${flaky}` },
-                { type: 'mrkdwn', text: `*Skipped*\n${skipped}` },
-                { type: 'mrkdwn', text: `*Duration*\n${input.durationText}` },
-                { type: 'mrkdwn', text: `*Pass rate*\n${input.passRate}%` },
-            ],
-        },
+        { type: 'section', text: { type: 'mrkdwn', text: stats } },
+        { type: 'context', elements: [{ type: 'mrkdwn', text: context }] },
         ...failureBlocks(input),
         ...reportBlocks(input),
-        divider(),
-        { type: 'context', elements: [{ type: 'mrkdwn', text: FOOTER }] },
     ];
 
     return {
-        text: `${headline} — ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`,
-        attachments: [{ color: input.color, blocks }],
+        // `fallback`, not a top-level `text`: Slack renders top-level text as a
+        // line ABOVE the attachment, which duplicated the header verbatim.
+        // Notifications and unformatted clients use this instead.
+        attachments: [
+            {
+                color: input.color,
+                fallback: `${headline} — ${passed} passed, ${failed} failed, ${flaky} flaky, ${skipped} skipped`,
+                blocks,
+            },
+        ],
     };
 }
 
 export interface ReminderInput {
-    /** Human-readable start time, e.g. `4:00 PM IST`. */
+    /** Human-readable start time, e.g. `4:31 PM IST`. */
     startsAt: string;
+    /** Minutes until `startsAt`; omitted from the message when 0. */
+    leadMinutes: number;
     /** Suite names in execution order. */
     jobs: string[];
     color: string;
@@ -143,17 +280,24 @@ export interface ReminderInput {
 export function buildReminderMessage(input: ReminderInput): SlackMessage {
     const headline = '🧪 Scheduled Playwright Dry Run';
 
+    const lead = input.leadMinutes > 0 ? ` (in ~${input.leadMinutes} min)` : '';
+    const line = [
+        `Starts at *${input.startsAt}*${lead}`,
+        ...(input.jobs.length ? [`Jobs: ${input.jobs.map((j) => `*${j}*`).join(' → ')}`] : []),
+    ].join('  ·  ');
+
     const blocks: unknown[] = [
         { type: 'header', text: { type: 'plain_text', text: headline, emoji: true } },
-        { type: 'section', text: { type: 'mrkdwn', text: `Execution starts at *${input.startsAt}*.` } },
-        divider(),
-        { type: 'section', text: { type: 'mrkdwn', text: `*Jobs*\n${input.jobs.map((j) => `• ${j}`).join('\n')}` } },
-        divider(),
-        { type: 'context', elements: [{ type: 'mrkdwn', text: '_This is only an informational reminder._' }] },
+        { type: 'section', text: { type: 'mrkdwn', text: line } },
     ];
 
     return {
-        text: `${headline} — starts at ${input.startsAt} (${input.jobs.join(', ')})`,
-        attachments: [{ color: input.color, blocks }],
+        attachments: [
+            {
+                color: input.color,
+                fallback: `${headline} — starts at ${input.startsAt} (${input.jobs.join(', ')})`,
+                blocks,
+            },
+        ],
     };
 }
