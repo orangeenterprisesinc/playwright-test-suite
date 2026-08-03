@@ -23,8 +23,11 @@ name: E2E
 #
 # Everything the two suites disagree on — timeout, WEBPET/DB env, checkout depth,
 # validation steps, test command, S3 prefix, artifact names — is switched on that
-# one input. The two suites must never overlap — they hit the same dev data and
-# the webpet suite mutates it — so run them one after the other, never together.
+# one value, which reaches the job as `matrix.suite`.
+#
+# The 4 PM IST cron runs BOTH, one after the other (`max-parallel: 1`): they hit
+# the same dev-staging data and the webpet suite mutates it, so they must never
+# overlap. Every other trigger runs a single suite.
 #
 # ── WEBPET IS A REPORT-ONLY BASELINE — read before treating red as regression ─
 # That suite was authored against a seeded local DelLlano DB, so on dev staging
@@ -38,15 +41,22 @@ name: E2E
 # webpet-e2e-local.yml (webpet), which build the app from a web-pet source
 # checkout on a self-hosted Windows runner.
 #
-# On a scheduled run the checkout step pins `ref: dry-run`, so the dry-run branch
-# is what actually gets tested. The workflow file still has to live on main,
-# because GitHub only fires `schedule:` from the repository's default branch — a
-# cron block on dry-run itself would be accepted and then never trigger. See
-# BRANCH_OVERRIDE in the job env for how the reports are made to name dry-run
-# rather than main.
+# This file must live on `main`: GitHub only fires `schedule:` from the default
+# branch, so a cron block on any other branch is accepted and then never triggers.
+# A scheduled run therefore tests main. `dry-run` is kept in step with main rather
+# than being pinned as the code under test, which is what the removed
+# `ref: dry-run` / BRANCH_OVERRIDE pair used to arrange.
 on:
+  schedule:
+    # The daily dry run, ~4:00 PM IST (IST is UTC+5:30; cron is always UTC). Set a
+    # couple of minutes early and deliberately off :00 and :30 — those are the most
+    # contended minutes on GitHub's scheduler, and a run asked for at exactly 4:00
+    # once landed at 4:21. Scheduled runs are best-effort; expect some slip.
+    #
+    # On this event the matrix below runs BOTH suites, one after the other.
+    - cron: '28 10 * * *'
   # push and repository_dispatch always run the journey suite: `inputs` is null on
-  # those events, so every `inputs.suite == 'webpet'` test below is false.
+  # those events, so the matrix expression falls through to journey.
   push:
     branches: [main]
   workflow_dispatch:
@@ -73,11 +83,10 @@ on:
         description: 'webpet only. Leave at 1 for a baseline-comparable run; raise only for a quick smoke (results then are NOT comparable).'
         required: false
         default: '1'
-  # Reusable, so an orchestrator can drive this once per suite. Nothing calls it
-  # today (the scheduled dry run is off). A reusable workflow inherits the
-  # caller's event, so a `schedule`-triggered caller keeps the ref expression
-  # below and the Slack gate in src/reporting/deliver/slack/gate.ts working
-  # unchanged.
+  # Reusable, so an orchestrator could drive this once per suite. Nothing calls it
+  # today — the cron above runs both suites itself. Kept because a caller inherits
+  # this workflow's triggering event, which is what would keep the Slack gate in
+  # src/reporting/deliver/slack/gate.ts satisfied for an orchestrated run.
   workflow_call:
     inputs:
       suite:
@@ -114,22 +123,38 @@ on:
     types:
       - run-playwright
 
-# The suite is part of the group, NOT just the caller: `github.workflow` is the
-# CALLER's name inside a reusable workflow, so without it the dry run's webpet
-# call and its journey call would share a group and cancel each other.
+# `github.workflow` is the CALLER's name inside a reusable workflow, so it keeps an
+# orchestrated run and a direct push/dispatch in separate groups.
+# `github.event_name` is in the group so a push to main cannot cancel the 4 PM run
+# mid-suite — they would otherwise share `refs/heads/main` and the nightly WebPet
+# leg runs for over an hour. Both matrix legs belong to one run, so they share this
+# group harmlessly.
 concurrency:
-  group: e2e-${{ inputs.suite || 'journey' }}-${{ github.workflow }}-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   e2e:
-    name: ${{ inputs.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
+    name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
     runs-on: ubuntu-latest
+
+    strategy:
+      # NEVER parallel. Both suites target the same dev-staging data and the webpet
+      # suite mutates it, so concurrent legs would race each other.
+      max-parallel: 1
+      # The two suites are independent: a red journey run must not cancel WebPet
+      # before it starts. This replaces the `if: always()` the old orchestrator had.
+      fail-fast: false
+      matrix:
+        # Cron runs the whole dry run; every other trigger runs one suite — the one
+        # a dispatch selected, or journey for push/repository_dispatch where
+        # `inputs` is null.
+        suite: ${{ fromJSON(github.event_name == 'schedule' && '["journey","webpet"]' || format('["{0}"]', inputs.suite || 'journey')) }}
     # A serial webpet run of the whole suite took 56.5 min on dev (see
     # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
     # so 75 left almost no headroom for a slow night. 90 does. The journey suite
     # runs in a couple of minutes.
-    timeout-minutes: ${{ inputs.suite == 'webpet' && 90 || 15 }}
+    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 15 }}
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
@@ -170,7 +195,7 @@ jobs:
       E2E_ADMIN_PASSWORD: ${{ secrets.DEV_PASSWORD }}
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
-      WEBPET: ${{ inputs.suite == 'webpet' && '1' || '' }}
+      WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
       # --- Test-user cleanup via SQL, journey suite only. .env.dev sets
       #     DB_CLEANUP=yes and DB_TRUSTED=no, which makes sqlClient.ts use the
       #     `mssql` driver rather than the sqlcmd CLI — a GitHub-hosted runner has
@@ -186,18 +211,16 @@ jobs:
       #     never creates. With these unset isDbCleanupEnabled() returns false and
       #     every cleanup call skips with a logged warning — the suite still
       #     passes, it just leaves its test users behind. ---
-      DB_SERVER: ${{ inputs.suite != 'webpet' && secrets.DB_SERVER || '' }}
-      DB_CLIENT: ${{ inputs.suite != 'webpet' && vars.DB_CLIENT || '' }}
-      DB_USER: ${{ inputs.suite != 'webpet' && secrets.DB_USER || '' }}
-      DB_PASSWORD: ${{ inputs.suite != 'webpet' && secrets.DB_PASSWORD || '' }}
-      # --- Report attribution. GITHUB_REF_NAME is 'main' on a scheduled run even
-      #     though the checkout step below pins ref: dry-run, because cron only
-      #     fires from the default branch. src/context/executionContext.ts prefers
-      #     this override, so the reports (and therefore the email recipient
-      #     routing in config/notifications/recipients.csv) name the branch whose
-      #     code actually ran. Resolves to '' for every other trigger, which
-      #     detectBranch() treats as unset — Actions exports the key regardless. ---
-      BRANCH_OVERRIDE: ${{ github.event_name == 'schedule' && 'dry-run' || '' }}
+      DB_SERVER: ${{ matrix.suite != 'webpet' && secrets.DB_SERVER || '' }}
+      DB_CLIENT: ${{ matrix.suite != 'webpet' && vars.DB_CLIENT || '' }}
+      DB_USER: ${{ matrix.suite != 'webpet' && secrets.DB_USER || '' }}
+      DB_PASSWORD: ${{ matrix.suite != 'webpet' && secrets.DB_PASSWORD || '' }}
+      # No BRANCH_OVERRIDE. It existed because a scheduled run had to check out
+      # `dry-run` while cron fired from `main`, so the reports would otherwise have
+      # named the wrong branch. main and dry-run now hold the same code and the
+      # scheduled run tests main directly, so GITHUB_REF_NAME is already correct
+      # and executionContext.ts falls back to it. Re-add the override if the
+      # checkout below is ever pinned to another branch again.
       # --- Email reporting is DEPRECATED (Slack is the primary channel), so this
       #     is pinned off rather than reading vars.SEND_EMAIL. The reporter and the
       #     SMTP_*/EMAIL_* secrets stay wired up: set this to 'yes' to bring email
@@ -233,7 +256,7 @@ jobs:
       SLACK_ATTACH_ALLURE: ${{ vars.SLACK_ATTACH_ALLURE }}
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
       # One report per suite, never merged — the header has to say which.
-      SLACK_SUITE_NAME: ${{ inputs.suite_name || (inputs.suite == 'webpet' && 'WebPet' || 'User Journey') }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || 'User Journey') }}
       # Normally derived from the trigger ('Scheduled Dry Run' on a cron). Set the
       # variable to keep that wording on a dispatch run used to review the format.
       SLACK_EXECUTION_LABEL: ${{ vars.SLACK_EXECUTION_LABEL }}
@@ -257,17 +280,13 @@ jobs:
             exit 1
           fi
 
-      # Scheduled runs test the dry-run branch, every other trigger tests the ref
-      # that fired it. GitHub only fires `schedule:` from the DEFAULT branch, so a
-      # cron block living on dry-run would never run at all — the workflow file has
-      # to be on main and point its checkout elsewhere. Keep this in step with the
-      # BRANCH_OVERRIDE entry in the job env above: this decides which code runs,
-      # that one decides which branch the reports attribute it to, and they must
-      # agree or the nightly email routes to the wrong list.
+      # No `ref:` — every trigger tests the ref that fired it, and a scheduled run
+      # fires from the default branch, so the cron tests main. The old pin to
+      # `dry-run` existed only because the code under test lived there while cron
+      # could only fire from main; the two branches now hold the same code.
       - name: Checkout test suite
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'schedule' && 'dry-run' || github.ref }}
           # Full history + tags for webpet (0) — the relocation audit reads each
           # spec's pre-conversion form out of the webpet-lift-v1 tag, which a
           # shallow clone does not fetch.
@@ -277,7 +296,7 @@ jobs:
           # `&&` — which would silently shallow-clone webpet and downgrade the
           # relocation audit to a skipped warning. `||` returns its right operand
           # whatever its truthiness, so 0 has to sit last.
-          fetch-depth: ${{ inputs.suite != 'webpet' && 1 || 0 }}
+          fetch-depth: ${{ matrix.suite != 'webpet' && 1 || 0 }}
 
       - uses: actions/setup-node@v4
         with:
@@ -307,7 +326,7 @@ jobs:
       # spec claims, a category that disagrees with the spec's folder, an unknown
       # segment or module, or a JSON mirror that has drifted from its CSV.
       - name: Validate runner data and types
-        if: inputs.suite != 'webpet'
+        if: matrix.suite != 'webpet'
         run: |
           npm run runner:check
           npm run typecheck
@@ -317,7 +336,7 @@ jobs:
       # — plus orphaned/duplicate WP ids, drifted id maps and leaked journey
       # tags. None of those show up in a pass/fail column.
       - name: Validate webpet ids and imports
-        if: inputs.suite == 'webpet'
+        if: matrix.suite == 'webpet'
         run: |
           npm run typecheck
           npm run lint
@@ -326,7 +345,7 @@ jobs:
       # Relocation gate — see webpet-e2e-local.yml for the rationale. Skipped
       # rather than failed when the tag is absent (shallow clone).
       - name: Validate webpet locator relocation
-        if: inputs.suite == 'webpet'
+        if: matrix.suite == 'webpet'
         run: |
           if git rev-parse --verify webpet-lift-v1 >/dev/null 2>&1; then
             npm run webpet:audit
@@ -339,7 +358,7 @@ jobs:
       # the run still reports green. With all 406 annotated and 0 rows structural,
       # any drift here is a real defect, not conversion churn.
       - name: Validate webpet runner data
-        if: inputs.suite == 'webpet'
+        if: matrix.suite == 'webpet'
         run: npm run webpet:runner:check
 
       # Computed BEFORE the test run so the Playwright process — and thus the
@@ -350,7 +369,7 @@ jobs:
       - name: Compute S3 report location
         if: env.SEND_S3 == 'yes'
         env:
-          SEGMENT: ${{ inputs.suite == 'webpet' && 'webpet' || 'tiger-web' }}
+          SEGMENT: ${{ matrix.suite == 'webpet' && 'webpet' || 'tiger-web' }}
         run: |
           PREFIX="automation-reports/${SEGMENT}/${GITHUB_REF_NAME}/${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ID}"
           echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
@@ -358,7 +377,7 @@ jobs:
           echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
 
       - name: Run Playwright tests
-        if: inputs.suite != 'webpet'
+        if: matrix.suite != 'webpet'
         env:
           # `inputs` covers workflow_dispatch AND workflow_call; both are empty for
           # push/repository_dispatch runs, which therefore behave exactly as before.
@@ -387,7 +406,7 @@ jobs:
       # `workers` is an input so a quick smoke is still one click away; the daily
       # dry run passes '1' explicitly.
       - name: Run webpet Playwright tests
-        if: inputs.suite == 'webpet'
+        if: matrix.suite == 'webpet'
         env:
           GREP: ${{ inputs.grep }}
           BATCH: ${{ inputs.batch }}
@@ -413,7 +432,7 @@ jobs:
       # the seeded DelLlano and the suite mutates dev data), so a delta here is
       # information rather than a failure.
       - name: Diff against the committed dev baseline
-        if: always() && inputs.suite == 'webpet'
+        if: always() && matrix.suite == 'webpet'
         continue-on-error: true
         run: |
           if [ -f src/data/webpet/baselines/dev.json ] && [ -f artifacts/results/results.json ]; then
@@ -432,9 +451,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: artifacts/allure/report/history
-          key: allure-history-${{ inputs.suite || 'journey' }}-${{ github.ref_name }}-${{ github.run_id }}
+          key: allure-history-${{ matrix.suite || 'journey' }}-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            allure-history-${{ inputs.suite || 'journey' }}-${{ github.ref_name }}-
+            allure-history-${{ matrix.suite || 'journey' }}-${{ github.ref_name }}-
 
       # The email reporter (when SEND_EMAIL=yes) already generates this from
       # artifacts/allure/results/ before attaching it, but regenerating here is
@@ -450,14 +469,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.suite == 'webpet' && 'webpet-playwright-report' || 'playwright-report' }}
+          name: ${{ matrix.suite == 'webpet' && 'webpet-playwright-report' || 'playwright-report' }}
           path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
+          name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
           path: artifacts/allure/report
 
       # Publish the raw test-results (traces, videos, screenshots, results.json)

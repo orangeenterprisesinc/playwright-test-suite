@@ -303,16 +303,17 @@ The mechanism spans four pieces:
 ## 8. GitHub CI
 
 Three workflows: `e2e.yml` against dev staging (both suites), plus `e2e-local.yml` and
-`webpet-e2e-local.yml` against a self-hosted localhost stack. There is **no scheduler and no cron
-in this repo** — the daily dry run is currently switched off. `e2e.yml` listens for the external
+`webpet-e2e-local.yml` against a self-hosted localhost stack. `e2e.yml` owns the repo's **only
+cron** and runs both suites from it; there is no separate orchestrator. It also listens for the external
 `repository_dispatch` (`run-playwright`), so an app-side build reaches dev staging; the local pair
 are manual-dispatch only and never triggered by a push.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: push to `main`, manual dispatch, external `repository_dispatch`, and `workflow_call`
-  (reusable, so an orchestrator can drive it per suite). **No cron.**
-- Serves **both** suites via its `suite` input (`journey` | `webpet`) — see §9.
-- Runner: `ubuntu-latest` (GitHub-hosted), 15-min timeout.
+- Triggers: **`schedule` (`28 10 * * *`, ~4:00 PM IST — the daily dry run)**, push to `main`, manual
+  dispatch, external `repository_dispatch`, and `workflow_call`.
+- Serves **both** suites via `matrix.suite` (`journey` | `webpet`) — see §9. The cron runs both
+  serially; every other trigger runs one.
+- Runner: `ubuntu-latest` (GitHub-hosted); 15-min timeout for journey, 90 for webpet.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
   at a `localhost:3000` that doesn't exist on the runner.
@@ -352,28 +353,35 @@ the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
-**The daily dry run is currently OFF.** There is no cron in the repo; both suites run on demand:
+**The daily dry run** is `e2e.yml`'s cron (`28 10 * * *`, ~4:00 PM IST), which runs both suites from
+one workflow via a serialised matrix:
 
 ```
-gh workflow run e2e.yml --ref dry-run -f suite=journey
-gh workflow run e2e.yml --ref dry-run -f suite=webpet
+3:58 PM  suite=journey  →  its Slack report
+              ↓  (max-parallel: 1)
+         suite=webpet   →  its Slack report
 ```
 
-Each keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. To bring
-the schedule back, four things have to hold:
+Each keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. Four
+properties hold it together:
 
-1. The `schedule:` block must live on the **default branch** — GitHub fires cron only from there. A
-   cron block on `dry-run` is accepted and then never triggers.
-2. The two suites must not overlap: both hit the same dev data and the webpet suite mutates it. From
-   a single workflow that means `strategy.matrix` with `max-parallel: 1`, or a separate orchestrator
-   calling `e2e.yml` twice with `needs:`.
-3. On a `schedule` event `e2e.yml` already checks out `dry-run` and sets `BRANCH_OVERRIDE`, so the
-   right code runs and the reports name the right branch. A reusable workflow inherits its caller's
-   event, so that keeps working through an orchestrator.
+1. `max-parallel: 1` — the suites must not overlap. Both hit the same dev data and the webpet suite
+   mutates it, so concurrent legs would race.
+2. `fail-fast: false` — a red journey leg must not cancel WebPet before it starts. This is what the
+   old orchestrator's `if: always()` did.
+3. The `schedule:` block lives on the **default branch**, because GitHub fires cron only from there —
+   a cron block on `dry-run` is accepted and then never triggers. A scheduled run therefore tests
+   `main`, and `dry-run` is kept in step with it (no `ref:` pin, no `BRANCH_OVERRIDE`).
 4. Expect the fire time to slip — GitHub queues scheduled runs best-effort and has been 20+ minutes
-   late here. Avoid `:00`/`:30`, the most contended minutes. This is why nothing in the reporting
-   states a fixed clock time; `scripts/notify/slack-reminder.ts` computes
-   *now + `REMINDER_LEAD_MINUTES`* instead.
+   late here. Hence 3:58 rather than 4:00, avoiding the contended `:00`/`:30`. This is also why
+   nothing in the reporting states a fixed clock time.
+
+On demand, one suite at a time:
+
+```
+gh workflow run e2e.yml -f suite=journey
+gh workflow run e2e.yml -f suite=webpet -f batch=01
+```
 
 **Reporting** ([`src/reporting/`](../src/reporting/)) runs *inside* Playwright's `onEnd` — no
 separate CI send step. All three channels are self-gating (do nothing unless their `SEND_*` flag

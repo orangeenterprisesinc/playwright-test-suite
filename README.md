@@ -903,9 +903,21 @@ gh workflow run e2e.yml --ref dry-run -f suite=journey
 gh workflow run e2e.yml --ref dry-run -f suite=webpet -f batch=01
 ```
 
-> **There is currently no cron in this repo.** The scheduled dry run is switched off — the orchestrator (`dry-run-daily.yml`) and the pre-run announcement (`dry-run-reminder.yml`) were removed, so nothing runs on a timer. Runs happen on push to `main`, manual dispatch, and `repository_dispatch`.
->
-> When the daily run is brought back, add a `schedule:` block to `e2e.yml`. Two notes for whoever does that: cron only fires from the **default branch**, and a single workflow cannot run both suites sequentially from one cron without a `strategy.matrix` plus `max-parallel: 1` — they must not overlap, because both hit the same dev data and the webpet suite mutates it. Also expect the fire time to slip; GitHub queues scheduled runs best-effort and has been 20+ minutes late here, which is why nothing in the reporting states a fixed clock time.
+**The daily dry run is `e2e.yml`'s own cron** (`28 10 * * *`, ~4:00 PM IST), and it runs **both** suites one after the other via a serialised matrix:
+
+```
+3:58 PM IST   e2e.yml  →  matrix suite=journey  →  its own Slack report
+                                   ↓ (max-parallel: 1)
+                          matrix suite=webpet   →  its own Slack report
+```
+
+`max-parallel: 1` is load-bearing: both suites hit the same dev-staging data and the webpet suite mutates it, so they must never overlap. `fail-fast: false` is too — otherwise a red journey leg would cancel WebPet before it started.
+
+Three things to know about the schedule:
+
+- **It fires from `main` only.** GitHub runs `schedule:` from the default branch; a cron block on any other branch is accepted and then never triggers. So a scheduled run tests `main`, and `dry-run` is kept in step with it rather than being the pinned code under test.
+- **Expect it to start late.** GitHub queues scheduled runs best-effort and has fired this 20+ minutes past the hour. It sits at 3:58 rather than 4:00 because `:00` and `:30` are the most contended minutes, but nothing removes the delay — which is why nothing in the reporting states a fixed clock time.
+- **There is no pre-run announcement.** `dry-run-reminder.yml` was removed; `scripts/notify/slack-reminder.ts` survives as a CLI if it is ever wanted back.
 
 Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` still runs on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo); those runs post **no** Slack message (see the Slack section below).
 
