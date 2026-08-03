@@ -40,7 +40,8 @@
  * silently changes what the API sees.
  */
 import { expect, test as base } from '@playwright/test';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
 import { applyWebpetGate } from './gate/webpetGate';
@@ -108,8 +109,18 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         { auto: true },
     ],
 
-    context: async ({ browser }, use) => {
-        const ctx = await browser.newContext({ storageState: WEBPET_ADMIN_STORAGE });
+    context: async ({ browser }, use, testInfo) => {
+        // Playwright wires `use.video` only into its own `context` fixture. This
+        // one builds the context by hand, so without this the project's video
+        // setting is silently inert — parity mode off still produced no .webm.
+        const configured = testInfo.project.use.video;
+        const videoMode = typeof configured === 'string' ? configured : configured?.mode;
+        const recording = videoMode !== undefined && videoMode !== 'off';
+
+        const ctx = await browser.newContext({
+            storageState: WEBPET_ADMIN_STORAGE,
+            ...(recording ? { recordVideo: { dir: testInfo.outputPath('video') } } : {}),
+        });
 
         // Pin every spec to English so text assertions are language-stable
         // regardless of the seeded user's Users.Language value or OS locale.
@@ -154,6 +165,20 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
 
         await use(ctx);
         await ctx.close();
+
+        // The .webm is only finalized on context close, so it can only be
+        // attached to the report afterwards.
+        if (recording) {
+            const dir = testInfo.outputPath('video');
+            for (const file of existsSync(dir) ? readdirSync(dir) : []) {
+                if (file.endsWith('.webm')) {
+                    await testInfo.attach('video', {
+                        path: join(dir, file),
+                        contentType: 'video/webm',
+                    });
+                }
+            }
+        }
     },
 
     page: async ({ context }, use) => {
