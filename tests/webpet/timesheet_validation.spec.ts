@@ -24,6 +24,19 @@
  * test cleans up both. That is order-dependent and would not be written this way
  * today — but rewriting it would change what runs, so it stays. The `test.skip()`
  * guards are what keep it honest when the earlier test did not run.
+ *
+ * Every guard below carries a **reason**. A blank-reason skip reads as deliberate,
+ * and two of these were once misread as evidence that the create had succeeded,
+ * which sent the WEBPET-1436 / BUG-11 investigation down the wrong path twice.
+ *
+ * NOT `mode: 'serial'`, deliberately, and this was measured rather than assumed.
+ * BUG-13 recommended it; declaring it costs coverage while the create is broken.
+ * At `workers=2`: without serial, 1 failed / 2 skipped / 9 passed — with serial,
+ * 1 failed / 4 skipped / **7** passed, because a file-wide serial group abandons
+ * everything after the failure, including the two tests that do not depend on the
+ * created record at all (`nonexistent id`, and soft delete + restore). Revisit once
+ * BUG-11 is fixed: with a passing create, serial becomes the better config and
+ * costs nothing.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 
@@ -123,7 +136,7 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
     test('[Validation] Verify that creating a validation navigates to the edit form.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0385' },
-    }, async ({ page, pages, request }) => {
+    }, async ({ pages, request }) => {
         const form = pages.timeSheetValidationForm;
         if (!(await form.gotoNewOrForbidden())) return;
 
@@ -141,12 +154,12 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
 
         // fillName blurs, which runs onBlur validation so the submit button enables.
         await form.fillName(TEST_NAME);
-        await form.footer.submitButton.click();
-        // Must require a numeric id: '**/validations/**' also matches the /new form
-        // we are already on, so it resolved instantly and the assertions below ran
-        // against the unsaved create form — reporting the failure as "name is not
-        // read-only" instead of "the create never happened".
-        await page.waitForURL(/\/setup\/timesheet\/validations\/\d+(\?|$)/);
+        // submit() resolves against WebpetFormPage.editUrlPattern (<listUrl>/<id>), so
+        // 'created' means the app actually navigated. The previous hand-rolled
+        // waitForURL('**/validations/**') also matched the /new page we were already
+        // on, resolved instantly, and left the assertions below running against the
+        // unsaved create form — which reported this as "name is not read-only".
+        expect(await form.submit()).toBe('created');
         await expect(form.nameInput).toHaveValue(TEST_NAME);
         // Name is read-only after first save.
         await expect(form.nameInput).toHaveAttribute('readonly', '');
@@ -165,15 +178,20 @@ test.describe('Setup > TimeSheet Validation — edit form', { tag: ['@WebPet', '
         const form = pages.timeSheetValidationForm;
         // Fetch the record the create test made — see the file header on coupling.
         const listResp = await request.get('/api/validations');
-        if (!listResp.ok()) return;
+        test.skip(
+            !listResp.ok(),
+            `GET /api/validations returned HTTP ${listResp.status()}; cannot locate the record ` +
+            `the create test makes.`,
+        );
         const items = (await listResp.json()) as ValidationRow[];
         const rec = items.find((v) => v.name === TEST_NAME);
-        if (!rec) {
-            test.skip();
-            return;
-        }
+        test.skip(
+            !rec,
+            `no active validation named "${TEST_NAME}" — the create test (WP-0385) did not ` +
+            `produce it, so there is nothing to open.`,
+        );
 
-        if (!(await form.gotoEditOrForbidden(rec.validationCounter))) return;
+        if (!(await form.gotoEditOrForbidden(rec!.validationCounter))) return;
         await expect(form.nameInput).toHaveAttribute('readonly', '');
     });
 
@@ -183,17 +201,22 @@ test.describe('Setup > TimeSheet Validation — edit form', { tag: ['@WebPet', '
     }, async ({ pages, request }) => {
         const form = pages.timeSheetValidationForm;
         const listResp = await request.get('/api/validations');
-        if (!listResp.ok()) return;
+        test.skip(
+            !listResp.ok(),
+            `GET /api/validations returned HTTP ${listResp.status()}; cannot locate the record ` +
+            `the create test makes.`,
+        );
         const items = (await listResp.json()) as ValidationRow[];
         const rec = items.find((v) => v.name === TEST_NAME);
-        if (!rec) {
-            test.skip();
-            return;
-        }
+        test.skip(
+            !rec,
+            `no active validation named "${TEST_NAME}" — the create test (WP-0385) did not ` +
+            `produce it, so there is no audit log to open.`,
+        );
 
         // The audit log is a dedicated page (validations/:id/audit →
         // ValidationAuditLogPage), not an inline section on the edit form anymore.
-        if (!(await form.gotoAuditOrForbidden(rec.validationCounter))) return;
+        if (!(await form.gotoAuditOrForbidden(rec!.validationCounter))) return;
         await expect(form.auditHeading).toBeVisible();
     });
 

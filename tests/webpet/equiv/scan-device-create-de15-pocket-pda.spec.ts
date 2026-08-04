@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: scan-device-create-de15-pocket-pda
  *
@@ -115,7 +116,7 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         await page.waitForURL(/\/setup\/scan-devices$/, { timeout: 60_000 });
 
         // ── DB assertions via GET /api/scan-devices/:id ────────────────────────
-        const res = await page.request.get(`/api/scan-devices/${deviceId}`);
+        const res = await page.request.get(apiUrl(`/api/scan-devices/${deviceId}`));
         expect(res.ok()).toBe(true);
         const row = await res.json();
 

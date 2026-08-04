@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: biometric-device-commands-equivalence
  * (WEBPET-877, Biometric Device Management Slice 12 — verification tail).
@@ -189,7 +190,7 @@ test.describe('Equivalence: biometric device commands (web vs legacy, family A /
       // Origin header — but the API's OriginCheck 403s unsafe methods whose
       // Origin doesn't match. Send it explicitly (alongside the CSRF double-submit
       // token) so the call is properly authorized.
-      const res = await page.request.post(cmd.url, {
+      const res = await page.request.post(apiUrl(cmd.url), {
         data: cmd.body,
         headers: {
           'X-CSRF-Token': csrf,
@@ -244,7 +245,7 @@ test.describe('Equivalence: biometric device commands (web vs legacy, family A /
       // The run-status poll (GET /connectivity/device-admin/runs/{id}) returns the
       // same run plus its per-command rows, and is owner-scoped. Confirm it reads
       // back a terminal status — proving the async pipeline's read path.
-      const runRes = await page.request.get(`/api/connectivity/device-admin/runs/${body.runId}`)
+      const runRes = await page.request.get(apiUrl(`/api/connectivity/device-admin/runs/${body.runId}`))
       expect(runRes.ok(), `${cmd.name} run-status poll should succeed`).toBe(true)
       const run = (await runRes.json()) as { runId: number; status: string; commands: unknown[] }
       expect(run.runId).toBe(body.runId)
@@ -282,7 +283,7 @@ test.describe('Equivalence: biometric device commands (web vs legacy, family A /
         // Only compare commands present in the legacy baseline.
         if (!expected) continue
 
-        const res = await page.request.post(cmd.url, {
+        const res = await page.request.post(apiUrl(cmd.url), {
           data: cmd.body,
           headers: { 'X-CSRF-Token': csrf },
         })

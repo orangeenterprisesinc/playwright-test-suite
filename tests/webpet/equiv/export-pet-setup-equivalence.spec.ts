@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: export-pet-setup-equivalence (WEBPET-845, Export Engine Slice 12)
  *
@@ -215,7 +216,7 @@ test.describe('Equivalence: export-pet-setup (web export vs legacy PET-Setup)', 
     const csrf = csrfFromStorage()
 
     // ── Trigger the web export via the new engine ────────────────────────────
-    const exportRes = await page.request.post('/api/connectivity/export/scan-devices', {
+    const exportRes = await page.request.post(apiUrl('/api/connectivity/export/scan-devices'), {
       data: {},
       headers: { 'X-CSRF-Token': csrf },
     })
@@ -287,7 +288,7 @@ test.describe('Equivalence: export-pet-setup (web export vs legacy PET-Setup)', 
         },
       },
     }
-    const importRes = await page.request.post('/api/connectivity/import/single-folder', {
+    const importRes = await page.request.post(apiUrl('/api/connectivity/import/single-folder'), {
       ...form,
       headers: { 'X-CSRF-Token': csrf },
     })
@@ -298,7 +299,7 @@ test.describe('Equivalence: export-pet-setup (web export vs legacy PET-Setup)', 
     // Poll the run to a terminal status (the worker drives `received` → terminal).
     let terminal = ''
     for (let i = 0; i < 30; i++) {
-      const runRes = await page.request.get(`/api/connectivity/import/runs/${importBody.runId}`)
+      const runRes = await page.request.get(apiUrl(`/api/connectivity/import/runs/${importBody.runId}`))
       if (runRes.ok()) {
         const run = (await runRes.json()) as { status: string }
         if (['completed', 'partial', 'failed'].includes(run.status)) {

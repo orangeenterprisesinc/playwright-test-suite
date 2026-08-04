@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: crew-04-timecard-multi-entry-workflow
  *
@@ -90,7 +91,7 @@ test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', { tag: ['@We
         await page.waitForURL(/\/input\/time-in\/\d+/);
         const step1Id = extractIdFromUrl(page.url());
 
-        const res1 = await page.request.get(`/api/time-cards/time-in/${step1Id}`);
+        const res1 = await page.request.get(apiUrl(`/api/time-cards/time-in/${step1Id}`));
         expect(res1.ok()).toBe(true);
         const r1 = await res1.json();
         expect(r1.dateTime).toBe(`${TEST_DATE}T06:00:00`);
@@ -114,7 +115,7 @@ test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', { tag: ['@We
         await page.waitForURL(/\/input\/time-in\/\d+/);
         const step2Id = extractIdFromUrl(page.url());
 
-        const res2 = await page.request.get(`/api/time-cards/time-in/${step2Id}`);
+        const res2 = await page.request.get(apiUrl(`/api/time-cards/time-in/${step2Id}`));
         expect(res2.ok()).toBe(true);
         const r2 = await res2.json();
         expect(r2.dateTime).toBe(`${TEST_DATE}T10:00:00`);
@@ -136,7 +137,7 @@ test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', { tag: ['@We
         await page.waitForURL(/\/input\/time-in\/\d+/);
         const step3Id = extractIdFromUrl(page.url());
 
-        const res3 = await page.request.get(`/api/time-cards/time-in/${step3Id}`);
+        const res3 = await page.request.get(apiUrl(`/api/time-cards/time-in/${step3Id}`));
         expect(res3.ok()).toBe(true);
         const r3 = await res3.json();
         expect(r3.dateTime).toBe(`${TEST_DATE}T10:30:00`);
@@ -156,7 +157,7 @@ test.describe('Equivalence: crew-04-timecard-multi-entry-workflow', { tag: ['@We
         await page.waitForURL(/\/input\/time-out\/\d+/);
         const step4Id = extractIdFromUrl(page.url());
 
-        const res4 = await page.request.get(`/api/time-cards/time-out/${step4Id}`);
+        const res4 = await page.request.get(apiUrl(`/api/time-cards/time-out/${step4Id}`));
         expect(res4.ok()).toBe(true);
         const r4 = await res4.json();
         expect(r4.dateTime).toBe(`${TEST_DATE}T14:30:00`);

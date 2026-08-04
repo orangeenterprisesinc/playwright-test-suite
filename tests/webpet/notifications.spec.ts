@@ -26,7 +26,7 @@
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 import { test as cleanTest, expect as cleanExpect } from '@fixtures/webpetAnonymous.fixture';
-import { ADMIN_PASSWORD, ADMIN_USER } from '@config/webpetEnv';
+import { ADMIN_PASSWORD, ADMIN_USER, apiUrl } from '@config/webpetEnv';
 import type { Page } from '@playwright/test';
 import {
     ensureCrew,
@@ -281,7 +281,7 @@ cleanTest.describe('Auth event toasts', { tag: ['@WebPet', '@wp-notifications', 
      * and every downstream step just times out with no obvious cause.
      */
     async function seedSession(page: Page, baseURL: string | undefined): Promise<void> {
-        const res = await page.request.post('/api/auth/login', {
+        const res = await page.request.post(apiUrl('/api/auth/login'), {
             data: { username: ADMIN_USER, password: ADMIN_PASSWORD },
             headers: baseURL ? { Origin: baseURL } : undefined,
         });
