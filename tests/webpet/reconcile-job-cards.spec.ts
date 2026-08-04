@@ -25,6 +25,7 @@
  * would never be reachable.
  */
 import type { Page } from '@playwright/test';
+import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { ReconcileJobCardsPage } from '@pages/webpet/accounting/ReconcileJobCardsPage';
 
@@ -93,18 +94,47 @@ const submitReconcile = async (reconcile: ReconcileJobCardsPage) => {
     await reconcile.confirmSubmitButton.click();
 };
 
-/** Read the session's effective `accounting.export` grant from inside the page. */
+/**
+ * Read the session's effective `accounting.export` grant from inside the page.
+ *
+ * Reads the body as text and parses it here rather than calling `res.json()`, so a
+ * non-JSON response reports what actually came back instead of throwing a
+ * `TypeError` on a null session two lines later — which is what made this helper
+ * mask the real failure on dev (see BUG-05 / BUG-01).
+ */
 const hasExportPermission = async (page: Page): Promise<boolean> => {
-    const session = await page.evaluate(async () => {
-        const res = await fetch('/api/session/me', { credentials: 'include' });
-        return (await res.json()) as {
-            derivedPermissions: string[];
-            capabilities: { actions: Record<string, boolean> };
-        };
-    });
+    const url = apiUrl('/api/session/me');
+    const result = await page.evaluate(async (sessionUrl) => {
+        const res = await fetch(sessionUrl, { credentials: 'include' });
+        const body = await res.text();
+        try {
+            return { status: res.status, session: JSON.parse(body) as unknown };
+        } catch {
+            return { status: res.status, body: body.slice(0, 120) };
+        }
+    }, url);
+
+    const session = 'session' in result ? (result.session as {
+        derivedPermissions?: string[];
+        capabilities?: { actions?: Record<string, boolean> };
+    } | null) : null;
+
+    if (!session) {
+        throw new Error(
+            `could not read the session from ${url}: HTTP ${result.status}` +
+            ('body' in result ? `, body starts ${JSON.stringify(result.body)}` : ', body was null'),
+        );
+    }
+    if (!Array.isArray(session.derivedPermissions) && session.capabilities?.actions === undefined) {
+        throw new Error(
+            `${url} returned HTTP ${result.status} but carried neither derivedPermissions nor ` +
+            `capabilities.actions; keys: ${Object.keys(session).join(', ') || '(none)'}`,
+        );
+    }
+
     return (
-        session.derivedPermissions.includes('accounting.export') ||
-        session.capabilities.actions['accounting.export'] === true
+        (session.derivedPermissions ?? []).includes('accounting.export') ||
+        session.capabilities?.actions?.['accounting.export'] === true
     );
 };
 

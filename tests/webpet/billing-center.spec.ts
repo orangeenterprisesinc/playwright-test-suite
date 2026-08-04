@@ -77,17 +77,16 @@ test.describe('Setup > Billing Center — new form', { tag: ['@WebPet', '@wp-set
     test('[Billing Center] Verify that creating a billing center navigates to the edit form.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0004' },
-    }, async ({ page, pages }) => {
+    }, async ({ pages }) => {
         const form = pages.billingCenterForm;
         if (!(await form.gotoNewOrForbidden())) return;
 
         await form.nameInput.fill(TEST_NAME);
         await form.codeInput.fill(TEST_CODE);
         await form.exportIdentifierInput.fill(TEST_EXPORT_ID);
-        await form.footer.submitButton.click();
-        // Numeric id required — '**/billing-centers/**' also matches /new (see the
-        // same fix in timesheet_validation.spec.ts).
-        await page.waitForURL(/\/setup\/billing-centers\/\d+(\?|$)/);
+        // See timesheet_validation.spec.ts: the old '**/billing-centers/**' glob also
+        // matched /new. submit() resolves against editUrlPattern instead.
+        expect(await form.submit()).toBe('created');
         await expect(form.nameInput).toHaveValue(TEST_NAME);
         // Name is read-only after first save.
         await expect(form.nameInput).toHaveAttribute('readonly', '');

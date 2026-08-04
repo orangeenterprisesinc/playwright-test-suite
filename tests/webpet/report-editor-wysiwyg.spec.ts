@@ -21,14 +21,24 @@
  * families look similar (`data-active-area` vs `data-area`) and mixing them up
  * yields a locator that never resolves.
  *
- * Note: all 13 of these are red on dev staging, which needs a seeded report. That
- * is a known environment gap, not a conversion defect — see
- * DEV-BASELINE-2026-07-29.md.
+ * STALE — the editor was rebuilt after these were authored. web-pet replaced the
+ * sandboxed iframe with an inline React ReportCanvas (bfe869b10, 2026-06-10) and
+ * dropped the marker overlay + right inspector rail for popover editors + an
+ * anchor menu (bb9065e1e); none of `data-marker-area` / `data-active-area` /
+ * `data-inspector-area` exist any more, in source or in the deployed bundle. Only
+ * WP-0315 (zoom, testid `preview-sheet`) survived the rebuild and still passes.
+ * The rest are fixme'd below until this file and ReportEditorPage are rewritten
+ * against the ReportCanvas UI. The earlier note here blaming a missing seeded
+ * report on dev was wrong — the report renders; the architecture moved.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 
 /** The seeded report this journey drives. */
 const REPORT = 'Ranch';
+
+/** One reason string so the skip report groups all of these together. */
+const STALE_EDITOR =
+    'editor rebuilt: iframe→inline ReportCanvas (web-pet bfe869b10), markers/inspector→popovers (bb9065e1e) — spec rewrite pending';
 
 test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet', '@wp-reporteditor', '@WPBatch10'] }, () => {
 
@@ -40,6 +50,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-smoke'],
         annotation: { type: 'testCaseId', description: 'WP-0308' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // asserts the removed iframe + old heading
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         // The page title names the report being edited ("Edit <name> Report").
@@ -53,6 +64,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0309' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // iframe sandbox + data-active-area are gone
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
 
@@ -70,6 +82,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0310' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // markers + inspector Sheet + index removed
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
 
@@ -90,6 +103,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0311' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // driven via the removed marker overlay
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
 
@@ -110,6 +124,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0312' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // driven via the removed marker overlay
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await editor.marker('table').click();
@@ -125,6 +140,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0313' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // frameColumnHeaders reach through the removed iframe
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await expect(editor.marker('table')).toBeVisible({ timeout: 15000 });
@@ -147,6 +163,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0314' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // labels lived on the removed markers
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await expect(editor.marker('header')).toBeVisible({ timeout: 15000 });
@@ -187,6 +204,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0316' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // aria-label lived on the removed markers
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await expect(editor.marker('header')).toBeVisible({ timeout: 15000 });
@@ -198,6 +216,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0317' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // edits are driven via the removed marker overlay
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await expect(editor.previewSheet).toBeVisible({ timeout: 15000 });
@@ -218,6 +237,7 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0318' },
     }, async ({ pages }) => {
+        test.fixme(true, STALE_EDITOR); // Page Setup lived on the removed inspector index
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         await expect(editor.previewSheet).toBeVisible({ timeout: 15000 });
@@ -244,6 +264,10 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0319' },
     }, async ({ pages }) => {
+        // Not just stale — the feature moved: widgets were hidden from the editor
+        // flow on purpose (web-pet 219d5ac83). Rewrite must decide whether this
+        // assertion still has a subject at all.
+        test.fixme(true, 'widgets hidden from the editor flow (web-pet 219d5ac83) — no Widgets entry to reach');
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
         // The inspector opens on the section index by default.

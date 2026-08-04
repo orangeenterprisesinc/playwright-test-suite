@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Job form-page e2e.
  *
@@ -171,7 +172,7 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
         // page.request (not the `request` fixture) is deliberate — it carries the
         // browser context's cookies and the page's baseURL, which is what the
         // round-trip is verifying. See seed/TRIAGE-DELLLANO.md.
-        const initial = await (await page.request.get(`/api/jobs/${jobId}`)).json();
+        const initial = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
         const originalIncludeIdle = initial.includeIdleTime;
         const originalActAs = initial.actAsDeterminedByJobEnd;
         expect(typeof originalIncludeIdle).toBe('boolean');
@@ -185,15 +186,15 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
             await form.footer.submitButton.click();
             await page.waitForURL('**/setup/jobs');
 
-            const afterFlip = await (await page.request.get(`/api/jobs/${jobId}`)).json();
+            const afterFlip = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
             expect(typeof afterFlip.includeIdleTime).toBe('boolean');
             expect(typeof afterFlip.actAsDeterminedByJobEnd).toBe('boolean');
             expect(afterFlip.includeIdleTime).toBe(!originalIncludeIdle);
             expect(afterFlip.actAsDeterminedByJobEnd).toBe(!originalActAs);
         } finally {
             // Restore via PUT so subsequent runs start from known state.
-            const current = await (await page.request.get(`/api/jobs/${jobId}`)).json();
-            await page.request.put(`/api/jobs/${jobId}`, {
+            const current = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
+            await page.request.put(apiUrl(`/api/jobs/${jobId}`), {
                 data: {
                     active: current.active,
                     paymentType: current.paymentType,

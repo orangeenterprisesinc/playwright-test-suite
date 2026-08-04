@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: create-user-amy-sandoval
  *
@@ -38,7 +39,7 @@ const TEST_PASSWORD = 'Test@12345';
 // runtime — same approach as global-setup.ts's freeUserInitials. Documented
 // divergence from the recorded scenario, like EmailAddress below.
 async function freeUserInitials(page: Page): Promise<string> {
-    const res = await page.request.get('/api/users');
+    const res = await page.request.get(apiUrl('/api/users'));
     const users = (await res.json()) as Array<{ userInitials?: string }>;
     const used = new Set(users.map((u) => (u.userInitials ?? '').toUpperCase()));
     const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -119,7 +120,7 @@ test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@WebPet', '@wp-e
         // ── DB assertions via GET /api/users/:id ──────────────────────────────
         // page.request carries the browser session cookie (RequireAuth).
 
-        const res = await page.request.get(`/api/users/${createdId}`);
+        const res = await page.request.get(apiUrl(`/api/users/${createdId}`));
         expect(res.ok()).toBe(true);
         const row = await res.json();
 

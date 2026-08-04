@@ -26,7 +26,7 @@
  */
 import { readFileSync } from 'fs';
 import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths';
-import { API_BASE_URL } from '@config/webpetEnv';
+import { API_BASE_URL, apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -116,7 +116,7 @@ test.describe('Equivalence: variety-new-record-cucumbers-european', { tag: ['@We
         // page.request carries the browser context's session cookies (RequireAuth).
         // GET is a safe method — no CSRF header required.
 
-        const res = await page.request.get(`/api/varieties/${createdId}`);
+        const res = await page.request.get(apiUrl(`/api/varieties/${createdId}`));
         expect(res.ok()).toBe(true);
         const row = await res.json();
 

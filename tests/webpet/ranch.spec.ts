@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * RanchListPage e2e — targets the new DataGrid lib (post PET-424 migration).
  *
@@ -55,9 +56,9 @@ test.afterAll(async ({ request }) => {
 // Ensure a ranch's WorkerCompCode is null so its cell shows the "—" empty
 // display (the WCC text-edit test starts from empty).
 async function clearRanchWcc(page: Page, id: number): Promise<void> {
-    const r = await (await page.request.get(`/api/ranches/${id}`)).json();
+    const r = await (await page.request.get(apiUrl(`/api/ranches/${id}`))).json();
     if (r.workerCompCode == null) return;
-    await page.request.put(`/api/ranches/${id}`, {
+    await page.request.put(apiUrl(`/api/ranches/${id}`), {
         data: {
             active: true,
             departmentCounter: r.departmentCounter ?? null,
@@ -74,9 +75,9 @@ async function clearRanchWcc(page: Page, id: number): Promise<void> {
 // the test is always a real change (an interrupted run can leave a stale
 // polygon, making the fill a no-op and Save stays disabled).
 async function clearRanchBoundary(page: Page, id: number): Promise<void> {
-    const r = await (await page.request.get(`/api/ranches/${id}`)).json();
+    const r = await (await page.request.get(apiUrl(`/api/ranches/${id}`))).json();
     if (r.point == null && r.polygon == null) return;
-    await page.request.put(`/api/ranches/${id}`, {
+    await page.request.put(apiUrl(`/api/ranches/${id}`), {
         data: {
             active: true,
             departmentCounter: r.departmentCounter ?? null,
@@ -350,14 +351,14 @@ test.describe('Ranch form — boundary section', { tag: ['@WebPet', '@wp-setup',
         await page.waitForURL(/\/setup\/ranches(\?|$)/, { timeout: 10000 });
 
         // Round-trip: read back via the API and assert the polygon stuck.
-        const after = await page.request.get(`/api/ranches/${ranchC.id}`);
+        const after = await page.request.get(apiUrl(`/api/ranches/${ranchC.id}`));
         expect(after.ok()).toBe(true);
         const ranch = await after.json();
         expect(ranch.polygon).toBe(polygonText);
         expect(ranch.point).toBe('(38.515, -96.795)');
 
         // Cleanup: reset polygon back to null so subsequent runs start clean.
-        await page.request.put(`/api/ranches/${ranchC.id}`, {
+        await page.request.put(apiUrl(`/api/ranches/${ranchC.id}`), {
             data: {
                 active: true,
                 departmentCounter: ranch.departmentCounter ?? null,

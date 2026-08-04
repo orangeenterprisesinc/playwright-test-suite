@@ -27,6 +27,11 @@
  *   from the `<label for>` up to the shared container and back down. The form
  *   also scrolls in an inner `overflow-y-auto`, so the click has to be preceded
  *   by `scrollIntoViewIfNeeded` — {@link clickPermission} does both.
+ *
+ *   Dev staging renders these same permissions as `[data-slot="switch"]` rather
+ *   than `[data-slot="checkbox"]` — both slots exist in the deployed bundle, and
+ *   which one a form uses is not something the test can assume. The locator
+ *   accepts either so it does not have to be reversed when the two converge.
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
@@ -122,7 +127,7 @@ export class UsersFormPage extends BasePage {
         return this.page
             .locator(`label[for="${fieldId}"]`)
             .locator('..')
-            .locator('[data-slot="checkbox"]');
+            .locator('[data-slot="checkbox"], [data-slot="switch"]');
     }
 
     /** Scroll a permission checkbox into the inner scroll container, then click it. */

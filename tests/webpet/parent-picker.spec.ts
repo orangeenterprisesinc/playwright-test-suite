@@ -18,14 +18,64 @@
  *   handler render the footer, so both its presence *and* its absence are real
  *   assertions.
  *
- * Fixture data is DelLlano-resolved (seed/TRIAGE-DELLLANO.md): "ADP 5",
- * "STRAWBERRIES", crop counters 2 and 3, ranch 6. The PetData-era names this
- * file was first written against do not exist here.
+ * This file owns every row it selects, created fresh via the API — it does not
+ * depend on the DelLlano seed. It used to name "ADP 5", "STRAWBERRIES", crop
+ * counters 2 and 3 and ranch 6 directly, which made 4 tests fail (and 3 more
+ * time out behind them) on any DB without those exact rows, dev staging
+ * included. The component under test is the picker, never a particular row, so
+ * the names below come from the factory. Same pattern as crew.spec.ts.
+ *
+ * The cascade tests need a specific *shape* of data, not specific values:
+ * WP-0273 needs a Ranch with at least one Field; WP-0279 needs one Crop that
+ * has a Variety and a second that has none. Both are built in `beforeAll`.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
+import {
+    ensureCrop,
+    deleteCrop,
+    ensureDepartment,
+    deleteDepartment,
+    ensureField,
+    deleteField,
+    ensureRanch,
+    deleteRanch,
+    ensureVariety,
+    deleteVariety,
+    type EnsuredCrop,
+    type EnsuredDepartment,
+    type EnsuredField,
+    type EnsuredRanch,
+    type EnsuredVariety,
+} from './data-factory';
 
-/** Seeded DelLlano department used across the combobox tests. */
-const SEEDED_DEPARTMENT = 'ADP 5';
+let dept: EnsuredDepartment;
+/** Has `variety` under it — drives the "refilters and clears" cascade. */
+let cropWithVariety: EnsuredCrop;
+/** Deliberately variety-less: switching to it is what must clear the selection. */
+let cropWithoutVariety: EnsuredCrop;
+let variety: EnsuredVariety;
+/** Has `field` under it — drives the Ranch → Field cascade. */
+let ranch: EnsuredRanch;
+let field: EnsuredField;
+
+test.beforeAll(async ({ request }) => {
+    dept = await ensureDepartment(request, { namePrefix: 'E2EPickDept' });
+    cropWithVariety = await ensureCrop(request, { namePrefix: 'E2EPickCropV' });
+    cropWithoutVariety = await ensureCrop(request, { namePrefix: 'E2EPickCropN' });
+    variety = await ensureVariety(request, { namePrefix: 'E2EPickVar', cropId: cropWithVariety.id });
+    ranch = await ensureRanch(request, { namePrefix: 'E2EPickRanch' });
+    field = await ensureField(request, { namePrefix: 'E2EPickField', ranchId: ranch.id });
+});
+
+test.afterAll(async ({ request }) => {
+    // Children before parents — the API blocks a delete with live FK rows.
+    if (field) await deleteField(request, field.id);
+    if (ranch) await deleteRanch(request, ranch.id);
+    if (variety) await deleteVariety(request, variety.id);
+    if (cropWithoutVariety) await deleteCrop(request, cropWithoutVariety.id);
+    if (cropWithVariety) await deleteCrop(request, cropWithVariety.id);
+    if (dept) await deleteDepartment(request, dept.id);
+});
 
 /** A name guaranteed not to match anything, for the "+ Create" assertions. */
 const unknownName = () => `ZZZ_Test_${Date.now()}`;
@@ -44,16 +94,16 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
 
         const picker = form.departmentPicker;
         await picker.openCombobox();
-        await expect(picker.comboboxOptionByExactText(SEEDED_DEPARTMENT)).toBeVisible();
+        await expect(picker.comboboxOptionByExactText(dept.name)).toBeVisible();
 
         // Filter: a no-match string hides the option; typing a prefix brings it back.
         await picker.comboboxInput.fill('zzz-no-such-department');
-        await expect(picker.comboboxOptionByExactText(SEEDED_DEPARTMENT)).toBeHidden();
-        await picker.comboboxInput.fill('ADP');
-        await expect(picker.comboboxOptionByExactText(SEEDED_DEPARTMENT)).toBeVisible();
+        await expect(picker.comboboxOptionByExactText(dept.name)).toBeHidden();
+        await picker.comboboxInput.fill(dept.name.slice(0, -1));
+        await expect(picker.comboboxOptionByExactText(dept.name)).toBeVisible();
 
-        await picker.comboboxOptionByExactText(SEEDED_DEPARTMENT).click();
-        await expect(picker.comboboxInput).toHaveValue(SEEDED_DEPARTMENT);
+        await picker.comboboxOptionByExactText(dept.name).click();
+        await expect(picker.comboboxInput).toHaveValue(dept.name);
     });
 
     test('[Picker] Verify that the employee Department combobox is clearable.', {
@@ -69,8 +119,8 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
         // selected — not a "— None —" list item.
         const picker = form.departmentPicker;
         await picker.openCombobox();
-        await picker.comboboxOptionByExactText(SEEDED_DEPARTMENT).click();
-        await expect(picker.comboboxInput).toHaveValue(SEEDED_DEPARTMENT);
+        await picker.comboboxOptionByExactText(dept.name).click();
+        await expect(picker.comboboxInput).toHaveValue(dept.name);
 
         await expect(picker.comboboxClear).toBeVisible();
         await picker.comboboxClear.click();
@@ -140,9 +190,9 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
 
         const picker = form.departmentPicker;
         await picker.openCombobox();
-        await expect(picker.comboboxOptionByText(SEEDED_DEPARTMENT)).toBeVisible();
-        await picker.comboboxOptionByText(SEEDED_DEPARTMENT).click();
-        await expect(picker.comboboxInput).toHaveValue(SEEDED_DEPARTMENT);
+        await expect(picker.comboboxOptionByText(dept.name)).toBeVisible();
+        await picker.comboboxOptionByText(dept.name).click();
+        await expect(picker.comboboxInput).toHaveValue(dept.name);
     });
 
     test('[Picker] Verify that the crew Department combobox loads and selects.', {
@@ -155,9 +205,9 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
 
         const picker = form.departmentPicker;
         await picker.openCombobox();
-        await expect(picker.comboboxOptionByText(SEEDED_DEPARTMENT)).toBeVisible();
-        await picker.comboboxOptionByText(SEEDED_DEPARTMENT).click();
-        await expect(picker.comboboxInput).toHaveValue(SEEDED_DEPARTMENT);
+        await expect(picker.comboboxOptionByText(dept.name)).toBeVisible();
+        await picker.comboboxOptionByText(dept.name).click();
+        await expect(picker.comboboxInput).toHaveValue(dept.name);
     });
 
 });
@@ -192,8 +242,9 @@ test.describe('Parent Picker — sheet mode', { tag: ['@WebPet', '@wp-picker', '
         await form.waitForFormRoot();
 
         await form.cropPicker.openSheet();
-        // STRAWBERRIES is a seeded DelLlano crop.
-        await expect(form.cropPicker.sheetOptionByText('STRAWBERRIES')).toBeVisible();
+        // This file's own crop — proves the sheet is DB-backed without naming a
+        // seeded row.
+        await expect(form.cropPicker.sheetOptionByText(cropWithVariety.name)).toBeVisible();
     });
 
     test('[Picker] Verify that the field Ranch sheet lists real ranches.', {
@@ -276,20 +327,19 @@ test.describe('Parent Picker — cascading filter', { tag: ['@WebPet', '@wp-pick
         await form.gotoNew();
         await form.waitForFormRoot();
 
-        // Ranch 6 ("ALL RANCHES") has multiple active Fields in the DelLlano seed.
-        await form.defaultRanchPicker.selectSheetOption('6');
+        // This file's own Ranch, which owns exactly one Field (created in beforeAll).
+        await form.defaultRanchPicker.selectSheetOption(String(ranch.id));
 
         const fieldPicker = form.defaultFieldPicker;
         await fieldPicker.openCombobox();
-        // At least one Field belongs to Ranch 6 — asserting real filtered content
-        // rather than a hardcoded field name.
-        await expect(fieldPicker.comboboxItems.first()).toBeVisible();
+        // The Field list is now Ranch-filtered, so our one Field is what it holds.
+        await expect(fieldPicker.comboboxOptionByText(field.name)).toBeVisible();
 
         // Close popup, change Ranch, verify Field resets (cascade via onChange).
         await page.keyboard.press('Escape');
 
         await form.defaultRanchPicker.openSheet();
-        const otherItem = form.defaultRanchPicker.sheetItemsExcluding('6').first();
+        const otherItem = form.defaultRanchPicker.sheetItemsExcluding(String(ranch.id)).first();
         const otherRanchValue = await otherItem.getAttribute('data-value');
         expect(otherRanchValue).not.toBeNull();
         await otherItem.click();
@@ -394,25 +444,24 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
         await form.gotoNew();
         await form.waitForFormRoot();
 
-        // DelLlano data: STRAWBERRIES (cropCounter 3) has varieties (BARBARA,
-        // MAVERICK, …); the other seeded crops have none. So the cascade is verified
-        // by switching STRAWBERRIES → a variety-less crop: the selection clears and
-        // the strawberry variety drops out of the now-refiltered list.
-        await form.cropPicker.selectSheetOption('3');
+        // The cascade needs one crop that has a variety and one that has none —
+        // both created in beforeAll. Selecting the variety-less crop is what must
+        // clear the selection and drop the variety out of the refiltered list.
+        await form.cropPicker.selectSheetOption(String(cropWithVariety.id));
 
-        const variety = form.varietyPicker;
-        await variety.openCombobox();
-        await expect(variety.comboboxOptionByText('BARBARA')).toBeVisible();
-        await variety.comboboxOptionByText('BARBARA').click();
-        await expect(variety.comboboxInput).toHaveValue('BARBARA');
+        const varietyPicker = form.varietyPicker;
+        await varietyPicker.openCombobox();
+        await expect(varietyPicker.comboboxOptionByText(variety.name)).toBeVisible();
+        await varietyPicker.comboboxOptionByText(variety.name).click();
+        await expect(varietyPicker.comboboxInput).toHaveValue(variety.name);
 
         // Switch Crop → Variety must clear (onChange cascade).
-        await form.cropPicker.selectSheetOption('2'); // BLUEBERRIES — no varieties
-        await expect(variety.comboboxInput).toHaveValue('');
+        await form.cropPicker.selectSheetOption(String(cropWithoutVariety.id));
+        await expect(varietyPicker.comboboxInput).toHaveValue('');
 
-        // Variety list is now BLUEBERRIES-filtered: the STRAWBERRIES variety is gone.
-        await variety.openCombobox();
-        await expect(variety.comboboxOptionByText('BARBARA')).toBeHidden();
+        // The list is now filtered to the variety-less crop: our variety is gone.
+        await varietyPicker.openCombobox();
+        await expect(varietyPicker.comboboxOptionByText(variety.name)).toBeHidden();
     });
 
 });

@@ -1,3 +1,4 @@
+import { apiUrl } from '@config/webpetEnv';
 /**
  * Equivalence test: scan-time-in (WEBPET-908)
  *
@@ -80,7 +81,7 @@ test.describe('Equivalence: scan-time-in', { tag: ['@WebPet', '@wp-equiv', '@WPB
         await expect(screen.status).toBeVisible();
 
         // ── DB assertions via GET /api/time-cards/time-in/:id ──────────────────
-        const get = await page.request.get(`/api/time-cards/time-in/${newId}`);
+        const get = await page.request.get(apiUrl(`/api/time-cards/time-in/${newId}`));
         expect(get.ok()).toBe(true);
         const row = await get.json();
 

@@ -46,6 +46,18 @@ export const API_BASE_URL: string = (process.env.WEBPET_API_ORIGIN ?? WEB_BASE_U
 );
 
 /**
+ * Absolute URL for an API path, for `page.request.*` and in-page `fetch` calls.
+ *
+ * A relative `/api/…` resolves against the **web** origin. On dev that host is an
+ * SPA fallback which answers every path — `/api/*` included — with `index.html`,
+ * so the call returns HTML and the first `.json()` throws
+ * `Unexpected token '<', "<!doctype "…`. On localhost `API_BASE_URL` is the web
+ * origin, so this is a no-op there and the Vite-proxy parity is preserved.
+ */
+export const apiUrl = (path: string): string =>
+    `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+
+/**
  * Admin login used by `provision.ts` and `notifications.spec.ts`.
  *
  * `E2E_ADMIN_*` are the source repo's variables and always win (.env.local and
