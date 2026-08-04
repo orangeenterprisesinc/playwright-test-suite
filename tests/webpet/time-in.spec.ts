@@ -21,27 +21,60 @@
  * component. The Ranch column index is a named constant on the page object —
  * an off-by-one there silently drives the wrong column's editor.
  */
+import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 
 // Mutates shared Time In rows (ranchCounter) then restores via Undo — cannot
 // run in parallel with itself.
 test.describe.configure({ mode: 'serial' });
 
-// A day known to carry multiple Time In records in the seed data.
-const DAY = '2025-12-01';
+/**
+ * A day carrying at least `min` Time In rows, discovered from the API.
+ *
+ * Was a hardcoded `2025-12-01` "known to carry multiple records in the seed data".
+ * That day has no rows on dev, so the grid rendered its two header rows and nothing
+ * else and the test died at the row-count poll before reaching multi-edit — which is
+ * what BUG-12 mistook for a multi-edit persistence defect.
+ *
+ * `GET /time-cards/time-in` unfiltered returns every row, so group by date and pick a
+ * day that actually has enough. Returns null when no day qualifies, which the test
+ * turns into a skip with a reason rather than a misleading row-count failure.
+ */
+async function findPopulatedDay(
+    request: { get: (url: string) => Promise<{ ok: () => boolean; json: () => Promise<unknown> }> },
+    min = 2,
+): Promise<string | null> {
+    const res = await request.get(apiUrl('/api/time-cards/time-in'));
+    if (!res.ok()) return null;
+    const rows = (await res.json()) as Array<{ dateTime?: string | null }>;
+    const perDay = new Map<string, number>();
+    for (const r of Array.isArray(rows) ? rows : []) {
+        const day = (r.dateTime ?? '').slice(0, 10);
+        if (day) perDay.set(day, (perDay.get(day) ?? 0) + 1);
+    }
+    // Most-populated day first — the widest margin for the two rows the test edits.
+    const best = [...perDay.entries()].filter(([, n]) => n >= min).sort((a, b) => b[1] - a[1])[0];
+    return best ? best[0] : null;
+}
 
 test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@WebPet', '@wp-input', '@wp-timein', '@WPBatch09'] }, () => {
 
     test('[Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0378' },
-    }, async ({ pages }) => {
+    }, async ({ pages, request }) => {
+        const day = await findPopulatedDay(request, 2);
+        test.skip(
+            day === null,
+            'no day in Time In carries 2+ rows on this environment — multi-edit needs two rows to compare',
+        );
+
         const list = pages.timeInList;
         const grid = list.grid;
         await list.gotoList();
 
-        // Narrow to a populated day so the first data rows are present.
-        await list.filterToDay(DAY);
+        // Narrow to the discovered day so the first data rows are present.
+        await list.filterToDay(day!);
 
         // Wait for at least two data rows (role="row" includes 2 header rows).
         await expect.poll(async () => grid.roleRows.count()).toBeGreaterThan(3);
@@ -66,6 +99,14 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
         // Pick the first option whose text differs from row A's current ranch.
         const options = grid.editorOptions;
         await expect(options.first()).toBeVisible();
+        // Options render their label asynchronously, so reading textContent as soon as
+        // the first one is visible can return '' for every entry — which the loop below
+        // then skips, leaving `chosen` empty and failing as if dev had only one ranch.
+        // Wait for the labels to actually populate before comparing.
+        await expect
+            .poll(async () => (await options.first().textContent())?.trim() ?? '')
+            .not.toBe('');
+
         const optionCount = await options.count();
         let chosen = '';
         for (let i = 0; i < optionCount; i++) {
@@ -78,7 +119,7 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
         }
         expect(
             chosen,
-            'expected at least one ranch option different from the current value',
+            `expected a ranch option different from row A's current value (${originalA}); saw ${String(optionCount)} option(s)`,
         ).not.toBe('');
 
         // The propagate dialog must appear (pre-fix: commitEdit was never called,

@@ -1,0 +1,86 @@
+{
+  "$comment": [
+    "Burn-down list for webpet skips. scripts/webpet/skip-gate.js fails the run for any",
+    "skipped or didNotRun test NOT matched here, so a skip can never quietly become",
+    "permanent. Every entry needs a reason and a ticket/work-item; entries that stop",
+    "matching are reported as stale so this file shrinks over time.",
+    "`match` is a testCaseId (WP-0308), a title substring, or a file substring."
+  ],
+  "allow": [
+    {
+      "match": "report-editor-wysiwyg.spec.ts",
+      "reason": "Editor rebuilt in web-pet: iframe preview replaced by inline React ReportCanvas (bfe869b10), numbered markers + right inspector rail replaced by popover editors + anchor menu (bb9065e1e). data-marker-area / data-active-area / data-inspector-area exist in neither source nor the deployed bundle, so 11 of 13 tests assert removed surfaces. WP-0315 (zoom) still runs and passes, which is what proves the route/report/preview are fine. Rewrite the spec + ReportEditorPage against ReportCanvas to bring these back.",
+      "ticket": "WORK-ITEM: rewrite report-editor spec vs ReportCanvas"
+    },
+    {
+      "match": "WP-0320",
+      "reason": "Full WYSIWYG acceptance journey, fixme since authoring — the sign-off gate for WEBPET-731..740, never enabled.",
+      "ticket": "WEBPET-740"
+    },
+    {
+      "match": "IncludeReconcileJCs preference is off",
+      "reason": "Reconcile Job Cards tests self-gate on a per-client preference. Dev has it off, so the populated-grid branch cannot be exercised. Complementary tests cover the off-branch, so this is conditional coverage rather than lost coverage — but the gating question itself is open (see the reconcile ticket draft: accounting.export is granted yet the sidebar link is absent).",
+      "ticket": "DRAFT: reconcile-gating question"
+    },
+    {
+      "match": "IncludeReconcileJCs preference is on",
+      "reason": "Mirror of the above — the banner branch only runs where the preference is ON. One of this pair always skips by design.",
+      "ticket": "DRAFT: reconcile-gating question"
+    },
+    {
+      "match": "No JobCards in the last 30 days",
+      "reason": "Populated-grid branch needs recent Job Cards on the environment. Genuine data dependency — candidate for the data-factory treatment (create a Job Card, assert, delete) the way parent-picker.spec.ts now works.",
+      "ticket": "WORK-ITEM: own Job Card data in reconcile spec"
+    },
+    {
+      "match": "no boards seeded",
+      "reason": "Board-badge tests need seeded boards; dev has none.",
+      "ticket": "WORK-ITEM: seed or create boards in-test"
+    },
+    {
+      "match": "API /boards not available",
+      "reason": "The /boards endpoint is absent on this deployment, so the spec cannot set up its own data either.",
+      "ticket": "WORK-ITEM: confirm /boards availability on dev"
+    },
+    {
+      "match": "deferred (WEBPET-907",
+      "reason": "Pack House scan screen not built yet — test authored acceptance-first ahead of the feature.",
+      "ticket": "WEBPET-907"
+    },
+    {
+      "match": "deferred (WEBPET-905",
+      "reason": "Fingerprint capture not built yet — acceptance-first.",
+      "ticket": "WEBPET-905"
+    },
+    {
+      "match": "deferred (WEBPET-906",
+      "reason": "HandPunch import provenance not built yet — acceptance-first.",
+      "ticket": "WEBPET-906"
+    },
+    {
+      "match": "Boundary polygon-save flaky in serial suite",
+      "reason": "Passes in isolation, flaky inside the serial ranch file. Needs the boundary tests split into their own file rather than a skip.",
+      "ticket": "WORK-ITEM: split ranch boundary tests into own file"
+    },
+    {
+      "match": "three Time In records and one Time Out record",
+      "reason": "Equivalence scenario blocked on scan-device/Time In setup that the spec cannot yet build for itself.",
+      "ticket": "WORK-ITEM: scan-time-in equivalence setup"
+    },
+    {
+      "match": "no day in Time In carries 2+ rows",
+      "reason": "Added 2026-08-04 with the time-in day-discovery fix: the spec now finds a populated day from the API instead of hardcoding 2025-12-01, and skips with this reason only when the environment genuinely has no day with two rows to compare. Prefer creating the rows outright once an ensureTimeIn factory exists.",
+      "ticket": "WORK-ITEM: ensureTimeIn data factory"
+    },
+    {
+      "match": "data-scoping",
+      "reason": "RestrictedTest user is not provisioned on dev, so row-level scoping cannot be asserted. Provisioning is best-effort in webpet.setup.ts and silently unavailable here.",
+      "ticket": "WORK-ITEM: provision RestrictedTest on dev"
+    },
+    {
+      "match": "profile-avatar",
+      "reason": "Avatar upload needs the same object storage as employee-documents.",
+      "ticket": "DRAFT: provision S3/MinIO for dev staging"
+    }
+  ]
+}

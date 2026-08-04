@@ -59,12 +59,14 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await page.screenshot({ path: 'e2e/.screenshots/crew-form-closed.png', fullPage: true });
 
         // Smoke signal for the Select→Switch (shadcn→base-ui) migration: the crew form's
-        // Yes/No fields render as switches. The default (General) view now shows 7 switches —
-        // Active + the grouping/piece/break toggles below. (The original test named
-        // Include-in-Transfer/Payroll/CostAcc, but those controls moved off this view since
-        // it was written; the include-in-CostAcc one is also module-gated. The migration is
-        // what's under test, so assert against switches actually on this view.)
-        await expect(form.switches).toHaveCount(7);
+        // Yes/No fields render as switches. The General view shows 5 — ActiveField plus
+        // timeEmployeesIncluded, individualPiecesDistributedToEntireCrew,
+        // distributePieceOutAllDay and onlyPieceJobRequireBreakPreparation.
+        //
+        // Was 7. workCrewInGrouping and its sibling became 3-state Selects
+        // (None/First/Last) in web-pet, so they are legitimately no longer switches —
+        // count them and this test fails for a UI change it is not testing.
+        await expect(form.switches).toHaveCount(5);
         await expect(form.fieldLabel('Group Clock-In Times')).toBeVisible();
         await expect(form.fieldLabel('Group Clock-Out Times')).toBeVisible();
         await expect(form.fieldLabel('Time Employees Included')).toBeVisible();

@@ -28,6 +28,7 @@
     "webpet:runner:mirror": "node scripts/webpet/runner-sync.js --mirror",
     "webpet:runner:ids": "node scripts/webpet/runner-sync.js --ids",
     "webpet:ids:check": "node scripts/webpet/ids-check.js",
+    "webpet:skip-gate": "node scripts/webpet/skip-gate.js",
     "webpet:audit": "node scripts/webpet/audit-relocation.js",
     "lint": "eslint --config config/lint/.eslintrc.json --resolve-plugins-relative-to . \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "eslint --config config/lint/.eslintrc.json --resolve-plugins-relative-to . \"src/**/*.ts\" \"tests/**/*.ts\" --fix",

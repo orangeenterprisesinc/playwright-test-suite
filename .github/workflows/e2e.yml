@@ -411,6 +411,18 @@ jobs:
             npx playwright test --project=webpet --workers="$W"
           fi
 
+      # No-skip policy: a green run with 37 skips looks healthy and is not — each skip
+      # is coverage nobody is watching. Playwright cannot fail on skip, so this gate
+      # requires every skipped/didNotRun webpet test to carry an entry in
+      # tests/webpet/skip-allowlist.json with a reason AND a ticket. An unlisted skip
+      # fails the build; the allowlist is the burn-down list.
+      #
+      # `always()` so it still runs when tests failed — that is exactly when a serial
+      # file silently drops its remaining tests as didNotRun.
+      - name: Gate on unaccounted skips
+        if: always() && matrix.suite == 'webpet'
+        run: npm run webpet:skip-gate
+
       # Report-only: dev is a triage baseline for webpet, not a gate (its DB is not
       # the seeded DelLlano and the suite mutates dev data), so a delta here is
       # information rather than a failure.
