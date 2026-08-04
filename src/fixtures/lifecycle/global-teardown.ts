@@ -6,8 +6,7 @@
 import { FullConfig } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
-import { isDbCleanupEnabled } from '../../utils/db/sqlClient';
-import { sweepLeftovers } from '../../utils/db/cleanupRegistry';
+import { sweepLeftovers } from '../../utils/cleanup/cleanupRegistry';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -102,13 +101,16 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     writeAllureEnvironmentInfo(config);
     writeAllureExecutorInfo();
 
-    // Safety-net sweep: soft-delete any leftover test records the suites created
-    // (e.g. from an interrupted run) so they never accumulate. Per-test cleanup
-    // already removes the happy-path records; this catches the rest. Driven by
+    // Safety-net sweep: delete any leftover test records the suites created (e.g.
+    // from an interrupted run) so they never accumulate. Per-test cleanup already
+    // removes the happy-path records; this catches the rest. Driven by
     // src/data/static/shared/cleanupTargets.ts, so a new entity is swept by adding a row
-    // there rather than by editing this file.
-    if (isDbCleanupEnabled()) {
+    // there rather than by editing this file. Warns rather than throwing when
+    // there is no authenticated session to sweep with.
+    try {
         await sweepLeftovers();
+    } catch (error) {
+        logger.warn(`Leftover sweep failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     logger.info('Global teardown completed');

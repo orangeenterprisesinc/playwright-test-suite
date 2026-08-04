@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnvFiles } from './src/config/envLoader';
+import HOST_BOUND from './src/data/webpet/hostBoundExclusions.json';
 
 /**
  * Playwright configuration for the PET Tiger UI + API test suite.
@@ -111,11 +112,10 @@ export default defineConfig({
     // See resolveRetries() above.
     retries: resolveRetries(),
 
-    // Tests share a single authenticated session (see the `auth-setup`
-    // project), so CI runs on a single worker to keep that session stable and
-    // results deterministic. Locally Playwright chooses a worker count from the
-    // available CPUs. Override per run with the CLI `--workers`.
-    workers: IS_CI ? 2 : 4,
+    // 2 everywhere, CI and local. Set WORKERS to change the default without
+    // editing this file — that is the env the workflows' `workers` dispatch
+    // input already arrives as. The CLI `--workers` still wins over both.
+    workers: process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : 2,
 
     // Optional fail-fast; set MAX_FAILURES to stop the run after N failures.
     maxFailures: process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined,
@@ -251,6 +251,15 @@ export default defineConfig({
                       name: 'webpet',
                       testDir: './tests/webpet',
                       dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
+                      // Host-bound parity specs, excluded from COLLECTION rather than
+                      // skipped — a skipped test still shows up in the report. See
+                      // hostBoundExclusions.json for why and how to re-enable.
+                      //
+                      // Whole-file where the file holds nothing else, per-test where it
+                      // does: biometric-device-commands-equivalence also carries three
+                      // Tier-1 contract tests (WP-0170..0172) that run on any stack.
+                      testIgnore: HOST_BOUND.files.map((f) => `**/${f}`),
+                      grepInvert: new RegExp(HOST_BOUND.tag),
                       ...(WEBPET_PARITY
                           ? {
                                 timeout: 30 * 1000,

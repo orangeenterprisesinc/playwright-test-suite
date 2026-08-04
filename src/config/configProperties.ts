@@ -143,24 +143,8 @@ export enum ConfigProperties {
     /** Elasticsearch/ELK ingest endpoint URL (env: `ELK_URL`) */
     ELK_URL = 'ELK_URL',
 
-    /* ── Database (test-data cleanup) ────────────────── */
-
-    /** SQL Server host[,port] for test-data cleanup (env: `DB_SERVER`, e.g. `localhost,1433`) */
-    DB_SERVER = 'DB_SERVER',
-    /** Client (tenant) database that holds the app's Users (env: `DB_CLIENT`) */
-    DB_CLIENT = 'DB_CLIENT',
-    /** Global/master database holding the cross-tenant Users rows (env: `DB_MASTER`) */
-    DB_MASTER = 'DB_MASTER',
-    /** Use Windows integrated auth (`sqlcmd -E`) — `'yes'`/`'no'` (env: `DB_TRUSTED`) */
-    DB_TRUSTED = 'DB_TRUSTED',
-    /** SQL-auth username when not using trusted auth (env: `DB_USER`) */
-    DB_USER = 'DB_USER',
-    /** SQL-auth password when not using trusted auth (env: `DB_PASSWORD`) */
-    DB_PASSWORD = 'DB_PASSWORD',
-    /** Path to the `sqlcmd` executable; defaults to `sqlcmd` on PATH (env: `SQLCMD_PATH`) */
-    SQLCMD_PATH = 'SQLCMD_PATH',
-    /** Master switch for DB-based test-user cleanup — `'yes'`/`'no'` (env: `DB_CLEANUP`) */
-    DB_CLEANUP = 'DB_CLEANUP',
+    // No DB_* keys. Test-data cleanup goes through the app's API, not SQL Server —
+    // see src/utils/cleanup/cleanupRegistry.ts.
 
     /* ── Authentication (OAuth2 / Basic / API Key) ───── */
 

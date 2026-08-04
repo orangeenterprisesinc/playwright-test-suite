@@ -1,33 +1,24 @@
 /**
- * @fileoverview Every entity the suite creates, and how to clean it up.
+ * @fileoverview Every entity the suite creates and cleans up, and the name prefix
+ * its generated records carry.
  *
- * PET Tiger soft-deletes: a record is removed by setting `Deleted = 1`, which also
- * frees its unique Name/Initials/Barcode so a re-run can create the same test
- * record again. There is no UI or API delete for users at all, and the catalog's
- * journey A creates nine more kinds of record — so cleanup has to be table-driven
- * rather than a hand-written statement per spec.
+ * The catalog's journey A creates ten kinds of record, so cleanup is table-driven
+ * rather than a hand-written delete per spec. This table backs two things:
  *
- * This table backs two things:
+ * 1. `src/utils/cleanup/cleanupRegistry.ts` — per-test cleanup of the records a
+ *    test created, by name.
+ * 2. `src/fixtures/lifecycle/global-teardown.ts` — an end-of-run sweep by name
+ *    prefix, which catches whatever an interrupted run left behind.
  *
- * 1. `src/utils/db/cleanupRegistry.ts` — per-test cleanup of the records a test
- *    created, by name.
- * 2. `src/fixtures/global-teardown.ts` — an end-of-run sweep by name prefix, which
- *    catches whatever an interrupted run left behind.
- *
- * Every entry is scoped to the **client** database. The shared `TigerMaster` is
- * deliberately left untouched: test records there are keyed by an email/identifier
- * that is unique per run, so a leftover row never blocks re-creation, whereas
- * writing to a shared master database from a test run could affect other clients.
+ * Removal goes through the app's own API. Adding a row here is half the job: the
+ * matching delete call goes in `API_CLEANUP` in `cleanupRegistry.ts`, and a row
+ * without one fails the first `cleanup.track()` rather than leaking records.
  */
 
-/** How to find and soft-delete one kind of record. */
+/** One kind of record the suite creates. */
 export interface CleanupTarget {
     /** Key used by specs and the registry, e.g. `'user'`. */
     entity: string;
-    /** Table in the client database, schema-qualified. */
-    table: string;
-    /** Column holding the human-readable name a test generates. */
-    nameColumn: string;
     /**
      * Prefix every generated record of this kind carries, used by the end-of-run
      * sweep. Must match what the corresponding factory in `src/data/generated/`
@@ -44,7 +35,7 @@ export interface CleanupTarget {
  */
 export const CLEANUP_TARGETS: readonly CleanupTarget[] = [
     // A1 — File ▸ Administration ▸ Users
-    { entity: 'user', table: 'dbo.Users', nameColumn: 'Name', prefix: 'QA User ' },
+    { entity: 'user', prefix: 'QA User ' },
 ];
 
 /** Looks up a target by entity key, throwing if it is not registered. */

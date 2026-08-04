@@ -60,7 +60,6 @@ A spec has four parts.
 import { expect, test } from '../../src/fixtures/base.fixture';    // NOT @playwright/test
 import { userSetupData as userData } from '@data/journey-a/userSetupData'; // journey value bag
 import { makeUser, randomInitials } from '../../src/data/generated';// data factories
-import { runSql } from '../../src/utils/db/sqlClient';               // cleanup helper
 ```
 
 **(2) `describe` + `test`** with tags and a `testCaseId` annotation, destructuring only the
@@ -200,7 +199,9 @@ env/executor files and run a safety-net SQL sweep of leftover test users.
 | [`dataReaders/`](../src/data/readers/) | `BaseDataReader` (caching + `readById`/`readEnabled`) with `JsonDataReader`, `CsvDataReader`, `TypeCoercionHelper` (pipe-delimited arrays for CSV) |
 | [`allureHelper.ts`](../src/reporting/generate/allure/report.ts) | generate Allure reports via JS API; `acquireLeanReport` (screenshot-only single file, built once per run and shared by the email + Slack channels) |
 | [`allureLabels.ts`](../src/reporting/generate/allure/labels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
-| [`db/sqlClient.ts`](../src/utils/db/sqlClient.ts) | `runSql` (async, `@name` bound params) — test-user cleanup over the `mssql` driver or `sqlcmd`, chosen by `DB_TRUSTED` |
+| [`cleanup/cleanupRegistry.ts`](../src/utils/cleanup/cleanupRegistry.ts) | `CleanupRegistry` (the `cleanup` fixture) + `sweepLeftovers` — deletes the records a test created through the app's API |
+| [`api/sessionContext.ts`](../src/utils/api/sessionContext.ts) | `createSessionRequestContext` — an `APIRequestContext` carrying `.auth/user.json`'s session plus the `Origin` / `X-CSRF-Token` the API demands |
+| [`api/usersApi.ts`](../src/utils/api/usersApi.ts) | `listUsers`, `findUserIdByName`, `deleteUserById`, `deleteUserByName` — the rowversion-guarded `DELETE /users/{id}` |
 | [`testData/`](../src/data/generated/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
 
 ### `src/auth/` — API auth (separate from browser login)
@@ -326,14 +327,11 @@ are manual-dispatch only and never triggered by a push.
   **variable** (not a secret — a login name isn't a credential, and masking a short value
   like `su` mangles unrelated words in the log), defaulting to `su`.
   Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
-- Test-user cleanup runs over SQL, same as everywhere else — `.env.dev` sets `DB_CLEANUP=yes`
-  and `DB_TRUSTED=no`, with `DB_SERVER`/`DB_USER`/`DB_PASSWORD` as secrets and `DB_CLIENT` as
-  a repo variable. `DB_TRUSTED=no` selects the `mssql` driver rather than the `sqlcmd` CLI,
-  so no CLI install step is needed — the transport table is in
-  [`sqlClient.ts`](../src/utils/db/sqlClient.ts)'s module docs. The one thing
-  `ubuntu-latest` still can't provide is a network route to the database; the connectivity
-  probe in `global-setup.ts` turns a blocked port into an explicit `::error::` annotation
-  instead of a silently-skipped cleanup that leaves users behind.
+- Test-data cleanup needs no secrets and no database route: it is an API call over the same
+  session the tests use ([ENVIRONMENTS.md](ENVIRONMENTS.md#test-data-cleanup)). It used to run
+  over SQL, which is why the now-unused `DB_SERVER`/`DB_USER`/`DB_PASSWORD` secrets and
+  `DB_CLIENT` variable may still exist in the repo settings — dev staging's SQL Server is
+  VPC-private and stays that way.
 
 **[`e2e-local.yml`](../.github/workflows/e2e-local.yml) — "E2E (localhost, self-hosted)"**
 - Runner: `[self-hosted, Windows, X64]`, 30-min timeout. Self-hosted because the Go API uses

@@ -99,6 +99,14 @@ const rows = parsed.data.map((r) => ({
 const liveRows = rows.filter((r) => !r.stale);
 const rowsById = new Map(liveRows.map((r) => [r.id, r]));
 
+// Ids whose test playwright.config.ts excludes from collection. Check 1 below
+// reasons "claimed id + no live row ⇒ the gate skips it", which is true only for
+// a test that RUNS — these never reach the gate, so the annotation staying in
+// the source is correct, not drift. Same file drives the config's testIgnore.
+const EXCLUDED_IDS = new Set(
+    require('../../src/data/webpet/hostBoundExclusions.json').ids,
+);
+
 // ── Read the generated id maps ──────────────────────────────────────────────
 
 /** { mapFileName → Map<caseKey, WP id> } */
@@ -167,7 +175,7 @@ for (const file of specFiles) {
 
 // 1 — claimed but no row.
 for (const [id, files] of claims) {
-    if (!rowsById.has(id)) {
+    if (!rowsById.has(id) && !EXCLUDED_IDS.has(id)) {
         fail(`${id} is claimed by ${files.join(', ')} but has no live row — the gate would skip it`);
     }
     // 2 — claimed twice. Map-indexed ids legitimately resolve once per spec, so

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-30T09:12:46.600Z",
-    "total": 406,
+    "generatedAt": "2026-08-04T08:37:28.387Z",
+    "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -2759,22 +2759,6 @@
       "notes": ""
     },
     {
-      "id": "WP-0173",
-      "file": "equiv/biometric-device-commands-equivalence.spec.ts",
-      "titlePath": "Equivalence: biometric device commands (web vs legacy, family A / mailbox) > parity vs legacy (host-bound) > [Equiv] Verify that the web per-device result and log output matches legacy for the same device set.",
-      "caseKey": "",
-      "module": "equiv",
-      "category": "ui",
-      "testName": "parityPerDeviceResultsMatchLegacy",
-      "testTitle": "[Equiv] Verify that the web per-device result and log output matches legacy for the same device set.",
-      "testDescription": "Tier 2 parity, host-bound: the web per-device result/log output — device set, per-device statuses, one file per device and MessageType.Single — matches the legacy baseline for the same devices. Skips unless PET_DEVICE_CMD_EQUIV=1 and a legacy baseline file exist.",
-      "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-api|@wp-connectivity",
-      "jira": "",
-      "status": "automated",
-      "enabled": true,
-      "notes": ""
-    },
-    {
       "id": "WP-0174",
       "file": "equiv/create-user-amy-sandoval.spec.ts",
       "titlePath": "Equivalence: create-user-amy-sandoval > [Equiv] Verify that creating a user writes the correct DB values.",
@@ -2803,22 +2787,6 @@
       "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-e2e|@wp-deferred",
       "jira": "",
       "status": "deferred",
-      "enabled": true,
-      "notes": ""
-    },
-    {
-      "id": "WP-0176",
-      "file": "equiv/export-pet-setup-equivalence.spec.ts",
-      "titlePath": "Equivalence: export-pet-setup (web export vs legacy PET-Setup) > [Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.",
-      "caseKey": "",
-      "module": "equiv",
-      "category": "ui",
-      "testName": "webExportMatchesLegacyAndRoundTrips",
-      "testTitle": "[Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.",
-      "testDescription": "Host-bound: the Go export engine’s <OrangeExportFile> matches the legacy PET-Setup baseline on header, version, section set, Clear flags, record counts and per-record column values across the 15 round-trippable entities, and re-imports cleanly. Skips unless PET_EXPORT_EQUIV=1 and a legacy baseline file exist.",
-      "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-api|@wp-connectivity",
-      "jira": "",
-      "status": "automated",
       "enabled": true,
       "notes": ""
     },
@@ -6501,6 +6469,40 @@
       "status": "automated",
       "enabled": true,
       "notes": ""
+    },
+    {
+      "id": "WP-0173",
+      "file": "equiv/biometric-device-commands-equivalence.spec.ts",
+      "titlePath": "Equivalence: biometric device commands (web vs legacy, family A / mailbox) > parity vs legacy (host-bound) > [Equiv] Verify that the web per-device result and log output matches legacy for the same device set.",
+      "caseKey": "",
+      "module": "equiv",
+      "category": "ui",
+      "testName": "parityPerDeviceResultsMatchLegacy",
+      "testTitle": "[Equiv] Verify that the web per-device result and log output matches legacy for the same device set.",
+      "testDescription": "Tier 2 parity, host-bound: the web per-device result/log output — device set, per-device statuses, one file per device and MessageType.Single — matches the legacy baseline for the same devices. Skips unless PET_DEVICE_CMD_EQUIV=1 and a legacy baseline file exist.",
+      "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-api|@wp-connectivity",
+      "jira": "",
+      "status": "automated",
+      "enabled": true,
+      "notes": "",
+      "stale": true
+    },
+    {
+      "id": "WP-0176",
+      "file": "equiv/export-pet-setup-equivalence.spec.ts",
+      "titlePath": "Equivalence: export-pet-setup (web export vs legacy PET-Setup) > [Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.",
+      "caseKey": "",
+      "module": "equiv",
+      "category": "ui",
+      "testName": "webExportMatchesLegacyAndRoundTrips",
+      "testTitle": "[Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.",
+      "testDescription": "Host-bound: the Go export engine’s <OrangeExportFile> matches the legacy PET-Setup baseline on header, version, section set, Clear flags, record counts and per-record column values across the 15 round-trippable entities, and re-imports cleanly. Skips unless PET_EXPORT_EQUIV=1 and a legacy baseline file exist.",
+      "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-api|@wp-connectivity",
+      "jira": "",
+      "status": "automated",
+      "enabled": true,
+      "notes": "",
+      "stale": true
     }
   ]
 }

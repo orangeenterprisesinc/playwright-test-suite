@@ -137,7 +137,7 @@ The `.env.<name>` files are kept **terse on purpose** — settings, not prose. A
 file whose 8 values are buried in 37 lines of commentary is not documentation, it
 is a file nobody reads. Every "why" lives in
 [ENVIRONMENTS.md](ENVIRONMENTS.md) instead: precedence, the SPA-vs-API host trap,
-the `DB_TRUSTED` transport split, and the web-pet parity rules.
+how test-data cleanup works, and the web-pet parity rules.
 
 Any value in `.env` or `.env.<name>` may be stored encrypted:
 

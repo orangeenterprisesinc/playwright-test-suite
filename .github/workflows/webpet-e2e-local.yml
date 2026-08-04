@@ -1,7 +1,7 @@
 name: WebPet E2E (localhost, self-hosted)
 
 # Runs the MIGRATED web-pet suite (tests/webpet — 406 tests, ~48 min at
-# workers:1, now actually pinned to 1 rather than merely claimed) against a
+# workers:1; the dispatch input now defaults to 2) against a
 # locally-booted PET Tiger stack, using the exact same boot machinery as
 # e2e-local.yml. Kept as a separate workflow on purpose:
 #
@@ -40,9 +40,9 @@ on:
         required: false
         default: ''
       workers:
-        description: 'Playwright workers. Leave at 1 — the 362/18/26 acceptance baseline only holds serially. Raise only for a quick smoke.'
+        description: 'Playwright workers. Defaults to 2. Set 1 to compare against the 362/18/26 acceptance baseline, which only holds serially.'
         required: false
-        default: '1'
+        default: '2'
 
 # SAME group as e2e-local.yml — one persistent machine, one runner: a dispatch
 # of either workflow queues behind the other instead of racing it over ports
@@ -320,13 +320,11 @@ jobs:
       # diff below reads) alongside html/github/allure, and the later steps
       # upload those. Passing --reporter here would REPLACE the whole chain and
       # silently empty both uploaded artifacts.
-      # --workers is PINNED, not left to the config's default of 4. The header of
-      # this file has always described the run as "~48 min at workers:1" and the
-      # 362/18/26 acceptance baseline was captured that way, but the flag was
-      # never actually passed — so every run here was really 4-wide, and this
-      # suite is not parallel-safe (it mutates shared setup rows and does inline
-      # grid edits). A 4-wide run cannot be compared with the baseline, which is
-      # the entire purpose of this workflow.
+      # --workers is passed explicitly so the dispatch input works; its default
+      # (2) matches playwright.config.ts. This suite is not parallel-safe — it
+      # mutates shared setup rows and does inline grid edits — and the 362/18/26
+      # acceptance baseline was captured serially, so only a workers=1 dispatch
+      # produces a run the diff below can be trusted against.
       - name: Run webpet Playwright tests
         env:
           GREP: ${{ github.event.inputs.grep }}
@@ -337,8 +335,8 @@ jobs:
           # free-text filter go through the same flag.
           FILTER="$GREP"
           if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
-          W="${WORKERS:-1}"
-          if [ -z "$W" ]; then W=1; fi
+          W="${WORKERS:-2}"
+          if [ -z "$W" ]; then W=2; fi
           if [ "$W" != "1" ]; then
             echo "::warning::Running with $W workers — results are NOT comparable with the 362/18/26 acceptance baseline (captured at 1)."
           fi

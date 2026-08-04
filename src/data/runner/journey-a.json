@@ -27,7 +27,7 @@
                 "A1-R8"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A1-002",
@@ -53,7 +53,7 @@
                 "A1-R2"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A1-003",
@@ -78,7 +78,7 @@
                 "A1-R1"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A1-004",
@@ -102,7 +102,7 @@
                 "A1-R6"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A1-005",
@@ -127,7 +127,7 @@
                 "A1-R5"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A1-006",
@@ -152,7 +152,7 @@
                 "A1-R1"
             ],
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "A2-001",

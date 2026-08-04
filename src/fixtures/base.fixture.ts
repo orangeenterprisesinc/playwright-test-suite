@@ -29,7 +29,8 @@ import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { createPageObjects, type PageObjects } from './pages.fixture';
-import { CleanupRegistry } from '../utils/db/cleanupRegistry';
+import { CleanupRegistry } from '../utils/cleanup/cleanupRegistry';
+import { createSessionRequestContext } from '../utils/api/sessionContext';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
@@ -64,9 +65,26 @@ type CustomFixtures = {
     apiRequest: APIRequestContext;
 
     /**
+     * API request context authenticated as the logged-in user — session cookie,
+     * `Origin` and `X-CSRF-Token`, so mutating calls are accepted. Use this when a
+     * test acts on the API itself; `apiRequest` is the raw, unauthenticated one.
+     *
+     * Throws if there is no persisted session, because a test that asks for this
+     * cannot do its job without it.
+     */
+    sessionApi: APIRequestContext;
+
+    /**
+     * Opens {@link sessionApi} on demand, or resolves `null` when there is no
+     * session. Internal: it exists so `cleanup` and `sessionApi` share one context
+     * per test and a test that needs neither opens none. Specs want `sessionApi`.
+     */
+    openSessionApi: () => Promise<APIRequestContext | null>;
+
+    /**
      * Tracks records the test creates and removes them afterwards —
      * `cleanup.track('user', name)`. Drained automatically after the test, even
-     * when it fails. See `src/utils/db/cleanupRegistry.ts`.
+     * when it fails. See `src/utils/cleanup/cleanupRegistry.ts`.
      */
     cleanup: CleanupRegistry;
 
@@ -214,11 +232,36 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         logger.info(`Finished test: ${testInfo.title} - ${testInfo.status}`);
     },
 
+    // ── Authenticated API access ────────────────────────────────────
+    // One context per test at most, built only if something asks for it — a
+    // browser-only test opens none, and a context left open in a worker keeps that
+    // worker process alive. Disposal happens here, and because `cleanup` depends on
+    // this fixture, Playwright tears down in reverse order: cleanup drains first,
+    // then the context closes.
+    openSessionApi: async ({ playwright }, use) => {
+        let context: APIRequestContext | null | undefined;
+
+        await use(async () => (context ??= await createSessionRequestContext(playwright.request)));
+
+        await context?.dispose();
+    },
+
+    sessionApi: async ({ openSessionApi }, use) => {
+        const context = await openSessionApi();
+        if (!context) {
+            throw new Error(
+                'No authenticated API session. This test needs .auth/user.json and a configured ' +
+                'API_URL — check that the auth-setup project ran.',
+            );
+        }
+        await use(context);
+    },
+
     // ── Test-data cleanup ───────────────────────────────────────────
     // Draining after `use` means it runs whether the test passed or failed, which
     // is the whole point: a failed test is exactly when records get left behind.
-    cleanup: async ({ }, use) => {
-        const registry = new CleanupRegistry();
+    cleanup: async ({ openSessionApi }, use) => {
+        const registry = new CleanupRegistry(openSessionApi);
         await use(registry);
         await registry.drain();
     },

@@ -258,8 +258,10 @@ test.describe('Equivalence: biometric device commands (web vs legacy, family A /
   test.describe('parity vs legacy (host-bound)', () => {
     test.skip(!PARITY_ENABLED, PARITY_SKIP_REASON)
 
+    // @wp-hostbound is what playwright.config.ts grepInverts out of the webpet
+    // project — the legacy baseline only exists on the windows-automation host.
     test('[Equiv] Verify that the web per-device result and log output matches legacy for the same device set.', {
-      tag: ['@wp-api', '@wp-connectivity'],
+      tag: ['@wp-api', '@wp-connectivity', '@wp-hostbound'],
       annotation: { type: 'testCaseId', description: 'WP-0173' },
     }, async ({
       page,

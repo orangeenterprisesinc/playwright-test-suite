@@ -126,18 +126,19 @@ None — an authenticated session is enough, supplied by the shared
 
 ## Cleanup
 
-PET Tiger has **no delete for users**, in the UI or the API. Removal is a soft
-delete (`Deleted = 1`) in the client database, which also frees the
-Name/Initials/Email.
+PET Tiger has **no delete action for users in the UI**. Removal goes through
+`DELETE /users/{id}` (added by WEBPET-1606), which soft-deletes the client row and
+reconciles its `TigerMaster` counterpart in the same operation. It is
+rowversion-guarded, so a delete reads the record's `version` first.
 
-| Entity | Table | Name column | Prefix |
-|---|---|---|---|
-| `user` | `dbo.Users` | `Name` | `QA User ` |
+| Entity | Prefix | Route |
+|---|---|---|
+| `user` | `QA User ` | `DELETE /users/{id}` |
 
-Registered in [`cleanupTargets.ts`](../../src/data/static/shared/cleanupTargets.ts); the
-spec calls `cleanup.track('user', name)`. Scoped to the **client** DB only — the
-shared `TigerMaster` is left alone, because emails are unique per run so a leftover
-global row never blocks re-creation.
+Registered in [`cleanupTargets.ts`](../../src/data/static/shared/cleanupTargets.ts) with
+the delete call in
+[`cleanupRegistry.ts`](../../src/utils/cleanup/cleanupRegistry.ts); the spec calls
+`cleanup.track('user', name)`.
 
 ## Test cases
 
@@ -145,12 +146,12 @@ global row never blocks re-creation.
 
 | id | Title | Req | Tags | enabled |
 |---|---|---|---|---|
-| `A1-001` | End-to-end: create a user, verify it in the Users list, edit it, then delete it | `A1-R1`, `A1-R2`, `A1-R7`, `A1-R8` | `smoke\|high-level\|regression` | 0 |
-| `A1-002` | Create a user with all fields populated | `A1-R1`, `A1-R2` | `high-level\|regression` | 0 |
-| `A1-003` | Create a user with only the required fields | `A1-R1` | `high-level\|regression` | 0 |
-| `A1-004` | Every Role option is offered in the documented order | `A1-R6` | `regression` | 0 |
-| `A1-005` | Creating a user with an Initials value already in use is rejected | `A1-R4`, `A1-R5` | `regression` | 0 |
-| `A1-006` | Create a user with a non-administrator role | `A1-R1` | `high-level\|regression` | 0 |
+| `A1-001` | End-to-end: create a user, verify it in the Users list, edit it, then delete it | `A1-R1`, `A1-R2`, `A1-R7`, `A1-R8` | `smoke\|high-level\|regression` | 1 |
+| `A1-002` | Create a user with all fields populated | `A1-R1`, `A1-R2` | `high-level\|regression` | 1 |
+| `A1-003` | Create a user with only the required fields | `A1-R1` | `high-level\|regression` | 1 |
+| `A1-004` | Every Role option is offered in the documented order | `A1-R6` | `regression` | 1 |
+| `A1-005` | Creating a user with an Initials value already in use is rejected | `A1-R4`, `A1-R5` | `regression` | 1 |
+| `A1-006` | Create a user with a non-administrator role | `A1-R1` | `high-level\|regression` | 1 |
 
 `A1-001` holds the file's single `smoke` slot: it is the widest path through the
 workflow (create → list → edit → delete) and the only case that exercises `A1-R7`
@@ -161,10 +162,10 @@ non-administrator user can be created" — two outcomes in one case. It now cove
 `A1-R6` alone and drops to regression, because a dropdown-contents guard is not a
 business path; the non-administrator creation it used to carry became `A1-006`.
 
-All six ship **disabled**: they need SQL cleanup reachable from the run host
-(`DB_CLEANUP`, `DB_SERVER`, `DB_CLIENT`), so enabling them on a runner without
-database access would leak a test user per run. Enable with `enabled=1` in the CSV
-plus `npm run runner:sync`, or temporarily via `src/data/runnerList.json`.
+All six were **disabled until 2026-08-04**, waiting on a delete route: with only SQL
+cleanup available they leaked a test user per run on any host without database
+access, which is every CI runner. WEBPET-1606 shipped `DELETE /users/{id}` and they
+were enabled (`enabled=1` in the CSV plus `npm run runner:sync`).
 
 ## Open questions for the tester
 

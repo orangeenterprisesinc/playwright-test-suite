@@ -27,7 +27,8 @@ name: E2E
 #
 # The 4 PM IST cron runs BOTH, one after the other (`max-parallel: 1`): they hit
 # the same dev-staging data and the webpet suite mutates it, so they must never
-# overlap. Every other trigger runs a single suite.
+# overlap. A dispatch can ask for the same pair with suite=both; push and
+# repository_dispatch always run journey alone.
 #
 # ── WEBPET IS A REPORT-ONLY BASELINE — read before treating red as regression ─
 # That suite was authored against a seeded local DelLlano DB, so on dev staging
@@ -62,11 +63,11 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: 'Which suite to run.'
+        description: 'Which suite to run. `both` mirrors the 4 PM cron (journey then webpet, serial).'
         type: choice
         required: false
         default: journey
-        options: [journey, webpet]
+        options: [journey, webpet, both]
       grep:
         description: 'Only run tests matching this tag/pattern (journey: @JourneyA, @A1, @Smoke — webpet: employee, "Billing Center"). Blank = whole suite.'
         required: false
@@ -80,9 +81,9 @@ on:
         required: false
         default: ''
       workers:
-        description: 'webpet only. Leave at 1 for a baseline-comparable run; raise only for a quick smoke (results then are NOT comparable).'
+        description: 'webpet only. Defaults to 2. Set 1 for a baseline-comparable run — the committed dev baseline only holds serially.'
         required: false
-        default: '1'
+        default: '2'
   # Reusable, so an orchestrator could drive this once per suite. Nothing calls it
   # today — the cron above runs both suites itself. Kept because a caller inherits
   # this workflow's triggering event, which is what would keep the Slack gate in
@@ -146,10 +147,11 @@ jobs:
       # before it starts. This replaces the `if: always()` the old orchestrator had.
       fail-fast: false
       matrix:
-        # Cron runs the whole dry run; every other trigger runs one suite — the one
-        # a dispatch selected, or journey for push/repository_dispatch where
-        # `inputs` is null.
-        suite: ${{ fromJSON(github.event_name == 'schedule' && '["journey","webpet"]' || format('["{0}"]', inputs.suite || 'journey')) }}
+        # Cron — and a dispatch that asked for `both` — run the whole dry run;
+        # every other trigger runs one suite, the one a dispatch selected, or
+        # journey for push/repository_dispatch where `inputs` is null (so
+        # `inputs.suite == 'both'` is simply false there).
+        suite: ${{ fromJSON((github.event_name == 'schedule' || inputs.suite == 'both') && '["journey","webpet"]' || format('["{0}"]', inputs.suite || 'journey')) }}
     # A serial webpet run of the whole suite took 56.5 min on dev (see
     # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
     # so 75 left almost no headroom for a slow night. 90 does. The journey suite
@@ -196,25 +198,12 @@ jobs:
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
-      # --- Test-user cleanup via SQL, journey suite only. .env.dev sets
-      #     DB_CLEANUP=yes and DB_TRUSTED=no, which makes sqlClient.ts use the
-      #     `mssql` driver rather than the sqlcmd CLI — a GitHub-hosted runner has
-      #     neither a Windows identity to authenticate with nor sqlcmd installed.
-      #     No SQLCMD_PATH needed; the driver arrives with npm ci.
-      #
-      #     DB_SERVER must be reachable from GitHub's runner IP ranges. The
-      #     connectivity probe in global-setup.ts reports it up front rather than
-      #     letting cleanup fail silently mid-run.
-      #
-      #     Held empty for webpet on purpose: that suite does its own API-level
-      #     cleanup, and the framework's SQL sweep targets 'QA User %' rows it
-      #     never creates. With these unset isDbCleanupEnabled() returns false and
-      #     every cleanup call skips with a logged warning — the suite still
-      #     passes, it just leaves its test users behind. ---
-      DB_SERVER: ${{ matrix.suite != 'webpet' && secrets.DB_SERVER || '' }}
-      DB_CLIENT: ${{ matrix.suite != 'webpet' && vars.DB_CLIENT || '' }}
-      DB_USER: ${{ matrix.suite != 'webpet' && secrets.DB_USER || '' }}
-      DB_PASSWORD: ${{ matrix.suite != 'webpet' && secrets.DB_PASSWORD || '' }}
+      # No DB_* env. Test-data cleanup goes through the app's API using the session
+      # auth-setup already established, so it needs no database access at all — dev
+      # staging's SQL Server is VPC-private and opening it to GitHub's runner IP
+      # ranges was rejected on security grounds (WEBPET-1606). The DB_SERVER /
+      # DB_CLIENT / DB_USER / DB_PASSWORD secrets and vars are now unused and can be
+      # deleted from the repo settings.
       # No BRANCH_OVERRIDE. It existed because a scheduled run had to check out
       # `dry-run` while cron fired from `main`, so the reports would otherwise have
       # named the wrong branch. main and dry-run now hold the same code and the
@@ -314,12 +303,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # No sqlcmd install step: test-user cleanup goes through the `mssql` driver
-      # (pure JS, comes from npm ci) because .env.dev sets DB_TRUSTED=no. The
-      # connectivity check lives in src/fixtures/global-setup.ts, which reuses the
-      # same runSql() the tests use and emits a ::error:: annotation when the
-      # database is unreachable — so a blocked port shows up on the run summary
-      # without a separate step duplicating the connection logic here.
+      # No database client to install: test-data cleanup is an API call over the
+      # same session the tests use (src/utils/cleanup/cleanupRegistry.ts).
 
       # Fails in seconds on a runner-data problem that would otherwise show up as a
       # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
@@ -394,17 +379,14 @@ jobs:
       # NOTE: no --reporter override — that would REPLACE the configured chain
       # and empty the html/allure artifacts uploaded below. The chain's JSON
       # reporter already writes artifacts/results/results.json for the diff.
-      # --workers is pinned, NOT left to the config's default of 4. This suite is
-      # not parallel-safe on dev: it mutates shared dev data (test crews,
-      # employees, jobs, Ranch/Field inline edits, user preferences), so
-      # concurrent tests race each other. The committed baseline was captured at
-      # workers 1, and a run at any other width is not comparable with it — the
-      # first CI run after the framework alignment landed at 4 and finished in
-      # 6m11s against the baseline's 56.5m, with a failure set that matched
-      # per-file but could not be trusted to match per-test.
       #
-      # `workers` is an input so a quick smoke is still one click away; the daily
-      # dry run passes '1' explicitly.
+      # Default width is 2, matching playwright.config.ts. Read this before
+      # trusting a red: this suite is NOT parallel-safe on dev — it mutates
+      # shared dev data (test crews, employees, jobs, Ranch/Field inline edits,
+      # user preferences), so at any width above 1 tests race each other and the
+      # baseline diff below reports deltas that are contention, not regressions.
+      # The committed baseline was captured serially. Dispatch with workers=1 for
+      # a comparable run.
       - name: Run webpet Playwright tests
         if: matrix.suite == 'webpet'
         env:
@@ -414,9 +396,10 @@ jobs:
         run: |
           FILTER="$GREP"
           if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
-          # Defaults to 1 when the input is unset or empty → serial.
-          W="${WORKERS:-1}"
-          if [ -z "$W" ]; then W=1; fi
+          # Defaults to 2 when the input is unset or empty — `:-` substitutes on
+          # empty as well as unset, which is the null-inputs case (cron, push).
+          W="${WORKERS:-2}"
+          if [ -z "$W" ]; then W=2; fi
           if [ "$W" != "1" ]; then
             echo "::warning::Running with $W workers — results are NOT comparable with the committed dev baseline (captured at 1)."
           fi

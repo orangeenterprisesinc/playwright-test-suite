@@ -207,10 +207,12 @@ playwright-test-suite/
 │   ├── types/                         # TypeScript type definitions
 │   │   └── index.ts                   #   All interfaces & types
 │   │
-│   └── utils/                         # Genuinely cross-cutting only — 3 files
+│   └── utils/                         # Genuinely cross-cutting only — 4 files
 │       ├── logger.ts                  #   Structured logger (file + console)
-│       └── db/                        #   Direct SQL access for setup/cleanup
-│           ├── sqlClient.ts           #   runSql(), sqlLiteral()
+│       ├── api/                       #   Authenticated API access for setup/cleanup
+│       │   ├── sessionContext.ts      #     .auth/user.json → session + Origin + CSRF
+│       │   └── usersApi.ts            #     list/find/delete users
+│       └── cleanup/
 │           └── cleanupRegistry.ts     #   `cleanup` fixture + end-of-run sweep
 │
 ├── tests/                             # Specs — TWO folders (browser vs no browser), journey inside
@@ -969,7 +971,7 @@ jobs:
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
 - Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
-- Test-user cleanup: PET Tiger has no delete-user action in either the UI or the API, so tests that create users remove them in SQL (`DB_CLEANUP=yes`). `DB_TRUSTED` selects the transport — `no` uses the `mssql` driver (pure JS, arrives with `npm ci`, works on GitHub-hosted runners), `yes` uses the `sqlcmd` CLI with Windows integrated auth (local and self-hosted). The remaining requirement is a network route: `DB_SERVER` must accept connections from GitHub runner IPs. `global-setup.ts` probes the connection once at the start of every run and emits a CI error annotation if it fails, because cleanup that skips silently leaves test users behind in a shared database while the run still reports green.
+- Test-data cleanup: PET Tiger has no delete-user action in the UI, so tests that create users remove them through `DELETE /users/{id}` (added by WEBPET-1606), over the same session `auth-setup` established. There is nothing to configure and no database involved — which is the point: dev staging's SQL Server is VPC-private, so the SQL cleanup this replaced silently did nothing on the one environment CI targets, and every run leaked its test users. See [ENVIRONMENTS.md](docs/ENVIRONMENTS.md#test-data-cleanup).
 - Notifications & artifact upload are all opt-in: **Slack** (`SEND_SLACK=yes` + `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`, or a webhook — and only on the CI events in `SLACK_NOTIFY_EVENTS`), **S3 report upload** (`SEND_S3=yes` + AWS secrets), and **Email** (deprecated; `SEND_EMAIL` is pinned to `no`). Unset → each step logs a line and does nothing.
 
 ---

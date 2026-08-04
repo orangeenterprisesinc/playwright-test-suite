@@ -85,8 +85,9 @@ test.describe('Setup > Billing Center — new form', { tag: ['@WebPet', '@wp-set
         await form.codeInput.fill(TEST_CODE);
         await form.exportIdentifierInput.fill(TEST_EXPORT_ID);
         await form.footer.submitButton.click();
-        // Should navigate to the edit form after successful create.
-        await page.waitForURL('**/setup/billing-centers/**');
+        // Numeric id required — '**/billing-centers/**' also matches /new (see the
+        // same fix in timesheet_validation.spec.ts).
+        await page.waitForURL(/\/setup\/billing-centers\/\d+(\?|$)/);
         await expect(form.nameInput).toHaveValue(TEST_NAME);
         // Name is read-only after first save.
         await expect(form.nameInput).toHaveAttribute('readonly', '');

@@ -12,18 +12,25 @@
  * Runs logged in via `.auth/user.json`; the login half is
  * tests/web/system/login-module.spec.ts.
  *
- * PET Tiger has no delete-user action, so the `cleanup` fixture soft-deletes
- * (`Deleted = 1`), which also frees the Name/Initials/Email.
+ * PET Tiger has no delete-user action in the UI, so users are removed through
+ * `DELETE /users/{id}` (added by WEBPET-1606). Each test that creates a user
+ * deletes it in its own body, via `sessionApi` — visible and step-throughable
+ * rather than buried in a fixture. The delete needs the user's id, which a
+ * UI-created user does not hand back, so it is looked up by name:
+ * `findUserIdByName` → `GET /users`, then `deleteUserById` → `GET /users/{id}` for
+ * the rowversion → `DELETE`. See `src/utils/api/usersApi.ts`.
+ *
+ * `cleanup.track()` still wraps each create as a safety net: if a test fails before
+ * reaching its delete, the fixture's after-test drain removes the user anyway. The
+ * explicit delete un-tracks so the drain does not repeat it.
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { userSetupData as userData } from '@data/static/journey-a/userSetupData';
 import { makeUser } from '@data/generated';
+import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
 
 // The describe title becomes the Allure "story".
 test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA', '@A1'] }, () => {
-
-    // Cleanup is scoped to the client DB and deliberately leaves the shared
-    // TigerMaster row: emails are unique per run, so it never blocks re-creation.
 
     test('[User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.', {
         tag: ['@Smoke', '@HighLevel', '@Regression'],
@@ -31,7 +38,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
             { type: 'testCaseId', description: 'A1-001' },
             { type: 'requirement', description: 'A1-R1|A1-R2|A1-R7|A1-R8' },
         ],
-    }, async ({ usersPage, cleanup }) => {
+    }, async ({ usersPage, sessionApi, cleanup }) => {
         // ── Create a new user with all fields ──
         const user = await usersPage.createUser(makeUser({
             role: userData.defaults.all_fields_role,
@@ -53,9 +60,14 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         await usersPage.openEditUser(user.name);
         await expect(usersPage.nameInput).toHaveValue(user.name);
 
-        // ── Delete the new user and confirm it's gone from the list ──
-        // `remove` also un-tracks it, so the after-test sweep skips it.
-        await cleanup.remove('user', user.name);
+        // ── Delete the new user via the API and confirm it's gone from the list ──
+        // Deleting is what A1-R8 asks for, so it is a step here rather than teardown.
+        // The grid check below is the real proof it took effect.
+        const userId = await findUserIdByName(sessionApi, user.name);
+        expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, userId!);
+        cleanup.untrack('user', user.name); // already gone; don't make the drain retry
+
         await usersPage.expectAbsentFromList(user.name);
     });
 
@@ -65,7 +77,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
             { type: 'testCaseId', description: 'A1-002' },
             { type: 'requirement', description: 'A1-R1|A1-R2' },
         ],
-    }, async ({ usersPage, cleanup }) => {
+    }, async ({ usersPage, sessionApi, cleanup }) => {
         const user = await usersPage.createUser(makeUser({
             role: userData.defaults.all_fields_role,
             firstName: userData.personal_info.first_name,
@@ -81,6 +93,12 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
 
         await usersPage.gotoUsersList();
         await usersPage.expectListedWithDetails(user);
+
+        // ── Remove the user this test created ──
+        const userId = await findUserIdByName(sessionApi, user.name);
+        expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, userId!);
+        cleanup.untrack('user', user.name);
     });
 
     test('[User Setup] Verify that a user can be created with only the required fields.', {
@@ -89,7 +107,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
             { type: 'testCaseId', description: 'A1-003' },
             { type: 'requirement', description: 'A1-R1' },
         ],
-    }, async ({ usersPage, cleanup }) => {
+    }, async ({ usersPage, sessionApi, cleanup }) => {
         const user = await usersPage.createUser(makeUser({
             role: userData.defaults.required_only_role,
         }));
@@ -97,6 +115,12 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
 
         await usersPage.gotoUsersList();
         await usersPage.expectListedWithDetails(user);
+
+        // ── Remove the user this test created ──
+        const userId = await findUserIdByName(sessionApi, user.name);
+        expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, userId!);
+        cleanup.untrack('user', user.name);
     });
 
     // A dropdown-contents guard, not a business path — hence @Regression only.
@@ -126,7 +150,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
             { type: 'testCaseId', description: 'A1-006' },
             { type: 'requirement', description: 'A1-R1' },
         ],
-    }, async ({ usersPage, cleanup }) => {
+    }, async ({ usersPage, sessionApi, cleanup }) => {
         const user = await usersPage.createUser(makeUser({
             role: userData.defaults.creatable_role,
         }));
@@ -136,6 +160,12 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
 
         await usersPage.gotoUsersList();
         await usersPage.expectListedWithDetails(user);
+
+        // ── Remove the user this test created ──
+        const userId = await findUserIdByName(sessionApi, user.name);
+        expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, userId!);
+        cleanup.untrack('user', user.name);
     });
 
     test('[User Setup] Verify that creating a user with an Initials value already in use is rejected.', {
@@ -144,7 +174,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
             { type: 'testCaseId', description: 'A1-005' },
             { type: 'requirement', description: 'A1-R4|A1-R5' },
         ],
-    }, async ({ page, usersPage, cleanup }) => {
+    }, async ({ page, usersPage, sessionApi, cleanup }) => {
         // Seed a user so we have a known, in-use Initials value.
         const seed = await usersPage.createUser(makeUser({ role: userData.defaults.all_fields_role }));
         cleanup.track('user', seed.name);
@@ -162,6 +192,12 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         await expect(usersPage.errorSummaryButton).toBeVisible();
         await expect(usersPage.saveButton).toBeDisabled();
         await expect(page).toHaveURL(/\/settings\/users\/new(\?|$)/);
+
+        // ── Remove the seed user (the rejected one was never created) ──
+        const seedId = await findUserIdByName(sessionApi, seed.name);
+        expect(seedId, `GET /users should list the seed user '${seed.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, seedId!);
+        cleanup.untrack('user', seed.name);
     });
 
 });

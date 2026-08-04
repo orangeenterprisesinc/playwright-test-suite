@@ -57,9 +57,6 @@
   "devDependencies": {
     "@playwright/mcp": "^0.0.53",
     "@playwright/test": "1.58.2",
-    "playwright": "1.58.2",
-    "playwright-core": "1.58.2",
-    "@types/mssql": "^12.3.0",
     "@types/node": "^25.2.2",
     "@types/nodemailer": "^8.0.1",
     "@types/papaparse": "^5.5.1",
@@ -73,9 +70,10 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-playwright": "^2.5.1",
     "eslint-plugin-prettier": "^5.5.5",
-    "mssql": "^12.7.0",
     "nodemailer": "^9.0.3",
     "papaparse": "^5.5.3",
+    "playwright": "1.58.2",
+    "playwright-core": "1.58.2",
     "prettier": "^3.8.1",
     "typescript": "^5.3.0"
   }

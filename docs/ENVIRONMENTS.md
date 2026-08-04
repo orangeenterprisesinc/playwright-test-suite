@@ -44,34 +44,37 @@ If API calls start returning HTML, check `API_URL` first.
 Locally both live on one machine (`localhost:3000` + `localhost:8080/api`), so the
 distinction is invisible until you point at dev.
 
-## Test-user cleanup via SQL
+## Test-data cleanup
 
-PET Tiger **cannot delete a user**. There is no UI action, and no `DELETE` route on
-the API either — it has one for nearly every other entity, but for users only
-`/users/{id}/avatar`. SQL is therefore the only way to remove a test user and free
-its Name / Initials / Email, and any test that creates users depends on it.
+**There is nothing to configure.** Records a test creates are deleted through the
+app's own API, over the session `auth-setup` already established — so cleanup works
+wherever the tests themselves work, on the same `API_URL` and `BASE_URL` above.
 
-`DB_TRUSTED` picks both the auth mode and, as a consequence, the transport:
+PET Tiger exposes no delete-user action in the UI, so this is API-only: WEBPET-1606
+added `DELETE /users/{id}`. It is rowversion-guarded, which makes a delete two calls
+(read `version`, send it back as `rowversion`) — `src/utils/api/usersApi.ts` handles
+that. The API also needs `Origin` and the `pt_csrf` cookie echoed as
+`X-CSRF-Token`, which `src/utils/api/sessionContext.ts` reads out of
+`.auth/user.json`.
 
-| | `DB_TRUSTED=yes` | `DB_TRUSTED=no` |
-|---|---|---|
-| Transport | `sqlcmd` CLI with `-E` | the `mssql` driver (pure JS, from `npm ci`) |
-| Credentials | none — Windows integrated auth | `DB_USER` / `DB_PASSWORD` |
-| Requires | sqlcmd installed; run host shares an identity with the SQL host | nothing extra |
-| Used by | local runs, self-hosted `e2e-local.yml` | dev staging, GitHub-hosted runners |
+Which entities get cleaned is table-driven:
+`src/data/static/shared/cleanupTargets.ts` lists the entity and its name prefix,
+`src/utils/cleanup/cleanupRegistry.ts` holds the matching delete call. A test calls
+`cleanup.track('user', name)` and the fixture removes it afterwards, pass or fail;
+global teardown then sweeps anything an interrupted run left behind.
 
-The split exists because tedious (which `mssql` wraps) cannot do true Windows
-integrated auth, and a Linux CI runner has no Windows identity to offer anyway.
-`SQLCMD_PATH` only matters on the trusted path.
+Cleanup **never fails a test** — it runs after the test body, where an exception
+would mask the real result, so a failure is logged and the sweep is the backstop.
 
-Either way the run host needs a network route to the database. Where there is
-none, cleanup **skips with a warning and the run still passes** — but the users it
-created are left behind, so on shared environments they accumulate.
-`global-setup.ts` probes the connection once up front and reports failure loudly
-(an `::error::` annotation in CI) rather than letting that go unnoticed.
+### Why not SQL
 
-With `DB_SERVER` or `DB_CLIENT` unset, `isDbCleanupEnabled()` returns false and
-every cleanup call skips with a logged warning.
+It used to run `UPDATE … SET Deleted = 1` against the client database, with a
+`DB_TRUSTED` switch between `sqlcmd -E` and the `mssql` driver. That needed a
+network route to SQL Server, and dev staging's is VPC-private — opening it to
+GitHub's runner IP ranges was rejected on security grounds. So on the one
+environment CI actually targets, SQL cleanup silently did nothing and every run
+left its test users behind. The `DB_*` variables, the `mssql` dependency and the
+start-up connectivity probe are all gone; nothing in the suite talks to a database.
 
 ## The migrated web-pet suite
 

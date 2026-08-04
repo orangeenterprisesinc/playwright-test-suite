@@ -14,18 +14,11 @@
  * specific to Users: its fields, and how they are filled. **This file is the
  * reference to copy when adding the next setup screen.**
  *
- * PET Tiger cannot delete a user — not through the UI, and not through the API
- * either. The UI exposes no delete action anywhere (the File ▸ Multiple Delete
- * tool only covers time cards and the name-change table), and the API has no
- * `DELETE /users/{id}` and no `/users/bulk-delete`, even though it does expose a
- * delete route for nearly every other entity. That is a designed exclusion, so
- * don't go looking for one.
- *
- * Tests that create users therefore clean them up directly in SQL — see
- * `src/utils/db/cleanupRegistry.ts`, which runs the delete through
- * `src/utils/db/sqlClient.ts`, setting `Deleted = 1` to free the
- * Name/Initials/Email. This needs the run host to reach SQL Server and is gated by
- * `DB_CLEANUP`.
+ * The UI exposes no delete action for a user anywhere — the File ▸ Multiple Delete
+ * tool only covers time cards and the name-change table — so there is no delete
+ * flow for this page object to model. Tests that create a user remove it through
+ * `DELETE /users/{id}` instead (added by WEBPET-1606); see
+ * `src/utils/cleanup/cleanupRegistry.ts`.
  */
 import { expect, Locator, Page } from '@playwright/test';
 import { SetupScreenPage } from '../SetupScreenPage';
@@ -219,15 +212,23 @@ export class UsersPage extends SetupScreenPage {
 
     // ── Permissions (Additional Access + Access to Reverse) ─────────
 
-    /** A single Additional Access permission checkbox, located by its label. */
-    additionalAccessCheckbox(name: string): Locator {
-        return this.page.getByRole('checkbox', { name, exact: true });
+    /**
+     * A single Additional Access permission toggle, located by its label.
+     *
+     * These are switches, like the Active toggle above — each row also holds an
+     * unnamed `checkbox`, so a `getByRole('checkbox', { name })` never resolves.
+     */
+    additionalAccessToggle(name: string): Locator {
+        return this.page.getByRole('switch', { name, exact: true });
     }
 
-    /** Enable (check) each named Additional Access permission. */
+    /** Turn on each named Additional Access permission, leaving any already on. */
     async setAdditionalAccess(labels: string[]): Promise<void> {
         for (const label of labels) {
-            await this.additionalAccessCheckbox(label).check();
+            const toggle = this.additionalAccessToggle(label);
+            await toggle.waitFor({ state: 'visible' });
+            if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
+            await expect(toggle).toHaveAttribute('aria-checked', 'true');
         }
     }
 

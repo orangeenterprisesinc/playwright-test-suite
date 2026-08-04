@@ -6,7 +6,6 @@
 import { FullConfig, request } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
-import { isDbCleanupEnabled, runSql } from '../../utils/db/sqlClient';
 import fs from 'fs';
 import path from 'path';
 
@@ -95,7 +94,6 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     logger.info(`Reset ${ALLURE_RESULTS_DIR} and wrote categories.json`);
 
     await warmUpTargets(logger);
-    await verifyDbReachable(logger);
 
     logger.info('Global setup completed');
 }
@@ -178,46 +176,8 @@ async function probeUntilReady(logger: Logger, label: string, url: string): Prom
     }
 }
 
-/**
- * Probe the cleanup database once, up front, when cleanup is switched on.
- *
- * Cleanup that silently does nothing is worse than cleanup that fails loudly:
- * the run still reports green while the test users it created pile up in a shared
- * database, and nobody notices for weeks. `runSql` swallows its own failures by
- * design (an exception in `afterEach` would mask the real test result), so
- * without this the first sign of a blocked port or a bad credential is a warning
- * buried in the middle of the log.
- *
- * Deliberately never throws — a database blip should not discard a whole E2E run.
- * It reports and moves on, emitting a GitHub Actions error annotation in CI so
- * the run summary surfaces it. Change the `::error::` line to also `throw` if you
- * would rather a run hard-fail when cleanup is unavailable.
- *
- * This reuses `runSql`, so it exercises exactly the transport the tests will use
- * — driver or `sqlcmd`, same `DB_SERVER` parsing, same credentials — rather than
- * testing a separate connection path that could succeed where the real one fails.
- */
-async function verifyDbReachable(logger: Logger): Promise<void> {
-    if (!isDbCleanupEnabled()) {
-        logger.info('DB cleanup is off — skipping the connectivity check');
-        return;
-    }
-
-    const server = getConfigValue(ConfigProperties.DB_SERVER);
-    const database = getConfigValue(ConfigProperties.DB_CLIENT);
-    const result = await runSql('SELECT 1;', 'connectivity check');
-
-    if (result.ok) {
-        logger.info(`Cleanup database reachable (${server}, db=${database})`);
-        return;
-    }
-
-    const detail = `cannot reach the cleanup database at ${server} (db=${database}) — tests will run, but every user they create will be LEFT BEHIND`;
-    logger.warn(detail);
-    if (process.env.CI) {
-        // Picked up by Actions from stdout and shown on the run summary.
-        console.log(`::error::${detail}`);
-    }
-}
+// There is no cleanup-connectivity probe here any more. It existed to catch a
+// silently-unreachable SQL Server; cleanup now goes through the same API the tests
+// themselves use, so auth-setup failing is already the signal that it cannot run.
 
 export default globalSetup;

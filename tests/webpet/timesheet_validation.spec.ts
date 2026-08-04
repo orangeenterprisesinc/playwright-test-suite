@@ -142,8 +142,11 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
         // fillName blurs, which runs onBlur validation so the submit button enables.
         await form.fillName(TEST_NAME);
         await form.footer.submitButton.click();
-        // Should navigate to the edit form after successful create.
-        await page.waitForURL('**/setup/timesheet/validations/**');
+        // Must require a numeric id: '**/validations/**' also matches the /new form
+        // we are already on, so it resolved instantly and the assertions below ran
+        // against the unsaved create form — reporting the failure as "name is not
+        // read-only" instead of "the create never happened".
+        await page.waitForURL(/\/setup\/timesheet\/validations\/\d+(\?|$)/);
         await expect(form.nameInput).toHaveValue(TEST_NAME);
         // Name is read-only after first save.
         await expect(form.nameInput).toHaveAttribute('readonly', '');

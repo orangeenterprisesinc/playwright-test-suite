@@ -57,7 +57,7 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 - Main UI fixture: `src/fixtures/base.fixture.ts` — provides page objects as fixtures **and** `apiRequest: APIRequestContext` (baseURL = `API_URL`) for the verification half
 - Page objects: `src/pages/<area>/*.ts` — grouped by app menu area (`shell/`, `admin/`, `setup/`, `processing/`, `payroll/`, `connectivity/`, `analysis/`). List+form screens extend `SetupScreenPage`; everything else extends `BasePage`; components: `src/components/*.ts` (extend `BaseComponent`)
 - Auth-retry request runner: `src/auth/requestBuilder.ts` (`executeWithAuthRetry`)
-- SQL setup/cleanup: `src/utils/db/cleanupRegistry.ts` (the `cleanup` fixture) for per-test teardown, over `src/utils/db/sqlClient.ts` (`runSql`, `sqlLiteral`)
+- Setup/cleanup: `src/utils/cleanup/cleanupRegistry.ts` (the `cleanup` fixture) for per-test teardown, deleting through the app's API via `src/utils/api/usersApi.ts` + `src/utils/api/sessionContext.ts`
 - Config/env access: `src/config/configProperties.ts`
 - Runner data (`category: "workflow"`): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`); module data: `src/data/journey-<x>/<name>Data.ts`
 

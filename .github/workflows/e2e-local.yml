@@ -114,10 +114,8 @@ jobs:
       MSSQL_SERVER: localhost
       MSSQL_PORT: '1433'
       # DelLlano is this machine's client DB (holds the app Users the tests
-      # create). Test-user cleanup runs against the SAME DB — .env.local supplies
-      # DB_CLIENT=DelLlano / DB_CLEANUP=yes / DB_TRUSTED=yes, and sqlcmd uses the
-      # runner service's own Windows account for auth. Keep this in sync with
-      # .env.local's DB_CLIENT so create and cleanup never target different DBs.
+      # create). This is apps/api's own connection, not the test suite's — the
+      # suite reaches the database only through the API and needs no DB config.
       MSSQL_DB: DelLlano
       MSSQL_ENCRYPT: 'false'
       MSSQL_TRUST_SERVER_CERTIFICATE: 'true'
@@ -330,8 +328,9 @@ jobs:
       # Password, cleared PasswordHash/Salt) uses the app's own supported
       # plaintext-fallback-with-lazy-upgrade path, so su's credential can never
       # silently drift out of sync with LOCAL_PASSWORD again — without
-      # reintroducing an env-secret login path. Same sqlcmd/Windows-auth
-      # convention as src/utils/db/sqlClient.ts's runViaSqlcmd.
+      # reintroducing an env-secret login path. sqlcmd with Windows integrated auth
+      # (-E), using the runner service's own account — this runner is the only place
+      # in the pipeline that still touches SQL directly.
       - name: Reset su's TigerMaster credential
         shell: powershell
         run: |
