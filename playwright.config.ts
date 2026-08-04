@@ -88,6 +88,37 @@ function resolveRetries(): number {
     return IS_CI ? 2 : 0;
 }
 
+/**
+ * Retry policy for the webpet project in parity mode, where a flat `retries: 0`
+ * used to override resolveRetries() entirely.
+ *
+ * That zero cost three tickets. The suite is not parallel-safe on dev (it mutates
+ * shared crews, employees, jobs, inline grid edits, user preferences) and CI runs
+ * it at 2 workers, so a contention loss had no second attempt to disprove it and
+ * landed as a hard failure: WP-0127, WP-0253 and WP-0083 were each written up as
+ * defects from the 2026-07-30 run and then all passed at workers=1. It also made
+ * `trace: 'on-first-retry'` below dead config — firing needs at least one retry,
+ * which is why that run captured no trace, video or screenshot at all.
+ *
+ * One retry, not resolveRetries()' two: every attempt re-runs a mutation against
+ * shared dev data, and one is enough to separate contention from a real failure.
+ * Still 0 locally, so a parity run reproducing the source repo's serial localhost
+ * baseline is unchanged — contention is a CI-at-width-2 problem. `RETRY` overrides
+ * both, same as the global policy.
+ *
+ * A retried-then-passed test reports as **flaky**, which the chain already handles:
+ * scripts/webpet/baseline.js records the LAST attempt, so the baseline diff sees a
+ * pass rather than a BLOCKING delta, and runSummary counts flaky separately for the
+ * Slack/email report. Flaky is a signal to investigate, not a pass — a spec that
+ * dies mid-mutation leaves dirty state, so its retry starts dirty. The real fix is
+ * data ownership per test (see tests/webpet/data-factory.ts).
+ */
+function webpetParityRetries(): number {
+    const raw = process.env.RETRY;
+    if (raw !== undefined && raw !== '') return resolveRetries();
+    return IS_CI ? 1 : 0;
+}
+
 export default defineConfig({
     // Where tests live and which files are treated as tests.
     testDir: './tests',
@@ -263,7 +294,11 @@ export default defineConfig({
                       ...(WEBPET_PARITY
                           ? {
                                 timeout: 30 * 1000,
-                                retries: 0,
+                                // Not 0 — see webpetParityRetries(). The timeout and
+                                // expect pins below are the parity contract; a CI
+                                // retry is not, and without one the trace setting
+                                // below can never fire.
+                                retries: webpetParityRetries(),
                                 expect: { timeout: 5 * 1000 },
                             }
                           : {}),
