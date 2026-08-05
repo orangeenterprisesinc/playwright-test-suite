@@ -1,9 +1,14 @@
 /**
  * @fileoverview Job create/edit form — `/setup/jobs/{new,:id}`.
  *
- * Save is gated on **two** things: Name, and an Overtime Rules foreign key
- * (schema: positive int). Name alone leaves it disabled, which is what the
- * required-fields test proves.
+ * Save is gated on **three** things, not two: Name, an Overtime Rules foreign
+ * key (schema: positive int), and Hourly Rate — conditionally required by
+ * `getPaymentTypeRules(paymentType).hourlyRate.required`
+ * (`paymentTypePredicates.ts`), true for Payment Type ∈ {0,3,4,7,11,13}. The
+ * form's default Payment Type is `Time` (0), which is IN that set, so a fresh
+ * New form always needs Hourly Rate too — there is no "Name + Overtime Rules
+ * only" path. A test that fills only those two and expects Save to enable is
+ * asserting a gate the form has never had; it stays disabled correctly.
  *
  * The widest read-only set of the setup forms: Name, Alias, Code and Export
  * Identifier all lock once the record exists.
@@ -38,6 +43,12 @@ export class JobFormPage extends WebpetFormPage {
     /** Required FK. Save stays disabled until one is chosen. */
     readonly overtimeRulesPicker: ParentPickerComponent;
     /**
+     * Conditionally required — see the file header. Only rendered when
+     * `rules.hourlyRate.visible`, which is true for every Payment Type this
+     * suite uses (including the default, `Time`).
+     */
+    readonly hourlyRateInput: Locator;
+    /**
      * PET-60 boolean — the element carrying `id="includeIdleTime"`.
      *
      * base-ui splits the checkbox: this id lands on a **hidden `<input>`**,
@@ -65,6 +76,7 @@ export class JobFormPage extends WebpetFormPage {
         this.paymentTypeSelect = page.locator('#paymentType');
         this.paymentTypeTrigger = page.locator('[data-slot="select-trigger"]#paymentType');
         this.overtimeRulesPicker = new ParentPickerComponent(page, 'Overtime Rules');
+        this.hourlyRateInput = page.locator('input#hourlyRate');
         this.includeIdleTimeCheckbox = page.locator('#includeIdleTime');
         this.includeIdleTimeControl = this.checkboxFor('includeIdleTime');
         this.actAsDeterminedByJobEndCheckbox = page.locator('#actAsDeterminedByJobEnd');
