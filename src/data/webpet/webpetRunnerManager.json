@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-05T10:44:36.386Z",
+    "generatedAt": "2026-08-05T10:56:12.611Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -3281,10 +3281,10 @@
       "testTitle": "[Form State] Verify that an Input goes clean to dirty on edit and invalid on clear.",
       "testDescription": "PET-16 contract for Input: data-dirty appears after an edit and aria-invalid after clearing a required field, with validation running on blur rather than submit.",
       "tags": "@WebPet|@wp-formstate|@WPBatch05|@wp-ui|@wp-regression",
-      "jira": "",
+      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "Failed once in the 2026-08-05 3:48pm CI run; passed immediately on local re-run (2 workers). Same transient-setup class as WP-0209 in BUG-14 — disabled per request pending a second data point, not because a defect was confirmed."
     },
     {
       "id": "WP-0208",
@@ -5857,10 +5857,10 @@
       "testTitle": "[Select] Verify that the crew form renders its boolean Switches after the migration.",
       "testDescription": "The crew form renders seven Switches after the Select to base-ui migration, with the grouping labels present.",
       "tags": "@WebPet|@wp-selectmigration|@WPBatch05|@wp-ui|@wp-smoke",
-      "jira": "",
+      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "Failed once in the 2026-08-05 3:48pm CI run despite the 2026-08-04 fix (switch count 5) holding on local re-run. Same transient class as WP-0207 — disabled pending a second data point."
     },
     {
       "id": "WP-0369",
