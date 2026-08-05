@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-05T10:56:12.611Z",
+    "generatedAt": "2026-08-05T11:03:34.322Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2305,7 +2305,7 @@
       "testTitle": "[Documents] Verify the upload, list, sort, download and delete happy path.",
       "testDescription": "Full document happy path against a live object store. S3-gated at module scope so the skip decision cannot shift. The tab is a real ARIA tab and the list is a plain table, not the DataGrid.",
       "tags": "@WebPet|@wp-documents|@WPBatch08|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Fails by design: S3_ENDPOINT skip guard removed 2026-08-04 so this is visible instead of hidden. Resumes once dev staging has S3/MinIO provisioned."
@@ -2801,7 +2801,7 @@
       "testTitle": "[Equiv] Verify that creating a scan device writes the correct DB values.",
       "testDescription": "The two-step scan-device create (General on the New form, Preferences and crews only on the Edit form) writes the legacy scenario’s Device row plus its DeviceCrew rows. Name and reference prefix are per-run substitutes; device type and crews are rebased to what DelLlano actually has.",
       "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-e2e|@wp-scan",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Now fails later, at step 2 (crewSection DOM timing + waitForURL). Test-suite issue, not product."
@@ -2833,7 +2833,7 @@
       "testTitle": "[Equiv] Verify that creating a variety writes the correct DB values.",
       "testDescription": "Creating a variety through the sheet-mode Crop picker writes cropCounter, name, the composed exportIdentifier and an auto-assigned code. The name is a per-run substitute because the crop+name unique constraint is unfiltered, so soft-deleted rows still block re-inserts; afterAll soft-deletes the row it created.",
       "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-e2e|@wp-variety",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Hardcodes crop name STRAWBERRIES (DelLlano-only) and never reaches its POST. Test-data coupling, same class BUG-03 fixed for parent-picker."
@@ -2849,7 +2849,7 @@
       "testTitle": "[Export] Verify that Prepare, a toggle flip and Clear filters fire POST, PATCH and DELETE /runs in order.",
       "testDescription": "Prepare upserts the ExportRun draft (POST /runs), a batch-toggle flip PATCHes it with If-Match, and Clear filters DELETEs it; readiness reports 2 ready from the mocked analyze.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v2 ExportRun: draft-lifecycle testid present but not showing under this flow. Rework pending."
@@ -2865,7 +2865,7 @@
       "testTitle": "[Export] Verify that the mobile chrome shows the destination chip and opens the bottom sheet.",
       "testDescription": "At 375x800 the destination chip replaces the inline panel, the CTA region carries sticky bottom-0 positioning, and tapping the chip opens the bottom sheet showing the not-configured empty state.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-visual",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v2 mobile: destination-chip/bottom-sheet testid absent from source. Rework pending."
@@ -2881,7 +2881,7 @@
       "testTitle": "[Export] Verify that the readiness strip and review queue render in the mobile layout.",
       "testDescription": "At 375x800 all four readiness cards render in the two-column grid and Prepare populates the pending and already-exported review-queue buckets.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-visual",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v2 mobile: readiness-strip testid absent from source. Rework pending."
@@ -2929,7 +2929,7 @@
       "testTitle": "[Export] Verify that toggling a row PATCHes the draft with excludedRecordIds.",
       "testDescription": "Toggling one row checkbox in the expanded pending bucket PATCHes the draft with excludedRecordIds, and bulk exclude PATCHes all three ids at once.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v2 row-selection: same as WP-0180. Rework pending."
@@ -2977,7 +2977,7 @@
       "testTitle": "[Export] Verify that the page header and default date inputs render.",
       "testDescription": "The page header, description, both export-type tabs and the 7-day-lookback default dates all render.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-smoke",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter page: header/date-inputs testid drives a retired IA — pt-export-new-ia no longer falls back to v1 (WP-0187 proves it). Rework pending."
@@ -2993,7 +2993,7 @@
       "testTitle": "[Export] Verify that Find Candidates submits the filter and populates the result table.",
       "testDescription": "Find Candidates POSTs the filter; a 200 returns a numeric matchedCount plus a 200-capped preview and the count label renders, while a 403 (seeded user without accounting.export) is an accepted outcome.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter: Find Candidates flow against a retired IA. Rework pending."
@@ -3009,7 +3009,7 @@
       "testTitle": "[Export] Verify that the color legend renders below the table when results have rows.",
       "testDescription": "With two mocked rows of distinct paymentType the payment-type colour legend and both result rows render (PET-138).",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter: color legend against a retired IA. Rework pending."
@@ -3025,7 +3025,7 @@
       "testTitle": "[Export] Verify that an inverted date range is rejected without firing a request.",
       "testDescription": "An inverted date range shows the order error and keeps Find Candidates disabled, so no request fires.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter: inverted-date-range guard against a retired IA. Rework pending."
@@ -3073,7 +3073,7 @@
       "testTitle": "[Export] Verify that the module.not_licensed banner shows when the Cost Accounting tab is selected and the server refuses.",
       "testDescription": "A module.not_licensed 403 from the candidates endpoint renders the inline banner and deliberately fires no global error toast.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter: not_licensed banner against a retired IA. Rework pending."
@@ -3105,7 +3105,7 @@
       "testTitle": "[Export] Verify that direct URL navigation returns 403 for FieldSupervisor.",
       "testDescription": "A role-check 403 from the candidates endpoint is surfaced as-is on direct navigation.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Export v1 Filter: 403 direct-nav against a retired IA. Rework pending."
@@ -3281,7 +3281,7 @@
       "testTitle": "[Form State] Verify that an Input goes clean to dirty on edit and invalid on clear.",
       "testDescription": "PET-16 contract for Input: data-dirty appears after an edit and aria-invalid after clearing a required field, with validation running on blur rather than submit.",
       "tags": "@WebPet|@wp-formstate|@WPBatch05|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Failed once in the 2026-08-05 3:48pm CI run; passed immediately on local re-run (2 workers). Same transient-setup class as WP-0209 in BUG-14 — disabled per request pending a second data point, not because a defect was confirmed."
@@ -3633,7 +3633,7 @@
       "testTitle": "[Job] Verify that Save is disabled until the required name and overtime rule are provided.",
       "testDescription": "Job needs both Name and an Overtime Rules foreign key; Name alone leaves Save disabled.",
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Job form Save stays disabled even with Name + Overtime Rules + Hourly Rate all filled (confirmed by screenshot 2026-08-05) — a 4th gate condition is unidentified. Bundle ruled out as cause. Product candidate, see BUG-14."
@@ -4785,7 +4785,7 @@
       "testTitle": "[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.",
       "testDescription": "The sidebar entry is attached exactly when the session grants accounting.export, via derivedPermissions or the capabilities action map.",
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "accounting.export is granted but the sidebar link is absent. Open question to product: permission-only vs permission+IncludeReconcileJCs-preference gating. See BUG-14."
@@ -5857,7 +5857,7 @@
       "testTitle": "[Select] Verify that the crew form renders its boolean Switches after the migration.",
       "testDescription": "The crew form renders seven Switches after the Select to base-ui migration, with the grouping labels present.",
       "tags": "@WebPet|@wp-selectmigration|@WPBatch05|@wp-ui|@wp-smoke",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Failed once in the 2026-08-05 3:48pm CI run despite the 2026-08-04 fix (switch count 5) holding on local re-run. Same transient class as WP-0207 — disabled pending a second data point."
@@ -5889,7 +5889,7 @@
       "testTitle": "[Select] Verify the job form numeric enum, nullable tri-state and tab add-row.",
       "testDescription": "The job form payment-type Select opens, the PET-60 tri-state checkbox reports a valid aria-checked value, and the Crops tab add-row Select opens.",
       "tags": "@WebPet|@wp-selectmigration|@WPBatch05|@wp-ui|@wp-smoke",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "includeIdleTime checkbox only renders for PaymentType in {NonLabor, ExtraWages} (isAllowLookBackPeriod) but the fixture job uses the default Time type. Test-suite fix: switch the fixture job's PaymentType or the test's expectation."
@@ -6017,7 +6017,7 @@
       "testTitle": "[Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.",
       "testDescription": "WEBPET-666 regression: this page keys dropdown options by counter, not by name. The column onCommit used to resolve by name against a counter string, so the lookup failed, commitEdit never ran, and the edit silently reverted with no error. Field cannot expose this — it keys options by name.",
       "tags": "@WebPet|@wp-input|@wp-timein|@WPBatch09|@wp-ui|@wp-regression",
-      "jira": "BUG-14 (draft — see artifacts/bug-evidence/dev-staging-run-2026-07-30/bug-ticket-BUG-14.txt)",
+      "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
       "notes": "Layer 1 (hardcoded seeded day) fixed 2026-08-04. Now fails on layer 2: positional roleRowAt(2)/(3) lands on a header row on dev. Needs a data-row locator."
@@ -6129,10 +6129,10 @@
       "testTitle": "[Validation] Verify that creating a validation navigates to the edit form.",
       "testDescription": "A successful create navigates to the edit form where Name is populated and now read-only. Cleans up any record left by an interrupted prior run first.",
       "tags": "@WebPet|@wp-setup|@wp-validation|@WPBatch09|@wp-ui|@wp-regression",
-      "jira": "",
+      "jira": "BUG-11 (see bug-ticket-BUG-11.txt) — creating a validation writes to a soft-deleted name and 500s",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "Time Sheet Validation create 500s on a soft-deleted-name collision — see BUG-11."
     },
     {
       "id": "WP-0386",
