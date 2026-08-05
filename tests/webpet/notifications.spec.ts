@@ -301,7 +301,9 @@ cleanTest.describe('Auth event toasts', { tag: ['@WebPet', '@wp-notifications', 
         await pages.shell.logOutMenuItem.click();
 
         await cleanExpect(pages.toasts.message('Signed out')).toBeVisible({ timeout: 5000 });
-        await cleanExpect(page).toHaveURL(/\/login$/);
+        // The app appends a return path — /login?from=%2Fdashboard — so anchoring
+        // with $ never matches. Assert the path and let the query be whatever it is.
+        await cleanExpect(page).toHaveURL(/\/login(\?|$)/);
     });
 
     cleanTest('[Notifications] Verify that logging in emits a welcome toast.', {

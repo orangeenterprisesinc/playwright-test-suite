@@ -22,16 +22,17 @@ import { WEBPET_SAMPLE_PDF } from '@config/webpetPaths';
 import { expect, test } from '@fixtures/webpet.fixture';
 import { ensureEmployee, deleteEmployee } from './data-factory';
 
-const S3_AVAILABLE = !!process.env.S3_ENDPOINT;
-
 test.describe('Employee Documents tab', { tag: ['@WebPet', '@wp-documents', '@WPBatch08'] }, () => {
 
     test('[Documents] Verify the upload, list, sort, download and delete happy path.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0144' },
     }, async ({ page, pages, request }) => {
-        test.skip(!S3_AVAILABLE, 'requires MinIO/S3 dev bucket — set S3_ENDPOINT to enable');
-
+        // Deliberately NOT guarded on S3_ENDPOINT any more (2026-08-04 decision). This
+        // used to skip whenever object storage was unset, which meant document upload
+        // had zero coverage on dev and nobody could see that. It now fails there, and
+        // the failure is the ticket: dev staging needs S3/MinIO provisioned. Restore a
+        // guard only if document upload is declared out of scope for dev.
         const form = pages.employeeForm;
         const docs = form.documents;
 

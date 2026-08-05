@@ -42,6 +42,11 @@ const SAFE_NAME = `ZZTEST_SD_${RUN_TOKEN}`;
 // ReferencePrefix col is nvarchar(3) — max 3 chars. 'D14' already exists in DB.
 // Use last 2 chars of base-36 token for 36^2=1296 combinations (enough for test use).
 const SAFE_PREFIX = `Z${RUN_TOKEN.slice(-2)}`;
+// webMailAddress is ALSO unique-constrained. The scenario's literal 'DE14@silo'
+// was left un-substituted, so the first run took the address and every run since
+// got 409 {"code":"unique","field":"webMailAddress"} — the create never landed
+// and the test timed out on waitForURL. Substitute it like the other two.
+const SAFE_WEBMAIL = `${SAFE_NAME}@silo`;
 
 test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
 
@@ -72,7 +77,7 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         await form.selectOption('4').click();
 
         // WebMailAddress
-        await form.webMailAddressInput.fill('DE14@silo');
+        await form.webMailAddressInput.fill(SAFE_WEBMAIL);
 
         // Active defaults true; Supervisor leaveBlank; SyncFolder leaveBlank.
         // Save button in ScanDeviceFormPage uses disabled={isSubmitting} only — no isDirty guard.
@@ -126,7 +131,7 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         expect(row.deviceType).toBe(1);               // iPhone (substitute for Pocket PDA)
         expect(row.referencePrefix).toBe(SAFE_PREFIX);  // substituted — original was 'D14'
         expect(row.connectivityMethod).toBe(4);        // Web
-        expect(row.webMailAddress).toBe('DE14@silo');
+        expect(row.webMailAddress).toBe(SAFE_WEBMAIL);  // substituted — original was 'DE14@silo'
         expect(row.syncFolder ?? null).toBeNull();     // leaveBlank
         expect(row.supervisorCounter ?? null).toBeNull(); // leaveBlank
 

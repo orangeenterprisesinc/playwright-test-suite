@@ -80,9 +80,13 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
-        // base-ui splits the switch: id="workCrewInGrouping" is on a hidden <input>;
-        // the visible switch (which carries data-dirty) links to it via aria-labelledby.
-        const toggle = form.switchFor('workCrewInGrouping');
+        // base-ui splits the switch: id="<field>" is on a hidden <input>; the visible
+        // switch (which carries data-dirty) links to it via aria-labelledby.
+        //
+        // Was workCrewInGrouping — that field became a 3-state Select (None/First/Last)
+        // in web-pet, so it has no switch to toggle. timeEmployeesIncluded is still a
+        // real boolean Switch on this same view, which is what this test is about.
+        const toggle = form.switchFor('timeEmployeesIncluded');
         await expect(toggle).toBeVisible();
         await expect(toggle).not.toHaveAttribute('data-dirty', DIRTY);
 
