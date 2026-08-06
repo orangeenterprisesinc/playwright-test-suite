@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-06T10:25:59.587Z",
+    "generatedAt": "2026-08-06T11:57:14.658Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2580,7 +2580,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. The in-code skip's premise ('no shared helper selects a combobox value') was stale — EquipmentFormPage.pickEquipmentType uses comboboxItemByText, which does register with the form. Save correctly enables after name + type."
     },
     {
       "id": "WP-0162",
@@ -2628,7 +2628,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. Removed the stale skip and replaced the DelLlano-only literal 'Forklift' with the file's own equip.name, so the 409 comes from a row this spec owns."
     },
     {
       "id": "WP-0165",
@@ -3700,7 +3700,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. Was skipped in code since Batch 03. Probing all 16 payment types showed no type renders both PET-60 checkboxes at once (idle-time = Non-Labor/Extra Wages 8/15; job-end = Piece family 1/3/4), so the test now asserts each default under its own type via JobFormPage.selectPaymentType + aria-checked on the visible control."
     },
     {
       "id": "WP-0234",
@@ -3779,8 +3779,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "Un-skipped and rewritten 2026-08-06 (per-payment-type jobs, visible base-ui controls, aria-checked), but disabled: probing dev showed clicking includeIdleTimeControl flips aria-checked false->true while Save stays disabled — the checkbox toggles without dirtying the form, so the save round-trip is unreachable. Same 'Save never enables' product gap as BUG-14 (WP-0229/WP-0232). Test code is ready; re-enable once dirty-tracking is fixed."
     },
     {
       "id": "WP-0239",
@@ -3892,7 +3892,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. GET /api/boards returns 200 with an empty list on dev, so the old two-branch skip guard always fired; the test now creates its own board via the new data-factory ensureBoard and reuses its name to provoke the unique-name 409."
     },
     {
       "id": "WP-0246",

@@ -529,6 +529,36 @@ export async function deleteJob(request: APIRequestContext, id: number): Promise
   await deleteByRowversion(request, '/api/jobs', id)
 }
 
+// ── Board ───────────────────────────────────────────────────────────────────
+
+export interface EnsuredBoard {
+  id: number
+  name: string
+}
+
+/**
+ * Creates a fresh Board (name is the only required field, max 30 chars in the
+ * DB). The create response keys the new id as `deviceCounter` — boards live in
+ * the Device table.
+ */
+export async function ensureBoard(
+  request: APIRequestContext,
+  opts: { namePrefix?: string } = {}
+): Promise<EnsuredBoard> {
+  const name = uniqueName(opts.namePrefix ?? 'E2EBoard')
+  const res = await request.post('/api/boards', { data: { name, active: true } })
+  if (!res.ok()) {
+    throw new Error(`ensureBoard: POST /api/boards failed (${res.status()}): ${await bodyText(res)}`)
+  }
+  const { deviceCounter } = (await res.json()) as { deviceCounter: number }
+  if (!deviceCounter) throw new Error('ensureBoard: response missing deviceCounter')
+  return { id: deviceCounter, name }
+}
+
+export async function deleteBoard(request: APIRequestContext, id: number): Promise<void> {
+  await deleteByRowversion(request, '/api/boards', id)
+}
+
 // ── JobGroup ──────────────────────────────────────────────────────────────────
 
 export interface EnsuredJobGroup {

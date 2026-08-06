@@ -60,8 +60,10 @@ export class JobFormPage extends WebpetFormPage {
     readonly includeIdleTimeCheckbox: Locator;
     /** The *visible* PET-60 checkbox, linked to its label via `aria-labelledby`. */
     readonly includeIdleTimeControl: Locator;
-    /** PET-60 boolean, shadcn Checkbox — reads `data-state`, not `checked`. */
+    /** PET-60 boolean, hidden `<input>` — see {@link includeIdleTimeCheckbox}. */
     readonly actAsDeterminedByJobEndCheckbox: Locator;
+    /** The *visible* job-end checkbox, linked to its label via `aria-labelledby`. */
+    readonly actAsDeterminedByJobEndControl: Locator;
     /**
      * Shown when the id in the URL does not resolve. The bare `"not found."` the
      * lifted spec used — narrowing it would be a behaviour change.
@@ -80,6 +82,7 @@ export class JobFormPage extends WebpetFormPage {
         this.includeIdleTimeCheckbox = page.locator('#includeIdleTime');
         this.includeIdleTimeControl = this.checkboxFor('includeIdleTime');
         this.actAsDeterminedByJobEndCheckbox = page.locator('#actAsDeterminedByJobEnd');
+        this.actAsDeterminedByJobEndControl = this.checkboxFor('actAsDeterminedByJobEnd');
         this.notFoundMessage = page.locator('text=not found.');
     }
 
@@ -92,6 +95,18 @@ export class JobFormPage extends WebpetFormPage {
     async pickFirstOvertimeRule(): Promise<void> {
         await this.overtimeRulesPicker.openCombobox();
         await this.overtimeRulesPicker.comboboxPopup.getByRole('option').first().click();
+    }
+
+    /**
+     * Select a Payment Type by its numeric enum value (e.g. '8' = Non-Labor).
+     *
+     * Unscoped option selector is safe here: this is only used on a freshly
+     * opened form where no stale closed portal can share the value (the
+     * ScanDeviceFormPage quirk-2 situation does not arise).
+     */
+    async selectPaymentType(value: string): Promise<void> {
+        await this.paymentTypeTrigger.click();
+        await this.page.locator(`[data-slot="select-content"] [data-value="${value}"]`).click();
     }
 }
 

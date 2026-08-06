@@ -4,8 +4,11 @@ import { apiUrl } from '@config/webpetEnv';
  *
  * Framework-aligned (Batch 03): locators live in JobFormPage / JobListPage, and
  * the Overtime Rules ParentPicker is driven through ParentPickerComponent.
- * Action order and assertions unchanged, including the two PET-60 skips.
+ * The two PET-60 tests (WP-0233/WP-0238) were skipped from Batch 03 until
+ * 2026-08-06, when probing showed no payment type renders both checkboxes at
+ * once — they now assert each checkbox under its own payment type.
  */
+import type { Locator } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
 import { ensureJob, deleteJob, type EnsuredJob } from './data-factory';
 
@@ -115,18 +118,30 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     });
 
     // PET-60: includeIdleTime/actAsDeterminedByJobEnd are non-nullable booleans;
-    // render as checkboxes with legacy NOT NULL DEFAULT values.
+    // render as checkboxes with legacy NOT NULL DEFAULT values. No payment type
+    // renders both at once (probed all 16 types on dev, 2026-08-06): idle-time is
+    // Non-Labor/Extra Wages (8/15) only, job-end is the Piece family (1/3/4) only
+    // — so each default is asserted under its own type. The original single-view
+    // version of this test asserted a UI state the form never has.
     test('[Job] Verify that the idle-time and job-end checkboxes render with their correct defaults.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0233' },
     }, async ({ pages }) => {
-        test.skip(true, 'PET-60 checkbox boolean default/round-trip: shadcn Checkbox data-state + save round-trip needs rework — see OPEN_QUESTIONS.md (WEBPET-831).');
         const form = pages.jobForm;
         await form.gotoNew();
-        await expect(form.includeIdleTimeCheckbox).toBeVisible();
-        await expect(form.actAsDeterminedByJobEndCheckbox).toBeVisible();
-        await expect(form.includeIdleTimeCheckbox).toHaveAttribute('data-state', 'checked');
-        await expect(form.actAsDeterminedByJobEndCheckbox).toHaveAttribute('data-state', 'unchecked');
+        await form.waitForForm();
+
+        // Non-Labor: idle-time renders, default checked; job-end absent.
+        await form.selectPaymentType('8');
+        await expect(form.includeIdleTimeControl).toBeVisible();
+        await expect(form.includeIdleTimeControl).toHaveAttribute('aria-checked', 'true');
+        await expect(form.actAsDeterminedByJobEndControl).toBeHidden();
+
+        // Piece: job-end renders, default unchecked; idle-time absent.
+        await form.selectPaymentType('1');
+        await expect(form.actAsDeterminedByJobEndControl).toBeVisible();
+        await expect(form.actAsDeterminedByJobEndControl).toHaveAttribute('aria-checked', 'false');
+        await expect(form.includeIdleTimeControl).toBeHidden();
     });
 
 });
@@ -176,78 +191,61 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
         await expect(pages.jobForm.notFoundMessage).toBeVisible();
     });
 
-    // PET-60: toggling Include Idle Time + Acts as Determined by Job End on the
-    // edit form round-trips through the API as pure booleans (never null).
+    // PET-60: toggling Include Idle Time / Acts as Determined by Job End on the
+    // edit form round-trips through the API as pure booleans (never null). No
+    // payment type renders both checkboxes (see WP-0233), so each round-trips on
+    // its own dedicated factory job — which also removes the old full-record
+    // PUT-restore: the jobs are deleted, not restored.
+    //
+    // DISABLED in the runner (enabled=0), not skipped here, so the reason lives in
+    // one place. Probed on dev 2026-08-06: clicking includeIdleTimeControl does
+    // flip its aria-checked false->true, but Save stays disabled — the checkbox
+    // toggles without marking the form dirty, so the save leg below is
+    // unreachable. That is the same "Save never enables" product gap as BUG-14
+    // (WP-0229/WP-0232), not a locator problem. The rewrite below is correct and
+    // ready; re-enable the row once the dirty-tracking gap is fixed.
     test('[Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0238' },
-    }, async ({ page, pages }) => {
-        test.skip(true, 'PET-60 checkbox boolean default/round-trip: shadcn Checkbox data-state + save round-trip needs rework — see OPEN_QUESTIONS.md (WEBPET-831).');
+    }, async ({ page, pages, request }) => {
         const form = pages.jobForm;
-        const jobId = job.id;
+
         // page.request (not the `request` fixture) is deliberate — it carries the
         // browser context's cookies and the page's baseURL, which is what the
         // round-trip is verifying. See seed/TRIAGE-DELLLANO.md.
-        const initial = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
-        const originalIncludeIdle = initial.includeIdleTime;
-        const originalActAs = initial.actAsDeterminedByJobEnd;
-        expect(typeof originalIncludeIdle).toBe('boolean');
-        expect(typeof originalActAs).toBe('boolean');
+        const roundTrip = async (
+            jobId: number,
+            control: Locator,
+            field: 'includeIdleTime' | 'actAsDeterminedByJobEnd',
+        ) => {
+            const before = (await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json()) as Record<string, unknown>;
+            const original = before[field];
+            expect(typeof original).toBe('boolean');
 
-        try {
             await form.gotoEdit(jobId);
-            await expect(form.includeIdleTimeCheckbox).toBeVisible();
-            await form.includeIdleTimeCheckbox.click();
-            await form.actAsDeterminedByJobEndCheckbox.click();
+            await form.waitForForm();
+            await expect(control).toBeVisible();
+            await control.click();
             await form.footer.submitButton.click();
             await page.waitForURL('**/setup/jobs');
 
-            const afterFlip = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
-            expect(typeof afterFlip.includeIdleTime).toBe('boolean');
-            expect(typeof afterFlip.actAsDeterminedByJobEnd).toBe('boolean');
-            expect(afterFlip.includeIdleTime).toBe(!originalIncludeIdle);
-            expect(afterFlip.actAsDeterminedByJobEnd).toBe(!originalActAs);
+            const after = (await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json()) as Record<string, unknown>;
+            expect(typeof after[field]).toBe('boolean');
+            expect(after[field]).toBe(!original);
+        };
+
+        const jobIdle = await ensureJob(request, { namePrefix: 'E2EJobIdle', paymentType: 8 });
+        try {
+            await roundTrip(jobIdle.id, form.includeIdleTimeControl, 'includeIdleTime');
         } finally {
-            // Restore via PUT so subsequent runs start from known state.
-            const current = await (await page.request.get(apiUrl(`/api/jobs/${jobId}`))).json();
-            await page.request.put(apiUrl(`/api/jobs/${jobId}`), {
-                data: {
-                    active: current.active,
-                    paymentType: current.paymentType,
-                    overtimeRulesCounter: current.overtimeRulesCounter,
-                    hourlyRate: current.hourlyRate ?? null,
-                    pieceRate: current.pieceRate ?? null,
-                    guaranteedRate: current.guaranteedRate ?? null,
-                    minPiecesPerHour: current.minPiecesPerHour,
-                    considerEmployeeRate: current.considerEmployeeRate,
-                    startDate: current.startDate ?? null,
-                    endDate: current.endDate ?? null,
-                    workerCompCode: current.workerCompCode ?? null,
-                    defaultLengthMinutes: current.defaultLengthMinutes ?? null,
-                    defaultNumberOfPieces: current.defaultNumberOfPieces ?? null,
-                    comment: current.comment ?? null,
-                    paletteCount: current.paletteCount ?? null,
-                    breakEvenCost: current.breakEvenCost ?? null,
-                    lookBackPeriod: current.lookBackPeriod ?? null,
-                    includeIdleTime: originalIncludeIdle,
-                    actAsDeterminedByJobEnd: originalActAs,
-                    version: current.version,
-                    cropIds: current.cropIds ?? [],
-                    jobGroups: (current.jobGroups ?? []).map(
-                        (g: { jobGroupCounter: number; conversionFactor: number | null }) => ({
-                            jobGroupCounter: g.jobGroupCounter,
-                            conversionFactor: g.conversionFactor,
-                        }),
-                    ),
-                    allowedEquipmentTypeIds: current.allowedEquipmentTypeIds ?? [],
-                    jobRateHistory: (current.jobRateHistory ?? []).map(
-                        (h: { rateDate: string; rate: number }) => ({
-                            rateDate: h.rateDate,
-                            rate: h.rate,
-                        }),
-                    ),
-                },
-            });
+            await deleteJob(request, jobIdle.id);
+        }
+
+        const jobActAs = await ensureJob(request, { namePrefix: 'E2EJobActAs', paymentType: 1 });
+        try {
+            await roundTrip(jobActAs.id, form.actAsDeterminedByJobEndControl, 'actAsDeterminedByJobEnd');
+        } finally {
+            await deleteJob(request, jobActAs.id);
         }
     });
 
