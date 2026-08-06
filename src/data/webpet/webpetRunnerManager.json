@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-05T17:46:01.787Z",
+    "generatedAt": "2026-08-06T10:25:59.587Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2307,8 +2307,8 @@
       "tags": "@WebPet|@wp-documents|@WPBatch08|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05: still fails, S3/MinIO not provisioned on dev. Resumes once dev staging has that infra. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): S3/MinIO still not provisioned on dev. Resumes once dev staging has that infra."
     },
     {
       "id": "WP-0145",
@@ -2851,8 +2851,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: draft-lifecycle testid present but not showing under this flow. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): draft-lifecycle testid present but not rendering under this flow. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0181",
@@ -2867,8 +2867,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-visual",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: destination-chip/bottom-sheet testid absent from source. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): destination-chip/bottom-sheet testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0182",
@@ -2883,8 +2883,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-visual",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: readiness-strip testid absent from source. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): readiness-strip testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0183",
@@ -2931,8 +2931,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: same as WP-0180. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): same cause as WP-0180. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0186",
@@ -2979,8 +2979,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-smoke",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: header/date-inputs testid drives a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): header/date-inputs testid drives the retired v1 IA (WP-0187 proves the flag no longer falls back). Rework pending, see BUG-18."
     },
     {
       "id": "WP-0189",
@@ -2995,8 +2995,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: Find Candidates flow against a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): Find Candidates flow against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0190",
@@ -3011,8 +3011,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: color legend against a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): color legend against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0191",
@@ -3027,8 +3027,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: inverted-date-range guard against a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): inverted-date-range guard against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0192",
@@ -3075,8 +3075,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: module.not_licensed banner against a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): module.not_licensed banner against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0195",
@@ -3107,8 +3107,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05, no change: 403 direct-nav against a retired IA. Rework pending, see BUG-18. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): 403 direct-nav against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0197",
@@ -3635,8 +3635,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05: test.fixme() still in job.spec.ts — Save stays disabled with Name+OvertimeRules+HourlyRate all filled, 4th gate condition still unidentified. Open product question, see BUG-14. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Still blocked by BUG-14: Save stays disabled with Name+OvertimeRules+HourlyRate all filled, 4th gate condition unidentified. Skips regardless of this flag — test.fixme() is in job.spec.ts and must be lifted in code once BUG-14 is resolved. Same root cause as WP-0232."
     },
     {
       "id": "WP-0230",
@@ -3683,8 +3683,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression|@wp-negative",
       "jira": "",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "NEW to the disabled set 2026-08-06. Same BUG-14 root cause as WP-0229: submitButton is disabled after filling Name+OvertimeRules+HourlyRate, so the click times out (30s). Was ALREADY the single failure on main@f26e132 (run 88) before the branch that disabled it, so this is pre-existing, not a regression. BUG-14 therefore affects two tests, not one."
     },
     {
       "id": "WP-0233",
@@ -4787,8 +4787,8 @@
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": true,
-      "notes": "Reconfirmed 2026-08-05: sidebar link still absent for accounting.export permission. Open product question (permission-only vs permission+preference gating), see BUG-14. [Enabled 2026-08-05 per explicit override request, despite the known issue described above.]"
+      "enabled": false,
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): sidebar link still absent while accounting.export is granted. Open product question (permission-only vs permission+IncludeReconcileJCs-preference gating), see BUG-14."
     },
     {
       "id": "WP-0302",
