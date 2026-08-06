@@ -17,16 +17,33 @@
  * threshold) so the first rows are reliably in the DOM. Mutations are restored
  * via Undo within the test.
  *
+ * The Ranch dropdown itself is a *global* list, not owned by the rows this test
+ * edits — dev staging seeds exactly one Ranch, so "pick an option different
+ * from the current value" has no candidate. `beforeAll` creates one extra,
+ * uniquely-named Ranch via the API purely to widen that dropdown; it is never
+ * assigned to a row.
+ *
  * Framework-aligned (Batch 09): locators live in TimeInListPage and the grid
  * component. The Ranch column index is a named constant on the page object —
  * an off-by-one there silently drives the wrong column's editor.
  */
 import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
+import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory';
 
 // Mutates shared Time In rows (ranchCounter) then restores via Undo — cannot
 // run in parallel with itself.
 test.describe.configure({ mode: 'serial' });
+
+let extraRanch: EnsuredRanch;
+
+test.beforeAll(async ({ request }) => {
+    extraRanch = await ensureRanch(request, { namePrefix: 'E2ETimeInRanch' });
+});
+
+test.afterAll(async ({ request }) => {
+    if (extraRanch) await deleteRanch(request, extraRanch.id);
+});
 
 /**
  * A day carrying at least `min` Time In rows, discovered from the API.
@@ -76,14 +93,14 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
         // Narrow to the discovered day so the first data rows are present.
         await list.filterToDay(day!);
 
-        // Wait for at least two data rows (role="row" includes 2 header rows).
-        await expect.poll(async () => grid.roleRows.count()).toBeGreaterThan(3);
+        // Wait for at least two data rows.
+        await expect.poll(async () => grid.dataRows.count()).toBeGreaterThan(1);
 
         await grid.toggleMultiUpdate();
 
-        // First two data rows (skip the column-header row + filter-header row).
-        const rowA = grid.roleRowAt(2);
-        const rowB = grid.roleRowAt(3);
+        // First two data rows, identified structurally — see WebpetDataGridComponent.dataRows.
+        const rowA = grid.dataRowAt(0);
+        const rowB = grid.dataRowAt(1);
         await grid.selectCheckbox(rowA).check();
         await grid.selectCheckbox(rowB).check();
         await expect(grid.selectionCount(2)).toBeVisible();

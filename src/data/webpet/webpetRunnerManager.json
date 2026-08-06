@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-05T11:03:34.322Z",
+    "generatedAt": "2026-08-06T11:57:14.658Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2308,7 +2308,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Fails by design: S3_ENDPOINT skip guard removed 2026-08-04 so this is visible instead of hidden. Resumes once dev staging has S3/MinIO provisioned."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): S3/MinIO still not provisioned on dev. Resumes once dev staging has that infra."
     },
     {
       "id": "WP-0145",
@@ -2580,7 +2580,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. The in-code skip's premise ('no shared helper selects a combobox value') was stale — EquipmentFormPage.pickEquipmentType uses comboboxItemByText, which does register with the form. Save correctly enables after name + type."
     },
     {
       "id": "WP-0162",
@@ -2628,7 +2628,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. Removed the stale skip and replaced the DelLlano-only literal 'Forklift' with the file's own equip.name, so the 409 comes from a row this spec owns."
     },
     {
       "id": "WP-0165",
@@ -2803,8 +2803,8 @@
       "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-e2e|@wp-scan",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Now fails later, at step 2 (crewSection DOM timing + waitForURL). Test-suite issue, not product."
+      "enabled": true,
+      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect."
     },
     {
       "id": "WP-0178",
@@ -2835,8 +2835,8 @@
       "tags": "@WebPet|@wp-equiv|@WPBatch14|@wp-e2e|@wp-variety",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Hardcodes crop name STRAWBERRIES (DelLlano-only) and never reaches its POST. Test-data coupling, same class BUG-03 fixed for parent-picker."
+      "enabled": true,
+      "notes": "Fixed 2026-08-05: hardcoded DelLlano-only crop STRAWBERRIES replaced with a crop owned via data-factory.ensureCrop, same pattern as parent-picker.spec.ts."
     },
     {
       "id": "WP-0180",
@@ -2852,7 +2852,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v2 ExportRun: draft-lifecycle testid present but not showing under this flow. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): draft-lifecycle testid present but not rendering under this flow. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0181",
@@ -2868,7 +2868,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v2 mobile: destination-chip/bottom-sheet testid absent from source. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): destination-chip/bottom-sheet testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0182",
@@ -2884,7 +2884,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v2 mobile: readiness-strip testid absent from source. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): readiness-strip testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0183",
@@ -2932,7 +2932,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v2 row-selection: same as WP-0180. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): same cause as WP-0180. Export-UI rework pending a product decision, see BUG-18."
     },
     {
       "id": "WP-0186",
@@ -2980,7 +2980,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter page: header/date-inputs testid drives a retired IA — pt-export-new-ia no longer falls back to v1 (WP-0187 proves it). Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): header/date-inputs testid drives the retired v1 IA (WP-0187 proves the flag no longer falls back). Rework pending, see BUG-18."
     },
     {
       "id": "WP-0189",
@@ -2996,7 +2996,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter: Find Candidates flow against a retired IA. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): Find Candidates flow against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0190",
@@ -3012,7 +3012,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter: color legend against a retired IA. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): color legend against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0191",
@@ -3028,7 +3028,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter: inverted-date-range guard against a retired IA. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): inverted-date-range guard against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0192",
@@ -3076,7 +3076,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter: not_licensed banner against a retired IA. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): module.not_licensed banner against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0195",
@@ -3108,7 +3108,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Export v1 Filter: 403 direct-nav against a retired IA. Rework pending."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): 403 direct-nav against the retired v1 IA. Rework pending, see BUG-18."
     },
     {
       "id": "WP-0197",
@@ -3283,8 +3283,8 @@
       "tags": "@WebPet|@wp-formstate|@WPBatch05|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Failed once in the 2026-08-05 3:48pm CI run; passed immediately on local re-run (2 workers). Same transient-setup class as WP-0209 in BUG-14 — disabled per request pending a second data point, not because a defect was confirmed."
+      "enabled": true,
+      "notes": "Passed again on 2026-08-05 re-run (2nd data point) — confirms this was the 3:48pm CI transient blip, not a defect."
     },
     {
       "id": "WP-0208",
@@ -3625,18 +3625,18 @@
     {
       "id": "WP-0229",
       "file": "job.spec.ts",
-      "titlePath": "New job form > [Job] Verify that Save is disabled until the required name and overtime rule are provided.",
+      "titlePath": "New job form > [Job] Verify that Save is disabled until the required name, overtime rule and hourly rate are provided.",
       "caseKey": "",
       "module": "job",
       "category": "ui",
       "testName": "saveDisabledUntilNameAndOvertimeRule",
-      "testTitle": "[Job] Verify that Save is disabled until the required name and overtime rule are provided.",
+      "testTitle": "[Job] Verify that Save is disabled until the required name, overtime rule and hourly rate are provided.",
       "testDescription": "Job needs both Name and an Overtime Rules foreign key; Name alone leaves Save disabled.",
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Job form Save stays disabled even with Name + Overtime Rules + Hourly Rate all filled (confirmed by screenshot 2026-08-05) — a 4th gate condition is unidentified. Bundle ruled out as cause. Product candidate, see BUG-14."
+      "notes": "Still blocked by BUG-14: Save stays disabled with Name+OvertimeRules+HourlyRate all filled, 4th gate condition unidentified. Skips regardless of this flag — test.fixme() is in job.spec.ts and must be lifted in code once BUG-14 is resolved. Same root cause as WP-0232."
     },
     {
       "id": "WP-0230",
@@ -3683,8 +3683,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression|@wp-negative",
       "jira": "",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "NEW to the disabled set 2026-08-06. Same BUG-14 root cause as WP-0229: submitButton is disabled after filling Name+OvertimeRules+HourlyRate, so the click times out (30s). Was ALREADY the single failure on main@f26e132 (run 88) before the branch that disabled it, so this is pre-existing, not a regression. BUG-14 therefore affects two tests, not one."
     },
     {
       "id": "WP-0233",
@@ -3700,7 +3700,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. Was skipped in code since Batch 03. Probing all 16 payment types showed no type renders both PET-60 checkboxes at once (idle-time = Non-Labor/Extra Wages 8/15; job-end = Piece family 1/3/4), so the test now asserts each default under its own type via JobFormPage.selectPaymentType + aria-checked on the visible control."
     },
     {
       "id": "WP-0234",
@@ -3779,8 +3779,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "",
       "status": "automated",
-      "enabled": true,
-      "notes": ""
+      "enabled": false,
+      "notes": "Un-skipped and rewritten 2026-08-06 (per-payment-type jobs, visible base-ui controls, aria-checked), but disabled: probing dev showed clicking includeIdleTimeControl flips aria-checked false->true while Save stays disabled — the checkbox toggles without dirtying the form, so the save round-trip is unreachable. Same 'Save never enables' product gap as BUG-14 (WP-0229/WP-0232). Test code is ready; re-enable once dirty-tracking is fixed."
     },
     {
       "id": "WP-0239",
@@ -3892,7 +3892,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed and passing on dev 2026-08-06. GET /api/boards returns 200 with an empty list on dev, so the old two-branch skip guard always fired; the test now creates its own board via the new data-factory ensureBoard and reuses its name to provoke the unique-name 409."
     },
     {
       "id": "WP-0246",
@@ -4788,7 +4788,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "accounting.export is granted but the sidebar link is absent. Open question to product: permission-only vs permission+IncludeReconcileJCs-preference gating. See BUG-14."
+      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): sidebar link still absent while accounting.export is granted. Open product question (permission-only vs permission+IncludeReconcileJCs-preference gating), see BUG-14."
     },
     {
       "id": "WP-0302",
@@ -5859,8 +5859,8 @@
       "tags": "@WebPet|@wp-selectmigration|@WPBatch05|@wp-ui|@wp-smoke",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Failed once in the 2026-08-05 3:48pm CI run despite the 2026-08-04 fix (switch count 5) holding on local re-run. Same transient class as WP-0207 — disabled pending a second data point."
+      "enabled": true,
+      "notes": "Passed again on 2026-08-05 re-run (2nd data point) — confirms this was the 3:48pm CI transient blip, not a defect."
     },
     {
       "id": "WP-0369",
@@ -5891,8 +5891,8 @@
       "tags": "@WebPet|@wp-selectmigration|@WPBatch05|@wp-ui|@wp-smoke",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "includeIdleTime checkbox only renders for PaymentType in {NonLabor, ExtraWages} (isAllowLookBackPeriod) but the fixture job uses the default Time type. Test-suite fix: switch the fixture job's PaymentType or the test's expectation."
+      "enabled": true,
+      "notes": "Fixed 2026-08-05: fixture job now created with paymentType 8 (Non-Labor) via ensureJob's new opts.paymentType, so includeIdleTime renders (isAllowLookBackPeriod)."
     },
     {
       "id": "WP-0371",
@@ -6019,8 +6019,8 @@
       "tags": "@WebPet|@wp-input|@wp-timein|@WPBatch09|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Layer 1 (hardcoded seeded day) fixed 2026-08-04. Now fails on layer 2: positional roleRowAt(2)/(3) lands on a header row on dev. Needs a data-row locator."
+      "enabled": true,
+      "notes": "Layer 1 (hardcoded seeded day) fixed 2026-08-04. Layer 2 fixed 2026-08-05: added WebpetDataGridComponent.dataRows/dataRowAt (structural, role=cell filter) replacing positional roleRowAt(2)/(3) — the row it lands on genuinely is named \"Ranch\" on dev. Layer 3: dev seeds only one Ranch total, so \"pick a different option\" had no candidate; beforeAll now creates one extra Ranch via ensureRanch purely to widen that dropdown."
     },
     {
       "id": "WP-0379",
@@ -6129,10 +6129,10 @@
       "testTitle": "[Validation] Verify that creating a validation navigates to the edit form.",
       "testDescription": "A successful create navigates to the edit form where Name is populated and now read-only. Cleans up any record left by an interrupted prior run first.",
       "tags": "@WebPet|@wp-setup|@wp-validation|@WPBatch09|@wp-ui|@wp-regression",
-      "jira": "BUG-11 (see bug-ticket-BUG-11.txt) — creating a validation writes to a soft-deleted name and 500s",
+      "jira": "WEBPET-1798",
       "status": "automated",
-      "enabled": false,
-      "notes": "Time Sheet Validation create 500s on a soft-deleted-name collision — see BUG-11."
+      "enabled": true,
+      "notes": "API fix merged/deployed to dev 2026-08-05 (500->409 on soft-deleted-name collision). The specific literal name BUG-11's repro soft-deleted on dev is permanently stuck (no purge endpoint exists for Validation), so TEST_NAME/TEST_NAME_2 are now run-token-suffixed to never collide with it. mode: 'serial' re-enabled per the file's own docstring."
     },
     {
       "id": "WP-0386",

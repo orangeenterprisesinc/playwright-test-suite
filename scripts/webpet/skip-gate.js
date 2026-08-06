@@ -33,7 +33,13 @@ if (!fs.existsSync(RESULTS)) {
     process.exit(1);
 }
 
-/** Allowlist entries: { match, reason, ticket, expires? }. `match` is a substring of the test title or its testCaseId. */
+/**
+ * Allowlist entries: { match, reason, ticket, expires? }. `match` hits on any of:
+ * exact testCaseId, title substring, file-path substring, or skip-reason substring
+ * (the string passed to test.skip()/test.fixme(), surfaced by the JSON reporter as
+ * a `skip`/`fixme` annotation). Reason matching is what lets one entry cover a
+ * conditional guard ("no boards seeded") or every runner-disabled row at once.
+ */
 let allow = [];
 if (fs.existsSync(ALLOWLIST)) {
     const parsed = JSON.parse(fs.readFileSync(ALLOWLIST, 'utf8'));
@@ -60,11 +66,13 @@ const walk = (suite, file) => {
             const status = last ? last.status : 'didNotRun';
             if (status !== 'skipped' && status !== 'didNotRun') continue;
             const idAnn = (t.annotations || []).find((a) => a.type === 'testCaseId');
+            const skipAnn = (t.annotations || []).find((a) => a.type === 'skip' || a.type === 'fixme');
             skipped.push({
                 id: idAnn ? idAnn.description : '',
                 title: spec.title || '',
                 file: f,
                 status,
+                reason: skipAnn ? skipAnn.description || '' : '',
             });
         }
     }
@@ -75,7 +83,8 @@ for (const s of report.suites || []) walk(s, '');
 const matches = (entry, s) =>
     (s.id && s.id === entry.match) ||
     (s.title && s.title.includes(entry.match)) ||
-    (s.file && s.file.includes(entry.match));
+    (s.file && s.file.includes(entry.match)) ||
+    (s.reason && s.reason.includes(entry.match));
 
 const unlisted = skipped.filter((s) => !allow.some((a) => matches(a, s)));
 const used = new Set();

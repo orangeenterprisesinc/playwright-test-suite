@@ -36,7 +36,9 @@ let job: EnsuredJob;
 
 test.beforeAll(async ({ request }) => {
     crew = await ensureCrew(request);
-    job = await ensureJob(request);
+    // paymentType 8 = Non-Labor: WP-0370 needs includeIdleTime to render, which
+    // only happens for Payment Type in {NonLabor, ExtraWages} (isAllowLookBackPeriod).
+    job = await ensureJob(request, { paymentType: 8 });
 });
 
 test.afterAll(async ({ request }) => {

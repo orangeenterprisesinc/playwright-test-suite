@@ -35,6 +35,8 @@ import {
     deleteDepartment,
     ensureCustomer,
     deleteCustomer,
+    ensureBoard,
+    deleteBoard,
 } from './data-factory';
 
 // ── Save / create success toasts ────────────────────────────────────────────
@@ -111,25 +113,26 @@ test.describe('Error toasts', { tag: ['@WebPet', '@wp-notifications', '@WPBatch0
         annotation: { type: 'testCaseId', description: 'WP-0245' },
     }, async ({ page, pages, request }) => {
         const form = pages.boardForm;
-        const list = await request.get('/api/boards');
-        if (!list.ok()) test.skip(true, 'API /boards not available');
-        const boards = (await list.json()) as Array<{ name: string }>;
-        if (boards.length === 0) test.skip(true, 'no boards seeded');
-        const existingName = boards[0].name;
+        // Own the colliding row: dev seeds no boards, so create one and reuse
+        // its name to provoke the unique-name 409 the toast is asserted on.
+        const board = await ensureBoard(request);
+        try {
+            let dialogFired = false;
+            page.on('dialog', (d) => {
+                dialogFired = true;
+                void d.dismiss();
+            });
 
-        let dialogFired = false;
-        page.on('dialog', (d) => {
-            dialogFired = true;
-            void d.dismiss();
-        });
+            await form.gotoNew();
+            await form.waitForForm();
+            await form.fillName(board.name);
+            await form.footer.saveButtonExact.click();
 
-        await form.gotoNew();
-        await form.waitForForm();
-        await form.fillName(existingName);
-        await form.footer.saveButtonExact.click();
-
-        await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 8000 });
-        expect(dialogFired).toBe(false);
+            await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 8000 });
+            expect(dialogFired).toBe(false);
+        } finally {
+            await deleteBoard(request, board.id);
+        }
     });
 
 });

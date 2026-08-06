@@ -4,9 +4,25 @@
     "skipped or didNotRun test NOT matched here, so a skip can never quietly become",
     "permanent. Every entry needs a reason and a ticket/work-item; entries that stop",
     "matching are reported as stale so this file shrinks over time.",
-    "`match` is a testCaseId (WP-0308), a title substring, or a file substring."
+    "`match` is a testCaseId (WP-0308), a title substring, a file substring, or a",
+    "skip-reason substring (the string passed to test.skip()/test.fixme())."
   ],
   "allow": [
+    {
+      "match": "is disabled in its runner row",
+      "reason": "Runner-manager-disabled tests (enabled=0 in webpetRunnerManager.csv) skip at runtime with this reason. The CSV is the system of record for these: every disabled row carries its own notes and jira columns, enforced by webpet:runner:check — duplicating each id here would just drift. This entry keeps the gate green for documented disables while any OTHER skip still fails it.",
+      "ticket": "WEBPET-1797"
+    },
+    {
+      "match": "Disabled in the web-pet runner",
+      "reason": "Same runner-disabled path as above, but for a test with no testCaseId annotation (the structural-key fallback in webpetGate.ts wording). Cannot fire today — all 406 tests are annotated — kept so an unannotated disable never surprises the gate.",
+      "ticket": "WEBPET-1797"
+    },
+    {
+      "match": "WP-0178",
+      "reason": "scan-time-in-equivalence is deliberately env-gated (SCAN_TIME_IN_EQUIV=1 + SCAN_EMPLOYEE_BARCODE) so no employee barcode is hardcoded into the repo. It skips by design everywhere those vars are unset, including CI.",
+      "ticket": "WORK-ITEM: scan-time-in equivalence setup"
+    },
     {
       "match": "report-editor-wysiwyg.spec.ts",
       "reason": "Editor rebuilt in web-pet: iframe preview replaced by inline React ReportCanvas (bfe869b10), numbered markers + right inspector rail replaced by popover editors + anchor menu (bb9065e1e). data-marker-area / data-active-area / data-inspector-area exist in neither source nor the deployed bundle, so 11 of 13 tests assert removed surfaces. WP-0315 (zoom) still runs and passes, which is what proves the route/report/preview are fine. Rewrite the spec + ReportEditorPage against ReportCanvas to bring these back.",

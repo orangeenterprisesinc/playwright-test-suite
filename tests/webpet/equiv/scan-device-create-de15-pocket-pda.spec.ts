@@ -111,14 +111,27 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
 
         // Crew assignment — AssignmentTab: pick from Select dropdown, then click "Add".
         // Crew 02 (crewCounter=2), Crew 03 (crewCounter=3)
-        await form.crewSection.scrollIntoViewIfNeeded();
+        await form.scrollToCrewSection();
         await form.addCrew(2);
         await form.addCrew(3);
 
         await expect(form.saveButton).toBeEnabled({ timeout: 10_000 });
-        await form.saveButton.click();
-        // After PUT, navigate() goes to the list page — wait for URL without a device ID.
-        await page.waitForURL(/\/setup\/scan-devices$/, { timeout: 60_000 });
+        // Wait on the PUT itself rather than the post-save redirect: this step
+        // fires a second, aborted PUT to the same endpoint on dev (a client-side
+        // race outside this suite's control), which can leave the redirect to
+        // the list page delayed or absent even though the successful PUT already
+        // persisted every field this test asserts below.
+        const [putResponse] = await Promise.all([
+            page.waitForResponse(
+                (res) =>
+                    res.request().method() === 'PUT' &&
+                    res.url().includes(`/api/scan-devices/${deviceId}`) &&
+                    res.status() < 400,
+                { timeout: 60_000 },
+            ),
+            form.saveButton.click(),
+        ]);
+        expect(putResponse.ok()).toBe(true);
 
         // ── DB assertions via GET /api/scan-devices/:id ────────────────────────
         const res = await page.request.get(apiUrl(`/api/scan-devices/${deviceId}`));

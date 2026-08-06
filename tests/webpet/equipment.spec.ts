@@ -60,7 +60,9 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0161' },
     }, async ({ pages }) => {
-        test.skip(true, 'Reaching Save-enabled needs selecting the required Equipment Type FK via its combobox; no shared helper selects a combobox value (only opens it) and the click does not register the form value. Save is correctly gated on the FK. See OPEN_QUESTIONS.md (WEBPET-831).');
+        // Un-skipped 2026-08-06: the skip's premise ("no shared helper selects a
+        // combobox value") went stale — pickEquipmentType() uses comboboxItemByText,
+        // the variant that registers the selection with react-hook-form.
         const form = pages.equipmentForm;
         await form.gotoNew();
         // FormFooter disables Save until isDirty && isValid (PET-450).
@@ -103,12 +105,12 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
         tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
         annotation: { type: 'testCaseId', description: 'WP-0164' },
     }, async ({ page, pages }) => {
-        test.skip(true, 'Reaching Save-enabled needs selecting the required Equipment Type FK via its combobox; no shared helper selects a combobox value (only opens it) and the click does not register the form value. Save is correctly gated on the FK. See OPEN_QUESTIONS.md (WEBPET-831).');
         const form = pages.equipmentForm;
-        // "Forklift" already exists; API errors surface via alert()
+        // This file's own equipment name triggers the server 409 on submit —
+        // was the DelLlano-only literal 'Forklift', which dev does not seed.
         await form.gotoNew();
         page.on('dialog', (d) => d.dismiss());
-        await form.fillName('Forklift');
+        await form.fillName(equip.name);
         await form.pickEquipmentType(equip.equipmentTypeName);
         await form.footer.submitButton.click();
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
