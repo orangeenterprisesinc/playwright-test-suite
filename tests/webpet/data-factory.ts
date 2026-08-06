@@ -495,13 +495,15 @@ export interface EnsuredJob {
 /**
  * Creates a fresh Job. `overtimeRulesCounter` (a JobType id) is a required,
  * must-be-non-zero FK, so we resolve the first existing overtime rule; the
- * endpoint exposes it as `jobTypeCounter`. paymentType defaults to 0 (Hourly).
+ * endpoint exposes it as `jobTypeCounter`. paymentType defaults to 0 (Time),
+ * overridable via `opts.paymentType` for tests that need a type-gated field
+ * (e.g. 8 = Non-Labor, 15 = Extra Wages, both required for includeIdleTime).
  * This is enough to open the JobFormPage; specs assert against the returned
  * id/name/code, never a hardcoded /setup/jobs/1 or a seeded "0 - PISCA".
  */
 export async function ensureJob(
   request: APIRequestContext,
-  opts: { namePrefix?: string } = {}
+  opts: { namePrefix?: string; paymentType?: number } = {}
 ): Promise<EnsuredJob> {
   const overtimeRulesCounter = await firstIdFrom<{ jobTypeCounter: number }>(
     request,
@@ -510,7 +512,7 @@ export async function ensureJob(
   )
   const name = uniqueName(opts.namePrefix ?? 'E2EJob')
   const res = await request.post('/api/jobs', {
-    data: { name, active: true, paymentType: 0, overtimeRulesCounter },
+    data: { name, active: true, paymentType: opts.paymentType ?? 0, overtimeRulesCounter },
   })
   if (!res.ok()) {
     throw new Error(`ensureJob: POST /api/jobs failed (${res.status()}): ${await bodyText(res)}`)

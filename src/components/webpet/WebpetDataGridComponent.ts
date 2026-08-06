@@ -125,6 +125,23 @@ export class WebpetDataGridComponent extends BaseComponent {
         return this.roleRows.nth(index);
     }
 
+    /**
+     * Data rows only — excludes header/filter rows.
+     *
+     * {@link roleRowAt} is positional and assumes a fixed number of header rows
+     * above the first data row; that offset isn't stable across environments.
+     * A header/filter row's cells carry `role="columnheader"`, never `role="cell"`,
+     * so filtering on cell presence identifies a data row structurally instead.
+     */
+    get dataRows(): Locator {
+        return this.roleRows.filter({ has: this.page.getByRole('cell') });
+    }
+
+    /** A data row by position — see {@link dataRows}. */
+    dataRowAt(index: number): Locator {
+        return this.dataRows.nth(index);
+    }
+
     /** A cell within `row` by column index. */
     cellAt(row: Locator, index: number): Locator {
         return row.getByRole('cell').nth(index);

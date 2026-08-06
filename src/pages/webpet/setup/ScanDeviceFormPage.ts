@@ -24,10 +24,16 @@
  *    endpoints 403 and retry indefinitely, so the load state never settles. Wait
  *    for {@link preferencesSection} instead.
  *
+ * The same background retries also keep the Preferences/Crew area remounting
+ * for a few seconds after {@link preferencesSection} first appears — long enough
+ * that a `scrollIntoViewIfNeeded()` can resolve an element that detaches before
+ * the scroll completes ("Element is not attached to the DOM"). {@link choosePreference}
+ * retries its scroll+open as a unit rather than assuming one wait is enough.
+ *
  * Save is gated on `isSubmitting` only — there is no `isDirty` guard here, unlike
  * the setup forms modelled by `WebpetFormPage`.
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /**
@@ -105,12 +111,29 @@ export class ScanDeviceFormPage extends BasePage {
             .last();
     }
 
-    /** Scroll a Preferences field into view, open its Select, and pick `value`. */
+    /**
+     * Scroll a Preferences field into view, open its Select, and pick `value`.
+     *
+     * Retries the scroll+open as a unit — see the class doc — because the
+     * section can still be remounting when this runs, detaching the container
+     * mid-scroll rather than failing to resolve it in the first place.
+     */
     async choosePreference(fieldId: string, value: string): Promise<void> {
-        const container = this.preferenceField(fieldId);
-        await container.scrollIntoViewIfNeeded();
-        await container.locator('[data-slot="select-trigger"]').click();
+        await expect(async () => {
+            const container = this.preferenceField(fieldId);
+            await container.scrollIntoViewIfNeeded();
+            await container.locator('[data-slot="select-trigger"]').click();
+        }).toPass();
         await this.openSelectOption(value).click();
+    }
+
+    /**
+     * Scroll the crew section into view. Retries as a unit — see the class doc.
+     */
+    async scrollToCrewSection(): Promise<void> {
+        await expect(async () => {
+            await this.crewSection.scrollIntoViewIfNeeded();
+        }).toPass();
     }
 
     /** Pick a crew by `crewCounter` and click Add. */

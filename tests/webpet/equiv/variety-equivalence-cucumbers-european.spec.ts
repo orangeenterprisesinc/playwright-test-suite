@@ -29,17 +29,21 @@ import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths';
 import { API_BASE_URL, apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { APIRequestContext } from '@playwright/test';
+import { ensureCrop, deleteCrop, type EnsuredCrop } from '../data-factory';
 
 // Unique per-run suffix avoids the unfiltered unique-constraint ghost-row issue.
 const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
 const SAFE_NAME = `ZZTEST_VAR_${RUN_TOKEN}`;
-// The legacy scenario used crop CUCUMBERS (id 38); DelLlano has no such crop,
-// so rebase to a real seeded DelLlano crop. The equivalence assertion (the new
-// Variety row's fields are written correctly) is unchanged — only the existing
-// parent-crop FK differs.
-const CROP_ID = '3';
-const CROP_NAME = 'STRAWBERRIES';
 const ADMIN_STORAGE = WEBPET_ADMIN_STORAGE;
+
+// The legacy scenario used crop CUCUMBERS (id 38), a DelLlano-only seed absent
+// on dev staging. Own the parent Crop via the API instead — same pattern as
+// parent-picker.spec.ts — so this spec runs on any environment.
+let crop: EnsuredCrop;
+
+test.beforeAll(async ({ request }) => {
+    crop = await ensureCrop(request, { namePrefix: 'E2EVarCrop' });
+});
 
 // Read the CSRF token from the saved storage state for direct API calls
 // that must pass RequireCSRF (DELETE). pt_csrf is non-HttpOnly — same value
@@ -68,14 +72,15 @@ let createdId: number | null = null;
 // soft-deleted rows block future re-inserts of the same CropCounter+Name —
 // that is why we use a unique SAFE_NAME per run rather than a fixed constant.
 test.afterAll(async ({ playwright }) => {
-    if (createdId == null) return;
     const csrf = csrfFromStorage();
     const api = await playwright.request.newContext({
         baseURL: API_BASE_URL,
         storageState: ADMIN_STORAGE,
     });
     try {
-        await softDeleteVariety(api, createdId, csrf);
+        // Children before parents — the API blocks a delete with live FK rows.
+        if (createdId != null) await softDeleteVariety(api, createdId, csrf);
+        if (crop) await deleteCrop(api, crop.id);
     } finally {
         await api.dispose();
         createdId = null;
@@ -91,16 +96,16 @@ test.describe('Equivalence: variety-new-record-cucumbers-european', { tag: ['@We
         const form = pages.varietyForm;
         await form.gotoNew();
 
-        // CropCounter — rebased to a real DelLlano crop (see CROP_ID/CROP_NAME above)
-        await form.selectCrop(CROP_ID);
-        await expect(form.cropPicker.sheetValue).toHaveText(CROP_NAME);
+        // CropCounter — this file's own crop, created fresh via the API
+        await form.selectCrop(crop.id);
+        await expect(form.cropPicker.sheetValue).toHaveText(crop.name);
 
         // Name — unique per run to avoid unfiltered-unique-constraint conflicts
         await form.nameInput.fill(SAFE_NAME);
         await form.nameInput.blur();
 
         // ExportIdentifier auto-populates from Crop + Name on blur; assert: equals (derived)
-        await expect(form.exportIdentifierInput).toHaveValue(`${CROP_NAME},${SAFE_NAME}`);
+        await expect(form.exportIdentifierInput).toHaveValue(`${crop.name},${SAFE_NAME}`);
 
         // Active defaults to Yes — no interaction needed; assert: equals (true)
 
@@ -120,8 +125,8 @@ test.describe('Equivalence: variety-new-record-cucumbers-european', { tag: ['@We
         expect(res.ok()).toBe(true);
         const row = await res.json();
 
-        // assert: equals — CropCounter (rebased 38 → 3 for DelLlano's STRAWBERRIES)
-        expect(row.cropCounter).toBe(3);
+        // assert: equals — CropCounter (this file's own crop, not the legacy CUCUMBERS id)
+        expect(row.cropCounter).toBe(crop.id);
 
         // assert: equals — Active
         expect(row.active).toBe(true);
@@ -130,7 +135,7 @@ test.describe('Equivalence: variety-new-record-cucumbers-european', { tag: ['@We
         expect(row.name).toBe(SAFE_NAME);
 
         // assert: equals — ExportIdentifier (derived from CropCounter display + Name)
-        expect(row.exportIdentifier).toBe(`${CROP_NAME},${SAFE_NAME}`);
+        expect(row.exportIdentifier).toBe(`${crop.name},${SAFE_NAME}`);
 
         // assert: ignore — Code (auto-generated barcode; just verify it was assigned)
         expect(row.code).not.toBeNull();

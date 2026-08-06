@@ -29,19 +29,24 @@
  * and two of these were once misread as evidence that the create had succeeded,
  * which sent the WEBPET-1436 / BUG-11 investigation down the wrong path twice.
  *
- * NOT `mode: 'serial'`, deliberately, and this was measured rather than assumed.
- * BUG-13 recommended it; declaring it costs coverage while the create is broken.
- * At `workers=2`: without serial, 1 failed / 2 skipped / 9 passed — with serial,
- * 1 failed / 4 skipped / **7** passed, because a file-wide serial group abandons
- * everything after the failure, including the two tests that do not depend on the
- * created record at all (`nonexistent id`, and soft delete + restore). Revisit once
- * BUG-11 is fixed: with a passing create, serial becomes the better config and
- * costs nothing.
+ * `mode: 'serial'` (below) was deliberately withheld while BUG-11/WEBPET-1798
+ * (the soft-deleted-name-collision 500) kept the create test failing — a
+ * file-wide serial group would have abandoned every test after it, costing
+ * more coverage than running unordered did. Re-enabled 2026-08-05 now that the
+ * create passes: with a passing create, serial is the better config for this
+ * coupling and costs nothing.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 
-const TEST_NAME = '_PET202TestValidation';
-const TEST_NAME_2 = '_PET202TestValidation2';
+test.describe.configure({ mode: 'serial' });
+
+// Suffixed with a run-unique token: the literal names below were the exact
+// rows BUG-11/WEBPET-1798's own bug repro soft-deleted on dev, and a
+// soft-deleted row permanently occupies its name (the fix changed 500->409,
+// it did not free the name) — so the bare literals would collide forever.
+const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+const TEST_NAME = `_PET202TestValidation_${RUN_TOKEN}`;
+const TEST_NAME_2 = `_PET202TestValidation2_${RUN_TOKEN}`;
 
 interface ValidationRow {
     validationCounter: number;
