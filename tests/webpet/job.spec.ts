@@ -48,16 +48,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0229' },
     }, async ({ pages }) => {
-        // CONFIRMED on dev 2026-08-05, screenshot in BUG-14-evidence/WP-0229-VISUAL-*:
-        // Name + Overtime Rules + Hourly Rate all filled (all three visible required-*
-        // fields), Save still disabled. The original draft only knew about the first
-        // two and assumed that was the whole gate — it wasn't, but even the corrected
-        // three-field version isn't either. A fourth condition exists that DOM
-        // inspection hasn't found (possibly a field below the fold, or a schema-level
-        // cross-check). See BUG-14 — needs someone with visibility into
-        // job.schema.ts's isValid computation, not just the rendered form.
-        test.fixme(true, 'Save stays disabled with Name+OvertimeRules+HourlyRate all filled — a 4th gate condition is unidentified; see BUG-14');
-
+        // There was never a hidden fourth required field. WEBPET-1831 found the real
+        // cause: JobGeneralSection's Controller-wrapped fields wired onChange but not
+        // field.onBlur, so with `mode: 'onBlur'` RHF never re-validated after a change
+        // and formState.isValid stayed stale — Save was gated on a cached false.
+        // Fixed and deployed 2026-08-06; the fixme this test carried is lifted.
         const form = pages.jobForm;
         await form.gotoNew();
         // FormFooter disables Save until isDirty && isValid (PET-450).
@@ -198,12 +193,14 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     // PUT-restore: the jobs are deleted, not restored.
     //
     // DISABLED in the runner (enabled=0), not skipped here, so the reason lives in
-    // one place. Probed on dev 2026-08-06: clicking includeIdleTimeControl does
-    // flip its aria-checked false->true, but Save stays disabled — the checkbox
-    // toggles without marking the form dirty, so the save leg below is
-    // unreachable. That is the same "Save never enables" product gap as BUG-14
-    // (WP-0229/WP-0232), not a locator problem. The rewrite below is correct and
-    // ready; re-enable the row once the dirty-tracking gap is fixed.
+    // one place. This is a FIXTURE gap, not a product defect — an earlier note here
+    // wrongly blamed product dirty-tracking, then WEBPET-1831 landed and disproved
+    // it: a paymentType-0 job on this same edit form enables Save as soon as Hourly
+    // Rate is filled. The blocker is that includeIdleTime only renders for
+    // paymentType 8/15, and such a job carries a required-and-empty field that keeps
+    // the form invalid — and POST /api/jobs rejects lookBackPeriod (400
+    // invalid_body), so ensureJob cannot build a savable one. Identify that field
+    // before re-enabling; the round-trip below is otherwise ready.
     test('[Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0238' },
