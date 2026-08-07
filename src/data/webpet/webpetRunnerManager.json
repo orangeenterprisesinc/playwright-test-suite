@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-07T10:18:24.517Z",
+    "generatedAt": "2026-08-07T10:39:48.296Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -3683,8 +3683,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1831",
       "status": "automated",
-      "enabled": false,
-      "notes": "Two layers. (1) Racy click FIXED 2026-08-07: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits for Save via toBeEnabled, matching WP-0229. (2) BLOCKED by a server-side hang, which the fix above exposed: POST /api/jobs with an existing active name never responds (curl: 30s+, status 000, while a unique name returns 201 in ~4.5s), so the form sticks on 'Saving...' forever and no 409 ever reaches the UI. Job-specific — POST /api/equipments returns a clean 409 in 1.6s for the same scenario. Needs a product ticket; re-enable once the endpoint answers."
+      "enabled": true,
+      "notes": "Fixed 2026-08-07 and passing 3/3 on dev. The CI red was a race: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. NOTE for future triage: while diagnosing, POST /api/jobs with a duplicate name hung with no response (curl 30s+, status 000) during a window of broader dev degradation (unique create 4.5s, /api/ranches 3.1s, one run hit getaddrinfo ENOTFOUND). It self-resolved — the same call now returns 409 in ~1-2s — and no deploy in that window touched the Job create path, so it was transient (most likely a lock/transaction pileup), NOT a code regression and NOT a product defect. Re-investigate only if it recurs."
     },
     {
       "id": "WP-0233",
