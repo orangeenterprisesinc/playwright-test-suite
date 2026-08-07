@@ -107,6 +107,13 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         await form.fillName(job.name);
         await form.pickFirstOvertimeRule();
         await form.hourlyRateInput.fill('10');
+        // Blur, then wait for Save to actually open, before clicking it. Since
+        // WEBPET-1831 validation runs on blur, and a bare fill() leaves Save
+        // disabled until some other async re-validation happens to land — locally
+        // that arrived ~1s later and the test passed, in CI it arrived before the
+        // fill and Save never re-opened, so the click burned the whole timeout.
+        await form.hourlyRateInput.blur();
+        await expect(form.footer.saveButton).toBeEnabled();
         await form.footer.submitButton.click();
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
         await expect(page).toHaveURL(/\/setup\/jobs\/new/);

@@ -112,6 +112,9 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
         page.on('dialog', (d) => d.dismiss());
         await form.fillName(equip.name);
         await form.pickEquipmentType(equip.equipmentTypeName);
+        // Wait for the Save gate to open before clicking it — same race that made
+        // WP-0232 pass locally and time out in CI (see job.spec.ts).
+        await expect(form.footer.saveButton).toBeEnabled();
         await form.footer.submitButton.click();
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
         await expect(page).toHaveURL(/\/setup\/equipments\/new/);

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-07T08:37:12.408Z",
+    "generatedAt": "2026-08-07T10:18:24.517Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -3683,8 +3683,8 @@
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1831",
       "status": "automated",
-      "enabled": true,
-      "notes": "RESOLVED by WEBPET-1831 (stale formState.isValid from missing field.onBlur wiring), same root cause as WP-0229 — not a separate defect. Verified passing on dev 2026-08-06."
+      "enabled": false,
+      "notes": "Two layers. (1) Racy click FIXED 2026-08-07: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits for Save via toBeEnabled, matching WP-0229. (2) BLOCKED by a server-side hang, which the fix above exposed: POST /api/jobs with an existing active name never responds (curl: 30s+, status 000, while a unique name returns 201 in ~4.5s), so the form sticks on 'Saving...' forever and no 409 ever reaches the UI. Job-specific — POST /api/equipments returns a clean 409 in 1.6s for the same scenario. Needs a product ticket; re-enable once the endpoint answers."
     },
     {
       "id": "WP-0233",
