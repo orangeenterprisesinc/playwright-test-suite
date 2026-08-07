@@ -48,16 +48,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0229' },
     }, async ({ pages }) => {
-        // CONFIRMED on dev 2026-08-05, screenshot in BUG-14-evidence/WP-0229-VISUAL-*:
-        // Name + Overtime Rules + Hourly Rate all filled (all three visible required-*
-        // fields), Save still disabled. The original draft only knew about the first
-        // two and assumed that was the whole gate — it wasn't, but even the corrected
-        // three-field version isn't either. A fourth condition exists that DOM
-        // inspection hasn't found (possibly a field below the fold, or a schema-level
-        // cross-check). See BUG-14 — needs someone with visibility into
-        // job.schema.ts's isValid computation, not just the rendered form.
-        test.fixme(true, 'Save stays disabled with Name+OvertimeRules+HourlyRate all filled — a 4th gate condition is unidentified; see BUG-14');
-
+        // There was never a hidden fourth required field. WEBPET-1831 found the real
+        // cause: JobGeneralSection's Controller-wrapped fields wired onChange but not
+        // field.onBlur, so with `mode: 'onBlur'` RHF never re-validated after a change
+        // and formState.isValid stayed stale — Save was gated on a cached false.
+        // Fixed and deployed 2026-08-06; the fixme this test carried is lifted.
         const form = pages.jobForm;
         await form.gotoNew();
         // FormFooter disables Save until isDirty && isValid (PET-450).
