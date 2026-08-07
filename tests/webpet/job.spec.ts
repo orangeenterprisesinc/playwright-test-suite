@@ -193,12 +193,14 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     // PUT-restore: the jobs are deleted, not restored.
     //
     // DISABLED in the runner (enabled=0), not skipped here, so the reason lives in
-    // one place. Probed on dev 2026-08-06: clicking includeIdleTimeControl does
-    // flip its aria-checked false->true, but Save stays disabled — the checkbox
-    // toggles without marking the form dirty, so the save leg below is
-    // unreachable. That is the same "Save never enables" product gap as BUG-14
-    // (WP-0229/WP-0232), not a locator problem. The rewrite below is correct and
-    // ready; re-enable the row once the dirty-tracking gap is fixed.
+    // one place. This is a FIXTURE gap, not a product defect — an earlier note here
+    // wrongly blamed product dirty-tracking, then WEBPET-1831 landed and disproved
+    // it: a paymentType-0 job on this same edit form enables Save as soon as Hourly
+    // Rate is filled. The blocker is that includeIdleTime only renders for
+    // paymentType 8/15, and such a job carries a required-and-empty field that keeps
+    // the form invalid — and POST /api/jobs rejects lookBackPeriod (400
+    // invalid_body), so ensureJob cannot build a savable one. Identify that field
+    // before re-enabling; the round-trip below is otherwise ready.
     test('[Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0238' },
