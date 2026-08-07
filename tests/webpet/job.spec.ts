@@ -102,8 +102,12 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     }, async ({ page, pages }) => {
         const form = pages.jobForm;
         // This file's own job name triggers a server 409 on submit.
+        //
+        // No dialog handler: the 409 has not surfaced via a native alert() since the
+        // toast migration — it renders as a sonner error toast, asserted below.
+        // Playwright auto-dismisses any dialog when no handler is registered, so
+        // dropping it cannot hang the test.
         await form.gotoNew();
-        page.on('dialog', (d) => d.dismiss());
         await form.fillName(job.name);
         await form.pickFirstOvertimeRule();
         await form.hourlyRateInput.fill('10');
@@ -115,6 +119,19 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         await form.hourlyRateInput.blur();
         await expect(form.footer.saveButton).toBeEnabled();
         await form.footer.submitButton.click();
+
+        // Assert the conflict is actually REPORTED, not just that the form survived.
+        // Without this the test passed while the user saw nothing at all: during the
+        // BUG-24 investigation the API stopped answering, the form sat on a disabled
+        // "Saving..." forever, and the old two assertions below still held (Save was
+        // eventually re-enabled and the URL never changed). The message is the point
+        // of a negative test, so it is what gets asserted.
+        await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 10000 });
+        await expect(
+            pages.toasts.message(/A job with this Name already exists/i),
+        ).toBeVisible();
+
+        // …and the user is left able to correct it, still on the create form.
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
         await expect(page).toHaveURL(/\/setup\/jobs\/new/);
     });
