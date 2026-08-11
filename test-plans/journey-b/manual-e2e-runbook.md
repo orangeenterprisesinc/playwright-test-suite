@@ -143,9 +143,20 @@ config that is not set up yet):
 
 - **Single Folder:** Connectivity ▸ Import ▸ Single Folder → choose
   `device-export-b1.xml` → Import. 📸 *before/after*
-- **Internet (Amy's real path — do not expect it to work yet):** Connectivity ▸
-  Import ▸ Internet. Her office pulls from the relay mailbox automatically; ours needs
-  the office relay address configured (investigation in progress) **and** WEBPET-1830.
+- **Internet (Amy's real path):** Connectivity ▸ Import ▸ Internet — one button, the
+  pull happens server-side and always answers HTTP 200; read the **message**, not the
+  status code (`status: "warning"` + `runId: 0` means a gate is closed). Needs
+  WEBPET-1830 **plus** these server-side gates (verified in web-pet source):
+  - `WEBMAIL_LIVE_SEND_ENABLED=true` env on the dev API (fail-closed kill switch);
+  - a `TigerMaster.dbo.ClientRelayRegistration` row for this client with
+    `LiveSendEnabled=1` and a `SendPassword` — **SQL-only, no UI or API sets the
+    password** (test-relay convention: password equals the account name);
+  - office mailbox + relay URL: Setup ▸ Preferences ▸ Connectivity ▸ Web Mail —
+    `Rest Web Address` = the v6 relay URL, `Web Mail Server Address` = the mailbox to
+    drain (the registration row's `ServerAddress` wins when non-empty).
+  The office drains **its own** configured mailbox, so a manual pull test must point
+  the device's `server_address_preference` at that same mailbox — coordinate with
+  whoever owns the automation's `b1office@petb1` queue before flipping office prefs.
 
 **Expected today (the known break):** the import reports **failed** —
 *"could not store uploaded file"* — and the run never completes.
