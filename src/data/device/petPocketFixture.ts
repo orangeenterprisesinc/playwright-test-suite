@@ -1,18 +1,10 @@
-import path from 'node:path';
-
 /**
- * Deterministic Journey B device fixture — no random data. Codes follow the
- * catalog barcode rule (≥4 digits, no leading zero, unique). Setup records
- * cross-reference **by Name** (Employee_Records.CREW = the crew's Name; the
- * record screens store the displayed name) — never link by code.
+ * Deterministic Journey B fixture — no random data. Codes follow the catalog
+ * barcode rule (≥4 digits, no leading zero, unique). These records exist on
+ * dev staging (discovered-not-recreated by officeFixture) and are the codes
+ * the XML import tests reference in their envelopes.
  *
- * B2 (crew move) needs a destination, hence the second ranch/field/job. With
- * more than one record per type the Crew In screen no longer auto-fills, so
- * specs pick values explicitly.
- *
- * These same names are seeded on dev staging by the specs' arrange phase so the
- * web-pet importer (which resolves FKs by Name, nullable) links the imported
- * rows instead of silently importing NULL counters.
+ * B2 (crew move) needs a destination, hence the second field/job.
  */
 export const DEVICE_FIXTURE = {
     ranch: { code: '4001', name: 'B1 RANCH' },
@@ -31,9 +23,3 @@ export const DEVICE_FIXTURE = {
     ],
     absentee: { code: '6004', name: 'B1 ABSENTEE FOUR' },
 } as const;
-
-export const DEVICE_DATA_DIR = path.join(__dirname);
-export const PREFS_FIXTURE = path.join(DEVICE_DATA_DIR, 'pet-prefs.xml');
-export const SCHEMA_EMPTY_DB = path.join(DEVICE_DATA_DIR, 'schema-empty.db');
-export const GOLDEN_DB = path.join(DEVICE_DATA_DIR, 'golden-petdb.db');
-export const APK_PATH = path.join(__dirname, '..', '..', '..', 'apps-device', 'petpocket-debug.apk');
