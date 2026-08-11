@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { adb, adbShell, ADB_PATH } from './adb';
+import { adb, adbShell, withSerial, ADB_PATH } from './adb';
 
 const REMOTE = '/sdcard/pw-device-record.mp4';
 
@@ -25,7 +25,7 @@ export class ScreenRecorder {
         }
         this.proc = spawn(
             ADB_PATH,
-            ['shell', 'screenrecord', '--bit-rate', '2000000', '--size', '480x960', REMOTE],
+            withSerial(['shell', 'screenrecord', '--bit-rate', '2000000', '--size', '480x960', REMOTE]),
             { stdio: 'ignore', detached: true },
         );
         this.proc.unref();

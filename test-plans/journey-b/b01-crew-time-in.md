@@ -73,10 +73,10 @@ Delivery itself was then proven against the **real relay** (2026-08-10): the rel
 one thing the app was missing was a **destination** (`server_address_preference`); without it the
 relay answers "To Address cannot be Empty", which the app mangles into "Missing body tag". With
 `DEVICE_RELAY_SERVER` + `DEVICE_RELAY_URL` (v6) seeded, the export returns
-`is push file success: true` and every row gets an `ExportTime`. The spec asserts the send outcome
-**only when those env vars are set** — deliberately unset by default so ordinary runs never post to
-a production service — and attaches the per-attempt result (`export-result.txt`) on every run so a
-failed send is never silent.
+`is push file success: true` and every row gets an `ExportTime`. Since 2026-08-11 both vars live in
+the tracked `.env.dev`, so every dev run delivers for real and the spec asserts the send outcome
+(blank them to run offline — the assertion then stands down). The per-attempt result
+(`export-result.txt`) is attached on every run so a failed send is never silent.
 
 ### The export references records by Code, not Name
 

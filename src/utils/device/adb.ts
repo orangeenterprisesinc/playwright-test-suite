@@ -20,8 +20,22 @@ export const ADB_PATH = ANDROID_HOME
 
 const ADB = ADB_PATH;
 
+/**
+ * Target device serial (`adb devices`), for running against a real phone
+ * instead of the `petpocket_rs35` AVD. Unset by default — every adb call then
+ * targets whatever single device/emulator is connected, unchanged from before.
+ * Required as soon as more than one is connected at once (adb otherwise
+ * refuses with "more than one device/emulator").
+ */
+export const ADB_SERIAL = process.env.DEVICE_UDID;
+
+/** Prefixes `-s <serial>` when DEVICE_UDID is set; passes args through otherwise. */
+export function withSerial(args: string[]): string[] {
+    return ADB_SERIAL ? ['-s', ADB_SERIAL, ...args] : args;
+}
+
 export function adb(args: string[]): Buffer {
-    return execFileSync(ADB, args, { maxBuffer: 256 * 1024 * 1024 }) as Buffer;
+    return execFileSync(ADB, withSerial(args), { maxBuffer: 256 * 1024 * 1024 }) as Buffer;
 }
 
 export function adbShell(cmd: string): string {
