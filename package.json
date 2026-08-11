@@ -9,6 +9,11 @@
     "test:headed": "node scripts/run-playwright.js local --project=chromium --headed",
     "test:ui": "node scripts/run-playwright.js local --ui",
     "test:debug": "node scripts/run-playwright.js local --project=chromium --debug",
+    "test:device": "node scripts/run-playwright.js dev --project=device",
+    "device:setup:sdk": "powershell -ExecutionPolicy Bypass -File scripts/device/setup-android-sdk.ps1",
+    "device:build:apk": "powershell -ExecutionPolicy Bypass -File scripts/device/build-apk.ps1",
+    "device:driver": "node scripts/device/install-appium-driver.mjs",
+    "device:fixtures": "node --import tsx scripts/device/make-golden-db.ts",
     "test:smoke": "node scripts/run-playwright.js local --grep=@Smoke",
     "test:high-level": "node scripts/run-playwright.js local --grep=@HighLevel",
     "test:regression": "node scripts/run-playwright.js local --grep=@Regression",
@@ -44,7 +49,7 @@
     "coverage:catalog": "node scripts/runner/coverage.js",
     "docker:build": "docker build -f docker/Dockerfile -t playwright-test-suite .",
     "docker:run": "docker run --rm -e BASE_URL -e API_URL -e USER_NAME -e PASSWORD -e TEST_ENV -v \"%cd%/artifacts:/app/artifacts\" playwright-test-suite",
-    "test:report": "node node_modules/@playwright/test/cli.js show-report",
+    "test:report": "node node_modules/@playwright/test/cli.js show-report artifacts/html",
     "notify:reminder": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/notify/slack-reminder.ts",
     "report:allure": "node scripts/report/allure-generate.js",
     "report:allure:open": "node scripts/report/allure-open.js",
@@ -58,6 +63,7 @@
   "devDependencies": {
     "@playwright/mcp": "^0.0.53",
     "@playwright/test": "1.58.2",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^25.2.2",
     "@types/nodemailer": "^8.0.1",
     "@types/papaparse": "^5.5.1",
@@ -66,6 +72,8 @@
     "allure-commandline": "^2.43.0",
     "allure-js-commons": "^3.10.2",
     "allure-playwright": "^3.10.2",
+    "appium": "^2.19.0",
+    "better-sqlite3": "^13.0.3",
     "dotenv": "^17.2.4",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
@@ -76,6 +84,8 @@
     "playwright": "1.58.2",
     "playwright-core": "1.58.2",
     "prettier": "^3.8.1",
-    "typescript": "^5.3.0"
+    "tsx": "^4.23.12",
+    "typescript": "^5.3.0",
+    "webdriverio": "^9.30.1"
   }
 }
