@@ -135,11 +135,6 @@ export class CleanupRegistry {
         }
     }
 
-    /** How many records are still tracked — for assertions and diagnostics. */
-    get pending(): number {
-        return this.tracked.length;
-    }
-
     /** Remove one record through its entity's delete call. */
     private async deleteRecord(entity: string, name: string): Promise<void> {
         cleanupTarget(entity);

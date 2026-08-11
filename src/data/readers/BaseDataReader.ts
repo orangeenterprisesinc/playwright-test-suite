@@ -111,23 +111,6 @@ export abstract class BaseDataReader implements IDataReader {
     }
 
 
-    /** Clears the in-memory cache, forcing a re-read on the next call. */
-    clearCache(): void {
-        this.cachedData = null;
-        this.logger.debug('Cache cleared');
-    }
-
-    /** Returns the configured file path for this reader. */
-    getFilePath(): string {
-        return this.filePath;
-    }
-
-
-    /** Returns the data source type (`'json'`, `'csv'`, `'excel'`, `'db'`). */
-    getSourceType(): DataSourceType {
-        return this.sourceType;
-    }
-
     /**
      * Parses raw data from the underlying source. Must be implemented by subclasses.
      *

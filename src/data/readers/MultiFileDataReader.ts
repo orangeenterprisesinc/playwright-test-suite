@@ -38,11 +38,6 @@ const BOOLEAN_FIELDS = ['enabled', 'demo', 'shouldComplete'] as const;
  */
 const parsedCache = new Map<string, Record<string, unknown>[]>();
 
-/** Clears the process-wide row cache — for tests that rewrite the data files. */
-export function clearMultiFileCache(): void {
-    parsedCache.clear();
-}
-
 /**
  * Reads every `*.json` or `*.csv` file in a directory as one combined record set.
  *

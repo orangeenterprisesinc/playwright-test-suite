@@ -7,7 +7,7 @@
  * were untouched. Modelling them as one object would tie a stable surface to a
  * volatile one.
  */
-import { Locator, Page, Response, expect } from '@playwright/test';
+import { Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { WebpetDataGridComponent } from '../../components/webpet/WebpetDataGridComponent';
 
@@ -74,12 +74,6 @@ export abstract class WebpetListPage extends BasePage {
     async openNewForm(): Promise<void> {
         await this.grid.newLink.click();
         await this.page.waitForURL(new RegExp(`${this.pageUrl.replace(/\//g, '\\/')}\\/new(\\?|$)`));
-    }
-
-    /** Assert the list rendered — heading present and grid visible. */
-    async expectLoaded(): Promise<void> {
-        await expect(this.heading).toBeVisible();
-        await this.grid.waitForGrid();
     }
 }
 

@@ -8,7 +8,7 @@
  * Also exposes {@link DataProvider.toRunnerData} for wrapping test data in
  * the `RunnerData` format.
  */
-import type {DataProviderResult, DataSourceType, IDataReader, RunnerData, TestCaseData} from '../../types';
+import type {DataSourceType, IDataReader, RunnerData, TestCaseData} from '../../types';
 import {type DataSourceConfig, getDataSourceConfig} from '../../config/dataSource.config';
 import {CsvDataReader, JsonDataReader, MultiFileDataReader} from './index';
 import {Logger} from '../../utils/logger';
@@ -50,32 +50,6 @@ export class DataProvider {
     }
 
     /**
-     * Loads all test data from the configured (or specified) source.
-     *
-     * @template T - Shape of each test-data record
-     */
-    async getTestData<T>(sourceType?: DataSourceType): Promise<DataProviderResult<T>> {
-        const type = sourceType || this.config.type;
-        const reader = await this.getReader(type);
-        const filePath = this.getResolvedFilePath(type);
-
-        this.logger.info(`Loading test data from ${type}: ${filePath}`);
-
-        const allData = await reader.readAll<T>();
-        const enabledData = await reader.readEnabled<T & { enabled?: boolean }>();
-
-        return {
-            data: allData,
-            source: type,
-            filePath,
-            loadedAt: new Date(),
-            totalCount: allData.length,
-            enabledCount: enabledData.length,
-        };
-    }
-
-
-    /**
      * Returns only test data records where `enabled !== false`.
      *
      * @template T - Record shape (must optionally include `enabled`)
@@ -99,35 +73,6 @@ export class DataProvider {
         const reader = await this.getReader(sourceType);
         return reader.readById<T>(id);
     }
-
-    /**
-     * Returns test data records matching all key-value pairs in the filter.
-     *
-     * @template T - Record shape
-     */
-    async getFilteredTestData<T>(filter: Partial<T>, sourceType?: DataSourceType): Promise<T[]> {
-        const reader = await this.getReader(sourceType);
-        return reader.readFiltered<T>(filter);
-    }
-
-    /** Returns the active data source configuration. */
-    getConfig(): DataSourceConfig {
-        return this.config;
-    }
-
-
-    /** Returns the currently configured source type. */
-    getCurrentSourceType(): DataSourceType {
-        return this.config.type;
-    }
-
-
-    /** Checks whether the specified (or default) data source is accessible. */
-    async isSourceAvailable(sourceType?: DataSourceType): Promise<boolean> {
-        const reader = await this.getReader(sourceType);
-        return reader.isAvailable();
-    }
-
 
     /**
      * Returns the appropriate reader for the given source type directly,
@@ -156,14 +101,6 @@ export class DataProvider {
                 this.logger.warn(`Unsupported data source type: ${sourceType}, falling back to JSON`);
                 return new JsonDataReader(this.config.jsonPath);
         }
-    }
-
-    /**
-     * Returns the raw configured path for the given source type. Data is read
-     * directly from this file — no converted copy exists.
-     */
-    private getResolvedFilePath(sourceType: DataSourceType): string {
-        return this.getRawSourcePath(sourceType);
     }
 
     /** Returns the raw configured path for the given source type. */

@@ -109,8 +109,3 @@ export function expandModules(required: readonly string[]): PetTigerModule[] {
     }
     return [...expanded];
 }
-
-/** Whether `value` is a canonical module name (or the `core` shorthand). */
-export function isModuleRequirement(value: string): value is ModuleRequirement {
-    return value === 'core' || (ALL_MODULES as readonly string[]).includes(value);
-}

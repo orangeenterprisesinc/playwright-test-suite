@@ -69,14 +69,6 @@ export class FormFooterComponent extends BaseComponent {
         this.errorSummaryButton = page.getByRole('button', { name: /\d+ error/ });
         this.submitButton = page.locator('button[type="submit"]');
     }
-
-    /**
-     * Whether the form has been edited, read from which label the footer shows.
-     * The app has no persistent "Unsaved changes" bar — the relabel IS the signal.
-     */
-    async isDirty(): Promise<boolean> {
-        return this.discardChangesButton.isVisible();
-    }
 }
 
 export default FormFooterComponent;

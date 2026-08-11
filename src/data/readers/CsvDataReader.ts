@@ -39,39 +39,6 @@ export class CsvDataReader extends BaseDataReader {
         this.coercionHelper = new TypeCoercionHelper(options?.arrayDelimiter || '|');
     }
 
-
-    /**
-     * Reads all rows and remaps column names according to the provided mapping.
-     *
-     * @template T - Target record shape
-     */
-    async readWithMapping<T>(columnMapping: Record<string, string>): Promise<T[]> {
-        const rawData = await this.readAll<Record<string, unknown>>();
-
-        return rawData.map((row) => {
-            const mapped: Record<string, unknown> = {};
-            for (const [csvColumn, targetKey] of Object.entries(columnMapping)) {
-                if (row[csvColumn] !== undefined) {
-                    mapped[targetKey] = row[csvColumn];
-                }
-            }
-            return mapped as T;
-        });
-    }
-
-
-    /** Reads and returns the header column names from the CSV file. */
-    async getHeaders(): Promise<string[]> {
-        const fileContent = await fs.readFile(this.filePath, 'utf-8');
-        const firstLine = fileContent.split('\n')[0];
-
-        if (this.hasHeader) {
-            return firstLine.split(this.delimiter).map((h) => h.trim());
-        }
-
-        return [];
-    }
-
     /**
      * Parses the CSV file content and applies type coercion to each row.
      *

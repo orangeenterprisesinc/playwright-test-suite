@@ -27,8 +27,3 @@ export function expandSegments(required: readonly string[]): Segment[] {
     if (required.includes('all')) return [...ALL_SEGMENTS];
     return required as Segment[];
 }
-
-/** Whether `value` is a known segment (or the `all` shorthand). */
-export function isSegmentRequirement(value: string): value is SegmentRequirement {
-    return value === 'all' || (ALL_SEGMENTS as readonly string[]).includes(value);
-}

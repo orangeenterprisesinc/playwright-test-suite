@@ -1,36 +1,12 @@
 /**
- * @fileoverview Test lifecycle manager — tracks per-test state and suite-level pass/fail/skip counters.
+ * @fileoverview Test lifecycle manager — per-test start/end bookkeeping and logging.
  */
 import type { TestInfo } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { TestMetrics } from '../../context/testMetrics';
-import { CurrentTestTracker, TestRunContext } from '../../context/testRunContext';
+import { CurrentTestTracker } from '../../context/testRunContext';
 
 const logger = new Logger('LifecycleManager');
-
-let passedCount = 0;
-let failedCount = 0;
-let skippedCount = 0;
-let suiteStartTime = 0;
-
-/** Resets suite-level counters. Call once at the start of a run. */
-export function resetSuiteCounters(): void {
-    passedCount = 0;
-    failedCount = 0;
-    skippedCount = 0;
-    suiteStartTime = Date.now();
-}
-
-/** Current suite-level execution statistics. */
-export function getSuiteStats() {
-    return {
-        passed: passedCount,
-        failed: failedCount,
-        skipped: skippedCount,
-        total: passedCount + failedCount + skippedCount,
-        durationMs: Date.now() - suiteStartTime,
-    };
-}
 
 /** Call at the start of each test (e.g. from `test.beforeEach`). */
 export function onTestStart(testInfo: TestInfo): void {
@@ -45,7 +21,6 @@ export function onTestStart(testInfo: TestInfo): void {
     if (tagMatches) TestMetrics.tags = tagMatches;
 
     CurrentTestTracker.set({ title: testInfo.title, file: testInfo.file ?? '', retry: testInfo.retry });
-    TestRunContext.setIteration(testInfo.retry);
 
     logger.info(`▶ START: ${testInfo.title} [project=${testInfo.project.name}, retry=${testInfo.retry}]`);
 }
@@ -59,18 +34,15 @@ export function onTestEnd(testInfo: TestInfo): void {
 
     switch (status) {
         case 'passed':
-            passedCount++;
             logger.info(`✅ PASS: ${testInfo.title} (${testInfo.duration}ms)`);
             break;
         case 'failed':
         case 'timedOut':
         case 'interrupted':
-            failedCount++;
             TestMetrics.errorMessage = testInfo.error?.message ?? null;
             logger.error(`❌ FAIL: ${testInfo.title} — ${testInfo.error?.message ?? 'unknown error'}`);
             break;
         case 'skipped':
-            skippedCount++;
             logger.warn(`⏭️  SKIP: ${testInfo.title}`);
             break;
     }

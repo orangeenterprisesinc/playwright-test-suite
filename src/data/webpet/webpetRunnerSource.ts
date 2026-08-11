@@ -20,7 +20,6 @@
  * `MultiFileDataReader`'s own parse cache is keyed `"${sourceType}:${dir}"`, so
  * two live row sources in one process are safe through this path.
  */
-import path from 'node:path';
 import type { TestInfo } from '@playwright/test';
 import { MultiFileDataReader } from '../readers/MultiFileDataReader';
 import { getCurrentDataSourceType } from '../../config/dataSource.config';
@@ -48,11 +47,6 @@ let cache: Promise<WebpetRunnerIndex> | null = null;
 export function getWebpetRunnerIndex(): Promise<WebpetRunnerIndex> {
     if (!cache) cache = build();
     return cache;
-}
-
-/** Clears the cached index — for tests that rewrite the row files at runtime. */
-export function resetWebpetRunnerCache(): void {
-    cache = null;
 }
 
 async function build(): Promise<WebpetRunnerIndex> {
@@ -96,6 +90,3 @@ export function webpetStructuralKey(testInfo: TestInfo): string {
     );
     return `${file}::${titles.join(' > ')}`;
 }
-
-/** Unused by the runtime gate; exported for tooling that needs the directory. */
-export const WEBPET_ROW_DIR: string = path.resolve(WEBPET_DATA_DIR);

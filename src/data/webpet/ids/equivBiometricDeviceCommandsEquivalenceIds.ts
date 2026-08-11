@@ -11,6 +11,3 @@ export const equivBiometricDeviceCommandsEquivalenceIds = {
     'contract:request-partial-data': 'WP-0171',
     'contract:set-timezone': 'WP-0172',
 } as const;
-
-/** Every business key this spec addresses. */
-export type EquivBiometricDeviceCommandsEquivalenceIdsKey = keyof typeof equivBiometricDeviceCommandsEquivalenceIds;
