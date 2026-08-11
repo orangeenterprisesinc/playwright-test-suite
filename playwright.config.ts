@@ -77,14 +77,20 @@ const DEVICE_TEST_DIR = './tests/web/journey-b-field';
 
 /**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
- * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
- * so a run of the converted suite is still comparable with the source repo's
- * localhost acceptance baseline (362 passed / 18 skipped / 26 failed).
+ * the SOURCE repo's TIMING settings (30s test / 5s expect / retries 0), so a run
+ * of the converted suite is still comparable with the source repo's localhost
+ * acceptance baseline (362 passed / 18 skipped / 26 failed).
+ *
+ * Parity covers timing, NOT artifacts. It used to force screenshot/video/trace
+ * fully off, which is why a green 405-test CI report shipped with zero images and
+ * zero videos in it — nothing had ever been captured, so every failure had to be
+ * reproduced locally to be seen. Artifacts do not move the pass/fail counts the
+ * baseline compares, so they are now retained on failure (below).
  *
  * `WEBPET_PARITY=0` previews the end state — this repo's globals (110s / 10s /
- * CI retries 2 / video+screenshot on / trace retain-on-failure) — which is a
- * genuinely different beast: video-on across 406 tests is multi-gigabyte and CI
- * retries turn flake into green. Preview it before committing to it.
+ * CI retries 2 / video+screenshot on for EVERY test) — which is a genuinely
+ * different beast: video-on across 406 tests is multi-gigabyte and CI retries
+ * turn flake into green. Preview it before committing to it.
  *
  * ## Why this flag outlived the conversion (Batch 15)
  *
@@ -293,8 +299,21 @@ export default defineConfig({
         // the web app, so it needs the browser session AND device settings:
         //   workers 1 / not parallel — a single emulator cannot serve two workers.
         //   long timeout            — emulator boot + app install + a sync round trip.
-        // The device recording and step screenshots arrive as test attachments, so
+        // The journey recording and step screenshots arrive as test attachments, so
         // both halves of the journey land in the same HTML/Allure report.
+        //
+        // `video` stays inherited ('on') and is READ by the device fixture, which
+        // owns the recording for both halves — see shouldRecordVideo(). What used to
+        // produce a second, fourteen-minutes-idle browser video was the specs
+        // destructuring `pages`, which built Playwright's own recording context at
+        // test start. They now call `device.office()` instead, so Playwright's
+        // `context` fixture is never instantiated and there is nothing to suppress.
+        // Re-adding `pages`/`page` to a device spec would bring the second video
+        // back; use `device.office()`.
+        //
+        // `screenshot: 'only-on-failure'` because the green path already attaches
+        // the emulator stills per step plus transfer-to-job-cards from
+        // officeVerification — an end-of-test browser PNG on top is a duplicate.
         ...(DEVICE_ENABLED
             ? [
                   {
@@ -306,6 +325,7 @@ export default defineConfig({
                       use: {
                           ...devices['Desktop Chrome'],
                           storageState: '.auth/user.json',
+                          screenshot: 'only-on-failure' as const,
                       },
                       dependencies: ['auth-setup'],
                   },
@@ -370,11 +390,16 @@ export default defineConfig({
                           ...devices['Desktop Chrome'],
                           locale: 'en-US',
                           extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
+                          // Failure-only, not off: a green run retains nothing and
+                          // stays as cheap as a parity run has always been, but a
+                          // red one is debuggable from the CI artifact alone.
+                          // 'retain-on-failure' over 'on-first-retry' so evidence
+                          // survives even when retries are 0 (local parity runs).
                           ...(WEBPET_PARITY
                               ? {
-                                    trace: 'on-first-retry' as const,
-                                    video: 'off' as const,
-                                    screenshot: 'off' as const,
+                                    trace: 'retain-on-failure' as const,
+                                    video: 'retain-on-failure' as const,
+                                    screenshot: 'only-on-failure' as const,
                                 }
                               : {}),
                           // NO storageState: src/fixtures/webpet.fixture.ts seeds its

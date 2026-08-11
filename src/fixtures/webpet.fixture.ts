@@ -44,6 +44,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
+import { shouldKeepVideo, shouldRecordVideo } from '@reporting/capture/videoRetention';
 import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
@@ -113,9 +114,7 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         // Playwright wires `use.video` only into its own `context` fixture. This
         // one builds the context by hand, so without this the project's video
         // setting is silently inert — parity mode off still produced no .webm.
-        const configured = testInfo.project.use.video;
-        const videoMode = typeof configured === 'string' ? configured : configured?.mode;
-        const recording = videoMode !== undefined && videoMode !== 'off';
+        const recording = shouldRecordVideo(testInfo);
 
         const ctx = await browser.newContext({
             storageState: WEBPET_ADMIN_STORAGE,
@@ -167,8 +166,10 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         await ctx.close();
 
         // The .webm is only finalized on context close, so it can only be
-        // attached to the report afterwards.
-        if (recording) {
+        // attached to the report afterwards. `shouldKeepVideo` reads the outcome:
+        // under 'retain-on-failure' a green test records but attaches nothing,
+        // and the file dies with the output dir.
+        if (recording && shouldKeepVideo(testInfo)) {
             const dir = testInfo.outputPath('video');
             for (const file of existsSync(dir) ? readdirSync(dir) : []) {
                 if (file.endsWith('.webm')) {

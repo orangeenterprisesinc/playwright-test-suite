@@ -989,6 +989,41 @@ jobs:
 | **Email** | SMTP delivery | **Deprecated** — still works, but `SEND_EMAIL` is pinned to `no` in every workflow. Attaches a lean single-file Allure report; recipients are routed per branch + trigger — see below |
 | **ELK Dashboard** | HTTP POST to `ELK_URL` | Self-gating (`SEND_RESULT_ELK=yes`); pushes a JSON run summary |
 
+### Opening a downloaded CI report
+
+A GitHub artifact like `webpet-playwright-report` unzips to a folder, and **double-clicking
+`index.html` is not enough** — serve it over http:
+
+```bash
+npx playwright show-report path/to/webpet-playwright-report
+```
+
+Opened as `file://…/index.html` the test list renders (the results are inlined in `index.html`),
+but **traces never open**: the trace viewer needs a service worker, and browsers refuse to
+register one on a `file:` origin. The report's own `trace/index.html` says exactly this in a
+dialog. Screenshots and videos are relative links under `data/`, so they do load from `file://` —
+if they are missing there, they were never captured, which is a config question, not a
+report-packaging one. Locally, `npm run test:report` serves `artifacts/html` the same way.
+
+Do **not** set `attachmentsBaseURL` to fix this. It repoints attachment URLs at a remote host and
+makes a downloaded folder strictly worse; the default (`data/`) is what keeps the folder
+self-contained.
+
+### What each project captures
+
+Artifact settings are per project, which is why two reports from the same repo can look very
+different:
+
+| Project | screenshot | video | trace |
+|---------|-----------|-------|-------|
+| `chromium`, `api` | `on` | `on` | `retain-on-failure` |
+| `webpet` (parity, the default) | `only-on-failure` | `retain-on-failure` | `retain-on-failure` |
+| `device` | `only-on-failure` | one combined `journey` mp4, built by the fixture | `retain-on-failure` |
+
+A green `webpet` run therefore contains **no** screenshots or videos by design — parity mode keeps
+the source repo's timing, and retaining nothing on green is what keeps a 405-test run cheap.
+Failures get all three.
+
 ### When Slack posts — and when it stays quiet
 
 Slack is a **CI results** channel, so the reporter refuses to post from anywhere else. Three

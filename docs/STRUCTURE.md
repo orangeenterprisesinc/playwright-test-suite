@@ -207,16 +207,22 @@ row files, id maps and acceptance baseline were untouched by the reorganization.
 
 ## Known debt this structure makes visible
 
-- The Allure attachment filter exists twice — `src/reporting/generate/allure/report.ts`
-  and `scripts/report/allure-generate.js` — as does the Java bootstrap
-  (`report.ts` ⇄ `scripts/report/ensure-java.js`). Both pairs carry "keep in sync"
-  comments. Root cause: the scripts are plain JS so they run without a TS loader.
-  Running them through `tsx` would collapse each pair to one implementation.
 - `src/reporting/deliver/dashboard.ts` (ELK) is wired but `SEND_RESULT_ELK` is set
   in no workflow, so it has never actually run.
-- `e2e-local.yml` and `webpet-e2e-local.yml` generate an Allure report but never
-  restore `allure/report/history`, so their trend graphs reset every run. The two
-  dev workflows do restore it.
+- `applyAllureLabels` (`src/reporting/generate/allure/labels.ts`) sets its ~13
+  labels through allure-js-commons' *runtime* API, and each call crosses the
+  worker→reporter boundary as a `application/vnd.allure.message+json` attachment.
+  The Playwright HTML reporter writes every attachment to `data/`, so a 405-test
+  run ships **1347 unopenable `.dat` files** in `artifacts/html/data/` — measured,
+  not estimated. Two cheap fixes were tried and ruled out: allure-playwright reads
+  `test.annotations` at collection time and ignores runtime `testInfo.annotations`
+  pushes, and `playwright/lib/reporters/html` is absent from the package's
+  `exports` map so the reporter cannot be wrapped cleanly. What remains is either
+  deriving the labels at generate time from what allure already writes
+  (`fullName`, the `titlePath`/`tag` labels, the declaration-time `testCaseId`
+  annotation) or pruning `artifacts/html` after the run.
+- `runSummary.ts` computes `passRate` as `(passed + flaky) / executed`, so a run
+  whose only green came from a retry still reports 100% to Slack, email and ELK.
 - `src/data/webpet/baselines/` is referenced by both webpet workflows and by
   `playwright.config.ts` but does not exist — the per-test baseline manifest was
   never captured. Both uses fail soft with a warning.

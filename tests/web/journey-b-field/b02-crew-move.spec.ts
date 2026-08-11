@@ -65,7 +65,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
             { type: 'testCaseId', description: 'B2-001' },
             { type: 'requirement', description: 'B2-R1|B2-R2|B2-R3|B2-R5|B2-R6|B2-R7' },
         ],
-    }, async ({ device, sessionApi, pages }, testInfo) => {
+    }, async ({ device, sessionApi }, testInfo) => {
         // The office needs the same records under the same codes, or the import
         // links nothing (its FKs are nullable) — see officeFixture.
         const office = await seedOfficeFixture(sessionApi);
@@ -157,9 +157,12 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
         await testInfo.attach('device-export.xml', { body: xml, contentType: 'application/xml' });
 
         // ── The office: the movers arrive in the destination, the other does not ──
+        // Opening the browser here, not via a fixture, is what keeps the office
+        // half at the END of the journey recording instead of idling through it.
+        const officePages = await device.office();
         await verifyImportInOffice({
             sessionApi,
-            transferPage: pages.transferToJobCards,
+            transferPage: officePages.transferToJobCards,
             testInfo,
             xml,
             label: 'B2',

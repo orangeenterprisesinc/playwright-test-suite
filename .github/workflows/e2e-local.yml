@@ -398,6 +398,20 @@ jobs:
             (cd app && docker compose -f compose.dev.yml down -v)
           fi
 
+      # Without this the trend graphs restart from a single point every run —
+      # allure-generate.js carries history/ across its --clean, but only if the
+      # previous run's copy is on disk. Keyed per workflow so this suite's
+      # history never mixes with e2e.yml's; run_id makes each run save a new
+      # entry, and restore-keys picks up the most recent one for the branch.
+      - name: Restore Allure history
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: artifacts/allure/report/history
+          key: allure-history-local-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            allure-history-local-${{ github.ref_name }}-
+
       - name: Generate Allure report
         if: always()
         run: node scripts/report/allure-generate.js

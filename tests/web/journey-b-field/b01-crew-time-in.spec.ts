@@ -54,7 +54,7 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
             { type: 'testCaseId', description: 'B1-001' },
             { type: 'requirement', description: 'B1-R1|B1-R2|B1-R3|B1-R4|B1-R5|B1-R8' },
         ],
-    }, async ({ device, sessionApi, pages }, testInfo) => {
+    }, async ({ device, sessionApi }, testInfo) => {
         // ── Arrange: give the office the same records, under the same codes ──
         // The export references records by code and the importer's FKs are
         // nullable, so without this the import "succeeds" while linking nothing.
@@ -142,9 +142,12 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         });
 
         // ── The office: import it, prove the links, show it on the transfer screen ──
+        // Opening the browser here, not via a fixture, is what keeps the office
+        // half at the END of the journey recording instead of idling through it.
+        const officePages = await device.office();
         await verifyImportInOffice({
             sessionApi,
-            transferPage: pages.transferToJobCards,
+            transferPage: officePages.transferToJobCards,
             testInfo,
             xml,
             label: 'B1',

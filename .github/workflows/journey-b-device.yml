@@ -18,9 +18,15 @@ name: Journey B (device)
 # setting the `apk_artifact` input to a workflow-run artifact name.
 #
 # ── EVIDENCE ────────────────────────────────────────────────────────────────────
-# The device fixture attaches the emulator screen recording and per-step
-# screenshots to the Playwright test, so the usual artifacts/html + Allure upload
-# already contains both halves of the journey. No separate video upload needed.
+# The device fixture records the emulator AND the office browser and concatenates
+# them into a single `journey` mp4 attachment, alongside per-step screenshots — so
+# the usual artifacts/html + Allure upload contains both halves of the journey in
+# one video. No separate video upload needed.
+#
+# The Allure copy is size-capped (ALLURE_MAX_VIDEO_MB): the journey mp4 is small
+# enough to embed, but a runaway recording is dropped from Allure and remains in
+# artifacts/html. This note used to claim Allure carried both halves while the
+# generator was in fact discarding every attachment with a `video/*` mime type.
 
 on:
   workflow_dispatch:
@@ -163,6 +169,17 @@ jobs:
             else
               npx playwright test --project=device
             fi
+
+      # Same as the other workflows: allure-generate.js carries history/ across
+      # its --clean, but only if the previous run's copy is restored first.
+      - name: Restore Allure history
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: artifacts/allure/report/history
+          key: allure-history-journey-b-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            allure-history-journey-b-${{ github.ref_name }}-
 
       - name: Generate the Allure report
         if: always()

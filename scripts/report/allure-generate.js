@@ -1,17 +1,20 @@
 /**
- * Generates the static Allure HTML report from artifacts/allure/results/ — embeds ONLY
- * screenshots (plus tiny step logs) and drops the heavy video/trace
- * attachments first, so the report stays small. The full video/trace remain
- * in the Playwright HTML report and raw artifacts/results/ artifacts.
+ * Generates the static Allure HTML report from artifacts/allure/results/.
  *
- * Keep this filter in sync with src/reporting/generate/allure/report.ts — this plain-JS copy
- * exists for use before/outside the TS build (npm scripts and CI, where
- * ts-node isn't guaranteed to be available). Requires a Java runtime on PATH.
+ * Trace attachments and oversized video are dropped first (see
+ * scripts/report/lib/leanResults.js for the rule and why it is a size cap rather
+ * than a format ban); the full trace stays in the Playwright HTML report and the
+ * raw artifacts/results/ artifacts. Requires a Java runtime on PATH.
+ *
+ * This is the multi-file report, uploaded whole as a CI artifact — it has no mail
+ * gateway to satisfy, so it keeps video up to a generous cap. The single-file
+ * variant for email/Slack is built by src/reporting/generate/allure/report.ts.
  *
  * Usage: node scripts/report/allure-generate.js [resultsDir] [reportDir]
  */
 const allureCommandline = require('allure-commandline');
 const { ensureJavaOnPath } = require('./ensure-java');
+const { createLeanAllureResults } = require('./lib/leanResults');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -19,75 +22,12 @@ const path = require('node:path');
 const [resultsDir = path.join('artifacts', 'allure', 'results'), reportDir = path.join('artifacts', 'allure', 'report')] =
     process.argv.slice(2);
 
-// Allure names attachment files `<uuid>-attachment.<ext>`; this captures the extension.
-const ATTACHMENT_FILE_PATTERN = /-attachment\.([a-z0-9]+)$/i;
-
-// Kept attachment types: screenshots + tiny text/markdown step logs. Video
-// (.webm) and Playwright trace (.zip) are dropped — they're the multi-MB
-// attachments that bloat the report.
-const KEPT_ATTACHMENT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'md']);
-
-function isKeptAttachmentFile(name) {
-    const match = name.match(ATTACHMENT_FILE_PATTERN);
-    if (!match) return true; // not an attachment file — always kept
-    return KEPT_ATTACHMENT_EXTS.has(match[1].toLowerCase());
-}
-
-function isKeptAttachment(attachment) {
-    if (!attachment || typeof attachment !== 'object') return false;
-    const { source, type } = attachment;
-    if (type && (type.startsWith('video/') || type.includes('playwright-trace') || type === 'application/zip')) {
-        return false;
-    }
-    if (source) {
-        const match = source.match(ATTACHMENT_FILE_PATTERN);
-        if (match) return KEPT_ATTACHMENT_EXTS.has(match[1].toLowerCase());
-    }
-    return true;
-}
-
-function filterAttachments(node) {
-    if (Array.isArray(node)) {
-        node.forEach(filterAttachments);
-        return;
-    }
-    if (node && typeof node === 'object') {
-        if (Array.isArray(node.attachments)) node.attachments = node.attachments.filter(isKeptAttachment);
-        for (const value of Object.values(node)) filterAttachments(value);
-    }
-}
-
-// The auth-setup project's results are infra, not real tests — drop them.
-function isAuthSetupResult(data) {
-    if (!data || typeof data !== 'object') return false;
-    if (data.fullName && data.fullName.includes('.setup.ts')) return true;
-    return (data.labels || []).some((l) => l.name === 'parentSuite' && l.value === 'auth-setup');
-}
-
-function createLeanAllureResults(sourceDir, destDir) {
-    fs.mkdirSync(destDir, { recursive: true });
-    for (const name of fs.readdirSync(sourceDir)) {
-        const srcPath = path.join(sourceDir, name);
-        if (fs.statSync(srcPath).isDirectory()) continue;
-
-        if (ATTACHMENT_FILE_PATTERN.test(name)) {
-            if (isKeptAttachmentFile(name)) fs.copyFileSync(srcPath, path.join(destDir, name));
-            continue;
-        }
-
-        if (name.endsWith('.json')) {
-            const data = JSON.parse(fs.readFileSync(srcPath, 'utf-8'));
-            if (name.endsWith('-result.json') && isAuthSetupResult(data)) continue;
-            filterAttachments(data);
-            fs.writeFileSync(path.join(destDir, name), JSON.stringify(data));
-        } else {
-            fs.copyFileSync(srcPath, path.join(destDir, name));
-        }
-    }
-}
-
 const leanResultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'allure-lean-'));
-createLeanAllureResults(resultsDir, leanResultsDir);
+createLeanAllureResults(resultsDir, leanResultsDir, {
+    // Nothing emails this one, so the cap only exists to keep a runaway
+    // recording from bloating the artifact.
+    maxVideoMb: Number(process.env.ALLURE_MAX_VIDEO_MB ?? 64),
+});
 
 // Extend trend graphs across runs instead of restarting them on every --clean.
 const historySrc = path.join(reportDir, 'history');
