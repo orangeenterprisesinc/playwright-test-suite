@@ -100,49 +100,12 @@ export class DataGridComponent extends BaseComponent {
     }
 
     /**
-     * Asserts the filtered grid shows exactly this one record — one matching row,
-     * and the footer total agrees. Call after {@link filterByName}.
-     */
-    async expectOnlyMatch(name: string): Promise<void> {
-        await expect(this.rowFor(name)).toHaveCount(1);
-        await expect.poll(() => this.totalRowCount()).toBe(1);
-    }
-
-    /**
      * Asserts no row matches `name` after filtering for it — used to confirm a
      * record was removed. Assumes the caller has already loaded the list.
      */
     async expectAbsent(name: string): Promise<void> {
         await this.nameFilter.fill(name);
         await expect(this.rowFor(name)).toHaveCount(0);
-    }
-
-    /**
-     * Drags one column header onto another to reorder the columns. Journey D's
-     * exception review (D2) calls for this — "reorder columns to surface patterns".
-     *
-     * **Unverified against the live app.** The header locators are confirmed, but
-     * whether this grid accepts an HTML5 drag from `dragTo` has not been exercised
-     * yet. Confirm it when D2 is automated.
-     */
-    async moveColumn(from: string, to: string): Promise<void> {
-        await this.columnHeader(from).dragTo(this.columnHeader(to));
-    }
-
-    /**
-     * The grid's real column labels, in display order.
-     *
-     * Waits for the header row before reading: the grid renders it after the route
-     * settles, and `allInnerTexts()` does not auto-retry the way `expect` does, so
-     * reading straight after navigation returns an empty list. Blank cells are
-     * dropped — this grid also renders its filter row as `columnheader` cells, and
-     * those carry no label.
-     */
-    async columnLabels(): Promise<string[]> {
-        const headers = this.getByRole('columnheader');
-        await headers.first().waitFor({ state: 'attached' });
-        const texts = await headers.allInnerTexts();
-        return texts.map((text) => text.trim()).filter(Boolean);
     }
 }
 

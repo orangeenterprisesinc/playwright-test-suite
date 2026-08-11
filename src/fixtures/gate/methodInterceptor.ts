@@ -50,7 +50,6 @@ export interface RunnerListEntry {
 
 type RunnerListJson = Record<string, Record<string, RunnerListEntry[]>>;
 
-let activeTests: RunnerListEntry[] | null = null;
 let fullRunnerList: RunnerListEntry[] | null = null;
 
 function loadRunnerList(): RunnerListEntry[] {
@@ -80,13 +79,6 @@ function loadRunnerList(): RunnerListEntry[] {
     }
 }
 
-/** All entries with `execute: "yes"`. Cached after the first call. */
-export function getActiveTests(): RunnerListEntry[] {
-    if (activeTests !== null) return activeTests;
-    activeTests = loadRunnerList().filter((entry) => entry.execute?.toLowerCase() === 'yes');
-    return activeTests;
-}
-
 /**
  * The runner list's verdict for a runnerManager row id.
  *
@@ -109,10 +101,4 @@ export function getRunnerListDecision(id: string): boolean | null {
     if (!entry) return null;
 
     return String(entry.execute ?? '').toLowerCase() === 'yes';
-}
-
-/** Clears the cached runner list, forcing a reload on the next call. */
-export function resetRunnerListCache(): void {
-    activeTests = null;
-    fullRunnerList = null;
 }

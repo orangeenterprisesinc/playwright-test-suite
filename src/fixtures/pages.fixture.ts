@@ -22,6 +22,7 @@ import type { Page } from '@playwright/test';
 import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
+import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 
 /**
  * Every page object, lazily constructed.
@@ -38,6 +39,10 @@ export interface PageObjects {
     // ── File ▸ Administration ───────────────────────────────────────
     /** Users administration screen and New/Edit User form (A1). */
     readonly users: UsersPage;
+
+    // ── Input ▸ processing ──────────────────────────────────────────
+    /** Transfer to Job Card review screen (D2/D4; Journey B verification). */
+    readonly transferToJobCards: TransferToJobCardsPage;
 }
 
 /**
@@ -59,5 +64,6 @@ export function createPageObjects(page: Page): PageObjects {
         get login() { return lazy('login', () => new LoginPage(page)); },
         get leftNav() { return lazy('leftNav', () => new LeftNavigationPage(page)); },
         get users() { return lazy('users', () => new UsersPage(page)); },
+        get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
     };
 }

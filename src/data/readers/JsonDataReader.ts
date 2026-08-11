@@ -25,37 +25,6 @@ export class JsonDataReader extends BaseDataReader {
     }
 
     /**
-     * Reads records from a named section within the JSON file.
-     *
-     * @template T - Record shape
-     */
-    async readSection<T>(sectionName: string): Promise<T[]> {
-        const fileContent = await fs.readFile(this.filePath, 'utf-8');
-        const jsonData = JSON.parse(fileContent);
-
-        if (jsonData[sectionName]) {
-            const data = jsonData[sectionName];
-            return Array.isArray(data) ? data : [data];
-        }
-
-        this.logger.warn(`Section '${sectionName}' not found in JSON file`);
-        return [];
-    }
-
-
-    /** Returns the top-level section keys of the JSON file. */
-    async getSections(): Promise<string[]> {
-        const fileContent = await fs.readFile(this.filePath, 'utf-8');
-        const jsonData = JSON.parse(fileContent);
-
-        if (typeof jsonData === 'object' && !Array.isArray(jsonData)) {
-            return Object.keys(jsonData);
-        }
-
-        return [];
-    }
-
-    /**
      * Parses the JSON file, resolving the target section or top-level array.
      *
      * Resolution order:

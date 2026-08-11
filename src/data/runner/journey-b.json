@@ -4,10 +4,10 @@
             "id": "B1-001",
             "workflow": "B1",
             "journey": "B",
-            "category": "api",
-            "testName": "crewTimeIn",
-            "testTitle": "Crew time-in",
-            "testDescription": "A supervisor clocks an entire crew into a field and job from one screen, unchecking anyone absent. This is the fast path for the bulk of field workers at the start of the day.",
+            "category": "workflow",
+            "testName": "captureCrewTimeInOnDeviceAndExport",
+            "testTitle": "Capture a crew time-in on the device, uncheck the absentee, and export it",
+            "testDescription": "Drive PET Pocket's Crew In screen on an emulator: pick field, job and crew, uncheck the absentee in the roster, save, and confirm one Time In per present member plus a non-empty export.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -18,18 +18,26 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B1-R1",
+                "B1-R2",
+                "B1-R3",
+                "B1-R4",
+                "B1-R5",
+                "B1-R8"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B2-001",
             "workflow": "B2",
             "journey": "B",
-            "category": "api",
-            "testName": "crewMoveAndJobChange",
-            "testTitle": "Crew move and job change",
-            "testDescription": "Move the whole crew to a new field or job mid-day with one action, carrying everyone who moved. The prior job is automatically closed for those members.",
+            "category": "workflow",
+            "testName": "moveCrewToNewFieldAndJob",
+            "testTitle": "Move the crew to a new field and job, leaving one member behind",
+            "testDescription": "Drive PET Pocket's Crew In screen twice: clock the whole crew into the original field/job, then scan the destination field/job barcodes, uncheck the member who did not move, and save.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -40,8 +48,16 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B2-R1",
+                "B2-R2",
+                "B2-R3",
+                "B2-R5",
+                "B2-R6",
+                "B2-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B3-001",

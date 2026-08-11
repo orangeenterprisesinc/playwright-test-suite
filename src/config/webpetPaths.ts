@@ -45,15 +45,8 @@ export const WEBPET_RESTRICTED_META = path.join(WEBPET_AUTH_DIR, 'restricted-met
 /** The one binary fixture: the PDF uploaded by `employee-documents.spec.ts`. */
 export const WEBPET_SAMPLE_PDF = path.join(WEBPET_TESTS_ROOT, 'fixtures', 'sample.pdf');
 
-/** Idempotent DelLlano seed, applied once per DB refresh. */
-export const WEBPET_SEED_SQL = path.join(WEBPET_TESTS_ROOT, 'seed', 'delllano-e2e-seed.sql');
-
-/** Run-control data. The CSV is authored; the JSON is its generated mirror. */
+/** Run-control data — home of the authored CSV and its generated JSON mirror. */
 export const WEBPET_DATA_DIR = path.join(REPO_ROOT, 'src', 'data', 'webpet');
-export const WEBPET_RUNNER_CSV = path.join(WEBPET_DATA_DIR, 'webpetRunnerManager.csv');
-export const WEBPET_RUNNER_JSON = path.join(WEBPET_DATA_DIR, 'webpetRunnerManager.json');
-/** Generated id maps for loop-generated tests, keyed by business key. */
-export const WEBPET_IDS_DIR = path.join(WEBPET_DATA_DIR, 'ids');
 
 /**
  * Structural identity of a spec file: its path relative to `tests/webpet`, with

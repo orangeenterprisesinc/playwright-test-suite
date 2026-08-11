@@ -1,0 +1,183 @@
+name: Journey B (device)
+
+# Runs the Journey B DEVICE specs (tests/web/journey-b-field) — the ones that drive
+# the real PET Pocket Android app through Appium from inside a Playwright test, then
+# assert what the app wrote. Everything else about the environment matches e2e.yml:
+# TEST_ENV=dev pins dev staging so auth-setup can log in.
+#
+# ── ADVISORY, NEVER A GATE ──────────────────────────────────────────────────────
+# An emulator on a hosted runner is inherently flakier than a browser, so this
+# workflow is dispatch/cron only and is not wired into any required check. A red
+# here means "look at the attached recording", not "block the branch".
+#
+# ── WHY THE APK IS BUILT HERE ───────────────────────────────────────────────────
+# The specs need the *debug* variant: it needs no signing keystore and, crucially,
+# `adb run-as` can seed the app's prefs and SQLite database on a debuggable build.
+# AndroidPET is a separate private repo, so the checkout needs a PAT with read
+# access (ANDROIDPET_TOKEN). Skip the build and supply a prebuilt APK instead by
+# setting the `apk_artifact` input to a workflow-run artifact name.
+#
+# ── EVIDENCE ────────────────────────────────────────────────────────────────────
+# The device fixture attaches the emulator screen recording and per-step
+# screenshots to the Playwright test, so the usual artifacts/html + Allure upload
+# already contains both halves of the journey. No separate video upload needed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Optional --grep filter (e.g. @B1)'
+        required: false
+        type: string
+  schedule:
+    # 05:10 UTC — after the 4 PM IST e2e run, so the two never contend for dev data.
+    - cron: '10 5 * * *'
+
+concurrency:
+  # One emulator per runner; overlapping runs would fight over dev-staging data too.
+  group: journey-b-device
+  cancel-in-progress: false
+
+jobs:
+  device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      TEST_ENV: dev
+      USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
+      PASSWORD: ${{ secrets.DEV_PASSWORD }}
+      # Materializes the `device` Playwright project in the runner AND its workers
+      # (the config re-evaluates per process, so the env var is what makes the
+      # project list agree — see DEVICE_ENABLED in playwright.config.ts).
+      DEVICE: '1'
+      # DEVICE_RELAY_SERVER / DEVICE_RELAY_URL come from the checked-out .env.dev
+      # (TEST_ENV=dev), so the device export delivers to the relay here too.
+      ANDROID_AVD_NAME: petpocket_ci
+      # KVM lives at /dev/kvm on ubuntu-latest; the emulator is unusably slow without it.
+      AVD_API: '29'
+
+    steps:
+      - name: Fail fast when the dev password secret is missing
+        # Read through the job env, not the `secrets` context: `secrets` is not
+        # available in a step `if`. An unset password otherwise surfaces only as an
+        # opaque 20s waitForURL timeout inside auth-setup.
+        run: |
+          if [ -z "$PASSWORD" ]; then
+            echo "::error::DEV_PASSWORD is not set — auth-setup would time out opaquely."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the Appium UiAutomator2 driver
+        # Into the project-local APPIUM_HOME the config points the server at.
+        run: npm run device:driver
+
+      # ── The app under test ────────────────────────────────────────────────────
+      - name: Check out AndroidPET
+        uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/AndroidPET
+          token: ${{ secrets.ANDROIDPET_TOKEN }}
+          path: android-pet
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the PET Pocket debug APK
+        working-directory: android-pet/AndroidPET
+        run: ./gradlew assembleFullPlayStoreWindowsPetDebug --no-daemon
+
+      - name: Stage the APK where the device fixture expects it
+        run: |
+          mkdir -p apps-device
+          find android-pet -path '*fullPlayStoreWindowsPet*' -name '*debug*.apk' \
+            -exec cp {} apps-device/petpocket-debug.apk \;
+          ls -l apps-device/petpocket-debug.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.AVD_API }}-petpocket
+
+      - name: Create the AVD and snapshot it
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.AVD_API }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          avd-name: ${{ env.ANDROID_AVD_NAME }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD created and snapshotted"
+
+      # ── The run ───────────────────────────────────────────────────────────────
+      # The golden seed DB is generated from the schema the app itself creates on
+      # first launch, so it has to happen with the emulator up and the app
+      # installed — hence inside the emulator script rather than as its own step.
+      - name: Run the Journey B device specs
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          GREP: ${{ inputs.grep }}
+        with:
+          api-level: ${{ env.AVD_API }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          avd-name: ${{ env.ANDROID_AVD_NAME }}
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb install -r apps-device/petpocket-debug.apk
+            adb shell monkey -p com.orangesoftware.androidpet -c android.intent.category.LAUNCHER 1 || true
+            sleep 8
+            npm run device:fixtures
+            if [ -n "$GREP" ]; then
+              npx playwright test --project=device --grep "$GREP"
+            else
+              npx playwright test --project=device
+            fi
+
+      - name: Generate the Allure report
+        if: always()
+        run: node scripts/report/allure-generate.js
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: journey-b-device-playwright-report
+          path: artifacts/html
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: journey-b-device-allure-report
+          path: artifacts/allure/report
+          retention-days: 14

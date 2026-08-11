@@ -47,6 +47,3 @@ export const bonusFlowIds = {
     'step2:tier-piece-incentive': 'WP-0038',
     'sweep:covers-18-types': 'WP-0007',
 } as const;
-
-/** Every business key this spec addresses. */
-export type BonusFlowIdsKey = keyof typeof bonusFlowIds;

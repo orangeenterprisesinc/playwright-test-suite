@@ -186,17 +186,6 @@ export abstract class SetupScreenPage extends BasePage {
     }
 
     /**
-     * Save edits on an existing record's form. Assumes a field was just changed and
-     * blurred, so the "Unsaved changes" bar is showing with Save enabled; the bar
-     * clearing is the signal that the change committed.
-     */
-    async saveEdit(): Promise<void> {
-        await expect(this.saveButton).toBeEnabled();
-        await this.saveButton.click();
-        await expect(this.unsavedChangesBar).toBeHidden();
-    }
-
-    /**
      * Reload the list from the server and assert the record is gone.
      *
      * Forces a full navigation rather than SPA routing: reaching the list through

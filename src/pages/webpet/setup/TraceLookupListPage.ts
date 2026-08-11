@@ -10,7 +10,7 @@
  * Everything grid-shaped lives on {@link WebpetDataGridComponent}; this class
  * exists to bind the route and heading.
  */
-import { Locator, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
@@ -19,11 +19,6 @@ import { WebpetListPage } from '../WebpetListPage';
 export class TraceLookupListPage extends WebpetListPage {
     constructor(page: Page, listUrl: string, headingName: string) {
         super(page, listUrl, headingName);
-    }
-
-    /** A record name anywhere on the list. Page-scoped, matching the lifted specs. */
-    itemNamed(name: string): Locator {
-        return this.page.getByText(name);
     }
 }
 

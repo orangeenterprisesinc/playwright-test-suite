@@ -45,6 +45,37 @@ const WEBPET_ENABLED =
 if (WEBPET_ENABLED) process.env.WEBPET = '1';
 
 /**
+ * Journey B device specs (tests/web/journey-b-field) drive the PET Pocket
+ * Android app through Appium *inside* a Playwright test, then verify the same
+ * data in the web app. Opt-in for the same reason as webpet: they need an
+ * emulator + a built APK, so a bare run must never pick them up.
+ * Activated by DEVICE=1 or `--project=device`.
+ */
+const DEVICE_ENABLED =
+    process.env.DEVICE === '1' ||
+    process.argv.some(
+        (arg, i, argv) =>
+            arg.startsWith('--project=device') ||
+            (arg === '--project' && (argv[i + 1] ?? '').startsWith('device')),
+    );
+if (DEVICE_ENABLED) process.env.DEVICE = '1';
+
+// Make the device run independent of shell setup: the Appium server (webServer
+// below), its UiAutomator2 driver, and the adb helpers all need the SDK path,
+// but a terminal opened before `setx ANDROID_HOME …` ran — or a machine set up
+// by scripts/device/setup-android-sdk.ps1 without a restart — won't export it.
+// Defaulting here (this repo's documented install location, off the full C:
+// drive) means every child process inherits a working value; CI's real env
+// vars still win because ??= never overwrites.
+if (DEVICE_ENABLED && process.platform === 'win32') {
+    process.env.ANDROID_HOME ??= 'D:\\Android\\Sdk';
+    process.env.ANDROID_AVD_HOME ??= 'D:\\Android\\avd';
+}
+
+/** Where the device specs live — ignored by `chromium` so they never run twice. */
+const DEVICE_TEST_DIR = './tests/web/journey-b-field';
+
+/**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
  * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
  * so a run of the converted suite is still comparable with the source repo's
@@ -232,7 +263,15 @@ export default defineConfig({
             // tests/seed.spec.ts is the Playwright agents' scratch page, not a
             // test: it has no runner row and no tier tag, so collecting it would
             // put an untagged no-op in every run and fail `npm run runner:check`.
-            testIgnore: ['**/tests/api/**', '**/tests/webpet/**', '**/tests/seed.spec.ts'],
+            // tests/web/journey-b-field drives an Android emulator through Appium
+            // and needs one worker + a much longer timeout — it has its own
+            // opt-in `device` project below.
+            testIgnore: [
+                '**/tests/api/**',
+                '**/tests/webpet/**',
+                '**/tests/seed.spec.ts',
+                '**/tests/web/journey-b-field/**',
+            ],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: '.auth/user.json',
@@ -247,6 +286,31 @@ export default defineConfig({
             name: 'api',
             testDir: './tests/api',
         },
+
+        // ── Journey B device specs — opt-in, see DEVICE_ENABLED ────────────────
+        // One Playwright test drives the PET Pocket Android app through Appium
+        // (src/fixtures/device.fixture.ts) and then verifies the imported data in
+        // the web app, so it needs the browser session AND device settings:
+        //   workers 1 / not parallel — a single emulator cannot serve two workers.
+        //   long timeout            — emulator boot + app install + a sync round trip.
+        // The device recording and step screenshots arrive as test attachments, so
+        // both halves of the journey land in the same HTML/Allure report.
+        ...(DEVICE_ENABLED
+            ? [
+                  {
+                      name: 'device',
+                      testDir: DEVICE_TEST_DIR,
+                      workers: 1,
+                      fullyParallel: false,
+                      timeout: 900_000,
+                      use: {
+                          ...devices['Desktop Chrome'],
+                          storageState: '.auth/user.json',
+                      },
+                      dependencies: ['auth-setup'],
+                  },
+              ]
+            : []),
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
         // Two run states, selected by WEBPET_PARITY (see above):
@@ -341,4 +405,27 @@ export default defineConfig({
         //     dependencies: ['auth-setup'],
         // },
     ],
+
+    // Appium server for the device project. `reuseExistingServer` means a server
+    // you already have running (or CI's) is used as-is; otherwise Playwright
+    // starts and tears one down around the run. Only registered for device runs,
+    // so ordinary runs never pay for it.
+    ...(DEVICE_ENABLED
+        ? {
+              webServer: {
+                  command: 'npx appium --address 127.0.0.1 --port 4723 --relaxed-security',
+                  url: 'http://127.0.0.1:4723/status',
+                  reuseExistingServer: true,
+                  timeout: 120_000,
+                  stdout: 'ignore' as const,
+                  stderr: 'pipe' as const,
+                  // The UiAutomator2 driver is installed into a project-local
+                  // APPIUM_HOME (scripts/device/install-appium-driver.mjs) so the
+                  // repo never depends on a global appium install — the server
+                  // must be told where to look or it reports "no driver for
+                  // automationName 'UiAutomator2'".
+                  env: { APPIUM_HOME: `${__dirname}/.appium` },
+              },
+          }
+        : {}),
 });

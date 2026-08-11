@@ -150,8 +150,3 @@ export const WIRED_SCAN_SEGMENTS = {
  * and are covered by the three declared-skip tests instead.
  */
 export const DEFERRED_SCAN_KEYS = ['packHouse'] as const;
-
-/** Literal union of every ungated segment — what makes the id maps index-checked. */
-export type UngatedScanSegment = (typeof UNGATED_SCAN_ROUTES)[number];
-/** Literal union of every gated segment. */
-export type GatedScanSegment = (typeof GATED_SCAN_ROUTES)[number]['segment'];

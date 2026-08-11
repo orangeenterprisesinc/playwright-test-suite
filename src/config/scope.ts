@@ -121,8 +121,3 @@ export function evaluateScope(row: TestCaseData | null, scope: CustomerScope | n
 
     return { inScope: true };
 }
-
-/** Clears the cached scope — for tests that change `TEST_SCOPE` at runtime. */
-export function resetScopeCache(): void {
-    cached = null;
-}

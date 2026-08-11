@@ -25,18 +25,3 @@ export function randomInitials(length = 3): string {
     }
     return out;
 }
-
-/** A random integer in the inclusive range [min, max]. */
-export function randomInt(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-/** A run-unique email address. */
-export function randomEmail(localPrefix = 'qa', domain = 'example.com'): string {
-    return `${localPrefix}.${uid()}@${domain}`;
-}
-
-/** Pick a random element from a non-empty array. */
-export function pickRandom<T>(items: readonly T[]): T {
-    return items[Math.floor(Math.random() * items.length)];
-}
