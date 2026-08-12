@@ -9,7 +9,7 @@
  * the app navigates to the **list**, not back to the record — so the id has to be
  * read from the URL after save one.
  *
- * ## Three select-locating quirks, all load-bearing
+ * ## Four option-locating quirks, all load-bearing
  *
  * 1. **No id on the triggers.** The General section's two Selects are positional:
  *    `[0]` = Device Type, `[1]` = Connectivity Method. {@link generalSelect}
@@ -20,7 +20,14 @@
  *    the value. {@link openSelectOption} scopes to the open portal;
  *    {@link selectOption} does not. On the New form nothing is stale yet, so the
  *    unscoped form is correct there — the two are not interchangeable.
- * 3. **`waitForLoadState('networkidle')` is unusable on this form.** Four
+ * 3. **The Crew picker is a Combobox, not a Select.** Everything else on this
+ *    form is a Select (`select-content` / `select-item`), but Crew renders a
+ *    Base UI Combobox — `<input role="combobox" id="add-Crew">` over a
+ *    `combobox-popup` / `combobox-item` portal. `select-content` never exists on
+ *    this page while the Crew list is open, so a Select-shaped matcher there does
+ *    not fail fast, it waits out the whole test timeout.
+ *    {@link openComboboxOption} is the Crew equivalent of {@link openSelectOption}.
+ * 4. **`waitForLoadState('networkidle')` is unusable on this form.** Four
  *    endpoints 403 and retry indefinitely, so the load state never settles. Wait
  *    for {@link preferencesSection} instead.
  *
@@ -97,6 +104,11 @@ export class ScanDeviceFormPage extends BasePage {
         return this.page.locator(`[data-slot="select-content"][data-open] [data-value="${value}"]`);
     }
 
+    /** An option in the **open** Combobox portal only — the Crew picker. See quirk 3. */
+    openComboboxOption(value: string): Locator {
+        return this.page.locator(`[data-slot="combobox-popup"][data-open] [data-value="${value}"]`);
+    }
+
     /**
      * A Preferences field's container, located from its `<label for>`.
      *
@@ -139,7 +151,11 @@ export class ScanDeviceFormPage extends BasePage {
     /** Pick a crew by `crewCounter` and click Add. */
     async addCrew(crewCounter: number | string): Promise<void> {
         await this.crewCombobox.click();
-        await this.openSelectOption(String(crewCounter)).click();
+        const option = this.openComboboxOption(String(crewCounter));
+        // Bounded, so a future widget swap fails here in seconds naming the crew,
+        // instead of a bare click() waiting out this spec's 300s timeout.
+        await option.waitFor({ state: 'visible', timeout: 15_000 });
+        await option.click();
         await this.crewAddButton.click();
     }
 }

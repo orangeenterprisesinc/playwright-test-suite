@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-07T08:37:12.408Z",
+    "generatedAt": "2026-08-12T09:12:44.886Z",
     "total": 404,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2804,7 +2804,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": true,
-      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect."
+      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect. Layer 4 fixed 2026-08-12: the Crew picker is a Base UI Combobox (combobox-popup/combobox-item), not a Select, so addCrew's select-content matcher could never resolve and burned the full 300s timeout. Verified on dev: with the Crew list open, select-content[data-open] = 0 while combobox-popup[data-open] = 1 holding all 37 assignable crews. Crews 2 and 3 exist and are active — this was never a data gap."
     },
     {
       "id": "WP-0178",
