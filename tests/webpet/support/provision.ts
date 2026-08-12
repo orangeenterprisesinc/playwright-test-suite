@@ -1,7 +1,7 @@
 import { request, type APIRequestContext } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { WEBPET_AUTH_DIR } from '@config/webpetPaths';
+import { WEBPET_ADMIN_STORAGE, WEBPET_AUTH_DIR } from '@config/webpetPaths';
 import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/webpetEnv';
 
 /**
@@ -30,12 +30,17 @@ import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/
  * whole restricted-user provisioning block is wrapped in try/catch — failures
  * log a warning and proceed, letting downstream specs skip cleanly.
  */
-export async function provisionWebpetAuth(): Promise<void> {
-    const webBaseURL = WEB_BASE_URL;
-
+/**
+ * Logs in as the admin (su) user and persists storage.json. Extracted out of
+ * provisionWebpetAuth so it can also run mid-suite: dev's session store is
+ * in-memory and can drop the admin session before a run finishes — the
+ * webpet fixture's gate probe (src/fixtures/webpet.fixture.ts) calls this to
+ * re-login without re-running the whole setup project.
+ */
+export async function healAdminSession(): Promise<void> {
     const adminCtx = await request.newContext({
         baseURL: API_BASE_URL,
-        extraHTTPHeaders: { Origin: webBaseURL },
+        extraHTTPHeaders: { Origin: WEB_BASE_URL },
     });
 
     const adminLoginRes = await adminCtx.post('/api/auth/login', {
@@ -54,15 +59,27 @@ export async function provisionWebpetAuth(): Promise<void> {
         );
     }
 
-    const authDir = WEBPET_AUTH_DIR;
-    mkdirSync(authDir, { recursive: true });
-    await adminCtx.storageState({ path: join(authDir, 'storage.json') });
+    mkdirSync(WEBPET_AUTH_DIR, { recursive: true });
+    await adminCtx.storageState({ path: WEBPET_ADMIN_STORAGE });
+    await adminCtx.dispose();
+}
+
+export async function provisionWebpetAuth(): Promise<void> {
+    await healAdminSession();
+
+    // Rehydrate from the storage state healAdminSession just wrote — same
+    // cookies, no duplicate login — for the restricted-user half below.
+    const adminCtx = await request.newContext({
+        baseURL: API_BASE_URL,
+        extraHTTPHeaders: { Origin: WEB_BASE_URL },
+        storageState: WEBPET_ADMIN_STORAGE,
+    });
 
     // PET-441: provision the restricted user. Failures here must not break the
     // admin path — the data-scoping spec skips cleanly when the restricted
     // fixture is unavailable.
     try {
-        await provisionRestrictedUser(adminCtx, authDir);
+        await provisionRestrictedUser(adminCtx, WEBPET_AUTH_DIR);
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(
