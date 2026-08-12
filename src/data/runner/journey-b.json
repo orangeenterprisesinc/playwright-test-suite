@@ -7,7 +7,7 @@
             "category": "workflow",
             "testName": "deliverCrewTimeInExportToOffice",
             "testTitle": "Deliver a crew time-in export to the office and verify the punches",
-            "testDescription": "Build the OrangeExportFile envelope PET Pocket produces for a crew time-in (present members only), deliver it through the Post Office relay, and verify the office links one time card per member and lists them on Transfer to Job Cards.",
+            "testDescription": "Build the OrangeExportFile envelope PET Pocket produces for a crew time-in (present members only), deliver it through the Post Office relay, then work the office UI the way the recording shows: Connectivity > Import > Internet pulls the mailbox, and Transfer to Job Cards lists one row per member after the date range is applied.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -58,7 +58,7 @@
             "category": "workflow",
             "testName": "deliverPostMoveExportToOffice",
             "testTitle": "Deliver a post-move export and verify movers and the member left behind",
-            "testDescription": "Build the envelope a device exports after a crew move — movers in the destination field and job, the member left behind unchanged, one punch each — deliver it through the relay, and verify the office links every row to the right context.",
+            "testDescription": "Build the envelope a device exports after a crew move — movers in the destination field and job, the member left behind unchanged, one punch each — deliver it through the relay, pull it into the office via Connectivity > Import > Internet, and verify Transfer to Job Cards links every row to the right context.",
             "segments": [
                 "grower",
                 "perennial-grower"

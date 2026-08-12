@@ -4,6 +4,9 @@
 > device exports *after* a move — movers in the destination, the member left behind unchanged, one
 > punch each — and delivers it through the relay. Device-side requirements (`B2-R1`, `B2-R2`,
 > `B2-R3`, `B2-R5`) are deferred with the mobile automation; the row now claims `B2-R6|B2-R7`.
+> The office half drives the web UI like the recording: sidebar ▸ Connectivity ▸ Import ▸ Internet
+> (the relay pull — red on dev until the relay gates + WEBPET-1830 open), then Transfer to Job
+> Cards with the date range. `IMPORT_TRANSPORT=single-folder` keeps the direct importer-API path.
 
 | Artifact | Path |
 |---|---|

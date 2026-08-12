@@ -36,6 +36,10 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
             { type: 'requirement', description: 'B1-R5|B1-R7|B1-R8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
+        // Once the relay gates open, the Internet pull drains the whole mailbox
+        // inside one request — give the journey room beyond the global budget.
+        test.slow();
+
         // The envelope references records by code and the importer's FKs are
         // nullable, so without this the import "succeeds" while linking nothing.
         const office = await seedOfficeFixture(sessionApi);
@@ -82,10 +86,10 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         });
         expect(sent.success, `relay rejected the export: ${sent.body}`).toBe(true);
 
-        // ── The office: import it, prove the links, show it on the transfer screen ──
+        // ── The office, the way Amy works it: menus → Internet pull → Transfer ──
         await verifyImportInOffice({
             sessionApi,
-            transferPage: pages.transferToJobCards,
+            pages,
             testInfo,
             xml,
             label: 'B1',

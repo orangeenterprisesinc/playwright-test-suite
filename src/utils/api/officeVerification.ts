@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type TestInfo } from '@playwright/test';
-import type { TransferToJobCardsPage } from '@pages/processing/TransferToJobCardsPage';
+import type { PageObjects } from '@fixtures/pages.fixture';
 import {
     createUploadContext,
     importDeviceExport,
@@ -15,6 +15,55 @@ import {
     type OfficeTimeCard,
 } from './timeCardsApi';
 import { createCrewTimeIn, punchTime } from './crewTimeInApi';
+
+/**
+ * The office half of a Journey B run, the way Amy's recording shows it: the
+ * envelope reaches the office (her relay ingests automatically — our UI
+ * equivalent is Connectivity ▸ Import ▸ Internet), every punch links to the
+ * seeded records, and the rows appear on Transfer to Job Cards after the date
+ * range is applied. Cleanup removes the punches again.
+ *
+ * Transports, selected by IMPORT_TRANSPORT:
+ * - `internet` (default) — drive the web UI through the sidebar menus and the
+ *   Internet pull screen, so a headed run and its video look like the
+ *   recording. Blocked on dev today (relay gates + WEBPET-1830): the test goes
+ *   red on that screen with the server's real reason quoted.
+ * - `single-folder` — POST the envelope to connectivity/import/single-folder
+ *   directly; the importer-contract path, kept for when S3 lands before the
+ *   relay gates open.
+ *
+ * OFFICE_TRANSPORT_SUBSTITUTE=1 keeps the old demo fallback: when the import
+ * cannot run, create identical punches via the office API and continue, with
+ * an annotation keeping the report honest.
+ */
+
+/** What one imported card must look like, keyed by the device's employee code. */
+export interface ExpectedCard {
+    employeeCode: string;
+    employeeId: number;
+    fieldId: number;
+    jobId: number;
+}
+
+export interface OfficeVerificationInput {
+    sessionApi: APIRequestContext;
+    pages: PageObjects;
+    testInfo: TestInfo;
+    /** The export envelope being delivered. */
+    xml: string;
+    crewId: number;
+    ranchId: number;
+    expected: ExpectedCard[];
+    /** Employee ids that must NOT appear (e.g. someone who did not move). */
+    absentEmployeeIds?: number[];
+    label: string;
+}
+
+export interface OfficeVerificationResult {
+    /** Which route actually put the punches in the office. */
+    transport: 'device-import' | 'office-api';
+    cards: OfficeTimeCard[];
+}
 
 /**
  * Collapse the expected cards into the distinct (field, job) contexts they use.
@@ -38,82 +87,55 @@ function groupByContext(
     return [...groups.values()];
 }
 
-/**
- * The office half of a Journey B run: import the envelope the device produced,
- * prove every punch linked to the seeded records, show it on Transfer to Job
- * Cards, then remove the punches again.
- *
- * Shared by B1 and B2 because only the *expectations* differ — B1 expects every
- * card in one field/job, B2 expects the movers in the destination and the member
- * left behind still in the original.
- */
-
-/** What one imported card must look like, keyed by the device's employee code. */
-export interface ExpectedCard {
-    employeeCode: string;
-    employeeId: number;
-    fieldId: number;
-    jobId: number;
+/** The OFFICE_TRANSPORT_SUBSTITUTE fallback: same punches, office API route. */
+async function substituteTransport(
+    input: OfficeVerificationInput,
+    reason: string,
+): Promise<string[]> {
+    input.testInfo.annotations.push({
+        type: 'office-transport-substituted',
+        description:
+            `${reason} The punches were created through POST /time-cards/crew-time-in instead, ` +
+            'so the office landing and the Transfer to Job Cards screen are verified, but the ' +
+            'device→office import itself is NOT.',
+    });
+    const seeded: string[] = [];
+    for (const group of groupByContext(input.expected)) {
+        const result = await createCrewTimeIn(input.sessionApi, {
+            dateTime: punchTime(),
+            crewCounter: input.crewId,
+            employeeIds: group.employeeIds,
+            ranchCounter: input.ranchId,
+            fieldCounter: group.fieldId,
+            jobCounter: group.jobId,
+        });
+        seeded.push(...result.references);
+    }
+    return seeded;
 }
 
-export interface OfficeVerificationInput {
-    sessionApi: APIRequestContext;
-    transferPage: TransferToJobCardsPage;
-    testInfo: TestInfo;
-    /** The envelope captured from the device. */
-    xml: string;
-    crewId: number;
-    ranchId: number;
-    expected: ExpectedCard[];
-    /** Employee ids that must NOT appear (e.g. someone who did not move). */
-    absentEmployeeIds?: number[];
-    label: string;
-}
-
-export interface OfficeVerificationResult {
-    /** Which route actually put the punches in the office. */
-    transport: 'device-import' | 'office-api';
-    cards: OfficeTimeCard[];
-}
-
-export async function verifyImportInOffice({
-    sessionApi,
-    transferPage,
-    testInfo,
-    xml,
-    crewId,
-    ranchId,
-    expected,
-    absentEmployeeIds = [],
-    label,
-}: OfficeVerificationInput): Promise<OfficeVerificationResult> {
+/** The importer-contract path: upload the file, follow the run. */
+async function importViaSingleFolder(
+    input: OfficeVerificationInput,
+): Promise<{ transport: OfficeVerificationResult['transport']; references: string[] }> {
     const upload = await createUploadContext();
     let run;
     try {
-        run = await importDeviceExport(upload, xml, {
-            fileName: `FromDevice-${label}-${Date.now()}.xml`,
+        run = await importDeviceExport(upload, input.xml, {
+            fileName: `FromDevice-${input.label}-${Date.now()}.xml`,
         });
     } finally {
         await upload.dispose();
     }
-    await testInfo.attach(`import-run-${label}.json`, {
+    await input.testInfo.attach(`import-run-${input.label}.json`, {
         body: JSON.stringify(run, null, 2),
         contentType: 'application/json',
     });
 
-    // No object storage (dev staging, WEBPET-1830) means the import run records
-    // "could not store uploaded file" and never leaves `received`. That FAILS the
-    // test by default: a green run must mean the device→office import was actually
-    // proven. OFFICE_TRANSPORT_SUBSTITUTE=1 opts into the old fallback — the same
-    // punches created through the office API so the landing and the Transfer to
-    // Job Cards screen are still exercised (transport substituted, every assertion
-    // below unchanged, the annotation + `transport` keep the report honest).
-    // The trigger is the exact storage signature, so a real import regression
-    // still fails either way.
-    let transport: OfficeVerificationResult['transport'] = 'device-import';
-    let references: string[];
-
-    if (isStorageUnavailable(run) && process.env.OFFICE_TRANSPORT_SUBSTITUTE !== '1') {
+    if (isStorageUnavailable(run)) {
+        if (process.env.OFFICE_TRANSPORT_SUBSTITUTE === '1') {
+            return { transport: 'office-api', references: await substituteTransport(input, NO_STORAGE_REASON) };
+        }
         expect(
             run.status,
             `Web import is not available: the import run recorded "could not store uploaded ` +
@@ -121,36 +143,66 @@ export async function verifyImportInOffice({
                 'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead.',
         ).toBe('completed');
     }
+    expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
+    return { transport: 'device-import', references: referencesInExport(input.xml) };
+}
 
-    if (isStorageUnavailable(run)) {
-        transport = 'office-api';
-        testInfo.annotations.push({
-            type: 'office-transport-substituted',
-            description:
-                `${NO_STORAGE_REASON} The punches were created through ` +
-                'POST /time-cards/crew-time-in instead, so the office landing and the Transfer to ' +
-                'Job Cards screen are verified, but the device→office import itself is NOT.',
-        });
+/**
+ * Amy's path: sidebar menus → Connectivity ▸ Import ▸ Internet → Trigger
+ * Import. The pull drains the office mailbox the envelope was delivered to.
+ */
+async function importViaInternetUi(
+    input: OfficeVerificationInput,
+): Promise<{ transport: OfficeVerificationResult['transport']; references: string[] }> {
+    const { pages, testInfo, label } = input;
 
-        const seeded: string[] = [];
-        // One call per (field, job) pairing, because a crew punch carries a single
-        // context — B2's movers and the member left behind need separate calls.
-        for (const group of groupByContext(expected)) {
-            const result = await createCrewTimeIn(sessionApi, {
-                dateTime: punchTime(),
-                crewCounter: crewId,
-                employeeIds: group.employeeIds,
-                ranchCounter: ranchId,
-                fieldCounter: group.fieldId,
-                jobCounter: group.jobId,
-            });
-            seeded.push(...result.references);
-        }
-        references = seeded;
-    } else {
-        expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
-        references = referencesInExport(xml);
+    await pages.leftNav.navigate();
+    await pages.leftNav.openViaMenu(
+        ['Connectivity', 'Import', 'Internet'],
+        '/connectivity/import/internet',
+    );
+    await pages.importInternet.heading.waitFor({ state: 'visible', timeout: 15_000 });
+
+    const outcome = await pages.importInternet.triggerImport();
+    await testInfo.attach(`internet-import-${label}.json`, {
+        body: JSON.stringify(outcome, null, 2),
+        contentType: 'application/json',
+    });
+    await testInfo.attach(`internet-import-${label}.png`, {
+        body: await pages.importInternet.screenshot(),
+        contentType: 'image/png',
+    });
+
+    const pulled = outcome.api.status === 'ok' && outcome.api.filesPulled >= 1;
+    if (!pulled && process.env.OFFICE_TRANSPORT_SUBSTITUTE === '1') {
+        const reason =
+            `The Internet pull could not run (screen: "${outcome.headingText}"; ` +
+            `server: "${outcome.api.message || 'no message'}").`;
+        return { transport: 'office-api', references: await substituteTransport(input, reason) };
     }
+    expect(
+        pulled,
+        `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
+            `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
+            `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
+            `WEBMAIL_LIVE_SEND_ENABLED=true, a ClientRelayRegistration row with a SendPassword ` +
+            `(SQL-only), and object storage (WEBPET-1830) on the API. ` +
+            'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead.',
+    ).toBe(true);
+
+    // The mailbox can hold envelopes from earlier runs too — wait for every
+    // pulled file to finish importing, then rely on reference matching below.
+    await pages.importInternet.waitForTerminalFiles(outcome.api.filesPulled);
+    return { transport: 'device-import', references: referencesInExport(input.xml) };
+}
+
+export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {
+    const { sessionApi, pages, testInfo, expected, absentEmployeeIds = [], label, crewId, ranchId } = input;
+
+    const { transport, references } =
+        process.env.IMPORT_TRANSPORT === 'single-folder'
+            ? await importViaSingleFolder(input)
+            : await importViaInternetUi(input);
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
 
@@ -193,12 +245,11 @@ export async function verifyImportInOffice({
             expect(cards.map((c) => Number(c.employeeCounter))).not.toContain(absent);
         }
 
-        // ── The screen Amy's recording ends on ────────────────────────────────
-        // Always runs, whichever transport delivered the punches: this is the half
-        // of the journey the recording finishes on, and it is what makes the web
-        // app visible in the report alongside the emulator.
-        await transferPage.goto();
-        await expect(transferPage.pageRoot).toBeVisible();
+        // ── The screen Amy's recording ends on, reached the way she reaches it ──
+        await pages.leftNav.navigate();
+        await pages.leftNav.openViaMenu(['Transfer to Job Cards'], '/transfer-to-job-cards');
+        const transferPage = pages.transferToJobCards;
+        await transferPage.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
 
         if (await transferPage.analyzeEnabled()) {
             // Nothing renders until a date range is committed — the step Amy performs.

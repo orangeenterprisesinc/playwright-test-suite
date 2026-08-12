@@ -8,6 +8,13 @@
 > claims `B1-R5|B1-R7|B1-R8`. New `B1-002` proves the relay leg on its own
 > (`tests/api/relay-roundtrip.spec.ts`) and is green today. Everything below about the device's
 > screens describes the deferred manual/mobile scope.
+>
+> **Office half drives the UI (2026-08-12, later the same day):** mirroring the recording, the spec
+> navigates the sidebar to Connectivity ▸ Import ▸ Internet, triggers the relay pull, and then walks
+> to Transfer to Job Cards for the date-range step. On dev today the pull screen shows "The relay
+> could not be reached." (gates: `WEBMAIL_LIVE_SEND_ENABLED`, ClientRelayRegistration + SQL-only
+> SendPassword, and WEBPET-1830 storage) and the test fails there — on the screen where Amy's flow
+> would show the data. `IMPORT_TRANSPORT=single-folder` keeps the direct importer-API path.
 
 | Artifact | Path |
 |---|---|

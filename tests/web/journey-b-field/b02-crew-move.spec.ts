@@ -34,6 +34,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
             { type: 'requirement', description: 'B2-R6|B2-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
+        test.slow();
         const office = await seedOfficeFixture(sessionApi);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
@@ -83,7 +84,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
 
         await verifyImportInOffice({
             sessionApi,
-            transferPage: pages.transferToJobCards,
+            pages,
             testInfo,
             xml,
             label: 'B2',
