@@ -34,7 +34,7 @@ GitHub CI failure
  ↓
 Orchestrator retrieves failure information (gh run view / logs / report artifact)
  ↓
-Playwright Healer investigates (see PLAYWRIGHT_HEALER.md)
+Playwright Healer investigates (contract: PLAYWRIGHT_AGENT_WORKFLOW.md §4 + domain profile)
  ↓
 Fix → local validation → commit → push → CI again
 ```

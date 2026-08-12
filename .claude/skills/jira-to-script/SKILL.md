@@ -6,7 +6,10 @@ description: Use when the user asks to generate a Playwright test from a Jira ti
 ## Jira story → Playwright script pipeline
 
 Turns a Jira ticket into a reviewed, passing spec using the Jira MCP and
-the Playwright test agents (planner / generator / healer).
+the Playwright test agents (planner / generator / healer). Journey-suite
+conventions and the orchestration contract live in
+`.claude/profiles/JOURNEY.md` — read it first when the story lands in
+`tests/web/` or `tests/api/`.
 
 ### Prerequisites
 
