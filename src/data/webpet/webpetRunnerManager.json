@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-12T10:57:19.886Z",
+    "generatedAt": "2026-08-12T11:19:19.257Z",
     "total": 405,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2644,7 +2644,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": "Fixed and passing on dev 2026-08-06. Removed the stale skip and replaced the DelLlano-only literal 'Forklift' with the file's own equip.name, so the 409 comes from a row this spec owns."
+      "notes": "Fixed 2026-08-06 (removed a stale skip whose premise had gone stale, and replaced the DelLlano-only literal 'Forklift' with the file's own equip.name). Hardened 2026-08-07: waits for Save via toBeEnabled before clicking (same race as WP-0232) and now asserts an error toast appears, so 'Save came back and the URL held' can no longer pass while the user was shown nothing. OPEN QUESTION worth a look: this form was observed showing 'Couldn't reach the server. Check your connection.' for a duplicate name that the API answers 409 in ~1.6s (curl-verified). Job names its conflict properly; Equipment appears to report a 409 as a network error. The assertion deliberately does not pin the message text until that is settled."
     },
     {
       "id": "WP-0165",
@@ -3700,7 +3700,7 @@
       "jira": "WEBPET-1831",
       "status": "automated",
       "enabled": true,
-      "notes": "RESOLVED by WEBPET-1831 (stale formState.isValid from missing field.onBlur wiring), same root cause as WP-0229 — not a separate defect. Verified passing on dev 2026-08-06."
+      "notes": "Fixed 2026-08-07 and passing on dev; ported from dry-run to main 2026-08-12 after CI run 31587447655 red-flagged it (main never had the fix). Two changes. (1) Racy click: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. (2) Added the missing assertion: the test now asserts the 409 is actually REPORTED (error toast + 'A job with this Name already exists') instead of only checking Save came back and the URL held — those two alone also describe a form where the user was shown nothing, which is exactly what happened during a transient API stall on 2026-08-07 (see bug-ticket-BUG-24.txt; the stall itself did not recur and is not a product defect). The stale native-alert dialog handler was dropped: the conflict renders as a sonner toast now."
     },
     {
       "id": "WP-0233",
