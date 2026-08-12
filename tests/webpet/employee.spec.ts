@@ -187,16 +187,47 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         await expect(form.lastNameInput).toHaveValue(emp.lastName);
     });
 
-    test('[Employee] Verify that the name, barcode and export identifier are read-only.', {
+    test('[Employee] Verify that the barcode and export identifier are read-only and the name is editable.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0154' },
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        // WEBPET-2006 (2026-08-10): Name is gated, not hardcoded read-only — it
+        // unlocks when isSU OR AllowRecordNameModification OR the stored name is
+        // a "Temporary Badge"/"Temporary Name" placeholder. The suite runs as su,
+        // so Name is editable here; the locked side is the next test.
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
         await expect(form.codeInput).toHaveAttribute('readonly', '');
         await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
+    });
+
+    test('[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0407' },
+    }, async ({ page, pages }) => {
+        // Flip both unlocking terms of the WEBPET-2006 gate client-side (the
+        // third, the temporary-name escape hatch, is off because emp.name is
+        // "E2EEMP_…, Test"). Dev serves isSU=true + AllowRecordNameModification=true,
+        // so the locked state is unreachable without rewriting the responses.
+        await page.route('**/api/session/me', async (route) => {
+            const response = await route.fetch();
+            const body = await response.json().catch(() => null);
+            if (body?.user) body.user.isSU = false;
+            await route.fulfill({ response, json: body });
+        });
+        await page.route('**/api/preferences*', async (route) => {
+            const response = await route.fetch();
+            const body = await response.json().catch(() => null);
+            if (body) body.allowRecordNameModification = false;
+            await route.fulfill({ response, json: body });
+        });
+        const form = pages.employeeForm;
+        await form.gotoEdit(emp.id);
+        await form.waitForForm();
+        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        await expect(form.codeInput).toHaveAttribute('readonly', '');
     });
 
     test('[Employee] Verify that the first name and last name fields are editable.', {

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-12T09:12:44.886Z",
-    "total": 404,
+    "generatedAt": "2026-08-12T10:57:19.886Z",
+    "total": 405,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -2457,15 +2457,31 @@
     {
       "id": "WP-0154",
       "file": "employee.spec.ts",
-      "titlePath": "Edit employee form > [Employee] Verify that the name, barcode and export identifier are read-only.",
+      "titlePath": "Edit employee form > [Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
       "caseKey": "",
       "module": "employee",
       "category": "ui",
-      "testName": "nameCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Employee] Verify that the name, barcode and export identifier are read-only.",
-      "testDescription": "Name, Code and Export Identifier are readonly once the employee exists.",
+      "testName": "barcodeAndExportIdReadOnlyNameEditable",
+      "testTitle": "[Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+      "testDescription": "Barcode and Export Identifier are readonly once the employee exists; Name is gated (WEBPET-2006) and editable for su. Locked side covered by WP-0407.",
       "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
-      "jira": "",
+      "jira": "WEBPET-2006",
+      "status": "automated",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0407",
+      "file": "employee.spec.ts",
+      "titlePath": "Edit employee form > [Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+      "caseKey": "",
+      "module": "employee",
+      "category": "ui",
+      "testName": "nameReadOnlyForNonSuWithModificationDisallowed",
+      "testTitle": "[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+      "testDescription": "The locked side of the WEBPET-2006 name gate: with isSU=false and AllowRecordNameModification=false (both rewritten client-side via page.route), Name renders readonly on an existing employee.",
+      "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
+      "jira": "WEBPET-2006",
       "status": "automated",
       "enabled": true,
       "notes": ""
