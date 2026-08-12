@@ -20,6 +20,9 @@ import {
     type EnsuredDepartment,
     type EnsuredEmployee,
 } from './data-factory';
+import { API_BASE_URL, WEB_BASE_URL, WEBPET_NONSU_USER, WEBPET_NONSU_PASSWORD } from '@config/webpetEnv';
+import { EmployeeFormPage } from '@pages/webpet/setup/EmployeeFormPage';
+import { request as pwRequest } from '@playwright/test';
 
 // This file creates its own Department + Crew + Employee via the API instead of
 // depending on shared hardcoded rows ("Locker, Mather" id=5, "ADP 5", "Crew 01")
@@ -228,6 +231,74 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
         await expect(form.codeInput).toHaveAttribute('readonly', '');
+    });
+
+    test('[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0408' },
+    }, async ({ browser, request }) => {
+        test.skip(
+            !WEBPET_NONSU_USER || !WEBPET_NONSU_PASSWORD,
+            'WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD not set — needed for a real non-SU ' +
+                'dev-staging login to exercise the WEBPET-2006 third gate term.',
+        );
+
+        // Third WEBPET-2006 gate term: isSU OR AllowRecordNameModification OR a
+        // case-insensitive startsWith on a "Temporary Badge"/"Temporary Name"
+        // stored name (web-pet temporaryEmployeeName.ts). A real non-SU login
+        // (below) makes the first term false; the preferences rewrite makes the
+        // second false — so an editable Name here is attributable only to this
+        // employee's name starting with "Temporary Badge".
+        const tempEmp = await ensureEmployee(request, { namePrefix: 'Temporary Badge' });
+
+        let nonSuContext: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+        try {
+            const loginCtx = await pwRequest.newContext({
+                baseURL: API_BASE_URL,
+                extraHTTPHeaders: { Origin: WEB_BASE_URL },
+            });
+            const loginRes = await loginCtx.post('/api/auth/login', {
+                data: { username: WEBPET_NONSU_USER, password: WEBPET_NONSU_PASSWORD },
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (!loginRes.ok()) {
+                await loginCtx.dispose();
+                throw new Error(
+                    `non-SU login failed (HTTP ${loginRes.status()}) against ${API_BASE_URL} as ` +
+                        `'${WEBPET_NONSU_USER}'. Check WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD.`,
+                );
+            }
+            const storageState = await loginCtx.storageState();
+            await loginCtx.dispose();
+
+            nonSuContext = await browser.newContext({ storageState, baseURL: WEB_BASE_URL });
+            const nonSuPage = await nonSuContext.newPage();
+
+            // No /api/session/me rewrite here (unlike WP-0407): the non-SU
+            // account already answers isSU=false truthfully server-side, so
+            // patching the response would duplicate a real signal, not add one.
+            await nonSuPage.route('**/api/preferences*', async (route) => {
+                const response = await route.fetch();
+                const body = await response.json().catch(() => null);
+                if (body) body.allowRecordNameModification = false;
+                await route.fulfill({ response, json: body });
+            });
+
+            // No locale pin (unlike the fixture's `context` override) — these
+            // are readonly-attribute assertions, not text assertions, so the
+            // pinned 'en' locale is not load-bearing here.
+            const form = new EmployeeFormPage(nonSuPage);
+            await form.gotoEdit(tempEmp.id);
+            await form.waitForForm();
+            await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+            await expect(form.codeInput).toHaveAttribute('readonly', '');
+        } finally {
+            // Local cleanup, not afterAll: this test owns tempEmp, and Employee
+            // has no purge endpoint (WEBPET-1798) — a soft-deleted name is stuck
+            // forever, so cleanup must run even on failure.
+            await nonSuContext?.close();
+            await deleteEmployee(request, tempEmp.id);
+        }
     });
 
     test('[Employee] Verify that the first name and last name fields are editable.', {

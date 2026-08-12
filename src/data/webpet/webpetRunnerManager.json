@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-12T11:19:19.257Z",
-    "total": 405,
+    "generatedAt": "2026-08-12T17:20:58.978Z",
+    "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -2485,6 +2485,22 @@
       "status": "automated",
       "enabled": true,
       "notes": ""
+    },
+    {
+      "id": "WP-0408",
+      "file": "employee.spec.ts",
+      "titlePath": "Edit employee form > [Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+      "caseKey": "",
+      "module": "employee",
+      "category": "ui",
+      "testName": "nameEditableForTempBadgeEmployeeAsNonSu",
+      "testTitle": "[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+      "testDescription": "The third (escape-hatch) term of the WEBPET-2006 name gate: a REAL non-SU login plus a client-side AllowRecordNameModification=false rewrite falsify the first two terms, so Name staying editable is attributable only to the stored name starting with \"Temporary Badge\" (case-insensitive startsWith; record origin irrelevant). Self-skips until WEBPET_NONSU_USER/WEBPET_NONSU_PASSWORD are set (skip-allowlist entry, PET-12468).",
+      "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
+      "jira": "WEBPET-2006, PET-12468",
+      "status": "automated",
+      "enabled": true,
+      "notes": "WP-0407 covers the locked side; WP-0154 the su-unlocked side. Needs the manually-created non-SU dev user (SU off / Edit Records on / Employee Access full / no crew limits)."
     },
     {
       "id": "WP-0155",
