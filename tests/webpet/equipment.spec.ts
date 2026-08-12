@@ -112,7 +112,23 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
         page.on('dialog', (d) => d.dismiss());
         await form.fillName(equip.name);
         await form.pickEquipmentType(equip.equipmentTypeName);
+        // Wait for the Save gate to open before clicking it — same race that made
+        // WP-0232 pass locally and time out in CI (see job.spec.ts).
+        await expect(form.footer.saveButton).toBeEnabled();
         await form.footer.submitButton.click();
+
+        // Assert the failure is reported at all — same reasoning as WP-0232 in
+        // job.spec.ts: "Save came back and the URL held" also describes a form where
+        // nothing whatsoever was shown to the user.
+        //
+        // Deliberately NOT asserting the message text here. Job names its conflict
+        // ("A job with this Name already exists…"), but this form was observed
+        // showing "Couldn't reach the server. Check your connection." for a request
+        // the API answers 409 in ~1.6s — pinning that string would enshrine wording
+        // that looks wrong, and pinning the right string would fail. See the note on
+        // this row in webpetRunnerManager.csv.
+        await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 10000 });
+
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
         await expect(page).toHaveURL(/\/setup\/equipments\/new/);
     });
