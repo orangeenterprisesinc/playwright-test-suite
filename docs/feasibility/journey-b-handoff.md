@@ -1,5 +1,12 @@
 # Journey B automation — status, findings and next actions
 
+> **Superseded in part, 2026-08-12.** The team moved Journey B to XML-based automation: the specs
+> build the device's own export envelope and deliver it through the relay (`src/utils/relay/`),
+> with the office half unchanged. Appium/device automation is deferred and lives on
+> `feature/appium-journey-video-wip`. What still holds below: the relay facts, the office API
+> contracts, and the WEBPET-1830 storage blocker. What is deferred: everything about driving the
+> app, the emulator toolchain, and the CI device workflow.
+
 **Last updated:** 2026-08-10 · Written as a session handoff: read this first, then
 `test-plans/journey-b/*.md` for per-workflow detail.
 

@@ -1,5 +1,14 @@
 # `B1` · Crew time-in
 
+> **Transport change, 2026-08-12.** `B1-001` no longer drives a device. It builds the same
+> `OrangeExportFile` envelope PET Pocket serializes (ported from the app's serializer —
+> `src/utils/relay/exportEnvelope.ts`) and delivers it through the real Post Office relay, so the
+> office half runs on the production path. Device-side requirements (`B1-R1`–`B1-R4`, `B1-R6`) are
+> **deferred with the mobile automation** (branch `feature/appium-journey-video-wip`); the row now
+> claims `B1-R5|B1-R7|B1-R8`. New `B1-002` proves the relay leg on its own
+> (`tests/api/relay-roundtrip.spec.ts`) and is green today. Everything below about the device's
+> screens describes the deferred manual/mobile scope.
+
 | Artifact | Path |
 |---|---|
 | Catalog entry | `src/data/catalog/workflow-catalog.json` → `B1` |

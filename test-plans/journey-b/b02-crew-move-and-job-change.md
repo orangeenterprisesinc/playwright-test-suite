@@ -1,5 +1,10 @@
 # `B2` · Crew move and job change
 
+> **Transport change, 2026-08-12.** `B2-001` no longer drives a device: it builds the envelope a
+> device exports *after* a move — movers in the destination, the member left behind unchanged, one
+> punch each — and delivers it through the relay. Device-side requirements (`B2-R1`, `B2-R2`,
+> `B2-R3`, `B2-R5`) are deferred with the mobile automation; the row now claims `B2-R6|B2-R7`.
+
 | Artifact | Path |
 |---|---|
 | Catalog entry | `src/data/catalog/workflow-catalog.json` → `B2` |

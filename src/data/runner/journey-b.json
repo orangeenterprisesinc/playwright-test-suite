@@ -5,9 +5,9 @@
             "workflow": "B1",
             "journey": "B",
             "category": "workflow",
-            "testName": "captureCrewTimeInOnDeviceAndExport",
-            "testTitle": "Capture a crew time-in on the device, uncheck the absentee, and export it",
-            "testDescription": "Drive PET Pocket's Crew In screen on an emulator: pick field, job and crew, uncheck the absentee in the roster, save, and confirm one Time In per present member plus a non-empty export.",
+            "testName": "deliverCrewTimeInExportToOffice",
+            "testTitle": "Deliver a crew time-in export to the office and verify the punches",
+            "testDescription": "Build the OrangeExportFile envelope PET Pocket produces for a crew time-in (present members only), deliver it through the Post Office relay, and verify the office links one time card per member and lists them on Transfer to Job Cards.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -19,25 +19,46 @@
                 "regression"
             ],
             "req": [
-                "B1-R1",
-                "B1-R2",
-                "B1-R3",
-                "B1-R4",
                 "B1-R5",
+                "B1-R7",
                 "B1-R8"
             ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "B1-002",
+            "workflow": "B1",
+            "journey": "B",
+            "category": "api",
+            "testName": "relayRoundTripsAnExportEnvelope",
+            "testTitle": "An export envelope pushed to a mailbox is returned unchanged",
+            "testDescription": "Push a crew time-in envelope into a scratch relay mailbox and pull it back, asserting byte fidelity of the attachment plus the sender, file name and subject the relay carries alongside it.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "core"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "B1-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B2-001",
             "workflow": "B2",
             "journey": "B",
             "category": "workflow",
-            "testName": "moveCrewToNewFieldAndJob",
-            "testTitle": "Move the crew to a new field and job, leaving one member behind",
-            "testDescription": "Drive PET Pocket's Crew In screen twice: clock the whole crew into the original field/job, then scan the destination field/job barcodes, uncheck the member who did not move, and save.",
+            "testName": "deliverPostMoveExportToOffice",
+            "testTitle": "Deliver a post-move export and verify movers and the member left behind",
+            "testDescription": "Build the envelope a device exports after a crew move — movers in the destination field and job, the member left behind unchanged, one punch each — deliver it through the relay, and verify the office links every row to the right context.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -49,15 +70,11 @@
                 "regression"
             ],
             "req": [
-                "B2-R1",
-                "B2-R2",
-                "B2-R3",
-                "B2-R5",
                 "B2-R6",
                 "B2-R7"
             ],
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B3-001",
