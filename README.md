@@ -890,6 +890,17 @@ npm run report:allure
 npm run report:allure:open
 ```
 
+Two things that look like bugs but aren't:
+
+- **The HTML report only ever shows the most recent run.** Every run rewrites
+  `artifacts/html` and clears `artifacts/results`, so a browserless run
+  (`--project=api`) legitimately leaves a report with no screenshots or videos,
+  and replaces whatever evidence was there. Re-run the specs you want evidence
+  from, or copy `artifacts/` aside first.
+- **Open `http://localhost:9323`, not `127.0.0.1:9323`.** `show-report` binds
+  IPv6 loopback (`::1`), so the IPv4 address refuses the connection and the page
+  never loads. Pass `--host 127.0.0.1` if you need IPv4.
+
 ---
 
 ## 🔄 CI/CD Integration
