@@ -3,6 +3,10 @@
 Agent: `playwright-test-healer` (see `.claude/agents/playwright-test-healer.md`).
 Part of the orchestration flow in [PLAYWRIGHT_AGENT_WORKFLOW.md](PLAYWRIGHT_AGENT_WORKFLOW.md).
 
+This document is an orchestration contract layered over the existing agent definition;
+it does not replace or modify that agent, and the agent definition must not be edited
+to satisfy anything written here.
+
 Invoke the Healer **only when a validation or Playwright execution failure occurs**.
 Default model: **Sonnet**; escalate to **Opus or Fable 5** when the failure indicates a
 deeper architectural problem or the cause cannot be confidently determined.

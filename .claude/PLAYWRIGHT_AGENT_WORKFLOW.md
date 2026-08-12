@@ -17,6 +17,23 @@ The agents are defined in `.claude/agents/`:
 
 When invoking an agent, tell it to Read its responsibilities doc first.
 
+## Critical rule — existing agents are preserved
+
+The three agent definitions in `.claude/agents/` (`playwright-test-planner.md`,
+`playwright-test-generator.md`, `playwright-test-healer.md`) are the configured agents.
+
+**Never delete, recreate, rename, replace, or rewrite them. Never modify their prompts,
+tools, responsibilities, or configuration unless the human explicitly asks.**
+
+This workflow and the per-stage docs are an **orchestration layer only** — they govern
+how the existing agents are invoked and coordinated; they do not replace or amend the
+agents themselves.
+
+Model preferences (§6) are applied only through the Agent tool's per-invocation `model`
+parameter, which the current setup supports. Do not edit agent frontmatter to force a
+model. Before any configuration change, inspect the existing agent configuration and
+confirm the change is orchestration-only.
+
 ## 1. Main Claude = Orchestrator
 
 The main Claude session is the **orchestrator**.

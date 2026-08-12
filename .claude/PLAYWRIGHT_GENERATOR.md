@@ -3,6 +3,10 @@
 Agent: `playwright-test-generator` (see `.claude/agents/playwright-test-generator.md`).
 Part of the orchestration flow in [PLAYWRIGHT_AGENT_WORKFLOW.md](PLAYWRIGHT_AGENT_WORKFLOW.md).
 
+This document is an orchestration contract layered over the existing agent definition;
+it does not replace or modify that agent, and the agent definition must not be edited
+to satisfy anything written here.
+
 The Generator is responsible for **implementation**. Default model: **Sonnet**.
 
 ## Responsibilities
