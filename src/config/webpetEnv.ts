@@ -87,3 +87,11 @@ export const ADMIN_PASSWORD: string = decryptIfNeeded(
  * drift between the two.
  */
 export const S3_ENDPOINT: string = process.env.S3_ENDPOINT ?? '';
+
+/**
+ * Non-SU credentials for the WEBPET-2006 third-gate-term test
+ * (employee.spec.ts). Empty by default; that test self-skips when either is
+ * unset — see the skip-allowlist entry for "WEBPET_NONSU_USER / ...".
+ */
+export const WEBPET_NONSU_USER: string = process.env.WEBPET_NONSU_USER ?? '';
+export const WEBPET_NONSU_PASSWORD: string = process.env.WEBPET_NONSU_PASSWORD ?? '';

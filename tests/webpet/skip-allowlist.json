@@ -97,6 +97,11 @@
       "match": "profile-avatar",
       "reason": "Avatar upload needs the same object storage as employee-documents.",
       "ticket": "DRAFT: provision S3/MinIO for dev staging"
+    },
+    {
+      "match": "WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD not set",
+      "reason": "Temporary-badge escape-hatch test (WEBPET-2006 third gate term) needs a real non-SU dev-staging login to falsify the first two gate terms without route-rewriting isSU. The account is not provisioned on dev yet, so this skips cleanly until it exists.",
+      "ticket": "PET-12468"
     }
   ]
 }
