@@ -2,7 +2,10 @@
 
 > **Superseded in part, 2026-08-12.** The team moved Journey B to XML-based automation: the specs
 > build the device's own export envelope and deliver it through the relay (`src/utils/relay/`),
-> with the office half unchanged. Appium/device automation is deferred and lives on
+> then work the office through the web UI the way Amy's recording shows — sidebar ▸ Connectivity ▸
+> Import ▸ Internet (the relay pull), then Transfer to Job Cards with the date range
+> (`src/pages/connectivity/ImportInternetPage.ts`; `IMPORT_TRANSPORT=single-folder` keeps the
+> direct importer-API path). Appium/device automation is deferred and lives on
 > `feature/appium-journey-video-wip`. What still holds below: the relay facts, the office API
 > contracts, and the WEBPET-1830 storage blocker. What is deferred: everything about driving the
 > app, the emulator toolchain, and the CI device workflow.
