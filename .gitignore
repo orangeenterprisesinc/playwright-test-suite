@@ -19,18 +19,6 @@ node_modules/
 /playwright/.auth/
 .auth/
 
-# ── Journey B device specs (tests/web/journey-b-field, `device` project) ──────
-# Project-local Appium home: the UiAutomator2 driver is installed here by
-# `npm run device:driver` so the repo never depends on a global appium install.
-/.appium/
-# The PET Pocket debug APK, built from the AndroidPET repo by
-# `npm run device:build:apk`. A ~12 MB binary belonging to another repository.
-/apps-device/
-# Device database fixtures: the schema is pulled from a running emulator and the
-# golden seed is generated from it (`npm run device:fixtures`), so both are
-# reproducible build output rather than source.
-/src/data/device/*.db
-
 # Personal env overrides (SMTP credentials etc.) — loaded by envLoader as the
 # base file, never committed. The committed .env.local/.dev/.qa hold no real
 # plaintext secrets: anything sensitive there is stored as ENC(...) ciphertext

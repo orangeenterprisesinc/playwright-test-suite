@@ -20,7 +20,7 @@
  * automation on `feature/appium-journey-video-wip`.
  */
 import { expect, test } from '@fixtures/base.fixture';
-import { DEVICE_FIXTURE as F } from '@data/device/petPocketFixture';
+import { JOURNEY_B_FIXTURE as F } from '@data/journey-b/fixture';
 import { buildCrewTimeInEnvelope, exportFileName, newRunPrefix } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';

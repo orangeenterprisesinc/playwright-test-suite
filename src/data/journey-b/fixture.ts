@@ -6,7 +6,7 @@
  *
  * B2 (crew move) needs a destination, hence the second field/job.
  */
-export const DEVICE_FIXTURE = {
+export const JOURNEY_B_FIXTURE = {
     ranch: { code: '4001', name: 'B1 RANCH' },
     field: { code: '4101', name: 'B1 FIELD' },
     job: { code: '4201', name: 'B1 HARVEST', paymentType: 'Time' },
@@ -14,8 +14,6 @@ export const DEVICE_FIXTURE = {
     field2: { code: '4102', name: 'B2 FIELD EAST' },
     job2: { code: '4202', name: 'B2 PRUNING', paymentType: 'Time' },
     crew: { code: '5001', name: 'B1 CREW' },
-    // Roster order matters: the Employee Selection dialog lists members in
-    // Employee_Records insert order, and the specs assert that order.
     present: [
         { code: '6001', name: 'B1 PRESENT ONE' },
         { code: '6002', name: 'B1 PRESENT TWO' },

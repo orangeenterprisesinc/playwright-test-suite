@@ -13,7 +13,7 @@
  * mailbox of its own — never the office queue the B1/B2 exports land in.
  */
 import { expect, test } from '@fixtures/api.fixture';
-import { DEVICE_FIXTURE as F } from '@data/device/petPocketFixture';
+import { JOURNEY_B_FIXTURE as F } from '@data/journey-b/fixture';
 import { buildCrewTimeInEnvelope, exportFileName, newRunPrefix } from '@utils/relay/exportEnvelope';
 import { ackRetrieved, drainMailbox, pullFromRelay, sendToRelay } from '@utils/relay/relayClient';
 
