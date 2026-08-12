@@ -166,6 +166,26 @@ Healer    → failure output + relevant diff + source      → smallest fix
 
 Reuse information already established by previous agents instead of rediscovering it.
 
+Binding rules:
+
+1. **Skip the pipeline for trivial work.** A one-line or purely mechanical fix goes to
+   the Generator alone (or the main session) — no Planner, no Healer.
+2. **Handoffs are pointers, not payloads.** Pass file *paths* and the 8-line Planner
+   handoff; never paste whole files or full run logs between agents. Each agent Reads
+   only the files named in its handoff.
+3. **Healer input is minimal.** The failing test's error message, trace, and the
+   relevant diff — never the full-suite output.
+4. **No browser exploration unless the task needs it.** Page snapshots are token-heavy;
+   code-level failures are diagnosed from source. Run only the affected spec files,
+   not the suite.
+5. **Model tiering** (§6): Haiku finds, Sonnet builds and heals, Fable 5 only for
+   genuinely hard planning or escalation.
+6. **Batch per task, not per failure.** One Planner call per task; related fixes go
+   into one Generator call — never one pipeline per failing test.
+
+Rules 2, 3, and 6 are the big savers: they are what keep the three-agent pipeline near
+single-session cost instead of multiplying it.
+
 ## 8–11. Git, GitHub, CI, Human Approval
 
 See [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md): dedicated branch → reviewed diff →
