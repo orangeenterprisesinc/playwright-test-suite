@@ -195,6 +195,10 @@ jobs:
       # Harmless for the journey suite, which never reads them.
       E2E_ADMIN_USER: ${{ vars.DEV_USER_NAME || 'su' }}
       E2E_ADMIN_PASSWORD: ${{ secrets.DEV_PASSWORD }}
+      # Real non-SU login for the WEBPET-2006 escape-hatch test (WP-0408,
+      # employee.spec.ts). Unset secrets are fine: the test self-skips.
+      WEBPET_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
+      WEBPET_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
