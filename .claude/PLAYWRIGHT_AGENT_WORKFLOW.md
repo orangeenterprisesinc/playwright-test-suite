@@ -1,21 +1,24 @@
 # Playwright AI Agent Orchestration Workflow
 
-This repository uses a multi-agent Playwright workflow.
+One orchestration layer serves two automation domains:
 
-For every Playwright-related task — bug, test failure, test-generation request, framework
-change, or automation maintenance — follow this workflow unless the task explicitly
-requires otherwise. (Non-Playwright work — docs, CI YAML, report analysis — is exempt.)
+* **Web-PET** — maintaining the existing E2E suite (`tests/webpet/`, ~406 tests)
+* **User Journey** — creating and maintaining automation from the PET-Tiger
+  workflow catalog (`tests/web/`, `tests/api/`, `test-plans/`)
+
+For every Playwright-related task — bug, test failure, test-generation request,
+framework change, or automation maintenance — follow this workflow unless the task
+explicitly requires otherwise. (Non-Playwright work — docs, CI YAML, report
+analysis — is exempt.)
 
 The agents are defined in `.claude/agents/`:
 
-| Stage | Agent | Responsibilities doc |
+| Stage | Agent | Contract |
 |---|---|---|
-| Plan | `playwright-test-planner` | [PLAYWRIGHT_PLANNER.md](PLAYWRIGHT_PLANNER.md) |
-| Implement | `playwright-test-generator` | [PLAYWRIGHT_GENERATOR.md](PLAYWRIGHT_GENERATOR.md) |
-| Heal | `playwright-test-healer` | [PLAYWRIGHT_HEALER.md](PLAYWRIGHT_HEALER.md) |
+| Plan | `playwright-test-planner` | §4 |
+| Implement | `playwright-test-generator` | §4 |
+| Heal | `playwright-test-healer` | §4 |
 | Git / PR / CI | (orchestrator) | [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) |
-
-When invoking an agent, tell it to Read its responsibilities doc first.
 
 ## Critical rule — existing agents are preserved
 
@@ -25,138 +28,170 @@ The three agent definitions in `.claude/agents/` (`playwright-test-planner.md`,
 **Never delete, recreate, rename, replace, or rewrite them. Never modify their prompts,
 tools, responsibilities, or configuration unless the human explicitly asks.**
 
-This workflow and the per-stage docs are an **orchestration layer only** — they govern
-how the existing agents are invoked and coordinated; they do not replace or amend the
-agents themselves.
+This workflow, the domain profiles, and the skills are an **orchestration layer
+only** — they govern how the existing agents are invoked and coordinated; they do
+not replace or amend the agents themselves.
 
-Model preferences (§6) are applied only through the Agent tool's per-invocation `model`
-parameter, which the current setup supports. Do not edit agent frontmatter to force a
-model. Before any configuration change, inspect the existing agent configuration and
-confirm the change is orchestration-only.
+Model preferences (§6) are applied only through the Agent tool's per-invocation
+`model` parameter. Do not edit agent frontmatter to force a model. Before any
+configuration change, inspect the existing agent configuration and confirm the
+change is orchestration-only.
 
 ## 1. Main Claude = Orchestrator
 
-The main Claude session is the **orchestrator**.
+The main Claude session is the **orchestrator**. It routes the task (§3),
+coordinates the agents, and must not perform the Planner, Generator, or Healer's
+responsibilities itself when the route calls for an agent.
 
-It coordinates the workflow and must not perform the Planner, Generator, or Healer's
-responsibilities itself.
-
-The standard flow is:
+The standard agent flow is:
 
 ```text
-User
-  ↓
-Main Claude — Orchestrator
-  ↓
-Playwright Planner
-  ↓
-Playwright Generator
-  ↓
-Playwright execution + validation
-  ↓
-PASS ───────────────→ Final validation
-  │
-  FAIL
-  ↓
-Playwright Healer
-  ↓
-Re-run validation
-  │
-  └── difficult/unresolved → escalate to Fable 5 / Opus
-  ↓
-Final validation
-  ↓
-GitHub (see GITHUB_WORKFLOW.md)
-  ↓
-Commit → Push → PR
-  ↓
-GitHub CI
-  ↓
-GREEN ──────────────→ Human review
-  │
-  RED
-  ↓
-Playwright Healer
-  ↓
-Fix → Commit → Push → CI again
-  ↓
-Human review
-  ↓
-Human merges PR
+User → Orchestrator (routing, §3)
+     → Planner → Generator → execution + validation
+         FAIL → Healer → re-run
+                  └─ unresolved → escalate to Opus / Fable 5
+         PASS → final validation
+     → GitHub (GITHUB_WORKFLOW.md): commit → push → PR → CI
+         RED → Healer → fix → push → CI again
+         GREEN → human review → human merges
 ```
 
-## 2. Playwright Planner
+Progress should clearly identify the active stage:
+`[Planner - Fable 5]` `[Generator - Sonnet]` `[Playwright validation]`
+`[Healer - Sonnet]` `[Escalation - Opus/Fable 5]` `[GitHub]` `[PR created]`
+`[CI validation]`
 
-Analysis and planning only, never implementation. Full contract in
-[PLAYWRIGHT_PLANNER.md](PLAYWRIGHT_PLANNER.md). Use the strongest reasoning model
-available for difficult planning work, preferably **Fable 5**.
+If a required agent is unavailable, report that condition — never silently
+replace it.
 
-## 3. Playwright Generator
+## 2. Domain profiles
 
-Implementation from the Planner's handoff. Full contract in
-[PLAYWRIGHT_GENERATOR.md](PLAYWRIGHT_GENERATOR.md). Default model: **Sonnet**.
+All repo-specific knowledge lives in two profiles, loaded per task — never both
+by default, never in non-Playwright sessions:
 
-## 4. Playwright Execution
+| Task touches | Profile |
+|---|---|
+| `tests/webpet/`, `src/pages/webpet/`, `src/components/webpet/`, `src/data/webpet/` | [profiles/WEBPET.md](profiles/WEBPET.md) |
+| `tests/web/`, `tests/api/`, `src/data/runner/`, `src/data/catalog/`, `test-plans/` | [profiles/JOURNEY.md](profiles/JOURNEY.md) |
+| Shared core (`src/fixtures/`, `src/config/`, `src/utils/`, `src/components/` root, `src/data/readers/`) | profile per affected suite; **both** suites' validation gates |
 
-After implementation, run the appropriate Playwright tests, plus this repository's
-validation:
+An agent invocation prompt names exactly: its stage contract (§4, summarized
+inline — it is short), the one domain profile to Read, and the handoff (a file
+path or a ≤30-line block). An agent Reads at most two files up front — the
+profile and the handoff — plus only the source files those name.
 
-* `npm run typecheck`
-* `npm run lint`
-* `npm run webpet:runner:check` (webpet suite; new tests also need the runner-CSV
-  two-pass id allocation via `npm run webpet:runner:sync`)
-* any other project-specific validation the task touches
+## 3. Routing — skill vs agents
 
-Do not assume that successful code generation means the task is complete. Prefer lean
-verification: run the affected spec files, not the full suite, unless the change is
-suite-wide.
+Skills encode conventions and handle small single-session work; agents handle
+multi-step work that needs live-browser exploration or an unknown root cause.
+Do not describe what an agent would do and then do it inline — when the route
+says agent, invoke the agent.
 
-## 5. Playwright Healer
+| Task shape | Route |
+|---|---|
+| Automate a catalog workflow ("automate B3") | `journey-from-catalog` skill → Planner → Generator (→ Healer), JOURNEY profile |
+| Automate a Jira story | `jira-to-script` skill (agent-orchestrated) |
+| New webpet spec / extend coverage | Planner → Generator (→ Healer), WEBPET profile |
+| Failure, cause unknown | main session: `pw-failure-triage` Step 1 (gate-skip?) → if real, Healer with classification + artifact paths |
+| Failure, cause known, single file | main session + `pw-locator-hardening` / `pw-spec-author` — no agents |
+| New page object only | `pw-page-object` skill, main session |
+| Runner CSV / tags / annotation edits | `data-driven-testing` / `pw-spec-author`, main session |
+| Small spec from a scenario pasted in chat | `ui-` / `api-` / `workflow-script-generator` skill, main session |
+| Shared-core change (fixtures/gate/utils/config) | Planner (Fable 5) → Generator; both suites' validation |
+| CI red | [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) loop → Healer |
 
-Invoke the Healer **only when a validation or Playwright execution failure occurs**.
-Full contract in [PLAYWRIGHT_HEALER.md](PLAYWRIGHT_HEALER.md). Default model: **Sonnet**.
+When in doubt (cross-file work, unclear cause, live app exploration needed),
+route to the agents.
 
-The Healer must diagnose before changing anything, and must never blindly modify
-assertions, locators, waits, or timeouts just to go green. If it cannot confidently
-determine the cause, escalate to **Opus or Fable 5**.
+## 4. Stage contracts
+
+Generic contracts. Domain knowledge comes from the profile named in the
+invocation, never from this document. Shared constraint for every stage:
+setup/cleanup goes through the app's API — there is no DB access from tests.
+
+### Planner — analysis and planning, never implementation
+
+* Understand the requirement or failure; inspect only what the task needs —
+  the orchestrator hands over the specific files and context.
+* Identify root cause, expected behavior, existing patterns to reuse (per the
+  profile), the minimum files to change, and the required validation.
+* Handoff for fix/maintenance tasks (≤30 lines):
+
+```text
+Task
+Root cause
+Expected behavior
+Files to change
+Relevant existing patterns
+Implementation approach
+Validation required
+Important constraints
+```
+
+* For journey-creation tasks the handoff is the **test-plan file** itself —
+  see [profiles/JOURNEY.md](profiles/JOURNEY.md).
+
+### Generator — implementation from the handoff
+
+* Follow the Planner's handoff; inspect only the files it names.
+* Reuse existing building blocks (per the profile) before writing new ones.
+* Smallest appropriate change; no unrelated refactoring; preserve existing
+  coverage unless the requirement changes it.
+* Sparse comments: only non-obvious "why", no JSDoc boilerplate.
+* Does not re-plan unless the plan is demonstrably incorrect — then report back
+  to the orchestrator before making broad changes.
+
+### Healer — invoked only on a validation or execution failure
+
+* Diagnose before changing anything. Classify per the canonical taxonomy in
+  `.claude/skills/pw-failure-triage/SKILL.md` — gate-skip check first, then
+  environment/auth → selector drift → timing → missing registration → real bug —
+  and apply the profile's domain triage order.
+* Then: inspect evidence (error, trace, artifacts) → root cause → relevant
+  diff/source → smallest fix → re-run the affected test → re-validate.
+* Never blindly modify assertions, locators, waits, or timeouts just to go
+  green. Escalate to Opus or Fable 5 when the cause cannot be confidently
+  determined or the problem is architectural.
+
+**Tool gaps:** the agents' browser/test-run tools come from the `playwright-test`
+MCP server. The Generator has no Write/Edit of its own — it emits specs via
+`generator_write_test`. When the MCP server is disconnected, agents keep their
+file tools (Glob, Grep, Read; the Healer also Edit/Write) but lose browser and
+`test_run` tools: the orchestrator materializes the Generator's output to disk,
+runs tests between stages, and says so explicitly in its report.
+
+## 5. Execution + validation
+
+After implementation, run the affected Playwright tests plus:
+
+* shared gate: `npm run typecheck`, `npm run lint`
+* domain gate: the profile's §Validation
+  (`webpet:runner:sync`/`webpet:runner:check` vs `runner:sync`/`runner:check`)
+* a shared-core change runs **both** domain gates
+
+Do not assume successful code generation means the task is complete. Prefer lean
+verification: run the affected spec files, not the full suite, unless the change
+is suite-wide.
 
 ## 6. Model Selection
 
-Agent definitions default to `model: sonnet`; the orchestrator overrides per invocation
-via the Agent tool's `model` parameter according to task complexity.
+Agent definitions default to `model: sonnet`; the orchestrator overrides per
+invocation via the Agent tool's `model` parameter.
 
-### Fable 5
+* **Fable 5** — complex planning, difficult root-cause analysis, architecture
+  decisions, final escalation.
+* **Opus** — complex implementation/review, difficult debugging; escalation step
+  before Fable 5.
+* **Sonnet (default)** — Generator and Healer, normal coding, locator/fixture
+  work, routine review.
+* **Haiku** — lightweight searches, file discovery, extracting small facts.
 
-* complex Planner work
-* difficult root-cause analysis
-* architecture decisions
-* complicated Playwright failures / difficult cross-file reasoning
-* escalation when another agent cannot confidently resolve the issue
-
-### Opus
-
-* complex implementation/review
-* difficult debugging
-* cases where Sonnet requires deeper reasoning
-* escalation step before Fable 5 when appropriate
-
-### Sonnet (default)
-
-* Playwright Generator and Healer
-* normal coding, test implementation, debugging
-* locator work, fixture changes, routine code review
-
-### Haiku
-
-* lightweight repository searches, simple file discovery
-* locating definitions/usages, extracting small pieces of information
-
-Do not use Fable 5 or Opus for simple tasks that Sonnet or Haiku can handle.
+Do not use Fable 5 or Opus for tasks Sonnet or Haiku can handle.
 
 ## 7. Context and Token Efficiency
 
-Minimize duplicated context across agents. Do not make every agent independently read
-the entire repository. Use targeted handoffs:
+Minimize duplicated context across agents. Do not make every agent independently
+read the repository. Targeted handoffs:
 
 ```text
 Planner   → requirement + relevant repository context   → concise plan
@@ -164,85 +199,49 @@ Generator → Planner handoff + implementation files       → diff
 Healer    → failure output + relevant diff + source      → smallest fix
 ```
 
-Reuse information already established by previous agents instead of rediscovering it.
-
 Binding rules:
 
-1. **Skip the pipeline for trivial work.** A one-line or purely mechanical fix goes to
-   the Generator alone (or the main session) — no Planner, no Healer.
-2. **Handoffs are pointers, not payloads.** Pass file *paths* and the 8-line Planner
-   handoff; never paste whole files or full run logs between agents. Each agent Reads
-   only the files named in its handoff.
-3. **Healer input is minimal.** The failing test's error message, trace, and the
-   relevant diff — never the full-suite output.
-4. **No browser exploration unless the task needs it.** Page snapshots are token-heavy;
-   code-level failures are diagnosed from source. Run only the affected spec files,
-   not the suite.
+1. **Route small work to skills** (§3). A one-line or purely mechanical fix never
+   spawns an agent pipeline.
+2. **Handoffs are pointers, not payloads.** Pass file *paths* and the §4 handoff
+   block; never paste whole files or full run logs between agents. Each agent
+   Reads only the files named in its handoff.
+3. **Healer input is minimal.** The failing test's error message, trace path, and
+   the relevant diff — never the full-suite output.
+4. **No browser exploration unless the task needs it.** Page snapshots are
+   token-heavy; code-level failures are diagnosed from source; a screen that
+   already has a page object is read, not re-explored.
 5. **Model tiering** (§6): Haiku finds, Sonnet builds and heals, Fable 5 only for
    genuinely hard planning or escalation.
-6. **Batch per task, not per failure.** One Planner call per task; related fixes go
-   into one Generator call — never one pipeline per failing test.
+6. **Batch per task, not per failure.** One Planner call per task; one Generator
+   call per plan; related runner-CSV edits go into one sync — never one pipeline
+   per failing test.
+7. **Extract, don't load.** Pull single workflow nodes from
+   `workflow-catalog.json`; report validation failures only, never full logs.
 
-Rules 2, 3, and 6 are the big savers: they are what keep the three-agent pipeline near
+Rules 2, 3, and 6 are the big savers: they keep the three-agent pipeline near
 single-session cost instead of multiplying it.
 
-## 8–11. Git, GitHub, CI, Human Approval
+## 8. Git, GitHub, CI, Human Approval
 
 See [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md): dedicated branch → reviewed diff →
 commit → push → PR → CI loop → **human reviews and merges**. Merge, force-push,
 branch deletion, and settings/secrets changes are human-only.
 
-## 12. Agent Invocation Requirement
+## 9. Final Completion Criteria
 
-The orchestrator must actually invoke the configured Playwright agents. Do not merely
-describe what the Planner, Generator, or Healer would do and then perform the work
-directly in the main session.
-
-Progress should clearly identify the active stage:
-
-```text
-[Planner - Fable 5]
-[Generator - Sonnet]
-[Playwright validation]
-[Healer - Sonnet]
-[Escalation - Opus/Fable 5]
-[GitHub]
-[PR created]
-[CI validation]
-```
-
-If a required agent is unavailable, report that condition — never silently replace it.
-
-**Known gap:** the agents' browser/test-run tools come from the `playwright-test` MCP
-server. When that server is disconnected, the agents keep their file tools (Glob, Grep,
-Read; the Healer also Edit/Write) but lose browser and `test_run` tools. In that state
-the orchestrator runs tests between stages and says so explicitly in its report.
-
-## 13. Final Completion Criteria
-
-A Playwright task is complete only when:
-
-* the required implementation is complete;
-* relevant Playwright tests pass;
-* required validation passes;
-* the final diff has been reviewed and contains no unrelated changes;
-* the PR is created/updated;
-* GitHub CI is green, or any remaining CI issue is explicitly reported;
-* the PR is ready for human review.
+A Playwright task is complete only when: the implementation is complete;
+relevant tests pass; shared + domain validation gates pass; the final diff has
+been reviewed and contains no unrelated changes; the PR is created/updated;
+GitHub CI is green or any remaining CI issue is explicitly reported; and the PR
+is ready for human review.
 
 The final response should briefly state:
 
 ```text
-Planner result
-Generator changes
-Healer activity, if any
-Tests executed
-Validation results
-Git branch
-Commit
-Pull Request
-CI status
-Remaining issues
+Planner result · Generator changes · Healer activity (if any)
+Tests executed · Validation results
+Git branch · Commit · Pull Request · CI status · Remaining issues
 ```
 
 ## Core principle
@@ -254,5 +253,5 @@ Haiku   → Find / Inspect / Lightweight tasks
 Opus    → Complex escalation / deep implementation
 ```
 
-The main Claude session coordinates these agents and the GitHub workflow rather than
-doing all of the work itself.
+The main Claude session routes and coordinates; domain knowledge lives in the
+profiles; conventions live in the skills; the agents do the staged work.
