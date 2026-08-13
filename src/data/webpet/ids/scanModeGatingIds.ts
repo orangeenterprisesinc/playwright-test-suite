@@ -33,3 +33,6 @@ export const scanModeGatingIds = {
     'ungated:time-in': 'WP-0335',
     'ungated:time-out': 'WP-0336',
 } as const;
+
+/** Every business key this spec addresses. */
+export type ScanModeGatingIdsKey = keyof typeof scanModeGatingIds;

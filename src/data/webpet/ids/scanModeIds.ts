@@ -19,3 +19,6 @@ export const scanModeIds = {
     'resolves:time-in': 'WP-0349',
     'resolves:time-out': 'WP-0350',
 } as const;
+
+/** Every business key this spec addresses. */
+export type ScanModeIdsKey = keyof typeof scanModeIds;
