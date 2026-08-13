@@ -5,6 +5,10 @@ description: Use when a Playwright test in this repository failed, flaked, or si
 
 ## Playwright Failure Triage
 
+This skill is the **canonical failure taxonomy** for the repository — the Healer
+agent's contract (`.claude/PLAYWRIGHT_AGENT_WORKFLOW.md` §4) classifies against
+it rather than keeping a competing list.
+
 ### Read evidence before proposing anything
 
 The rule for this skill: **no fix without an artifact or a reproduction backing it.**

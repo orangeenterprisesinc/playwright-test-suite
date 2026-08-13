@@ -174,9 +174,19 @@ export class WebpetDataGridComponent extends BaseComponent {
 
     // ── Columns and filters ─────────────────────────────────────────
 
-    /** A column header by accessible name. */
+    /**
+     * A column header by its visible label.
+     *
+     * Matched on **text**, not accessible name. The 2026-08-12 deploy added a
+     * drag-to-reorder handle inside every header — `<button aria-label="Reorder
+     * column">` as the first child — and that aria-label is folded into the
+     * header's computed accessible name. Every anchored pattern the specs use
+     * (`/^Name/`, `/^Active/`, …) stopped matching overnight, which cost six
+     * list smokes in run 31587447655. The handle contributes no text, so the
+     * header's text content is still the bare label and the anchors hold.
+     */
     columnHeader(name: string | RegExp): Locator {
-        return this.page.getByRole('columnheader', { name });
+        return this.page.getByRole('columnheader').filter({ hasText: name });
     }
 
     /**

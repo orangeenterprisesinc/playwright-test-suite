@@ -44,3 +44,10 @@ One workflow id (`A1`, `D4`) joins five artifacts, so there is no lookup table:
 
 `npm run runner:check` fails the build if a row and its spec disagree, so steps 3
 and 5 cannot be silently skipped.
+
+## Recordings
+
+`docs/media/` is gitignored — recordings live only on the tester's machine and
+are referenced from plans for the human reviewer, not read by tooling. Name new
+recordings `docs/media/journey-<x>/<wf>-<slug>.mp4` to match the plan path
+(existing files predate this convention and are flat with spaces in the names).

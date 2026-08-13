@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-07T12:31:37.355Z",
-    "total": 404,
+    "generatedAt": "2026-08-12T17:20:58.978Z",
+    "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -2457,18 +2457,50 @@
     {
       "id": "WP-0154",
       "file": "employee.spec.ts",
-      "titlePath": "Edit employee form > [Employee] Verify that the name, barcode and export identifier are read-only.",
+      "titlePath": "Edit employee form > [Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
       "caseKey": "",
       "module": "employee",
       "category": "ui",
-      "testName": "nameCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Employee] Verify that the name, barcode and export identifier are read-only.",
-      "testDescription": "Name, Code and Export Identifier are readonly once the employee exists.",
+      "testName": "barcodeAndExportIdReadOnlyNameEditable",
+      "testTitle": "[Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+      "testDescription": "Barcode and Export Identifier are readonly once the employee exists; Name is gated (WEBPET-2006) and editable for su. Locked side covered by WP-0407.",
       "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
-      "jira": "",
+      "jira": "WEBPET-2006",
       "status": "automated",
       "enabled": true,
       "notes": ""
+    },
+    {
+      "id": "WP-0407",
+      "file": "employee.spec.ts",
+      "titlePath": "Edit employee form > [Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+      "caseKey": "",
+      "module": "employee",
+      "category": "ui",
+      "testName": "nameReadOnlyForNonSuWithModificationDisallowed",
+      "testTitle": "[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+      "testDescription": "The locked side of the WEBPET-2006 name gate: with isSU=false and AllowRecordNameModification=false (both rewritten client-side via page.route), Name renders readonly on an existing employee.",
+      "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
+      "jira": "WEBPET-2006",
+      "status": "automated",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0408",
+      "file": "employee.spec.ts",
+      "titlePath": "Edit employee form > [Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+      "caseKey": "",
+      "module": "employee",
+      "category": "ui",
+      "testName": "nameEditableForTempBadgeEmployeeAsNonSu",
+      "testTitle": "[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+      "testDescription": "The third (escape-hatch) term of the WEBPET-2006 name gate: a REAL non-SU login plus a client-side AllowRecordNameModification=false rewrite falsify the first two terms, so Name staying editable is attributable only to the stored name starting with \"Temporary Badge\" (case-insensitive startsWith; record origin irrelevant). Self-skips until WEBPET_NONSU_USER/WEBPET_NONSU_PASSWORD are set (skip-allowlist entry, PET-12468).",
+      "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
+      "jira": "WEBPET-2006, PET-12468",
+      "status": "automated",
+      "enabled": true,
+      "notes": "WP-0407 covers the locked side; WP-0154 the su-unlocked side. Needs the manually-created non-SU dev user (SU off / Edit Records on / Employee Access full / no crew limits)."
     },
     {
       "id": "WP-0155",
@@ -2804,7 +2836,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": true,
-      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect."
+      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect. Layer 4 fixed 2026-08-12: the Crew picker is a Base UI Combobox (combobox-popup/combobox-item), not a Select, so addCrew's select-content matcher could never resolve and burned the full 300s timeout. Verified on dev: with the Crew list open, select-content[data-open] = 0 while combobox-popup[data-open] = 1 holding all 37 assignable crews. Crews 2 and 3 exist and are active — this was never a data gap."
     },
     {
       "id": "WP-0178",
@@ -3684,7 +3716,7 @@
       "jira": "WEBPET-1831",
       "status": "automated",
       "enabled": true,
-      "notes": "Fixed 2026-08-07 and passing on dev. Two changes. (1) Racy click: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. (2) Added the missing assertion: the test now asserts the 409 is actually REPORTED (error toast + 'A job with this Name already exists') instead of only checking Save came back and the URL held — those two alone also describe a form where the user was shown nothing, which is exactly what happened during a transient API stall on 2026-08-07 (see bug-ticket-BUG-24.txt; the stall itself did not recur and is not a product defect). The stale native-alert dialog handler was dropped: the conflict renders as a sonner toast now."
+      "notes": "Fixed 2026-08-07 and passing on dev; ported from dry-run to main 2026-08-12 after CI run 31587447655 red-flagged it (main never had the fix). Two changes. (1) Racy click: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. (2) Added the missing assertion: the test now asserts the 409 is actually REPORTED (error toast + 'A job with this Name already exists') instead of only checking Save came back and the URL held — those two alone also describe a form where the user was shown nothing, which is exactly what happened during a transient API stall on 2026-08-07 (see bug-ticket-BUG-24.txt; the stall itself did not recur and is not a product defect). The stale native-alert dialog handler was dropped: the conflict renders as a sonner toast now."
     },
     {
       "id": "WP-0233",

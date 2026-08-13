@@ -44,6 +44,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
+import { healAdminSession } from '../../tests/webpet/support/provision';
 import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
@@ -58,6 +59,11 @@ export type { Page } from '@playwright/test';
  * `readCsrfToken()` in `shared/lib/csrf.ts`).
  */
 const CSRF_COOKIE_NAMES = ['__Host-pt_csrf', 'pt_csrf'];
+
+// Per-worker by module semantics (matches CSRF_COOKIE_NAMES above) — throttles
+// the mid-run session probe below to once every 30s so the happy path pays
+// almost nothing.
+let lastSessionOkAt = 0;
 
 /**
  * Whether the crew-scoped `RestrictedTest_*` user was provisioned.
@@ -100,9 +106,62 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
 
     /** Per-test run control. Auto so it fires for every test, in every spec file. */
     _webpetGate: [
-        async ({}, use, testInfo) => {
+        async ({ playwright }, use, testInfo) => {
             onTestStart(testInfo);
             await applyWebpetGate(testInfo);
+
+            // 2026-08-12: dev's in-memory session store dropped the admin
+            // session ~42s into a run and everything after that point failed as
+            // unauthenticated garbage (~350 tests). Concurrent sessions are
+            // allowed, so re-logging in mid-run is safe; the 30s throttle keeps
+            // the happy-path cost near zero. A beforeAll that straddles the
+            // death still loses its one file — accepted, versus losing the rest
+            // of the run.
+            if (Date.now() - lastSessionOkAt > 30_000) {
+                const probeCtx = await playwright.request.newContext({
+                    baseURL: API_BASE_URL,
+                    storageState: WEBPET_ADMIN_STORAGE,
+                });
+                let retryCtx: typeof probeCtx | undefined;
+                try {
+                    const meRes = await probeCtx.get('/api/session/me');
+                    if (meRes.ok()) {
+                        lastSessionOkAt = Date.now();
+                    } else if (meRes.status() === 401) {
+                        await healAdminSession();
+
+                        // APIRequestContext reads storageState once, at creation
+                        // — probeCtx still carries the dead cookie, so a fresh
+                        // context is required to see the file healAdminSession
+                        // just rewrote.
+                        retryCtx = await playwright.request.newContext({
+                            baseURL: API_BASE_URL,
+                            storageState: WEBPET_ADMIN_STORAGE,
+                        });
+                        const retryRes = await retryCtx.get('/api/session/me');
+                        if (retryRes.ok()) {
+                            lastSessionOkAt = Date.now();
+                            testInfo.annotations.push({
+                                type: 'session-heal',
+                                description:
+                                    'admin session was dead (401 session_expired); re-logged-in mid-run',
+                            });
+                        } else {
+                            throw new Error(
+                                `webpet gate: re-login after mid-run session loss failed (HTTP ${retryRes.status()}) ` +
+                                    `against ${API_BASE_URL} — this is an environment problem, not a test defect.`,
+                            );
+                        }
+                    }
+                    // Any other non-ok status (e.g. transient 5xx): don't heal,
+                    // don't throw, and leave lastSessionOkAt unstamped so the
+                    // next test re-probes.
+                } finally {
+                    await probeCtx.dispose();
+                    await retryCtx?.dispose();
+                }
+            }
+
             await use();
             onTestEnd(testInfo);
         },
