@@ -21,7 +21,12 @@
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { JOURNEY_B_FIXTURE as F } from '@data/journey-b/fixture';
-import { buildCrewTimeInEnvelope, exportFileName, newRunPrefix } from '@utils/relay/exportEnvelope';
+import {
+    buildCrewTimeInEnvelope,
+    exportFileName,
+    newRunPrefix,
+    punchMoment,
+} from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { verifyImportInOffice } from '@utils/api/officeVerification';
@@ -39,9 +44,16 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
         const prefix = newRunPrefix();
+        // B1 and B2 share crew members and run in parallel workers against the
+        // same tenant; punching the same day would trip the office's
+        // duplicate-Time-In rule and flip the rows from Warning to Blocking.
+        // B2 therefore lives on yesterday, keeping both grids disjoint.
+        const punchDate = new Date();
+        punchDate.setDate(punchDate.getDate() - 1);
         const { xml, references } = buildCrewTimeInEnvelope({
             deviceAddress,
             prefix,
+            at: punchMoment(7, 15, punchDate),
             cards: [
                 // The movers, now in the destination field and job.
                 ...F.present.map((employee) => ({
@@ -88,14 +100,26 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
             testInfo,
             xml,
             label: 'B2',
+            punchDate,
             crewId: office.crew.id,
             ranchId: office.ranch.id,
             expected: [
-                ...F.present.map((employee) => ({
+                ...F.present.map((employee, i) => ({
                     employeeCode: employee.code,
                     employeeId: office.employees.get(employee.code)!.id,
                     fieldId: office.field2.id,
                     jobId: office.job2.id,
+                    // expected[0] is also the Time In panel's candidate — the
+                    // post-move destination display names, threaded explicitly.
+                    ...(i === 0
+                        ? {
+                              ranchName: F.ranch.name,
+                              fieldName: F.field2.name,
+                              jobName: F.job2.name,
+                              employeeName: employee.name,
+                              crewName: F.crew.name,
+                          }
+                        : {}),
                 })),
                 {
                     employeeCode: F.absentee.code,

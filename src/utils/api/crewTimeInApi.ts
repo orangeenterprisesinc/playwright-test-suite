@@ -57,9 +57,8 @@ export async function createCrewTimeIn(
     };
 }
 
-/** `YYYY-MM-DDTHH:mm:ss` for today at a fixed time — deterministic, never `now`. */
-export function punchTime(hour = 7, minute = 15): string {
+/** `YYYY-MM-DDTHH:mm:ss` for a day at a fixed time — deterministic, never `now`. */
+export function punchTime(hour = 7, minute = 15, date = new Date()): string {
     const pad = (n: number) => String(n).padStart(2, '0');
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hour)}:${pad(minute)}:00`;
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hour)}:${pad(minute)}:00`;
 }

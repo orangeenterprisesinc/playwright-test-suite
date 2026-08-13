@@ -103,9 +103,9 @@ export function buildReference(seq: number, at: Date, prefix: string): string {
     return `${pad(seq, 7)}-${referenceDate(at)}-CI-${prefix}-ui`;
 }
 
-/** Today at a fixed hour — deterministic, and inside the office's punch day. */
-export function punchMoment(hour = 7, minute = 15): Date {
-    const d = new Date();
+/** A day at a fixed hour — deterministic, and inside the office's punch day. */
+export function punchMoment(hour = 7, minute = 15, date = new Date()): Date {
+    const d = new Date(date);
     d.setHours(hour, minute, 0, 0);
     return d;
 }

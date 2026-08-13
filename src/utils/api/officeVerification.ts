@@ -43,6 +43,22 @@ export interface ExpectedCard {
     employeeId: number;
     fieldId: number;
     jobId: number;
+    /**
+     * Display values asserted in the Time In side panel. Optional — only the
+     * one card {@link verifyImportInOffice} opens a panel for needs them.
+     */
+    ranchName?: string;
+    fieldName?: string;
+    /** The panel's "Phase" field, which displays the job's name. */
+    jobName?: string;
+    employeeName?: string;
+    crewName?: string;
+    /**
+     * The GPS fix text, meaningful only when the import actually ran through
+     * the device (`transport === 'device-import'`) — an office-API punch
+     * (the OFFICE_TRANSPORT_SUBSTITUTE fallback) carries no GPS.
+     */
+    gps?: string;
 }
 
 export interface OfficeVerificationInput {
@@ -57,6 +73,14 @@ export interface OfficeVerificationInput {
     /** Employee ids that must NOT appear (e.g. someone who did not move). */
     absentEmployeeIds?: number[];
     label: string;
+    /**
+     * The day the punches belong to (defaults to today). B1 and B2 share
+     * employees and run in parallel workers against the same tenant, so a spec
+     * that punched the same day as its sibling would trip the office's
+     * duplicate-Time-In rule and flip its rows from Warning to Blocking — B2
+     * therefore punches yesterday.
+     */
+    punchDate?: Date;
 }
 
 export interface OfficeVerificationResult {
@@ -102,7 +126,7 @@ async function substituteTransport(
     const seeded: string[] = [];
     for (const group of groupByContext(input.expected)) {
         const result = await createCrewTimeIn(input.sessionApi, {
-            dateTime: punchTime(),
+            dateTime: punchTime(7, 15, input.punchDate ?? new Date()),
             crewCounter: input.crewId,
             employeeIds: group.employeeIds,
             ranchCounter: input.ranchId,
@@ -206,10 +230,11 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
 
-    const today = isoDay();
+    const punchDate = input.punchDate ?? new Date();
+    const punchDay = isoDay(punchDate);
     const cards = await findByReferences(sessionApi, references, {
-        from: today,
-        to: today,
+        from: punchDay,
+        to: punchDay,
         cardType: CARD_TYPE.timeIn,
     });
 
@@ -253,7 +278,7 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
 
         if (await transferPage.analyzeEnabled()) {
             // Nothing renders until a date range is committed — the step Amy performs.
-            await transferPage.applyDateRange();
+            await transferPage.applyDateRange(punchDate);
             // Polls until the analyze response lands; asserts the count itself.
             await transferPage.waitForCandidates(cards.length);
             for (const card of cards) {
@@ -261,6 +286,51 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
                     String(card.reference),
                 );
             }
+
+            // ── One row's Time In panel: display fields, GPS only on a real import ──
+            const panelExpected = expected[0];
+            const panelCard = byEmployee.get(panelExpected.employeeId);
+            expect(panelCard, 'panel candidate must have a matching office card').toBeDefined();
+            await transferPage.openRow(panelCard!.timeCardCounter);
+            // Ranch is a custom lookup widget — its displayed name is a real
+            // child text node. Field/Phase/Employee/Work Crew/GPS are plain
+            // Autocomplete inputs, so the display text lives in `value`, not
+            // text content.
+            if (panelExpected.ranchName) {
+                await expect(transferPage.panelRanchValue).toContainText(panelExpected.ranchName);
+            }
+            if (panelExpected.fieldName) {
+                await expect(transferPage.panelFieldValue).toHaveValue(panelExpected.fieldName);
+            }
+            if (panelExpected.jobName) {
+                await expect(transferPage.panelPhaseValue).toHaveValue(panelExpected.jobName);
+            }
+            if (panelExpected.employeeName) {
+                await expect(transferPage.panelEmployeeValue).toHaveValue(panelExpected.employeeName);
+            }
+            if (panelExpected.crewName) {
+                await expect(transferPage.panelWorkCrewValue).toHaveValue(panelExpected.crewName);
+            }
+            // Office-API substitute punches carry no GPS — only a real device
+            // import can be asserted here.
+            if (panelExpected.gps && transport === 'device-import') {
+                await expect(transferPage.panelGpsValue).toHaveValue(panelExpected.gps);
+            }
+            await transferPage.cancelPanel();
+
+            // ── Every row is a Time-In-only punch, so each carries the same warning ──
+            for (const card of cards) {
+                await expect(transferPage.rowStatus(card.timeCardCounter)).toHaveText(/Warning/i);
+            }
+            const affected = await transferPage.issueGroupAffectedCount(
+                'No corresponding Time-Out/Piece-Out',
+            );
+            // ≥, not ==: dev is a shared tenant, so the day can legitimately
+            // hold open punches from other suites or leftover data.
+            expect(
+                affected,
+                'issue group must count at least every imported row',
+            ).toBeGreaterThanOrEqual(cards.length);
         } else {
             // The grid is fed by an endpoint behind a server flag; without it no
             // row can ever render, so asserting one would test the flag, not the data.

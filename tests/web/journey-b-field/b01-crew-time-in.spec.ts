@@ -46,6 +46,9 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
 
         // ── The export the device would produce: the crew, minus the absentee ──
         const prefix = newRunPrefix();
+        // Threaded explicitly into `expected[0]` below too — the GPS assertion
+        // must not assume which card in the array happens to carry the fix.
+        const gpsFix = '(34.970215,-120.453984)';
         const { xml, references } = buildCrewTimeInEnvelope({
             deviceAddress: process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1',
             prefix,
@@ -57,7 +60,7 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
                 jobCode: F.job.code,
                 // One card carries a fix, as a real handheld does (B1-R6 is not
                 // asserted office-side — the importer stores it verbatim).
-                gps: i === 0 ? '(34.970215,-120.453984)' : undefined,
+                gps: i === 0 ? gpsFix : undefined,
             })),
         });
 
@@ -95,11 +98,24 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
             label: 'B1',
             crewId: office.crew.id,
             ranchId: office.ranch.id,
-            expected: F.present.map((employee) => ({
+            expected: F.present.map((employee, i) => ({
                 employeeCode: employee.code,
                 employeeId: office.employees.get(employee.code)!.id,
                 fieldId: office.field.id,
                 jobId: office.job.id,
+                // expected[0] is also the Time In panel's candidate — its display
+                // names (and the GPS fix) are threaded explicitly rather than
+                // assuming ordering elsewhere.
+                ...(i === 0
+                    ? {
+                          ranchName: F.ranch.name,
+                          fieldName: F.field.name,
+                          jobName: F.job.name,
+                          employeeName: employee.name,
+                          crewName: F.crew.name,
+                          gps: gpsFix,
+                      }
+                    : {}),
             })),
             absentEmployeeIds: [office.employees.get(F.absentee.code)!.id],
         });
