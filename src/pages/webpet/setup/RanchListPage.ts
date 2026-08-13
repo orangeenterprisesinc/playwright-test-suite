@@ -35,11 +35,6 @@ export class RanchListPage extends WebpetListPage {
         this.titleText = page.getByText('Ranches', { exact: true }).first();
         this.misspelledTitle = page.getByText('Ranchs', { exact: true });
     }
-
-    /** A ranch name anywhere on the list. Page-scoped, matching the lifted spec. */
-    ranchNamed(name: string): Locator {
-        return this.page.getByText(name);
-    }
 }
 
 export default RanchListPage;

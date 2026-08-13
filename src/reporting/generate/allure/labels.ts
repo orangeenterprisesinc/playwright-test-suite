@@ -20,22 +20,46 @@
  * sets:
  * - `testCaseId` (Allure history id) + a visible `Test Case ID` parameter
  * - `description` (from the row's `testDescription`)
+ *
+ * ## Why one message instead of the `epic()`/`feature()`/… facade
+ *
+ * allure-playwright transports every runtime call as a Playwright ATTACHMENT
+ * (`test.info().attach("Allure Metadata (metadata)", …)`), so the facade's
+ * one-call-per-label style produced fourteen identically-named rows on every
+ * test in the HTML report, burying the screenshots and traces. A metadata
+ * message carries labels, parameters, description and testCaseId together, so
+ * sending one costs a single row and reaches Allure identically.
  */
 import type { TestInfo } from '@playwright/test';
-import {
-    epic,
-    feature,
-    story,
-    suite,
-    subSuite,
-    owner,
-    severity,
-    Severity,
-    description,
-    parameter,
-    testCaseId as allureTestCaseId,
-} from 'allure-js-commons';
+import { LabelName, Severity, type Label, type Parameter } from 'allure-js-commons';
+import { getGlobalTestRuntimeWithAutoconfig } from 'allure-js-commons/sdk/runtime';
 import path from 'node:path';
+
+interface MetadataMessage {
+    type: 'metadata';
+    data: {
+        labels?: Label[];
+        parameters?: Parameter[];
+        description?: string;
+        testCaseId?: string;
+    };
+}
+
+/**
+ * The runtime's own transport. The public `TestRuntime` type does not declare
+ * it, but every message-based runtime implements it — including the one
+ * allure-playwright installs — and it is the only way to send all the metadata
+ * as ONE message. The facade's `labels()`/`parameter()`/… would cost one
+ * attachment each.
+ *
+ * Resolve the runtime the way the facade itself does: with autoconfig, which
+ * bootstraps it. Plain `getGlobalTestRuntime()` hands back a no-op runtime that
+ * silently swallows everything — verified: the Allure results came out with no
+ * epic/feature/story/owner at all.
+ */
+interface MetadataSender {
+    sendMessage?(message: MetadataMessage): PromiseLike<void>;
+}
 import { ConfigProperties, getConfigValue } from '../../../config/configProperties';
 import type { TestCaseData } from '../../../types';
 
@@ -110,30 +134,53 @@ export function resolveCaseId(testInfo: TestInfo, testCaseIdOption: string): str
  */
 export async function applyAllureLabels(testInfo: TestInfo, row: TestCaseData | null = null): Promise<void> {
     const { category, module } = deriveAllureParts(testInfo.file);
-    await epic(category);
-    await feature(module);
-    await story(deriveStory(testInfo, module));
-    await suite(module);
-    await severity(severityFromTags(testInfo.tags));
-    await owner(getConfigValue(ConfigProperties.ALLURE_OWNER, 'QA'));
+    const specName = stripSpecSuffix(path.basename(testInfo.file));
+
+    const labels: Label[] = [
+        { name: LabelName.EPIC, value: category },
+        { name: LabelName.FEATURE, value: module },
+        { name: LabelName.STORY, value: deriveStory(testInfo, module) },
+        { name: LabelName.SUITE, value: module },
+        { name: LabelName.SEVERITY, value: severityFromTags(testInfo.tags) },
+        { name: LabelName.OWNER, value: getConfigValue(ConfigProperties.ALLURE_OWNER, 'QA') },
+    ];
 
     // With one spec file per catalog workflow, the file name is the workflow —
     // so it becomes the sub-suite, giving journey ▸ workflow ▸ describe instead
     // of collapsing every workflow in a journey into one flat suite.
-    const specName = stripSpecSuffix(path.basename(testInfo.file));
-    if (specName !== module) await subSuite(specName);
+    if (specName !== module) labels.push({ name: LabelName.SUB_SUITE, value: specName });
 
+    // The catalog metadata the row carries, surfaced as report parameters so a
+    // reader can see which journey/workflow a result belongs to and why a scope
+    // filter would include or exclude it.
+    const parameters: Parameter[] = [];
     if (row) {
-        await allureTestCaseId(row.id);
-        await parameter('Test Case ID', row.id);
-        if (row.testDescription) await description(row.testDescription);
-
-        // The catalog metadata the row carries, surfaced as report parameters so a
-        // reader can see which journey/workflow a result belongs to and why a
-        // scope filter would include or exclude it.
-        if (row.workflow) await parameter('Workflow', row.workflow);
-        if (row.journey) await parameter('Journey', row.journey);
-        if (row.segments?.length) await parameter('Segments', row.segments.join(', '));
-        if (row.modules?.length) await parameter('Modules', row.modules.join(', '));
+        parameters.push({ name: 'Test Case ID', value: row.id });
+        if (row.workflow) parameters.push({ name: 'Workflow', value: row.workflow });
+        if (row.journey) parameters.push({ name: 'Journey', value: row.journey });
+        if (row.segments?.length) parameters.push({ name: 'Segments', value: row.segments.join(', ') });
+        if (row.modules?.length) parameters.push({ name: 'Modules', value: row.modules.join(', ') });
     }
+
+    const data: MetadataMessage['data'] = {
+        labels,
+        ...(parameters.length ? { parameters } : {}),
+        ...(row ? { testCaseId: row.id } : {}),
+        ...(row?.testDescription ? { description: row.testDescription } : {}),
+    };
+
+    const runtime = await getGlobalTestRuntimeWithAutoconfig();
+    const sender = runtime as typeof runtime & MetadataSender;
+    if (sender.sendMessage) {
+        await sender.sendMessage({ type: 'metadata', data });
+        return;
+    }
+
+    // A runtime without the transport (or a future allure that renames it) still
+    // gets everything through the public facade — several attachments instead of
+    // one, but never silently unlabelled results.
+    await runtime.labels(...labels);
+    for (const p of parameters) await runtime.parameter(p.name, p.value);
+    if (data.testCaseId) await runtime.testCaseId(data.testCaseId);
+    if (data.description) await runtime.description(data.description);
 }

@@ -4,10 +4,10 @@
             "id": "B1-001",
             "workflow": "B1",
             "journey": "B",
-            "category": "api",
-            "testName": "crewTimeIn",
-            "testTitle": "Crew time-in",
-            "testDescription": "A supervisor clocks an entire crew into a field and job from one screen, unchecking anyone absent. This is the fast path for the bulk of field workers at the start of the day.",
+            "category": "workflow",
+            "testName": "deliverCrewTimeInExportToOffice",
+            "testTitle": "Deliver a crew time-in export to the office and verify the punches",
+            "testDescription": "Build the OrangeExportFile envelope PET Pocket produces for a crew time-in (present members only), deliver it through the Post Office relay, then work the office UI the way the recording shows: Connectivity > Import > Internet pulls the mailbox, and Transfer to Job Cards lists one row per member after the date range is applied.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -18,18 +18,47 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B1-R5",
+                "B1-R7",
+                "B1-R8"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "B1-002",
+            "workflow": "B1",
+            "journey": "B",
+            "category": "api",
+            "testName": "relayRoundTripsAnExportEnvelope",
+            "testTitle": "An export envelope pushed to a mailbox is returned unchanged",
+            "testDescription": "Push a crew time-in envelope into a scratch relay mailbox and pull it back, asserting byte fidelity of the attachment plus the sender, file name and subject the relay carries alongside it.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "core"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "B1-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B2-001",
             "workflow": "B2",
             "journey": "B",
-            "category": "api",
-            "testName": "crewMoveAndJobChange",
-            "testTitle": "Crew move and job change",
-            "testDescription": "Move the whole crew to a new field or job mid-day with one action, carrying everyone who moved. The prior job is automatically closed for those members.",
+            "category": "workflow",
+            "testName": "deliverPostMoveExportToOffice",
+            "testTitle": "Deliver a post-move export and verify movers and the member left behind",
+            "testDescription": "Build the envelope a device exports after a crew move — movers in the destination field and job, the member left behind unchanged, one punch each — deliver it through the relay, pull it into the office via Connectivity > Import > Internet, and verify Transfer to Job Cards links every row to the right context.",
             "segments": [
                 "grower",
                 "perennial-grower"
@@ -40,8 +69,12 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B2-R6",
+                "B2-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B3-001",

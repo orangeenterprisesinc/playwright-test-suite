@@ -25,11 +25,6 @@ export class OnboardingBadgeListPage extends WebpetListPage {
 
         this.newBadgeButton = page.getByRole('button', { name: /new badge/i });
     }
-
-    /** A badge name anywhere on the list. Page-scoped, matching the lifted spec. */
-    badgeNamed(name: string): Locator {
-        return this.page.getByText(name);
-    }
 }
 
 export default OnboardingBadgeListPage;

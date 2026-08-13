@@ -85,13 +85,4 @@ export class LeftNavigationPage extends BasePage {
         // Tolerate a query string (the app can carry grid state in the URL).
         await this.page.waitForURL(new RegExp(`${expectedUrl.replace(/\//g, '\\/')}(\\?|$)`));
     }
-
-    /**
-     * Navigate to the Users administration screen: File ▸ Administration ▸ Users.
-     * Kept as a named shortcut for the most-used path; new screens should call
-     * {@link openViaMenu} with their own path instead.
-     */
-    async openUsersViaMenu(): Promise<void> {
-        await this.openViaMenu(['File', 'Administration', 'Users'], '/settings/users');
-    }
 }

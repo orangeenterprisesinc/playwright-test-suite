@@ -232,7 +232,11 @@ export default defineConfig({
             // tests/seed.spec.ts is the Playwright agents' scratch page, not a
             // test: it has no runner row and no tier tag, so collecting it would
             // put an untagged no-op in every run and fail `npm run runner:check`.
-            testIgnore: ['**/tests/api/**', '**/tests/webpet/**', '**/tests/seed.spec.ts'],
+            testIgnore: [
+                '**/tests/api/**',
+                '**/tests/webpet/**',
+                '**/tests/seed.spec.ts',
+            ],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: '.auth/user.json',

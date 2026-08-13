@@ -39,11 +39,6 @@ export abstract class BaseComponent {
         return this.root;
     }
 
-    /** Returns the Playwright Page instance. */
-    getPage(): Page {
-        return this.page;
-    }
-
     /**
      * Creates a child locator scoped to the component root.
      * @protected

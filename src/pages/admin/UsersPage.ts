@@ -147,19 +147,9 @@ export class UsersPage extends SetupScreenPage {
 
     // ── Grid lookups ────────────────────────────────────────────────
 
-    /** The "Edit User: <name>" row link. */
-    editUserLink(name: string): Locator {
-        return this.grid.editLink(name);
-    }
-
     /** The grid row for a user, located via its Edit link. */
     userRow(name: string): Locator {
         return this.grid.rowFor(name);
-    }
-
-    /** The Name column filter box. */
-    get nameFilter(): Locator {
-        return this.grid.nameFilter;
     }
 
     /** Filter the grid by the Name column. */

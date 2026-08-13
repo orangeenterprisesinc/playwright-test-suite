@@ -8,7 +8,7 @@
  *
  * `field.spec.ts` covers the list only — there are no field form tests.
  */
-import { Locator, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
@@ -17,11 +17,6 @@ import { WebpetListPage } from '../WebpetListPage';
 export class FieldListPage extends WebpetListPage {
     constructor(page: Page) {
         super(page, '/setup/fields', 'Fields');
-    }
-
-    /** A field name anywhere on the list. Page-scoped, matching the lifted spec. */
-    fieldNamed(name: string): Locator {
-        return this.page.getByText(name);
     }
 }
 

@@ -59,16 +59,13 @@ function getLogFilePath(): string {
 
 
 /**
- * Structured logger with coloured console output, JSON file logging,
- * and in-memory log storage for post-hoc analysis.
+ * Structured logger with coloured console output and JSON file logging.
  */
 export class Logger {
     /** @private Component or module context label */
     private readonly context: string;
     /** @private Minimum log level to output */
     private readonly minLevel: LogLevel;
-    /** @private In-memory log buffer */
-    private readonly logs: LogEntry[] = [];
 
     /** Creates a new Logger instance. */
     constructor(context: string, minLevel: LogLevel = 'debug') {
@@ -110,93 +107,9 @@ export class Logger {
         this.info(`Step ${stepNumber}: ${description}`);
     }
 
-    /** Logs the start of a test with a visual separator. */
-    testStart(testName: string): void {
-        this.info('='.repeat(60));
-        this.info(`Starting Test: ${testName}`);
-        this.info('='.repeat(60));
-    }
-
-    /** Logs the end of a test with colour-coded status. */
-    testEnd(testName: string, status: 'passed' | 'failed' | 'skipped'): void {
-        const color =
-            status === 'passed' ? Colors.green : status === 'failed' ? Colors.red : Colors.yellow;
-
-        this.info(`${color}Test ${status.toUpperCase()}: ${testName}${Colors.reset}`);
-    }
-
-    /* ---------- Enhanced Logging Methods ---------- */
-
-    /** Log HTTP request */
-    logRequest(method: string, url: string, body?: any): void {
-        this.info(`[${method}] ${url}`, {body});
-    }
-
     /** Log HTTP response */
     logResponse(status: number, duration: number, size?: number): void {
         this.info(`Response: ${status}`, {duration: `${duration}ms`, size});
-    }
-
-    /** Log error with context */
-    logError(error: Error, context?: Record<string, any>): void {
-        this.error(error.message, error, context);
-    }
-
-    /** Log test start with icon */
-    logTestStart(testName: string): void {
-        this.info(`▶ Starting: ${testName}`);
-    }
-
-    /** Log test end with status icon */
-    logTestEnd(testName: string, status: 'PASS' | 'FAIL' | 'SKIP'): void {
-        const icon = status === 'PASS' ? '✓' : status === 'FAIL' ? '✗' : '⊘';
-        this.info(`${icon} ${status}: ${testName}`);
-    }
-
-    /** Log performance metric */
-    logPerformance(operationName: string, durationMs: number, threshold?: number): void {
-        const status = threshold && durationMs > threshold ? '⚠' : '✓';
-        this.info(`${status} Performance: ${operationName} took ${durationMs.toFixed(2)}ms`, {
-            threshold,
-        });
-    }
-
-    /** Log assertion */
-    logAssertion(description: string, passed: boolean): void {
-        const icon = passed ? '✓' : '✗';
-        const level = passed ? 'info' : 'warn';
-        this.log(level as LogLevel, `${icon} Assertion: ${description}`);
-    }
-
-    /** Log data validation */
-    logValidation(fieldName: string, isValid: boolean, errors?: string[]): void {
-        if (isValid) {
-            this.info(`✓ Validation passed: ${fieldName}`);
-        } else {
-            this.warn(`✗ Validation failed: ${fieldName}`, {errors});
-        }
-    }
-
-    /* ---------- Log Storage ---------- */
-
-    /** Returns a copy of all in-memory log entries. */
-    getLogs(): LogEntry[] {
-        return [...this.logs];
-    }
-
-    /** Filters in-memory logs by a specific level. */
-    getLogsByLevel(level: LogLevel): LogEntry[] {
-        return this.logs.filter((log) => log.level === level);
-    }
-
-    /** Clears all in-memory log entries. */
-    clearLogs(): void {
-        this.logs.length = 0;
-    }
-
-    /** Creates a child logger with a combined context string. */
-    child(childContext: string): Logger {
-        return new Logger(`${this.context}:${childContext}`, this.minLevel);
     }
 
     /* ---------- Core Logger ---------- */
@@ -213,9 +126,6 @@ export class Logger {
             message,
             context: data,
         };
-
-        // Store in memory
-        this.logs.push(entry);
 
         // Write to file
         this.writeToFile(entry);

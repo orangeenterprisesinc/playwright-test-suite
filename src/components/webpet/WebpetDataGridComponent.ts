@@ -17,7 +17,7 @@
  * Most row-level helpers take the row `Locator` rather than reading state, so a
  * spec can hold a row and interrogate it repeatedly without re-querying.
  */
-import { Locator, Page, expect } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /** Escapes a value for safe interpolation into a `RegExp`. */
@@ -120,15 +120,10 @@ export class WebpetDataGridComponent extends BaseComponent {
         return this.page.getByRole('row');
     }
 
-    /** A row by position, queried by role — see {@link roleRows}. */
-    roleRowAt(index: number): Locator {
-        return this.roleRows.nth(index);
-    }
-
     /**
      * Data rows only — excludes header/filter rows.
      *
-     * {@link roleRowAt} is positional and assumes a fixed number of header rows
+     * A positional lookup on {@link roleRows} assumes a fixed number of header rows
      * above the first data row; that offset isn't stable across environments.
      * A header/filter row's cells carry `role="columnheader"`, never `role="cell"`,
      * so filtering on cell presence identifies a data row structurally instead.
@@ -175,17 +170,6 @@ export class WebpetDataGridComponent extends BaseComponent {
     /** Any edit anchor within `row` — used to assert the edit column exists at all. */
     editLinkIn(row: Locator): Locator {
         return row.locator(`a[href^="${this.listUrl}/"]`);
-    }
-
-    /**
-     * A row located by visible text.
-     *
-     * Prefer {@link rowById}: a name can collide with a Department or Customer
-     * cell value in an unrelated row, which is exactly why the lifted specs key
-     * on the id.
-     */
-    rowByText(text: string): Locator {
-        return this.root.locator('[role="row"]').filter({ hasText: text });
     }
 
     // ── Columns and filters ─────────────────────────────────────────
@@ -302,11 +286,6 @@ export class WebpetDataGridComponent extends BaseComponent {
     /** Turn multi-select mode on (or off — it is a toggle). */
     async toggleMultiUpdate(): Promise<void> {
         await this.multiUpdateButton.click();
-    }
-
-    /** Asserts the grid is present and visible. */
-    async expectVisible(): Promise<void> {
-        await expect(this.root).toBeVisible();
     }
 }
 

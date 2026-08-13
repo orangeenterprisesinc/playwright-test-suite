@@ -1,14 +1,12 @@
 /**
  * @fileoverview Abstract base Page Object class for the Playwright POM framework.
  *
- * Keeps only what genuinely isn't a one-line call to a native Playwright API:
- * the standard navigation entry point (tied to the page object's own
- * `pageUrl`), a custom polling wait, and the repo's screenshot path
- * convention. Everything else — clicking, typing, getters, assertions — has
- * a native `Locator`/`expect` equivalent, so page objects call those
+ * Keeps only the standard navigation entry point (tied to the page object's
+ * own `pageUrl`). Everything else — clicking, typing, getters, assertions —
+ * has a native `Locator`/`expect` equivalent, so page objects call those
  * directly instead of going through a pass-through wrapper here.
  */
-import { BrowserContext, Locator, Page } from '@playwright/test';
+import { BrowserContext, Page } from '@playwright/test';
 import { Logger } from '../utils/logger';
 
 /**
@@ -43,59 +41,5 @@ export abstract class BasePage {
     async navigate(): Promise<void> {
         this.logger.info(`Navigating to: ${this.pageUrl}`);
         await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
-    }
-
-    /**
-     * Navigates to an arbitrary URL — useful for pages not represented by a
-     * page object of their own.
-     */
-    async navigateTo(url: string): Promise<void> {
-        this.logger.info(`Navigating to: ${url}`);
-        await this.page.goto(url, { waitUntil: 'domcontentloaded' });
-    }
-
-    /**
-     * Polls a custom condition until it returns true or times out. No native
-     * Playwright wait covers an arbitrary async predicate like this.
-     *
-     * @throws {Error} If condition is not met within timeout
-     */
-    async waitForCondition(
-        condition: () => Promise<boolean>,
-        options?: { timeout?: number; interval?: number },
-    ): Promise<void> {
-        const { timeout = 30000, interval = 100 } = options || {};
-        const startTime = Date.now();
-
-        while (Date.now() - startTime < timeout) {
-            if (await condition()) {
-                return;
-            }
-            await this.page.waitForTimeout(interval);
-        }
-
-        throw new Error(`Condition not met within ${timeout}ms`);
-    }
-
-    /**
-     * Captures a full-page screenshot under this repo's
-     * `artifacts/results/screenshots/<name>.png` convention.
-     */
-    async takeScreenshot(name: string): Promise<Buffer> {
-        this.logger.info(`Taking screenshot: ${name}`);
-        return await this.page.screenshot({
-            path: `artifacts/results/screenshots/${name}.png`,
-            fullPage: true,
-        });
-    }
-
-    /**
-     * Captures a screenshot of a single element under the same
-     * `artifacts/results/screenshots/<name>.png` convention as {@link takeScreenshot}.
-     */
-    async takeElementScreenshot(locator: Locator, name: string): Promise<Buffer> {
-        return await locator.screenshot({
-            path: `artifacts/results/screenshots/${name}.png`,
-        });
     }
 }

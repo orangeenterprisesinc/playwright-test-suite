@@ -3,9 +3,6 @@
  *
  * Extends Playwright's base `test` object with:
  * - **pages** — Every page object, lazily built (`pages.users`, `pages.leftNav`, …)
- * - **navigation** — Pre-built {@link NavigationComponent} fixture
- * - **modal** — Pre-built {@link ModalComponent} fixture
- * - **form** — Pre-built {@link FormComponent} fixture
  * - **logger** — Per-test {@link Logger} instance
  * - **authenticatedPage** — Page with pre-loaded auth state from `.auth/user.json`
  * - **apiRequest** — Standalone API request context
@@ -18,10 +15,7 @@
  * filter (see `src/config/scope.ts`).
  */
 import { APIRequestContext, expect, Page, test as base } from '@playwright/test';
-import { NavigationComponent } from '../components/NavigationComponent';
-import { ModalComponent } from '../components/ModalComponent';
 import { ConfigProperties, getConfigValue } from '../config/configProperties';
-import { FormComponent } from '../components/FormComponent';
 import { Logger } from '../utils/logger';
 import { getTestCaseById, getRunnerData } from '../data/readers/DataProvider';
 import { decideExecution } from './gate/executionGate';
@@ -51,12 +45,6 @@ type CustomFixtures = {
     usersPage: UsersPage;
     /** Navigates to the login page before the test body runs. */
     gotoUrl: void;
-    /** Pre-built navigation component for the current page. */
-    navigation: NavigationComponent;
-    /** Pre-built modal component for the current page. */
-    modal: ModalComponent;
-    /** Pre-built form component for the current page. */
-    form: FormComponent;
     /** Per-test logger (logs test start/end automatically). */
     logger: Logger;
     /** Page pre-loaded with authentication state from `.auth/user.json`. */
@@ -205,22 +193,6 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     gotoUrl: async ({ loginPage }, use) => {
         await loginPage.gotoPetTiger();
         await use();
-    },
-
-    // ── Component fixtures ──────────────────────────────────────────
-    navigation: async ({ page }, use) => {
-        const navigation = new NavigationComponent(page);
-        await use(navigation);
-    },
-
-    modal: async ({ page }, use) => {
-        const modal = new ModalComponent(page);
-        await use(modal);
-    },
-
-    form: async ({ page }, use) => {
-        const form = new FormComponent(page);
-        await use(form);
     },
 
     logger: async ({ }, use, testInfo) => {

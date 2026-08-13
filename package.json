@@ -44,7 +44,7 @@
     "coverage:catalog": "node scripts/runner/coverage.js",
     "docker:build": "docker build -f docker/Dockerfile -t playwright-test-suite .",
     "docker:run": "docker run --rm -e BASE_URL -e API_URL -e USER_NAME -e PASSWORD -e TEST_ENV -v \"%cd%/artifacts:/app/artifacts\" playwright-test-suite",
-    "test:report": "node node_modules/@playwright/test/cli.js show-report",
+    "test:report": "node node_modules/@playwright/test/cli.js show-report artifacts/html",
     "notify:reminder": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/notify/slack-reminder.ts",
     "report:allure": "node scripts/report/allure-generate.js",
     "report:allure:open": "node scripts/report/allure-open.js",
