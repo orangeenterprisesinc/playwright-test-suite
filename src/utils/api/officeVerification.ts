@@ -26,15 +26,23 @@ import { createCrewTimeIn, punchTime } from './crewTimeInApi';
  * Transports, selected by IMPORT_TRANSPORT:
  * - `internet` (default) — drive the web UI through the sidebar menus and the
  *   Internet pull screen, so a headed run and its video look like the
- *   recording. Blocked on dev today (relay gates + WEBPET-1830): the test goes
- *   red on that screen with the server's real reason quoted.
+ *   recording. Blocked on dev by the relay gates: the test goes red on that
+ *   screen with the server's real reason quoted.
  * - `single-folder` — POST the envelope to connectivity/import/single-folder
- *   directly; the importer-contract path, kept for when S3 lands before the
- *   relay gates open.
+ *   directly; the importer-contract path, and the shortest route to a proven
+ *   import since it needs no relay configuration.
  *
- * OFFICE_TRANSPORT_SUBSTITUTE=1 keeps the old demo fallback: when the import
- * cannot run, create identical punches via the office API and continue, with
- * an annotation keeping the report honest.
+ * Neither can pass on dev today: storage works (WEBPET-1830, fixed 2026-08-12)
+ * but the import worker is switched off (`PT_IMPORT_WORKER_DISABLED=true` —
+ * WEBPET-2137), so an uploaded file is stored and then never parsed. Both routes
+ * feed that one worker, which is why fixing it unblocks both.
+ *
+ * OFFICE_TRANSPORT_SUBSTITUTE=1 keeps the demo fallback: when the import cannot
+ * run, create identical punches via the office API and continue, with an
+ * annotation keeping the report honest. That route writes through
+ * POST /time-cards/crew-time-in and has never touched storage or the worker, so
+ * it behaves identically before and after either fix — it proves Amy's screens,
+ * never the pipe into them.
  */
 
 /** What one imported card must look like, keyed by the device's employee code. */
@@ -209,9 +217,13 @@ async function importViaInternetUi(
         `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
             `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
             `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
-            `WEBMAIL_LIVE_SEND_ENABLED=true, a ClientRelayRegistration row with a SendPassword ` +
-            `(SQL-only), and object storage (WEBPET-1830) on the API. ` +
-            'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead.',
+            `WEBMAIL_LIVE_SEND_ENABLED=true plus a ClientRelayRegistration row with a SendPassword ` +
+            `(SQL-only). Those two gate the PULL only — the pulled file then lands in the same ` +
+            `unclaimed state as a direct upload, because the import worker is disabled ` +
+            `(PT_IMPORT_WORKER_DISABLED=true — WEBPET-2137). Object storage is no longer a ` +
+            `blocker (WEBPET-1830, fixed 2026-08-12). ` +
+            'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead — ' +
+            'that route never touched storage or the worker, so it works regardless.',
     ).toBe(true);
 
     // The mailbox can hold envelopes from earlier runs too — wait for every

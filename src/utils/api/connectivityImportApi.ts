@@ -40,10 +40,13 @@ const TERMINAL = ['completed', 'failed', 'partial'];
  * The signature of an environment without object storage.
  *
  * Every ingest route (`single-folder`, `internet`) writes the uploaded bytes with
- * `storage.Put` before the worker parses them, so where `S3_ENDPOINT` is unset the
- * upload is recorded `failed` with this message and the run never leaves
- * `received`. Dev staging deliberately has no S3 (tests/webpet/README.md), while
- * the localhost stack boots MinIO.
+ * `storage.Put` before the worker parses them, so without storage the upload is
+ * recorded `failed` with this message and the run never leaves `received`.
+ *
+ * Fixed on dev staging 2026-08-12 (WEBPET-1830: the task role was missing
+ * `kms:GenerateDataKey` on the bucket's CMK). Still checked, because that fix
+ * currently lives only as an AWS console change — the matching Terraform branch
+ * is unpushed, so a future `terraform apply` would revert it.
  */
 const NO_STORAGE_MESSAGE = 'could not store uploaded file';
 
@@ -54,9 +57,25 @@ export function isStorageUnavailable(run: ImportRunResult): boolean {
 /** Human-readable reason used when storage is missing (WEBPET-1830). */
 export const NO_STORAGE_REASON =
     'Connectivity import needs object storage to persist the uploaded file, and this ' +
-    'environment has none (S3_ENDPOINT is deliberately unset on dev staging — WEBPET-1830). ' +
-    'Run against the localhost stack, which boots MinIO, or ask DevOps to configure S3 for ' +
-    'the dev API.';
+    'environment could not store it. This was WEBPET-1830 (fixed on dev 2026-08-12 by ' +
+    'granting the tigerden task role kms:GenerateDataKey on the app-storage CMK); seeing it ' +
+    'again means that console-only policy was reverted — check for a terraform apply on ' +
+    'IaC-PetTiger-Web. The localhost stack boots MinIO and is unaffected.';
+
+/**
+ * Why a stored file never gets parsed: the import worker is switched off.
+ *
+ * `PT_IMPORT_WORKER_DISABLED=true` is set on the dev API task, so the upload is
+ * stored and acknowledged (200, `received`, empty message) and then nothing ever
+ * claims it. Indistinguishable from "queued" at the API, which is why this needs
+ * spelling out rather than surfacing as a bare timeout.
+ */
+export const WORKER_DISABLED_REASON =
+    'The file was stored successfully but never parsed — the run stayed at "received". On dev ' +
+    'staging the connectivity import worker is disabled (PT_IMPORT_WORKER_DISABLED=true on the ' +
+    'pettiger-dev-tigerden task; the API logs "import-worker: disabled ... pipeline will not run" ' +
+    'at startup), so no uploaded file is ever processed. Tracked as WEBPET-2137 — the fix is one ' +
+    'env var, no code change.';
 
 /**
  * A request context that can post multipart as the logged-in user.
@@ -138,9 +157,12 @@ export async function importDeviceExport(
             if (TERMINAL.includes(String(last.status))) break;
         }
         if (Date.now() > deadline) {
+            // 'received' specifically means stored-but-unclaimed, so name the cause
+            // instead of reporting a bare timeout.
+            const stuck = String(last.status) === 'received' ? ` ${WORKER_DISABLED_REASON}` : '';
             throw new Error(
                 `Import run ${runId} did not reach a terminal status within ${timeoutMs}ms ` +
-                    `(last: ${String(last.status)})`,
+                    `(last: ${String(last.status)}).${stuck}`,
             );
         }
         await new Promise((r) => setTimeout(r, 1_000));
