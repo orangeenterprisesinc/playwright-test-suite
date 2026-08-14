@@ -121,14 +121,13 @@ totals above.
 
 ## webpet tests outside the catalog
 
-23 of 55 webpet spec files (180 of 404 runner rows) map to no catalog workflow. This is
-cloud-rebuild surface the PET-Tiger catalog does not describe — bonus wizard,
-inventory, customer/department/billing, and the shared UI primitives — not wasted
-coverage.
+21 of 53 webpet spec files (103 of 327 runner rows) map to no catalog workflow. This is
+cloud-rebuild surface the PET-Tiger catalog does not describe — inventory,
+customer/department/billing, and the shared UI primitives — not wasted coverage.
+As each area relocates to `tests/web/screens/` it leaves this list; bonus was
+the first to go.
 
 - `billing-center.spec.ts` (6)
-- `bonus-flow.spec.ts` (39)
-- `bonus-shell.spec.ts` (38)
 - `console-diagnostic.spec.ts` (1)
 - `customer.spec.ts` (17)
 - `department.spec.ts` (10)

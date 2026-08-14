@@ -23,10 +23,14 @@
  * end-to-end **without** per-type DB seeding. The empty-results banner is a
  * sanctioned pass for the flow sweep (WEBPET-861); compute *maths* is covered by
  * Go tests.
+ *
+ * Relocated from `src/pages/webpet/bonus/` with its two specs. It still imports
+ * the case table from `src/data/webpet/`, which is a type-only import of pure
+ * data — that module moves with a later batch.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
-import type { BonusTypeCase } from '../../../data/webpet/bonusTypes';
+import { BasePage } from '../BasePage';
+import type { BonusTypeCase } from '../../data/webpet/bonusTypes';
 
 /**
  * @extends BasePage
@@ -52,7 +56,17 @@ export class BonusWizardPage extends BasePage {
     readonly loadFilterButton: Locator;
 
     // ── Step 1 ──────────────────────────────────────────────────────
-    /** The universal date range. Absent on the two date-exempt types. */
+    /**
+     * The universal date range. Absent on the two date-exempt types.
+     *
+     * Matched on the input's `id`, not its label text. The label is an i18n
+     * string (`wizard.dateFilter.start.label`), so `getByLabel('Start
+     * Date/Time In')` only resolves for an English user — and the date-exempt
+     * tests assert `toHaveCount(0)`, which a non-matching locator satisfies
+     * just as happily as an absent input. Under the webpet fixture that was
+     * masked by a `pt.locale` pin this suite does not have. `#startDate` /
+     * `#endDate` are the form-field registration names and are locale-neutral.
+     */
     readonly startDateFilter: Locator;
     readonly endDateFilter: Locator;
     /** The column-picker panel, shown for the types configured for sub-selection. */
@@ -72,8 +86,8 @@ export class BonusWizardPage extends BasePage {
         this.saveFilterButton = page.getByTestId('bonus-wizard-save-filter');
         this.loadFilterButton = page.getByTestId('bonus-wizard-load-filter');
 
-        this.startDateFilter = page.getByLabel('Start Date/Time In');
-        this.endDateFilter = page.getByLabel('Last Date/Time In');
+        this.startDateFilter = page.locator('#startDate');
+        this.endDateFilter = page.locator('#endDate');
         this.subSelectionPanel = page.getByTestId('bonus-sub-selection-panel');
         this.qualityMeasurementDeferred = page.getByTestId(
             'bonus-quality-incentive-measurement-deferred',

@@ -1,33 +1,49 @@
 /**
- * Exercises the Bonus wizard form *shell* slice (slice-bonus-shell).
+ * Bonus wizard — form *shell* slice.
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/bonus.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-040`…`SCR-077` |
+ *
+ * Relocated from `tests/webpet/bonus-shell.spec.ts` (slice-bonus-shell). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describes; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and the date-filter locator. These 38 tests were already
+ * hand-authored one `test()` each with literal ids, so nothing needed expanding.
  *
  * Scope: catalog endpoint, landing page, wizard page, Selection step's
  * universal date filter, Continue/Save/Load affordances, the per-type panel
  * field sets, the Step-2 missing-filter banners, sub-selection, and the
- * unknown-type redirect. Per-type compute behaviour ships in follow-up slices
- * and is covered by bonus-flow.spec.ts, not here.
+ * unknown-type redirect. Per-type flow behaviour is covered by
+ * bonus-flow.spec.ts, not here.
  *
- * The fixture seeds an admin session (records.create + bonus.view +
- * BonusPayment module all true) so the gates pass; the no-permission
- * scenario is covered by routing the API to a 403 response.
+ * Locators live on `BonusWizardPage`, and the panel and grid testids come from
+ * the shared case table in `src/data/webpet/bonusTypes.ts` rather than being
+ * spelled out per test — several of those ids deliberately diverge from the
+ * catalog key, and hardcoding one per test is exactly how they drift.
  *
- * Framework-aligned (Batch 11): locators live on BonusWizardPage, and the panel
- * and grid testids come from the shared case table in
- * `src/data/webpet/bonusTypes.ts` rather than being spelled out per test —
- * several of those ids deliberately diverge from the catalog key, and hardcoding
- * one per test is exactly how they drift.
+ * ## Text-dependent assertions
  *
- * Unlike bonus-flow.spec.ts these 38 tests are **hand-authored**, one `test()`
- * callsite each, so their annotations are literal ids.
+ * The per-type panel-field tests (`SCR-049`…`SCR-065`) and the selection-heading
+ * test (`SCR-042`) match **English label text** — `getByLabel(/Bonus Unit/)` and
+ * friends. The web-pet project pinned the browser locale and rewrote
+ * `user.language` to 'en'; this suite does neither, so they now depend on the
+ * session user's own language. That is a visible red if it ever breaks, not a
+ * silent pass — unlike the date-filter negatives, which are fixed on
+ * `BonusWizardPage` (see its note on `startDateFilter`).
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { BONUS_TYPE_KEYS, bonusTypeByKey } from '@data/webpet/bonusTypes';
 
-test.describe('Bonus shell — landing page', { tag: ['@WebPet', '@wp-bonus', '@WPBatch11'] }, () => {
+test.describe('Bonus shell — landing page', { tag: ['@Screens', '@Bonus'] }, () => {
 
     test('[Bonus] Verify that the landing page lists all 18 bonus types as navigable cards.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0046' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-040' },
+            { type: 'requirement', description: 'SCR-R009' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoLanding();
@@ -42,8 +58,11 @@ test.describe('Bonus shell — landing page', { tag: ['@WebPet', '@wp-bonus', '@
     });
 
     test('[Bonus] Verify that clicking a card navigates to that type wizard.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0047' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-041' },
+            { type: 'requirement', description: 'SCR-R010' },
+        ],
     }, async ({ page, pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoLanding();
@@ -53,11 +72,14 @@ test.describe('Bonus shell — landing page', { tag: ['@WebPet', '@wp-bonus', '@
 
 });
 
-test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@wp-bonus', '@WPBatch11'] }, () => {
+test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@Screens', '@Bonus'] }, () => {
 
     test('[Bonus] Verify that the selection step title carries the type label.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0048' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-042' },
+            { type: 'requirement', description: 'SCR-R011' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('employee');
@@ -67,8 +89,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the date filter shows for types that require it.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0049' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-043' },
+            { type: 'requirement', description: 'SCR-R012' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('employee');
@@ -77,8 +102,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the date filter is hidden for Holiday Pay.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0050' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-044' },
+            { type: 'requirement', description: 'SCR-R002|SCR-R008' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('holiday-pay');
@@ -89,8 +117,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the date filter is hidden for Piece Weekly Incentive.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0051' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-045' },
+            { type: 'requirement', description: 'SCR-R002|SCR-R008' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('piece-weekly-incentive-bonus');
@@ -100,8 +131,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that Continue is disabled on the selection step.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0052' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-046' },
+            { type: 'requirement', description: 'SCR-R003' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('employee');
@@ -112,8 +146,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that Save filter and Load filter are present and enabled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0053' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-047' },
+            { type: 'requirement', description: 'SCR-R013' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('employee');
@@ -124,8 +161,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that Cancel returns to the landing page.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0054' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-048' },
+            { type: 'requirement', description: 'SCR-R014' },
+        ],
     }, async ({ page, pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('employee');
@@ -134,8 +174,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Employee panel renders its bonus unit, rate, job and duplicate-handling fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0055' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-049' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('employee');
@@ -150,8 +193,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Crew panel renders its bonus unit, maximum, minimum-percent and job fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0056' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-050' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('crew');
@@ -164,8 +210,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Support Crew panel renders its crew, extra-pay job and support job fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0057' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-051' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('support-crew-bonus');
@@ -180,8 +229,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Fair Food Premium panel renders its total, job-date and job fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0058' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-052' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('fair-food-premium');
@@ -193,8 +245,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Holiday Pay panel renders its qualification, hours, multiplier and job fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0059' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-053' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('holiday-pay');
@@ -209,8 +264,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Piece Weekly Incentive panel renders its bonus, exclusion and work job fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0060' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-054' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('piece-weekly-incentive-bonus');
@@ -223,8 +281,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Supervisor panel renders its supervisor, minimum-rate, job and divisor fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0061' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-055' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('supervisor');
@@ -237,8 +298,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Supervisor Piece Incentive panel renders its five fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0062' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-056' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('supervisor-piece-incentive');
@@ -252,8 +316,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Piece Incentive panel renders its bonus job field.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0063' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-057' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('piece-incentive-bonus');
@@ -265,8 +332,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Quality Incentive panel renders its job, percent and deferral note.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0064' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-058' },
+            { type: 'requirement', description: 'SCR-R015|SCR-R016' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('quality-incentive-bonus');
@@ -278,8 +348,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Supervisor Average Crew Hourly panel renders its three fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0065' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-059' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('supervisor-average-crew-hourly');
@@ -291,8 +364,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Supervisor Crew Size panel renders its four fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0066' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-060' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('supervisor-crew-size');
@@ -305,8 +381,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Supervisor Bonus Extra Pieces panel renders its five fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0067' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-061' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('supervisor-bonus-extra-pieces');
@@ -320,8 +399,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Tier Piece Incentive panel renders ranch, field and bonus job with no preference gate.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0068' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-062' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('tier-piece-incentive');
@@ -334,8 +416,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Tier Hourly Piece Incentive panel renders its job and piece-count-type fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0069' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-063' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('tier-hourly-piece-incentive');
@@ -346,8 +431,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Piece Productivity Hourly panel renders its job and four grouping selects.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0070' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-064' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('piece-productivity-hourly-bonus');
@@ -361,8 +449,11 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
     });
 
     test('[Bonus] Verify that the Daily by Employee panel renders its hours, job and duplicate-handling fields.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0071' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-065' },
+            { type: 'requirement', description: 'SCR-R015' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('daily-by-employee');
@@ -375,11 +466,14 @@ test.describe('Bonus shell — wizard Step 1 (Selection)', { tag: ['@WebPet', '@
 
 });
 
-test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-bonus', '@WPBatch11'] }, () => {
+test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@Screens', '@Bonus'] }, () => {
 
     test('[Bonus] Verify that the Daily by Employee grid panel renders its missing-filter banner on direct nav.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0072' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-066' },
+            { type: 'requirement', description: 'SCR-R017' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('daily-by-employee');
@@ -388,8 +482,11 @@ test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-
     });
 
     test('[Bonus] Verify that the Daily by Job grid panel renders its missing-filter banner on direct nav.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0073' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-067' },
+            { type: 'requirement', description: 'SCR-R017' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('daily-by-job');
@@ -398,8 +495,11 @@ test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-
     });
 
     test('[Bonus] Verify that the Tier Hourly Piece Incentive grid panel renders its missing-filter banner on direct nav.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0074' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-068' },
+            { type: 'requirement', description: 'SCR-R017' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('tier-hourly-piece-incentive');
@@ -408,8 +508,11 @@ test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-
     });
 
     test('[Bonus] Verify that Back returns to Step 1.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0075' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-069' },
+            { type: 'requirement', description: 'SCR-R018' },
+        ],
     }, async ({ page, pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('tier-hourly-piece-incentive');
@@ -421,8 +524,11 @@ test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-
     });
 
     test('[Bonus] Verify that the Piece Productivity Hourly grid panel renders its missing-filter banner on direct nav.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0076' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-070' },
+            { type: 'requirement', description: 'SCR-R017' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         const type = bonusTypeByKey('piece-productivity-hourly-bonus');
@@ -432,11 +538,14 @@ test.describe('Bonus shell — wizard Step 2 (Review)', { tag: ['@WebPet', '@wp-
 
 });
 
-test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bonus', '@WPBatch11'] }, () => {
+test.describe('Bonus shell — sub-selection panel', { tag: ['@Screens', '@Bonus'] }, () => {
 
     test('[Bonus] Verify that the crew type renders the sub-selection panel.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0077' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-071' },
+            { type: 'requirement', description: 'SCR-R019' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('crew');
@@ -444,8 +553,11 @@ test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bon
     });
 
     test('[Bonus] Verify that the employee type renders the sub-selection panel.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0078' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-072' },
+            { type: 'requirement', description: 'SCR-R019' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         // employee was added to subSelectionConfig in PET-277; it now renders the
@@ -455,8 +567,11 @@ test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bon
     });
 
     test('[Bonus] Verify that daily-by-employee renders the sub-selection panel.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0079' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-073' },
+            { type: 'requirement', description: 'SCR-R019' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('daily-by-employee');
@@ -464,8 +579,11 @@ test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bon
     });
 
     test('[Bonus] Verify that holiday-pay renders the sub-selection panel.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0080' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-074' },
+            { type: 'requirement', description: 'SCR-R019' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('holiday-pay');
@@ -473,8 +591,11 @@ test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bon
     });
 
     test('[Bonus] Verify that supervisor-crew-size renders the sub-selection panel.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0081' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-075' },
+            { type: 'requirement', description: 'SCR-R019' },
+        ],
     }, async ({ pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('supervisor-crew-size');
@@ -483,11 +604,14 @@ test.describe('Bonus shell — sub-selection panel', { tag: ['@WebPet', '@wp-bon
 
 });
 
-test.describe('Bonus shell — error paths', { tag: ['@WebPet', '@wp-bonus', '@WPBatch11'] }, () => {
+test.describe('Bonus shell — error paths', { tag: ['@Screens', '@Bonus'] }, () => {
 
     test('[Bonus] Verify that an unknown type redirects to the landing page with an error toast.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0082' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-076' },
+            { type: 'requirement', description: 'SCR-R020' },
+        ],
     }, async ({ page, pages }) => {
         const wizard = pages.bonusWizard;
         await wizard.gotoType('totally-bogus');
@@ -496,8 +620,11 @@ test.describe('Bonus shell — error paths', { tag: ['@WebPet', '@wp-bonus', '@W
     });
 
     test('[Bonus] Verify that a 403 on the bonus types endpoint blocks the landing page UI.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0083' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-077' },
+            { type: 'requirement', description: 'SCR-R021' },
+        ],
     }, async ({ page, pages }) => {
         const wizard = pages.bonusWizard;
         await page.route('**/api/bonus/types', (route) =>

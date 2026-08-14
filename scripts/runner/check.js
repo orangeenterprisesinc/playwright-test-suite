@@ -84,8 +84,17 @@ const TIER_TAG_SET = new Set(TIERS.map(([, tag]) => tag));
 /** Tags a `test()` may carry beyond the tier chain. */
 const EXTRA_TEST_TAGS = new Set(['@Demo']);
 
-/** Tags a `test.describe()` may carry: the journey, the workflow, or @System. */
-const SUITE_TAG = /^@(?:Journey[A-F]|[A-F]\d{1,2}|System)$/;
+/**
+ * Tags a `test.describe()` may carry: the journey, the workflow, `@System`, or —
+ * for the non-catalog screen suites — `@Screens` plus that suite's area.
+ *
+ * The screens vocabulary is enumerated rather than left open (`@[A-Z]\w+`) so a
+ * typo fails here instead of quietly producing a tag no `--grep` will ever name.
+ * The six areas are the ones `test-plans/screens/README.md` allocates an
+ * `SCR-R###` block to; adding an area means adding it in both places.
+ */
+const SUITE_TAG =
+    /^@(?:Journey[A-F]|[A-F]\d{1,2}|System|Screens|Bonus|Records|Shared|Inventory|Timesheet|Profile)$/;
 
 /**
  * The tier tags a row's `tags` column implies, narrowest first — the order the

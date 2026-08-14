@@ -23,7 +23,6 @@ import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { DashboardPage } from '../pages/webpet/shell/DashboardPage';
 import { LoginPage } from '../pages/webpet/shell/LoginPage';
 import { BoardFormPage } from '../pages/webpet/setup/BoardFormPage';
-import { BonusWizardPage } from '../pages/webpet/bonus/BonusWizardPage';
 import { ExportToAccountingPage } from '../pages/webpet/accounting/ExportToAccountingPage';
 import { ExportDispatchWorkspacePage } from '../pages/webpet/accounting/ExportDispatchWorkspacePage';
 import { ReconcileJobCardsPage } from '../pages/webpet/accounting/ReconcileJobCardsPage';
@@ -178,9 +177,8 @@ export interface WebpetPages {
     /** TimeSheet Validation list, plus its soft-deleted list. */
     readonly timeSheetValidationList: TimeSheetValidationListPage;
 
-    // ── Bonus ───────────────────────────────────────────────────────
-    /** The Bonus wizard (`/bonus`, `/bonus/:type`) — 18 types, two steps. */
-    readonly bonusWizard: BonusWizardPage;
+    // Bonus moved to PageObjects (`src/fixtures/pages.fixture.ts`) with its two
+    // specs — `tests/web/screens/bonus/`. No web-pet spec reaches it any more.
 
     // ── Accounting ──────────────────────────────────────────────────
     /** Export to Accounting, v1 filter surface (`/export-to-accounting`). */
@@ -279,7 +277,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get timeSheetValidationList() {
             return lazy('timeSheetValidationList', () => new TimeSheetValidationListPage(page));
         },
-        get bonusWizard() { return lazy('bonusWizard', () => new BonusWizardPage(page)); },
         get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
         get exportWorkspace() { return lazy('exportWorkspace', () => new ExportDispatchWorkspacePage(page)); },
         get reconcileJobCards() { return lazy('reconcileJobCards', () => new ReconcileJobCardsPage(page)); },

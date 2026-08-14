@@ -24,6 +24,11 @@ import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
+import { BonusWizardPage } from '../pages/bonus/BonusWizardPage';
+// Still under src/components/webpet/ — the bonus specs relocated ahead of the
+// shared toast surface, which the remaining web-pet specs also use. Moves with
+// a later batch; the import crosses the tree until then.
+import { ToastComponent } from '../components/webpet/ToastComponent';
 
 /**
  * Every page object, lazily constructed.
@@ -48,6 +53,18 @@ export interface PageObjects {
     // ── Connectivity ────────────────────────────────────────────────
     /** Connectivity ▸ Import ▸ Internet — the office's relay pull (Journey B). */
     readonly importInternet: ImportInternetPage;
+
+    // ── Bonus ───────────────────────────────────────────────────────
+    /** The Bonus wizard (`/bonus`, `/bonus/:type`) — 18 types, two steps. */
+    readonly bonusWizard: BonusWizardPage;
+
+    /**
+     * The global toast surface.
+     *
+     * Not a page: notifications are app-wide, and a spec may assert on one while
+     * driving an unrelated screen.
+     */
+    readonly toasts: ToastComponent;
 }
 
 /**
@@ -71,5 +88,7 @@ export function createPageObjects(page: Page): PageObjects {
         get users() { return lazy('users', () => new UsersPage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
+        get bonusWizard() { return lazy('bonusWizard', () => new BonusWizardPage(page)); },
+        get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };
 }

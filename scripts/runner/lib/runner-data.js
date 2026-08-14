@@ -298,6 +298,14 @@ const REQ_ID = new RegExp(`^${REQ_PREFIX}-R\\d+$`);
  * its worked example cites A1's ids, and counting those would let a plan lose a
  * requirement without the checker noticing.
  *
+ * `README.md` is skipped for the same reason. A directory README indexes plans
+ * rather than being one, and `test-plans/screens/README.md` allocates each screen
+ * area an `SCR-R###` block by naming its boundaries (`SCR-R001`–`R099`,
+ * `SCR-R100`–`R149`, …). Counting those as declarations makes the first
+ * requirement in every block collide with the README forever — and the duplicate
+ * warning exists to catch two areas drifting into the same range, which is a real
+ * signal that a permanent false positive would bury.
+ *
  * Returns a Map rather than a Set so the same id appearing in two plans is
  * visible — with a flat `SCR-R###` namespace shared across screen areas, two
  * plans silently allocating the same id is a question of when, not if. Callers
@@ -313,7 +321,7 @@ function planRequirements() {
         for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
             const full = path.join(current, entry.name);
             if (entry.isDirectory()) walk(full);
-            else if (entry.name.endsWith('.md') && entry.name !== '_template.md') {
+            else if (entry.name.endsWith('.md') && entry.name !== '_template.md' && entry.name !== 'README.md') {
                 const source = fs.readFileSync(full, 'utf8');
                 const relative = path.relative(ROOT, full).split(path.sep).join('/');
                 for (const m of source.matchAll(new RegExp(`\\b(${REQ_PREFIX}-R\\d+)\\b`, 'g'))) {

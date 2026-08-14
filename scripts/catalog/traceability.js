@@ -263,9 +263,10 @@ ${sheet.map(tableRow).join('\n')}
 ## webpet tests outside the catalog
 
 ${unmappedWebpet.length} of ${webpetTestsPerFile.size} webpet spec files (${unmappedTests} of ${totalWebpetTests} runner rows) map to no catalog workflow. This is
-cloud-rebuild surface the PET-Tiger catalog does not describe — bonus wizard,
-inventory, customer/department/billing, and the shared UI primitives — not wasted
-coverage.
+cloud-rebuild surface the PET-Tiger catalog does not describe — inventory,
+customer/department/billing, and the shared UI primitives — not wasted coverage.
+As each area relocates to \`tests/web/screens/\` it leaves this list; bonus was
+the first to go.
 
 ${unmappedWebpet.map((f) => `- \`${f}\` (${webpetTestsPerFile.get(f)})`).join('\n')}
 

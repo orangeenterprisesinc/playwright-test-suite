@@ -143,10 +143,13 @@ type DateExemptCase = Extract<(typeof BONUS_TYPES)[number], { dateExempt: true }
  *
  * Filtered with a **type predicate**, not a plain callback. A plain
  * `.filter(t => t.dateExempt)` returns the full 18-member element union, so
- * `t.key` would widen back to all 18 literals — and
- * `bonusFlowIds['date-exempt:' + key]` would then demand 18 map entries where
- * only 2 exist. The predicate keeps the narrowing that makes the id lookup
- * compile-checked.
+ * `t.key` would widen back to all 18 literals, and any per-type lookup keyed on
+ * it would silently accept the 16 keys that are not exempt. The predicate keeps
+ * the narrowing.
+ *
+ * This mattered most for the generated id map the bonus flow spec used to index
+ * (`bonusFlowIds`, deleted when those tests became literal `test()` calls); the
+ * narrowing is still what keeps `bonusTypeByKey` honest.
  */
 export const DATE_EXEMPT_BONUS_TYPES = BONUS_TYPES.filter(
     // `'dateExempt' in t` rather than `t.dateExempt`: the non-exempt entries omit
