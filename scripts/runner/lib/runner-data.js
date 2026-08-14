@@ -141,8 +141,19 @@ function loadScopes() {
 const EXCLUDED_TEST_DIRS = new Set(['webpet']);
 
 /**
+ * Spec files this validator does not own, mirroring the `chromium` project's
+ * `testIgnore` in playwright.config.ts.
+ *
+ * `seed.spec.ts` is the planner/generator agents' scratch page context — never
+ * collected by a normal run, so it carries no row, no tag and no requirement by
+ * design (see the header comment in the file itself).
+ */
+const EXCLUDED_TEST_FILES = new Set(['seed.spec.ts']);
+
+/**
  * Every `*.spec.ts` under `tests/`, excluding the trees listed in
- * {@link EXCLUDED_TEST_DIRS}. Paths are absolute.
+ * {@link EXCLUDED_TEST_DIRS} and the files in {@link EXCLUDED_TEST_FILES}.
+ * Paths are absolute.
  */
 function specFiles(dir = TESTS_DIR) {
     const entries = fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : [];
@@ -152,6 +163,7 @@ function specFiles(dir = TESTS_DIR) {
             if (dir === TESTS_DIR && EXCLUDED_TEST_DIRS.has(entry.name)) return [];
             return specFiles(full);
         }
+        if (EXCLUDED_TEST_FILES.has(entry.name)) return [];
         return entry.name.endsWith('.spec.ts') ? [full] : [];
     });
 }
@@ -179,6 +191,31 @@ function specClaims() {
         }
     }
     return claims;
+}
+
+/**
+ * How many test declarations each owned spec file contains, keyed by
+ * repo-relative path.
+ *
+ * Counted from the raw source rather than from {@link specTests} precisely so the
+ * two can be compared: anything `specTests` cannot parse — a template-literal
+ * title, a `test()` with no options object — is also invisible to every tag and
+ * requirement rule built on it, and would otherwise pass silently.
+ *
+ * A declaration is `test(` followed by its title string, which is why the quote
+ * is part of the match: block comments are stripped first, but prose still says
+ * "three separate `test()` calls" and that must not count as a declaration.
+ * The lookbehind drops `foo.test(` (a regex test in a body); `test.describe(`,
+ * `test.step(` and `test.fail(` never match — a `.` follows `test`, not a `(`.
+ */
+function specTestCallCounts() {
+    const counts = new Map();
+    for (const file of specFiles()) {
+        const source = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const relative = path.relative(ROOT, file).split(path.sep).join('/');
+        counts.set(relative, (source.match(/(?<!\.)\btest\(\s*['"`]/g) ?? []).length);
+    }
+    return counts;
 }
 
 /** Pulls `'@A'`, `"@B"` … out of a `tag: [ … ]` literal. */
@@ -242,14 +279,35 @@ function specTests() {
 }
 
 /**
- * Every EARS requirement id declared in a plan under `specs/` — `A1-R4`,
- * `UI-R2`, … `_template.md` is skipped: its worked example cites A1's ids, and
- * counting those would let a plan lose a requirement without the checker
- * noticing.
+ * The id families a requirement may belong to: a catalog workflow (`A1-R4`), the
+ * non-catalog system suite (`UI-R2`), or a non-catalog screen (`SCR-R17`).
+ *
+ * Single-sourced because two regexes are built from it — the format check in
+ * check.js and the plan scan below. Widening only one produces a baffling
+ * failure: every SCR row reports "declared in no plan" while the plan visibly
+ * declares it.
+ */
+const REQ_PREFIX = '(?:[A-F]\\d{1,2}|UI|SCR)';
+
+/** A single requirement id, anchored — for validating a row's `req` column. */
+const REQ_ID = new RegExp(`^${REQ_PREFIX}-R\\d+$`);
+
+/**
+ * Every EARS requirement id declared in a plan under `test-plans/` — `A1-R4`,
+ * `UI-R2`, … mapped to the plan files that declare it. `_template.md` is skipped:
+ * its worked example cites A1's ids, and counting those would let a plan lose a
+ * requirement without the checker noticing.
+ *
+ * Returns a Map rather than a Set so the same id appearing in two plans is
+ * visible — with a flat `SCR-R###` namespace shared across screen areas, two
+ * plans silently allocating the same id is a question of when, not if. Callers
+ * use `.has(id)` exactly as they did with the Set.
+ *
+ * @returns {Map<string, string[]>} id → repo-relative plan files declaring it
  */
 function planRequirements() {
     const dir = path.join(ROOT, 'test-plans');
-    const ids = new Set();
+    const ids = new Map();
 
     const walk = (current) => {
         for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
@@ -257,7 +315,12 @@ function planRequirements() {
             if (entry.isDirectory()) walk(full);
             else if (entry.name.endsWith('.md') && entry.name !== '_template.md') {
                 const source = fs.readFileSync(full, 'utf8');
-                for (const m of source.matchAll(/\b((?:[A-F]\d{1,2}|UI)-R\d+)\b/g)) ids.add(m[1]);
+                const relative = path.relative(ROOT, full).split(path.sep).join('/');
+                for (const m of source.matchAll(new RegExp(`\\b(${REQ_PREFIX}-R\\d+)\\b`, 'g'))) {
+                    const declaredIn = ids.get(m[1]) ?? [];
+                    if (!declaredIn.includes(relative)) declaredIn.push(relative);
+                    ids.set(m[1], declaredIn);
+                }
             }
         }
     };
@@ -269,6 +332,8 @@ module.exports = {
     ROOT,
     RUNNER_DIR,
     COLUMNS,
+    REQ_PREFIX,
+    REQ_ID,
     runnerFileNames,
     readCsv,
     readJson,
@@ -278,6 +343,7 @@ module.exports = {
     specFiles,
     specClaims,
     specTests,
+    specTestCallCounts,
     planRequirements,
     loadScopes,
 };

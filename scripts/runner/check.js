@@ -40,10 +40,19 @@
 
 const {
     runnerFileNames, readCsv, readJson, toJsonText, allRows, loadCatalog, loadScopes,
-    specClaims, specTests, planRequirements,
+    specClaims, specTests, specTestCallCounts, planRequirements, REQ_ID,
 } = require('./lib/runner-data');
 
 const CATEGORIES = ['ui', 'api', 'workflow'];
+
+/**
+ * What an id may look like when a row belongs to no catalog workflow: the system
+ * suite (`UI-001`) or a screen outside the journey catalog (`SCR-014`).
+ *
+ * Catalog rows are already pinned to `<workflow>-###` by the workflow branch
+ * below. Without this, the no-workflow branch accepted any string at all.
+ */
+const NON_CATALOG_ID = /^(?:UI|SCR)-\d{3,4}$/;
 
 /**
  * Which folder under `tests/` each category's specs must live in.
@@ -143,8 +152,11 @@ function main() {
                     fail(`${where}: journey '${row.journey}' should be '${expectedJourney}' for ${row.workflow}`);
                 }
             }
-        } else if (row.journey) {
-            fail(`${where}: has a journey but no workflow`);
+        } else {
+            if (row.journey) fail(`${where}: has a journey but no workflow`);
+            if (!NON_CATALOG_ID.test(row.id)) {
+                fail(`${where}: a row with no workflow needs a non-catalog id like 'UI-001' or 'SCR-014'`);
+            }
         }
 
         for (const segment of row.segments ?? []) {
@@ -169,8 +181,8 @@ function main() {
         }
 
         for (const id of row.req ?? []) {
-            if (!/^(?:[A-F]\d{1,2}|UI)-R\d+$/.test(id)) {
-                fail(`${where}: req '${id}' must look like 'A1-R4' or 'UI-R2'`);
+            if (!REQ_ID.test(id)) {
+                fail(`${where}: req '${id}' must look like 'A1-R4', 'UI-R2' or 'SCR-R7'`);
             }
         }
     }
@@ -213,6 +225,28 @@ function main() {
         }
     }
 
+    // ── Static visibility ───────────────────────────────────────────────
+    // Everything below reads specTests(), which parses with regex. A test it
+    // cannot see is exempt from every tag, tier and requirement rule that
+    // follows — and passes. Comparing the parsed count against the raw `test(`
+    // count is the only way to turn that silence into a failure.
+    const tests = specTests();
+    const parsedByFile = new Map();
+    for (const specTest of tests) {
+        parsedByFile.set(specTest.file, (parsedByFile.get(specTest.file) ?? 0) + 1);
+    }
+    for (const [file, declared] of specTestCallCounts()) {
+        const parsed = parsedByFile.get(file) ?? 0;
+        if (declared !== parsed) {
+            fail(
+                `${file}: declares ${declared} test() call(s) but the checker could only parse ` +
+                `${parsed} — the rest are exempt from every tag and requirement rule. Titles and ` +
+                `annotation descriptions must be single-quoted literals, and every test needs an ` +
+                `options object; expand generated tests into explicit test() calls.`,
+            );
+        }
+    }
+
     // ── Tags, tiers and requirements ────────────────────────────────────
     // The CSV is the source of truth; the spec must agree with it. Without this
     // the two tag systems drift and a `--grep` silently selects nothing.
@@ -221,7 +255,13 @@ function main() {
     const smokeByFile = new Map();
     const suiteTagsChecked = new Set();
 
-    for (const specTest of specTests()) {
+    for (const [id, declaredIn] of requirements) {
+        if (declaredIn.length > 1) {
+            warn(`requirement '${id}' is declared in ${declaredIn.length} plans: ${declaredIn.join(', ')}`);
+        }
+    }
+
+    for (const specTest of tests) {
         const where = `${specTest.file} [${specTest.testCaseId ?? specTest.title}]`;
 
         if (!suiteTagsChecked.has(specTest.file)) {
@@ -276,7 +316,7 @@ function main() {
         }
         for (const id of rowReqs) {
             if (!requirements.has(id)) {
-                fail(`[${row.id}]: requirement '${id}' is declared in no plan under specs/`);
+                fail(`[${row.id}]: requirement '${id}' is declared in no plan under test-plans/`);
             }
         }
         if (sorted(rowReqs) !== sorted(specTest.requirements)) {
