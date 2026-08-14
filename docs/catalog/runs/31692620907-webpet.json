@@ -1,0 +1,3278 @@
+{
+  "runId": "31692620907",
+  "jobId": "94423104695",
+  "suite": "webpet",
+  "sha": "4f52e3295ea7dd99bf140eca3a2dfdc83a6ac405",
+  "event": "schedule",
+  "createdAt": "2026-08-13T10:46:58Z",
+  "source": "ci-log",
+  "totals": {
+    "collected": 407,
+    "passed": 363,
+    "skipped": 42,
+    "failed": 0,
+    "expectedFailure": 2
+  },
+  "reported": {
+    "skipped": 42,
+    "passed": 365
+  },
+  "tests": [
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Setup > Billing Center — new form › [Billing Center] Verify that the new form renders the name field.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 50,
+      "project": "webpet",
+      "title": "Setup > Billing Center — new form › [Billing Center] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 67,
+      "project": "webpet",
+      "title": "Setup > Billing Center — new form › [Billing Center] Verify that Cancel returns to the list.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 77,
+      "project": "webpet",
+      "title": "Setup > Billing Center — new form › [Billing Center] Verify that creating a billing center navigates to the edit form.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 101,
+      "project": "webpet",
+      "title": "Setup > Billing Center — edit form › [Billing Center] Verify that the name is read-only on an existing record.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/billing-center.spec.ts",
+      "line": 119,
+      "project": "webpet",
+      "title": "Setup > Billing Center — edit form › [Billing Center] Verify that the active toggle can be flipped and saved.",
+      "tags": "@WebPet @wp-setup @wp-billing-center @WPBatch04 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 51,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › [Bonus] Verify that the sweep covers all 18 bonus type options.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-unit @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: employee › [Bonus] Verify that the employee selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: crew › [Bonus] Verify that the crew selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor › [Bonus] Verify that the supervisor selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-piece-incentive › [Bonus] Verify that the supervisor-piece-incentive selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-bonus-extra-pieces › [Bonus] Verify that the supervisor-bonus-extra-pieces selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: fair-food-premium › [Bonus] Verify that the fair-food-premium selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: daily-by-employee › [Bonus] Verify that the daily-by-employee selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: daily-by-job › [Bonus] Verify that the daily-by-job selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: holiday-pay › [Bonus] Verify that the holiday-pay selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: support-crew-bonus › [Bonus] Verify that the support-crew-bonus selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-average-crew-hourly › [Bonus] Verify that the supervisor-average-crew-hourly selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-incentive-bonus › [Bonus] Verify that the piece-incentive-bonus selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: tier-piece-incentive › [Bonus] Verify that the tier-piece-incentive selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-crew-size › [Bonus] Verify that the supervisor-crew-size selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-weekly-incentive-bonus › [Bonus] Verify that the piece-weekly-incentive-bonus selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: quality-incentive-bonus › [Bonus] Verify that the quality-incentive-bonus selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-productivity-hourly-bonus › [Bonus] Verify that the piece-productivity-hourly-bonus selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: tier-hourly-piece-incentive › [Bonus] Verify that the tier-hourly-piece-incentive selection panel mounts and Continue gates on filter validity.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: employee › [Bonus] Verify that the employee review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: crew › [Bonus] Verify that the crew review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor › [Bonus] Verify that the supervisor review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-piece-incentive › [Bonus] Verify that the supervisor-piece-incentive review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-bonus-extra-pieces › [Bonus] Verify that the supervisor-bonus-extra-pieces review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: fair-food-premium › [Bonus] Verify that the fair-food-premium review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: daily-by-employee › [Bonus] Verify that the daily-by-employee review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: daily-by-job › [Bonus] Verify that the daily-by-job review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: holiday-pay › [Bonus] Verify that the holiday-pay review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: support-crew-bonus › [Bonus] Verify that the support-crew-bonus review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-average-crew-hourly › [Bonus] Verify that the supervisor-average-crew-hourly review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-incentive-bonus › [Bonus] Verify that the piece-incentive-bonus review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: tier-piece-incentive › [Bonus] Verify that the tier-piece-incentive review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: supervisor-crew-size › [Bonus] Verify that the supervisor-crew-size review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-weekly-incentive-bonus › [Bonus] Verify that the piece-weekly-incentive-bonus review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: quality-incentive-bonus › [Bonus] Verify that the quality-incentive-bonus review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: piece-productivity-hourly-bonus › [Bonus] Verify that the piece-productivity-hourly-bonus review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus wizard — per-type flow sweep (WEBPET-861) › type: tier-hourly-piece-incentive › [Bonus] Verify that the tier-hourly-piece-incentive review grid mounts and the commit affordance is present.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 110,
+      "project": "webpet",
+      "title": "Bonus wizard — date-filter-exempt types (explicit per WEBPET-861) › [Bonus] Verify that holiday-pay shows no shared date inputs and computes from its own panel fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-flow.spec.ts",
+      "line": 110,
+      "project": "webpet",
+      "title": "Bonus wizard — date-filter-exempt types (explicit per WEBPET-861) › [Bonus] Verify that piece-weekly-incentive-bonus shows no shared date inputs and computes from its own panel fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 28,
+      "project": "webpet",
+      "title": "Bonus shell — landing page › [Bonus] Verify that the landing page lists all 18 bonus types as navigable cards.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 44,
+      "project": "webpet",
+      "title": "Bonus shell — landing page › [Bonus] Verify that clicking a card navigates to that type wizard.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 58,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the selection step title carries the type label.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 69,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the date filter shows for types that require it.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the date filter is hidden for Holiday Pay.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 91,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the date filter is hidden for Piece Weekly Incentive.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 102,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that Continue is disabled on the selection step.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 114,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that Save filter and Load filter are present and enabled.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 126,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that Cancel returns to the landing page.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 136,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Employee panel renders its bonus unit, rate, job and duplicate-handling fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 152,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Crew panel renders its bonus unit, maximum, minimum-percent and job fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 166,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Support Crew panel renders its crew, extra-pay job and support job fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 182,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Fair Food Premium panel renders its total, job-date and job fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 195,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Holiday Pay panel renders its qualification, hours, multiplier and job fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 211,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Piece Weekly Incentive panel renders its bonus, exclusion and work job fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 225,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Supervisor panel renders its supervisor, minimum-rate, job and divisor fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 239,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Supervisor Piece Incentive panel renders its five fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 254,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Piece Incentive panel renders its bonus job field.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 267,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Quality Incentive panel renders its job, percent and deferral note.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 280,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Supervisor Average Crew Hourly panel renders its three fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 293,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Supervisor Crew Size panel renders its four fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 307,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Supervisor Bonus Extra Pieces panel renders its five fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 322,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Tier Piece Incentive panel renders ranch, field and bonus job with no preference gate.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 336,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Tier Hourly Piece Incentive panel renders its job and piece-count-type fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 348,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Piece Productivity Hourly panel renders its job and four grouping selects.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 363,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 1 (Selection) › [Bonus] Verify that the Daily by Employee panel renders its hours, job and duplicate-handling fields.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 380,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 2 (Review) › [Bonus] Verify that the Daily by Employee grid panel renders its missing-filter banner on direct nav.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 390,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 2 (Review) › [Bonus] Verify that the Daily by Job grid panel renders its missing-filter banner on direct nav.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 400,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 2 (Review) › [Bonus] Verify that the Tier Hourly Piece Incentive grid panel renders its missing-filter banner on direct nav.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 410,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 2 (Review) › [Bonus] Verify that Back returns to Step 1.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 423,
+      "project": "webpet",
+      "title": "Bonus shell — wizard Step 2 (Review) › [Bonus] Verify that the Piece Productivity Hourly grid panel renders its missing-filter banner on direct nav.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 437,
+      "project": "webpet",
+      "title": "Bonus shell — sub-selection panel › [Bonus] Verify that the crew type renders the sub-selection panel.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 446,
+      "project": "webpet",
+      "title": "Bonus shell — sub-selection panel › [Bonus] Verify that the employee type renders the sub-selection panel.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 457,
+      "project": "webpet",
+      "title": "Bonus shell — sub-selection panel › [Bonus] Verify that daily-by-employee renders the sub-selection panel.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 466,
+      "project": "webpet",
+      "title": "Bonus shell — sub-selection panel › [Bonus] Verify that holiday-pay renders the sub-selection panel.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 475,
+      "project": "webpet",
+      "title": "Bonus shell — sub-selection panel › [Bonus] Verify that supervisor-crew-size renders the sub-selection panel.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 488,
+      "project": "webpet",
+      "title": "Bonus shell — error paths › [Bonus] Verify that an unknown type redirects to the landing page with an error toast.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/bonus-shell.spec.ts",
+      "line": 498,
+      "project": "webpet",
+      "title": "Bonus shell — error paths › [Bonus] Verify that a 403 on the bonus types endpoint blocks the landing page UI.",
+      "tags": "@WebPet @wp-bonus @WPBatch11 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/console-diagnostic.spec.ts",
+      "line": 63,
+      "project": "webpet",
+      "title": "Console diagnostics › [Diagnostics] Capture console output for the fields list and the profile page.",
+      "tags": "@WebPet @wp-diagnostics @WPBatch06 @wp-ui @wp-visual",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 47,
+      "project": "webpet",
+      "title": "New crew form › [Crew] Verify that the new crew form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 61,
+      "project": "webpet",
+      "title": "New crew form › [Crew] Verify that the department dropdown is populated from the database.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 74,
+      "project": "webpet",
+      "title": "New crew form › [Crew] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 92,
+      "project": "webpet",
+      "title": "New crew form › [Crew] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 102,
+      "project": "webpet",
+      "title": "New crew form › [Crew] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 124,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that the edit form loads the existing crew data.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 133,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that the name, barcode and export identifier are read-only.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 145,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that the short name field is editable.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 155,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that the department dropdown is populated on the edit form.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 168,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crew.spec.ts",
+      "line": 178,
+      "project": "webpet",
+      "title": "Edit crew form › [Crew] Verify that a nonexistent crew id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-crew @WPBatch01 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 39,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that the new crop form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 50,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 67,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 76,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that export identifier auto-populate is skipped when the field is already filled.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 87,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 103,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 117,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that submitting a duplicate name maps the server error to the Name field inline.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 138,
+      "project": "webpet",
+      "title": "New crop form › [Crop] Verify that blurring the name against a duplicate value fires the uniqueness check before submit.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 158,
+      "project": "webpet",
+      "title": "Edit crop form › [Crop] Verify that the edit form loads the existing crop data.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 168,
+      "project": "webpet",
+      "title": "Edit crop form › [Crop] Verify that the name and export identifier are read-only on an existing crop.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 179,
+      "project": "webpet",
+      "title": "Edit crop form › [Crop] Verify that the traceability assignment sections render on the edit form.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 189,
+      "project": "webpet",
+      "title": "Edit crop form › [Crop] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/crop.spec.ts",
+      "line": 198,
+      "project": "webpet",
+      "title": "Edit crop form › [Crop] Verify that a nonexistent crop id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-crop @WPBatch01 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 45,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that the new customer form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 57,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that the customer type dropdown is populated from the database.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 69,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 86,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that the export identifier stays empty after a name blur (GAP-033 fix).",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 96,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that a manually filled export identifier is not overwritten.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 107,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 123,
+      "project": "webpet",
+      "title": "New customer form › [Customer] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 144,
+      "project": "webpet",
+      "title": "Edit customer form › [Customer] Verify that the edit form loads the existing customer data.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 153,
+      "project": "webpet",
+      "title": "Edit customer form › [Customer] Verify that the name is read-only while barcode and export identifier stay editable.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 168,
+      "project": "webpet",
+      "title": "Edit customer form › [Customer] Verify that the active checkbox is editable.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 178,
+      "project": "webpet",
+      "title": "Edit customer form › [Customer] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 188,
+      "project": "webpet",
+      "title": "Edit customer form › [Customer] Verify that a nonexistent customer id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 206,
+      "project": "webpet",
+      "title": "Customer contact validation › [Customer] Verify that the contact Add button is disabled until a value is entered.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 215,
+      "project": "webpet",
+      "title": "Customer contact validation › [Customer] Verify that an invalid e-mail contact keeps Save disabled.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 229,
+      "project": "webpet",
+      "title": "Customer contact validation › [Customer] Verify that an invalid web page contact keeps Save disabled.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 247,
+      "project": "webpet",
+      "title": "Customer contact validation › [Customer] Verify that appending a malformed phone contact keeps Save disabled.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/customer.spec.ts",
+      "line": 257,
+      "project": "webpet",
+      "title": "Customer contact validation › [Customer] Verify that appending a valid phone contact enables Save.",
+      "tags": "@WebPet @wp-setup @wp-customer @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/dashboard.spec.ts",
+      "line": 25,
+      "project": "webpet",
+      "title": "Dashboard shell — route + bootstrap › [Dashboard] Verify that the route loads and seeds a default board on first visit.",
+      "tags": "@WebPet @wp-shell @wp-dashboard @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/dashboard.spec.ts",
+      "line": 44,
+      "project": "webpet",
+      "title": "Dashboard shell — route + bootstrap › [Dashboard] Verify that the header shows a greeting and an Edit Widgets button.",
+      "tags": "@WebPet @wp-shell @wp-dashboard @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/dashboard.spec.ts",
+      "line": 64,
+      "project": "webpet",
+      "title": "Dashboard shell — widget palette › [Dashboard] Verify that the Edit Widgets button toggles the palette open and closed.",
+      "tags": "@WebPet @wp-shell @wp-dashboard @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/dashboard.spec.ts",
+      "line": 87,
+      "project": "webpet",
+      "title": "Dashboard shell — widget palette › [Dashboard] Verify that the palette plus-button appends a widget to the active board.",
+      "tags": "@WebPet @wp-shell @wp-dashboard @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/dashboard.spec.ts",
+      "line": 116,
+      "project": "webpet",
+      "title": "Dashboard shell — persistence + reload › [Dashboard] Verify that a new widget persists and survives a full page reload.",
+      "tags": "@WebPet @wp-shell @wp-dashboard @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/data-scoping.spec.ts",
+      "line": 60,
+      "project": "webpet",
+      "title": "Data scoping — SU visibility regression › [Scoping] Verify that the employees endpoint returns a non-empty array for the seeded admin.",
+      "tags": "@WebPet @wp-scoping @WPBatch08 @wp-api @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/data-scoping.spec.ts",
+      "line": 80,
+      "project": "webpet",
+      "title": "Data scoping — SU visibility regression › [Scoping] Verify that the crews endpoint returns a non-empty array for the seeded admin.",
+      "tags": "@WebPet @wp-scoping @WPBatch08 @wp-api @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/data-scoping.spec.ts",
+      "line": 108,
+      "project": "webpet",
+      "title": "Data scoping — restricted user leakage (PET-441) › [Scoping] Verify that a restricted user sees only employees in their allowed crew.",
+      "tags": "@WebPet @wp-scoping @WPBatch08 @wp-api @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 42,
+      "project": "webpet",
+      "title": "New department form › [Department] Verify that the new department form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 59,
+      "project": "webpet",
+      "title": "New department form › [Department] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 77,
+      "project": "webpet",
+      "title": "New department form › [Department] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 87,
+      "project": "webpet",
+      "title": "New department form › [Department] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 104,
+      "project": "webpet",
+      "title": "New department form › [Department] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 125,
+      "project": "webpet",
+      "title": "Edit department form › [Department] Verify that the edit form loads the existing department data.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 135,
+      "project": "webpet",
+      "title": "Edit department form › [Department] Verify that the name, barcode and export identifier are read-only.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 147,
+      "project": "webpet",
+      "title": "Edit department form › [Department] Verify that the first-day-of-week and crew-required controls stay editable.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 160,
+      "project": "webpet",
+      "title": "Edit department form › [Department] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/department.spec.ts",
+      "line": 172,
+      "project": "webpet",
+      "title": "Edit department form › [Department] Verify that a nonexistent department id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-department @WPBatch01 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee-documents.spec.ts",
+      "line": 27,
+      "project": "webpet",
+      "title": "Employee Documents tab › [Documents] Verify the upload, list, sort, download and delete happy path.",
+      "tags": "@WebPet @wp-documents @WPBatch08 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 60,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that the new employee form renders all expected fields.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 77,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that the department dropdown is populated from the database.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 89,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that the crew dropdown is populated from the database.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 99,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 117,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that the export identifier stays empty after a name blur (GAP-016 fix).",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 129,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that a manually filled export identifier is not overwritten.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 142,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 159,
+      "project": "webpet",
+      "title": "New employee form › [Employee] Verify that a duplicate name shows a conflict error.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 182,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the edit form loads the existing employee data.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 193,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 209,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 236,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 304,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the first name and last name fields are editable.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 315,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that the department dropdown shows the current value.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 325,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/employee.spec.ts",
+      "line": 336,
+      "project": "webpet",
+      "title": "Edit employee form › [Employee] Verify that a nonexistent employee id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-employee @WPBatch02 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 35,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that the new equipment form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 47,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that the equipment type dropdown is populated from the database.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 59,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that Save is disabled until the required name and type are provided.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 80,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 90,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 104,
+      "project": "webpet",
+      "title": "New equipment form › [Equipment] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 142,
+      "project": "webpet",
+      "title": "Edit equipment form › [Equipment] Verify that the edit form loads the existing equipment data.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 152,
+      "project": "webpet",
+      "title": "Edit equipment form › [Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 167,
+      "project": "webpet",
+      "title": "Edit equipment form › [Equipment] Verify that the active checkbox and hourly cost are editable.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 178,
+      "project": "webpet",
+      "title": "Edit equipment form › [Equipment] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equipment.spec.ts",
+      "line": 188,
+      "project": "webpet",
+      "title": "Edit equipment form › [Equipment] Verify that a nonexistent equipment id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-equipment @WPBatch03 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/biometric-device-commands-equivalence.spec.ts",
+      "line": 179,
+      "project": "webpet",
+      "title": "Equivalence: biometric device commands (web vs legacy, family A / mailbox) › [Equiv] Verify that the Gather Logs command returns a per-device run reaching terminal status.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-api @wp-connectivity",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/biometric-device-commands-equivalence.spec.ts",
+      "line": 179,
+      "project": "webpet",
+      "title": "Equivalence: biometric device commands (web vs legacy, family A / mailbox) › [Equiv] Verify that the Request Partial Data command returns a per-device run reaching terminal status.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-api @wp-connectivity",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/biometric-device-commands-equivalence.spec.ts",
+      "line": 179,
+      "project": "webpet",
+      "title": "Equivalence: biometric device commands (web vs legacy, family A / mailbox) › [Equiv] Verify that the Set Timezone command returns a per-device run reaching terminal status.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-api @wp-connectivity",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/create-user-amy-sandoval.spec.ts",
+      "line": 55,
+      "project": "webpet",
+      "title": "Equivalence: create-user-amy-sandoval › [Equiv] Verify that creating a user writes the correct DB values.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-e2e @wp-settings",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/crew-04-timecard-multi-entry-workflow.spec.ts",
+      "line": 62,
+      "project": "webpet",
+      "title": "Equivalence: crew-04-timecard-multi-entry-workflow › [Equiv] Verify that three Time In records and one Time Out record are written with the correct DB values.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-e2e @wp-deferred",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/equiv/scan-device-create-de15-pocket-pda.spec.ts",
+      "line": 53,
+      "project": "webpet",
+      "title": "Equivalence: scan-device-create-de15-pocket-pda › [Equiv] Verify that creating a scan device writes the correct DB values.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-e2e @wp-scan",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/equiv/scan-time-in-equivalence.spec.ts",
+      "line": 48,
+      "project": "webpet",
+      "title": "Equivalence: scan-time-in › [Equiv] Verify that scanning an employee and saving writes a Time In row with the expected reference.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-e2e @wp-scan",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/equiv/variety-equivalence-cucumbers-european.spec.ts",
+      "line": 92,
+      "project": "webpet",
+      "title": "Equivalence: variety-new-record-cucumbers-european › [Equiv] Verify that creating a variety writes the correct DB values.",
+      "tags": "@WebPet @wp-equiv @WPBatch14 @wp-e2e @wp-variety",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-exportrun.spec.ts",
+      "line": 25,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 ExportRun draft lifecycle › [Export] Verify that Prepare, a toggle flip and Clear filters fire POST, PATCH and DELETE /runs in order.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-mobile.spec.ts",
+      "line": 26,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 mobile-optimized layout › [Export] Verify that the mobile chrome shows the destination chip and opens the bottom sheet.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-visual",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-mobile.spec.ts",
+      "line": 101,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 mobile-optimized layout › [Export] Verify that the readiness strip and review queue render in the mobile layout.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-visual",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-recent-exports.spec.ts",
+      "line": 16,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 Recent Exports surface › [Export] Verify that Recent Exports opens the Sheet, lists runs, drills into one and returns.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-retry.spec.ts",
+      "line": 19,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 Retry workflow › [Export] Verify that Retry all failed dispatches POST /run with jobCardCounterIds and parentRunCounter.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2-row-selection.spec.ts",
+      "line": 23,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 per-row selection › [Export] Verify that toggling a row PATCHes the draft with excludedRecordIds.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2.spec.ts",
+      "line": 20,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 dispatch workspace › [Export] Verify that the v2 chrome renders and Prepare populates readiness and queue.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting-v2.spec.ts",
+      "line": 78,
+      "project": "webpet",
+      "title": "Export to Accounting — v2 dispatch workspace › [Export] Verify that the pt-export-new-ia flag no longer falls back to the v1 page.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 27,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the page header and default date inputs render.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-smoke",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 47,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that Find Candidates submits the filter and populates the result table.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 84,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the color legend renders below the table when results have rows.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 161,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that an inverted date range is rejected without firing a request.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 174,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the ?type= URL parameter survives a page reload.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 190,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the Cost Accounting tab is disabled with a tooltip when the module is not licensed.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 223,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the module.not_licensed banner shows when the Cost Accounting tab is selected and the server refuses.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 272,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that the sidebar entry is hidden for a user without accounting.export.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/export-to-accounting.spec.ts",
+      "line": 300,
+      "project": "webpet",
+      "title": "Export to Accounting — Filter › [Export] Verify that direct URL navigation returns 403 for FieldSupervisor.",
+      "tags": "@WebPet @wp-accounting @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 60,
+      "project": "webpet",
+      "title": "FieldListPage — page chrome › [Field] Verify that the grid renders with the expected column headers.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 75,
+      "project": "webpet",
+      "title": "FieldListPage — page chrome › [Field] Verify that the rightmost edit-icon column links to the field record.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 88,
+      "project": "webpet",
+      "title": "FieldListPage — page chrome › [Field] Verify that the Multi Update button paints aria-pressed when toggled.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 101,
+      "project": "webpet",
+      "title": "FieldListPage — page chrome › [Field] Verify that the outbound New link carries the URL search suffix.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 110,
+      "project": "webpet",
+      "title": "FieldListPage — page chrome › [Field] Verify that the insights-strip toggle is reflected in the URL.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 131,
+      "project": "webpet",
+      "title": "FieldListPage — inline edit on a resolved field › [Field] Verify that the Active toggle flips and bulk-undo restores it.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 154,
+      "project": "webpet",
+      "title": "FieldListPage — multi-edit propagation › [Field] Verify that Apply to all propagates the cache patch to every selected row.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 184,
+      "project": "webpet",
+      "title": "FieldListPage — multi-edit propagation › [Field] Verify that Just this row updates only the edited row.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 216,
+      "project": "webpet",
+      "title": "FieldListPage — URL state › [Field] Verify that typing in the Code filter updates the URL.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/field.spec.ts",
+      "line": 230,
+      "project": "webpet",
+      "title": "FieldListPage — URL state › [Field] Verify that clicking a sortable header updates the URL.",
+      "tags": "@WebPet @wp-setup @wp-field @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 47,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that an Input goes clean to dirty on edit and invalid on clear.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 77,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that a Switch goes clean to dirty after a toggle.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 97,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that a Checkbox goes clean to dirty after a toggle.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 113,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that a combobox-mode ParentPicker reflects dirty on its input.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 138,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that a sheet-mode ParentPicker reflects dirty on its trigger.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/form-field-states.spec.ts",
+      "line": 157,
+      "project": "webpet",
+      "title": "Field state — dirty + error borders › [Form State] Verify that a ColorPickerInput goes clean to dirty after a colour pick.",
+      "tags": "@WebPet @wp-formstate @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-center.spec.ts",
+      "line": 13,
+      "project": "webpet",
+      "title": "Inventory > Inventory Center › [Inventory] Verify that the Inventory Center list page renders and is no longer the stub.",
+      "tags": "@WebPet @wp-setup @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-item-type.spec.ts",
+      "line": 12,
+      "project": "webpet",
+      "title": "Inventory > Inventory Item Type › [Inventory] Verify that the Inventory Item Type list page renders and is no longer the stub.",
+      "tags": "@WebPet @wp-setup @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-item.spec.ts",
+      "line": 13,
+      "project": "webpet",
+      "title": "Inventory > Inventory Item › [Inventory] Verify that the Inventory Item list page renders and is no longer the stub.",
+      "tags": "@WebPet @wp-setup @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-setup.spec.ts",
+      "line": 46,
+      "project": "webpet",
+      "title": "Inventory Setup — module ON (default dev env) › [Inventory] Verify that the sidebar shows the Inventory Setup group with its five live links.",
+      "tags": "@WebPet @wp-shell @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-unit-type.spec.ts",
+      "line": 17,
+      "project": "webpet",
+      "title": "Inventory > Unit Type › [Inventory] Verify that the Unit Type list page renders and is no longer the stub.",
+      "tags": "@WebPet @wp-setup @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/inventory-unit.spec.ts",
+      "line": 17,
+      "project": "webpet",
+      "title": "Inventory > Unit › [Inventory] Verify that the Unit list page renders and is no longer the stub.",
+      "tags": "@WebPet @wp-setup @wp-inventory @WPBatch04 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 38,
+      "project": "webpet",
+      "title": "New job group form › [Job Group] Verify that the new job group form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 51,
+      "project": "webpet",
+      "title": "New job group form › [Job Group] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 68,
+      "project": "webpet",
+      "title": "New job group form › [Job Group] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 78,
+      "project": "webpet",
+      "title": "New job group form › [Job Group] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 94,
+      "project": "webpet",
+      "title": "New job group form › [Job Group] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 115,
+      "project": "webpet",
+      "title": "Edit job group form › [Job Group] Verify that the edit form loads the existing job group data.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 125,
+      "project": "webpet",
+      "title": "Edit job group form › [Job Group] Verify that the name is read-only while export identifier and code stay editable.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 137,
+      "project": "webpet",
+      "title": "Edit job group form › [Job Group] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job-group.spec.ts",
+      "line": 147,
+      "project": "webpet",
+      "title": "Edit job group form › [Job Group] Verify that a nonexistent job group id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-job-group @WPBatch01 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 37,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that the new job form renders the expected fields.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 47,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that Save is disabled until the required name, overtime rule and hourly rate are provided.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 75,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that the export identifier auto-populates from the name on blur.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 85,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 99,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that a duplicate name keeps the user on the create form.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 145,
+      "project": "webpet",
+      "title": "New job form › [Job] Verify that the idle-time and job-end checkboxes render with their correct defaults.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 172,
+      "project": "webpet",
+      "title": "Edit job form › [Job] Verify that the edit form loads the existing job data.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 182,
+      "project": "webpet",
+      "title": "Edit job form › [Job] Verify that the name, alias, code and export identifier are read-only.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 195,
+      "project": "webpet",
+      "title": "Edit job form › [Job] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 205,
+      "project": "webpet",
+      "title": "Edit job form › [Job] Verify that a nonexistent job id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/job.spec.ts",
+      "line": 228,
+      "project": "webpet",
+      "title": "Edit job form › [Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.",
+      "tags": "@WebPet @wp-setup @wp-jobs @WPBatch03 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/localization.spec.ts",
+      "line": 21,
+      "project": "webpet",
+      "title": "Language picker — Header › [Localization] Verify that the header dropdown lists the Language submenu with System and three locales.",
+      "tags": "@WebPet @wp-shell @wp-localization @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/localization.spec.ts",
+      "line": 43,
+      "project": "webpet",
+      "title": "Language picker — Header › [Localization] Verify that picking System sends a null language to the user endpoint.",
+      "tags": "@WebPet @wp-shell @wp-localization @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/localization.spec.ts",
+      "line": 68,
+      "project": "webpet",
+      "title": "Language picker — Profile › [Localization] Verify that Profile Personal Details lists System and all three locales with BCP-47 suffixes.",
+      "tags": "@WebPet @wp-shell @wp-localization @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/mobile-tab-labels.spec.ts",
+      "line": 30,
+      "project": "webpet",
+      "title": "CropFormPage mobile tabs › [Crop] Verify that the mobile tab dropdown shows labels rather than raw values.",
+      "tags": "@WebPet @wp-mobiletabs @WPBatch06 @wp-ui @wp-visual",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 46,
+      "project": "webpet",
+      "title": "Create & save success toasts › [Notifications] Verify that creating a department emits a created toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 83,
+      "project": "webpet",
+      "title": "Create & save success toasts › [Notifications] Verify that editing a department emits a saved toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 111,
+      "project": "webpet",
+      "title": "Error toasts › [Notifications] Verify that a board server error emits a toast rather than a native alert.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 150,
+      "project": "webpet",
+      "title": "409 Conflict handling › [Notifications] Verify that a stale department version shows the concurrency banner and no toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 184,
+      "project": "webpet",
+      "title": "409 Conflict handling › [Notifications] Verify that a stale crew version shows the concurrency banner and no toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 229,
+      "project": "webpet",
+      "title": "409 Conflict handling › [Notifications] Verify that a stale customer version shows the concurrency banner and no toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 297,
+      "project": "webpet",
+      "title": "Auth event toasts › [Notifications] Verify that logging out emits a signed-out toast and redirects to login.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 312,
+      "project": "webpet",
+      "title": "Auth event toasts › [Notifications] Verify that logging in emits a welcome toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 337,
+      "project": "webpet",
+      "title": "401 session-lifecycle discriminator › [Notifications] Verify that a session-expired 401 shows the expiry toast and redirects to login.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 376,
+      "project": "webpet",
+      "title": "401 session-lifecycle discriminator › [Notifications] Verify that a not-authenticated 401 redirects silently without the expiry toast.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression @wp-negative",
+      "status": "expected-failure"
+    },
+    {
+      "file": "tests/webpet/notifications.spec.ts",
+      "line": 424,
+      "project": "webpet",
+      "title": "Offline/online toasts › [Notifications] Verify that toggling the context offline and back surfaces toasts.",
+      "tags": "@WebPet @wp-notifications @WPBatch08 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 26,
+      "project": "webpet",
+      "title": "Onboarding Badges — list page chrome › [Badge] Verify that the list page title reads Onboarding Badges.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 35,
+      "project": "webpet",
+      "title": "Onboarding Badges — list page chrome › [Badge] Verify that the grid renders with the expected columns.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 49,
+      "project": "webpet",
+      "title": "Onboarding Badges — list page chrome › [Badge] Verify that the New Badge button navigates to the new-record form.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 63,
+      "project": "webpet",
+      "title": "Onboarding Badges — new-record form › [Badge] Verify that the new-record form renders its name, barcode, export identifier and active fields.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 75,
+      "project": "webpet",
+      "title": "Onboarding Badges — new-record form › [Badge] Verify that Save is disabled until a name is entered.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/onboarding-badges.spec.ts",
+      "line": 90,
+      "project": "webpet",
+      "title": "Onboarding Badges — cross-contamination guard › [Badge] Verify that regular employees do not appear in the onboarding-badges list.",
+      "tags": "@WebPet @wp-setup @wp-badge @WPBatch06 @wp-api @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 87,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that the employee Department combobox filters and selects.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that the employee Department combobox is clearable.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 130,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that the customer Customer Type combobox filters and selects.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 151,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that Create appears for an unknown customer type name.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 169,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that Create is hidden for an existing customer type name.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 183,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that the field Department combobox loads and selects.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 198,
+      "project": "webpet",
+      "title": "Parent Picker — combobox mode › [Picker] Verify that the crew Department combobox loads and selects.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 219,
+      "project": "webpet",
+      "title": "Parent Picker — sheet mode › [Picker] Verify that the crew Default Ranch sheet select works.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 236,
+      "project": "webpet",
+      "title": "Parent Picker — sheet mode › [Picker] Verify that the variety Crop sheet lists existing crops.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 250,
+      "project": "webpet",
+      "title": "Parent Picker — sheet mode › [Picker] Verify that the field Ranch sheet lists real ranches.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 269,
+      "project": "webpet",
+      "title": "Parent Picker — picker-only combobox › [Picker] Verify that the employee Crew combobox loads and offers no Create.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 286,
+      "project": "webpet",
+      "title": "Parent Picker — picker-only combobox › [Picker] Verify that the customer State sheet loads real states and offers no Create.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 302,
+      "project": "webpet",
+      "title": "Parent Picker — picker-only combobox › [Picker] Verify that the field Color combobox is present and offers Create.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 322,
+      "project": "webpet",
+      "title": "Parent Picker — cascading filter › [Picker] Verify that the crew Default Field combobox filters by the selected Default Ranch.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 358,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that all five crew picker fields load.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 373,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that the equipment Equipment Type combobox loads options.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 389,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that the job Overtime Rules combobox loads options.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 404,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that the user Time Card Defaults tab loads its three selectors.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 419,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that every field traceability picker loads.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 439,
+      "project": "webpet",
+      "title": "Parent Picker — per-consumer smoke › [Picker] Verify that changing the field Crop refilters Variety and clears the selection.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/parent-picker.spec.ts",
+      "line": 473,
+      "project": "webpet",
+      "title": "Parent Picker — combobox inside sheet › [Picker] Verify that a combobox inside the Ranch edit sheet works.",
+      "tags": "@WebPet @wp-picker @WPBatch07 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/profile-avatar.spec.ts",
+      "line": 28,
+      "project": "webpet",
+      "title": "Profile avatar — upload › [Profile] Verify that an avatar upload stores server-side and the image refetches.",
+      "tags": "@WebPet @wp-settings @wp-avatar @WPBatch06 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/profile-change-password.spec.ts",
+      "line": 16,
+      "project": "webpet",
+      "title": "Profile change-password — 401 mismatch routes to field › [Profile] Verify that a wrong current password shows an inline error and no toast.",
+      "tags": "@WebPet @wp-settings @wp-password @WPBatch06 @wp-ui @wp-regression @wp-negative",
+      "status": "expected-failure"
+    },
+    {
+      "file": "tests/webpet/profile-change-password.spec.ts",
+      "line": 83,
+      "project": "webpet",
+      "title": "Profile change-password — client-side validation › [Profile] Verify that a new password under eight characters shows an inline error before submit.",
+      "tags": "@WebPet @wp-settings @wp-password @WPBatch06 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/profile-change-password.spec.ts",
+      "line": 99,
+      "project": "webpet",
+      "title": "Profile change-password — client-side validation › [Profile] Verify that a mismatched confirm password shows an inline error.",
+      "tags": "@WebPet @wp-settings @wp-password @WPBatch06 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 97,
+      "project": "webpet",
+      "title": "RanchListPage — page chrome › [Ranch] Verify that the page title reads \"Ranches\" and not the historic typo.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 110,
+      "project": "webpet",
+      "title": "RanchListPage — page chrome › [Ranch] Verify that the grid renders with the expected column headers.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 125,
+      "project": "webpet",
+      "title": "RanchListPage — page chrome › [Ranch] Verify that the rightmost edit-icon column links to the ranch record.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 134,
+      "project": "webpet",
+      "title": "RanchListPage — page chrome › [Ranch] Verify that the Multi Update button paints aria-pressed when toggled.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 147,
+      "project": "webpet",
+      "title": "RanchListPage — page chrome › [Ranch] Verify that the outbound New Ranch link carries the URL search suffix.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 162,
+      "project": "webpet",
+      "title": "RanchListPage — inline edit on a resolved ranch › [Ranch] Verify that the Active toggle flips and bulk-undo restores it.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 181,
+      "project": "webpet",
+      "title": "RanchListPage — inline edit on a resolved ranch › [Ranch] Verify that a WorkerCompCode text edit applies and undo reverts it.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 213,
+      "project": "webpet",
+      "title": "RanchListPage — multi-edit propagation › [Ranch] Verify that Apply to all propagates the cache patch to every selected row.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 249,
+      "project": "webpet",
+      "title": "RanchListPage — multi-edit propagation › [Ranch] Verify that Just this row updates only the edited row.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 283,
+      "project": "webpet",
+      "title": "Ranch form — boundary section › [Ranch] Verify that the boundary section renders with its Edit Map control and Advanced disclosure.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 318,
+      "project": "webpet",
+      "title": "Ranch form — boundary section › [Ranch] Verify that a polygon saved via the Advanced text fallback round-trips on reload.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 380,
+      "project": "webpet",
+      "title": "RanchListPage — URL state › [Ranch] Verify that typing in the Name filter updates the URL.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/ranch.spec.ts",
+      "line": 393,
+      "project": "webpet",
+      "title": "RanchListPage — URL state › [Ranch] Verify that clicking a sortable header updates the URL.",
+      "tags": "@WebPet @wp-setup @wp-ranch @WPBatch03 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 143,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the page header renders and the preference gate is respected.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 163,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the pre-analyze prompt shows when no date range is selected.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 181,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the page renders and a reconcile run completes against the live API.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-e2e",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 239,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 256,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 276,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that with the preference off the URL stays stable and the banner shows.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 294,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the summary panel renders inline failure rows when failures exist.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 329,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that the CSV download button is absent when the summary is all-clean.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 360,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that a 5xx response triggers an error toast and no summary panel.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/reconcile-job-cards.spec.ts",
+      "line": 379,
+      "project": "webpet",
+      "title": "Reconcile Job Cards › [Reconcile] Verify that a 4xx response triggers an error toast and no summary panel.",
+      "tags": "@WebPet @wp-reconcile @WPBatch12 @wp-ui @wp-regression @wp-negative",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 49,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that the editor opens on a seeded report with a live preview.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-smoke",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 63,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that clicking an editable area in the preview selects it.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 81,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that a marker opens its area and the index drills in.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 102,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that editing the Company Name updates the preview.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 123,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that the table area opens a tabbed editor.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 139,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that dragging a column header reorders the preview columns.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 162,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that each main section is labelled with its name on the preview.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 174,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that zooming in enlarges the preview sheet and reset restores it.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 203,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that a preview marker exposes its region name as an accessible label.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 215,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that editing keeps the preview sheet mounted.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 236,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that switching orientation reflects in the preview aspect.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 263,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify that the widgets and filter-summary areas are reachable from the index.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-regression",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/report-editor-wysiwyg.spec.ts",
+      "line": 285,
+      "project": "webpet",
+      "title": "WYSIWYG Report Editor — acceptance journey › [Report Editor] Verify the full hover to marker to sheet journey reflects in the preview and PDF.",
+      "tags": "@WebPet @wp-reporteditor @WPBatch10 @wp-ui @wp-e2e",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/purchase is gated by the Inventory module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/physical-count is gated by the Inventory module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/usage is gated by the Inventory module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/transfer-from is gated by the Inventory module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/transfer-to is gated by the Inventory module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/field-traceability is gated by the Traceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/warehouse-traceability is gated by the Traceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/run-in is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/run-out is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/run-piece-count is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/run-projection is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/run-tracking is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/assign-barcode-roll is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "Scan Mode — module gating is wired on gated routes (WEBPET-908) › [Scan] Verify that /scan/assign-employee-crew is gated by the LabelTraceability module.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/time-in renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/time-out renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/piece-out renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/time-card renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/paid-break renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/meal renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/crew-time-in renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/crew-time-out renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/crew-piece-out renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/driver-time-in renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode-gating.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "Scan Mode — foundation routes are ungated (WEBPET-908) › [Scan] Verify that /scan/driver-time-out renders for any authenticated user with no module redirect.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 45,
+      "project": "webpet",
+      "title": "Scan Mode — landing grid (WEBPET-908) › [Scan] Verify that the landing grid lists a card for every scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 61,
+      "project": "webpet",
+      "title": "Scan Mode — landing grid (WEBPET-908) › [Scan] Verify that wired cards are links while deferred cards are dimmed and non-navigable.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 84,
+      "project": "webpet",
+      "title": "Scan Mode — landing grid (WEBPET-908) › [Scan] Verify that clicking a wired card navigates to its scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/time-in resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/time-out resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/piece-out resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/time-card resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/paid-break resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/meal resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/crew-time-in resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/crew-time-out resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/crew-piece-out resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/driver-time-in resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 109,
+      "project": "webpet",
+      "title": "Scan Mode — wired routes resolve (WEBPET-908) › [Scan] Verify that /scan/driver-time-out resolves to a scan screen.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 129,
+      "project": "webpet",
+      "title": "Scan Mode — barcode decode routing (WEBPET-899 surface) › [Scan] Verify that an employee record barcode fills the employee slot.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 158,
+      "project": "webpet",
+      "title": "Scan Mode — barcode decode routing (WEBPET-899 surface) › [Scan] Verify that a non-employee record barcode is rejected with a message.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 185,
+      "project": "webpet",
+      "title": "Scan Mode — barcode decode routing (WEBPET-899 surface) › [Scan] Verify that a command barcode switches scan mode.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 209,
+      "project": "webpet",
+      "title": "Scan Mode — per-screen happy-path save (WEBPET-908) › [Scan] Verify that a Time In save round-trips through the screen shell.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-e2e",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 262,
+      "project": "webpet",
+      "title": "Scan Mode — carry-over behavior (WEBPET-908) › [Scan] Verify that the carry-over toggle is present and defaults on.",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 288,
+      "project": "webpet",
+      "title": "Scan Mode — deferred surfaces (WEBPET-908) › [Scan] Verify the Pack House scan screen — deferred (WEBPET-907 / WEBPET-878).",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-deferred",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 295,
+      "project": "webpet",
+      "title": "Scan Mode — deferred surfaces (WEBPET-908) › [Scan] Verify fingerprint capture — deferred (WEBPET-905).",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-deferred",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/scan-mode.spec.ts",
+      "line": 302,
+      "project": "webpet",
+      "title": "Scan Mode — deferred surfaces (WEBPET-908) › [Scan] Verify HandPunch import provenance — deferred (WEBPET-906).",
+      "tags": "@WebPet @wp-scan @WPBatch13 @wp-ui @wp-deferred",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/webpet/select-smoke.spec.ts",
+      "line": 52,
+      "project": "webpet",
+      "title": "Select migration smoke › [Select] Verify that the crew form renders its boolean Switches after the migration.",
+      "tags": "@WebPet @wp-selectmigration @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/select-smoke.spec.ts",
+      "line": 77,
+      "project": "webpet",
+      "title": "Select migration smoke › [Select] Capture the crew form ParentPickers in combobox and sheet mode.",
+      "tags": "@WebPet @wp-selectmigration @WPBatch05 @wp-ui @wp-visual",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/select-smoke.spec.ts",
+      "line": 94,
+      "project": "webpet",
+      "title": "Select migration smoke › [Select] Verify the job form numeric enum, nullable tri-state and tab add-row.",
+      "tags": "@WebPet @wp-selectmigration @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/select-smoke.spec.ts",
+      "line": 129,
+      "project": "webpet",
+      "title": "Select migration smoke › [Select] Verify the crew list filter Select and Multi-Update toggle.",
+      "tags": "@WebPet @wp-selectmigration @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/setup-batch-b-smoke.spec.ts",
+      "line": 24,
+      "project": "webpet",
+      "title": "CropListPage smoke › [Crop] Verify that the list renders its grid, Multi Update toggle and Report button.",
+      "tags": "@WebPet @wp-setup @wp-batchb @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/setup-batch-b-smoke.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "CropListPage smoke › [Crop] Verify that the outbound New Crop link carries the URL search suffix.",
+      "tags": "@WebPet @wp-setup @wp-batchb @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/setup-batch-b-smoke.spec.ts",
+      "line": 56,
+      "project": "webpet",
+      "title": "CrewListPage smoke › [Crew] Verify that the list renders its grid with the Department FK column.",
+      "tags": "@WebPet @wp-setup @wp-batchb @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/setup-batch-b-smoke.spec.ts",
+      "line": 67,
+      "project": "webpet",
+      "title": "CrewListPage smoke › [Crew] Verify that the Multi Update toggle paints aria-pressed.",
+      "tags": "@WebPet @wp-setup @wp-batchb @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/setup-batch-b-smoke.spec.ts",
+      "line": 84,
+      "project": "webpet",
+      "title": "EmployeeListPage smoke › [Employee] Verify that the list renders its grid with both Department and Crew FK columns.",
+      "tags": "@WebPet @wp-setup @wp-batchb @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/term.spec.ts",
+      "line": 15,
+      "project": "webpet",
+      "title": "Setup > Terms (Grower Billing) › [Term] Verify that the list page renders when the GrowerBilling module is enabled.",
+      "tags": "@WebPet @wp-setup @wp-term @WPBatch01 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/time-in.spec.ts",
+      "line": 79,
+      "project": "webpet",
+      "title": "TimeInListPage — multi-edit dropdown (WEBPET-666) › [Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.",
+      "tags": "@WebPet @wp-input @wp-timein @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 61,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — list page › [Validation] Verify that the list page renders, or that the module is absent from the sidebar.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 76,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — list page › [Validation] Verify that the Name column header is visible.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 86,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — list page › [Validation] Verify that filtering by name narrows the results.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 104,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — new form › [Validation] Verify that the new form renders the name field.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 113,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — new form › [Validation] Verify that Save is disabled until a required name is provided.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 131,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — new form › [Validation] Verify that Cancel returns to the list.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 141,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — new form › [Validation] Verify that creating a validation navigates to the edit form.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 179,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — edit form › [Validation] Verify that the name is read-only on an existing record.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 203,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — edit form › [Validation] Verify that the audit log page loads for an existing record.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 228,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — edit form › [Validation] Verify that a nonexistent id shows an error message.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/timesheet_validation.spec.ts",
+      "line": 243,
+      "project": "webpet",
+      "title": "Setup > TimeSheet Validation — soft delete and restore › [Validation] Verify that a record can be soft-deleted and restored, with the deleted list reflecting both.",
+      "tags": "@WebPet @wp-setup @wp-validation @WPBatch09 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/traceability-batch-a-smoke.spec.ts",
+      "line": 25,
+      "project": "webpet",
+      "title": "GradeListPage smoke › [Grade] Verify that the list renders its grid and the Multi Update button toggles aria-pressed.",
+      "tags": "@WebPet @wp-setup @wp-batcha @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/traceability-batch-a-smoke.spec.ts",
+      "line": 41,
+      "project": "webpet",
+      "title": "GradeListPage smoke › [Grade] Verify that the outbound New Grade link carries the URL search suffix.",
+      "tags": "@WebPet @wp-setup @wp-batcha @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/traceability-batch-a-smoke.spec.ts",
+      "line": 56,
+      "project": "webpet",
+      "title": "VarietyListPage smoke › [Variety] Verify that the list renders its grid with the Crop FK and read-only name columns.",
+      "tags": "@WebPet @wp-setup @wp-batcha @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/traceability-batch-a-smoke.spec.ts",
+      "line": 70,
+      "project": "webpet",
+      "title": "VarietyListPage smoke › [Variety] Verify that the Report button is visible on the alias-aware page header.",
+      "tags": "@WebPet @wp-setup @wp-batcha @WPBatch05 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/traceability-batch-a-smoke.spec.ts",
+      "line": 86,
+      "project": "webpet",
+      "title": "SizeListPage smoke › [Size] Verify that the list renders its grid with the active and bulk-item toggle columns.",
+      "tags": "@WebPet @wp-setup @wp-batcha @WPBatch05 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 56,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that the new variety form renders all expected fields.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 72,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that the crop dropdown is populated with crops from the database.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 83,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that Save is disabled until all required fields are provided.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 102,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that the export identifier auto-populates from crop and name on blur.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 114,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that export identifier auto-populate is skipped when the field is already filled.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 128,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that Cancel returns to the list without saving.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 144,
+      "project": "webpet",
+      "title": "New variety form › [Variety] Verify that a duplicate name for the same crop shows a conflict error.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 168,
+      "project": "webpet",
+      "title": "Edit variety form › [Variety] Verify that the edit form loads the existing variety data.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-smoke",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 180,
+      "project": "webpet",
+      "title": "Edit variety form › [Variety] Verify that the name, barcode and export identifier are read-only.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 192,
+      "project": "webpet",
+      "title": "Edit variety form › [Variety] Verify that the active toggle is not disabled.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 202,
+      "project": "webpet",
+      "title": "Edit variety form › [Variety] Verify that Cancel returns to the list from the edit form.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/variety.spec.ts",
+      "line": 213,
+      "project": "webpet",
+      "title": "Edit variety form › [Variety] Verify that a nonexistent variety id shows a not-found message.",
+      "tags": "@WebPet @wp-setup @wp-variety @WPBatch02 @wp-ui @wp-negative",
+      "status": "passed"
+    },
+    {
+      "file": "tests/webpet/webpet.setup.ts",
+      "line": 13,
+      "project": "webpet-setup",
+      "title": "provision webpet auth state",
+      "tags": "",
+      "status": "passed"
+    }
+  ]
+}

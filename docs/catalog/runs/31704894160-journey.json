@@ -1,0 +1,134 @@
+{
+  "runId": "31704894160",
+  "jobId": "94462860141",
+  "suite": "journey",
+  "sha": "5526b420e53f9de2ac33f4914102aa5354f518a8",
+  "event": "push",
+  "createdAt": "2026-08-13T13:26:08Z",
+  "source": "ci-log",
+  "totals": {
+    "collected": 14,
+    "passed": 12,
+    "skipped": 0,
+    "failed": 2,
+    "expectedFailure": 0
+  },
+  "reported": {
+    "failed": 2,
+    "passed": 12
+  },
+  "tests": [
+    {
+      "file": "tests/api/relay-roundtrip.spec.ts",
+      "line": 23,
+      "project": "api",
+      "title": "B1 · Relay transport › [Relay] An export envelope pushed to a mailbox is returned unchanged.",
+      "tags": "@JourneyB @B1 @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/auth.setup.ts",
+      "line": 22,
+      "project": "auth-setup",
+      "title": "Global setup for Auto Login",
+      "tags": "",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 35,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.",
+      "tags": "@JourneyA @A1 @Smoke @HighLevel @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 74,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] Verify that an administrator user can be created with all fields populated and appears in the Users list.",
+      "tags": "@JourneyA @A1 @HighLevel @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 104,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] Verify that a user can be created with only the required fields.",
+      "tags": "@JourneyA @A1 @HighLevel @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 127,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] Verify that every Role option is offered in the documented order.",
+      "tags": "@JourneyA @A1 @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 147,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] Verify that a user can be created with a non-administrator role.",
+      "tags": "@JourneyA @A1 @HighLevel @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+      "line": 171,
+      "project": "chromium",
+      "title": "A1 · License, serial number, and user setup › [User Setup] Verify that creating a user with an Initials value already in use is rejected.",
+      "tags": "@JourneyA @A1 @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/journey-b-field/b01-crew-time-in.spec.ts",
+      "line": 30,
+      "project": "chromium",
+      "title": "B1 · Crew time-in › [Crew Time In] Deliver a crew time-in export to the office and verify the punches.",
+      "tags": "@JourneyB @B1 @Regression @Demo",
+      "status": "failed"
+    },
+    {
+      "file": "tests/web/journey-b-field/b02-crew-move.spec.ts",
+      "line": 35,
+      "project": "chromium",
+      "title": "B2 · Crew move and job change › [Crew Move] Deliver a post-move export and verify movers and the member left behind.",
+      "tags": "@JourneyB @B2 @Regression",
+      "status": "failed"
+    },
+    {
+      "file": "tests/web/system/login-module.spec.ts",
+      "line": 70,
+      "project": "chromium",
+      "title": "Login › [Login] Verify that the user can log in with valid username and password.",
+      "tags": "@System @Smoke @HighLevel @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/system/login-module.spec.ts",
+      "line": 82,
+      "project": "chromium",
+      "title": "Login › [Login] Verify that the user cannot log on with an invalid password.",
+      "tags": "@System @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/system/login-module.spec.ts",
+      "line": 92,
+      "project": "chromium",
+      "title": "Login › [Login] Verify that the user cannot log on with an invalid username.",
+      "tags": "@System @Regression",
+      "status": "passed"
+    },
+    {
+      "file": "tests/web/system/login-module.spec.ts",
+      "line": 102,
+      "project": "chromium",
+      "title": "Login › [Login] Verify that the user cannot log on with an invalid username and password.",
+      "tags": "@System @Regression",
+      "status": "passed"
+    }
+  ]
+}

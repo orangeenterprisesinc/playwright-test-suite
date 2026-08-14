@@ -24,6 +24,12 @@ One workflow id (`A1`, `D4`) joins five artifacts, so there is no lookup table:
 | Plan | `test-plans/journey-a/a01-user-setup.md` |
 | Spec | `tests/web/journey-a-setup/a01-user-setup.spec.ts` |
 | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
+| Traceability | `docs/catalog/PET-Tiger-Traceability.csv` / `.md` (`npm run coverage:trace`) |
+
+`coverage:catalog` reports this suite's backlog; `coverage:trace` reports the
+whole catalog across **both** suites — webpet included, via
+`src/data/catalog/workflow-coverage-map.json` — joined to the pinned run evidence
+in `docs/catalog/runs/`. Edit the map, never the generated sheet.
 
 ## Adding a workflow
 
