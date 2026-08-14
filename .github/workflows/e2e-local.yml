@@ -357,6 +357,7 @@ jobs:
       - name: Validate runner data and types
         run: |
           npm run runner:check
+          npm run coverage:trace:check
           npm run typecheck
 
       - name: Run Playwright tests

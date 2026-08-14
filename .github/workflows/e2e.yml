@@ -318,10 +318,17 @@ jobs:
       # silently-skipped test: a spec whose testCaseId has no row, an enabled row no
       # spec claims, a category that disagrees with the spec's folder, an unknown
       # segment or module, or a JSON mirror that has drifted from its CSV.
+      # coverage:trace:check is here because the traceability matrix is generated
+      # from the runner rows, the coverage map and the pinned runs — so it goes
+      # stale silently whenever any of them moves, and a stale matrix is worse
+      # than none: it reports coverage the suite does not have. Cheap (no app, no
+      # browser), and it is the only thing watching the map as webpet specs
+      # relocate into this suite.
       - name: Validate runner data and types
         if: matrix.suite != 'webpet'
         run: |
           npm run runner:check
+          npm run coverage:trace:check
           npm run typecheck
 
       # BLOCKING. Static analysis only (no app, no discovery): catches a spec
