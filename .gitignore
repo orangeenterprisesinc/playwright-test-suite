@@ -38,6 +38,11 @@ node_modules/
 
 #Testing context — screen recordings referenced by the plans under test-plans/
 docs/media/
+
+# Python virtualenv for the video annotator tool, and the keyframes/annotations
+# it derives from docs/media/ — both regenerable, both large (opencv/numpy).
+.venv/
+/.video-annotations/
 Reference project/
 
 # NOTE: package-lock.json is intentionally tracked — CI uses `npm ci`,
