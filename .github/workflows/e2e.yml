@@ -154,9 +154,13 @@ jobs:
         suite: ${{ fromJSON((github.event_name == 'schedule' || inputs.suite == 'both') && '["journey","webpet"]' || format('["{0}"]', inputs.suite || 'journey')) }}
     # A serial webpet run of the whole suite took 56.5 min on dev (see
     # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
-    # so 75 left almost no headroom for a slow night. 90 does. The journey suite
-    # runs in a couple of minutes.
-    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 15 }}
+    # so 75 left almost no headroom for a slow night. 90 does.
+    #
+    # The journey leg carries the same budget even though it runs in a couple of
+    # minutes today: the webpet suite is being absorbed into it a batch at a time,
+    # so its work moves across leg by leg until the webpet leg is deleted. Raising
+    # this per batch would mean noticing the ceiling from a timeout in CI.
+    timeout-minutes: 90
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,

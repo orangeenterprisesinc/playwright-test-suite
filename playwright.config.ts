@@ -194,13 +194,18 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Full artifact capture on every test. Screenshots give the Allure
-        // report visual context on every result; traces and videos provide
-        // complete step-by-step debugging. To trim artifact size/time, switch
-        // trace/video to 'retain-on-failure' or 'on-first-retry'.
+        // Screenshots are cheap and give the Allure report visual context on
+        // every result; traces carry the step-by-step debugging.
         screenshot: 'on',
         trace: 'retain-on-failure',
-        video: 'on',
+
+        // Video only where it earns its size. Recording every test was
+        // affordable at 14 journey tests, but the webpet suite is being absorbed
+        // into this project a batch at a time and video-on across ~400 tests is
+        // multi-gigabyte per run. A failure still gets its video; DEMO=1 restores
+        // recording everywhere for stakeholder walkthroughs, which is the same
+        // reason SLOW_MO exists below.
+        video: process.env.DEMO ? 'on' : 'retain-on-failure',
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
