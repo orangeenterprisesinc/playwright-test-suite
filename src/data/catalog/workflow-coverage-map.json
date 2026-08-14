@@ -21,7 +21,7 @@
 
   "workflows": {
     "A1": {
-      "depth": "partial",
+      "depth": "journey",
       "webpetSpecs": ["equiv/create-user-amy-sandoval.spec.ts", "equiv/export-pet-setup-equivalence.spec.ts"],
       "note": "Journey suite owns A1 end-to-end (A1-001…A1-006, user lifecycle + 17 roles). webpet adds a legacy-parity user create; the PET-Setup export parity spec is host-bound and never collected in CI.",
       "gap": "Serial/license application and module ceilings have no web surface — catalog steps 2-3 are automated nowhere (A1-R9).",
@@ -65,7 +65,7 @@
     },
     "A6": {
       "depth": "partial",
-      "webpetSpecs": ["equiv/biometric-device-commands-equivalence.spec.ts"],
+      "webpetSpecs": [],
       "note": "Device-command mailbox parity (Gather Logs, Request Partial Data, Set Timezone) against the legacy host.",
       "gap": "Enrolment itself is iris/face/finger capture on a kiosk — no browser surface.",
       "next": "Parked with the device automation."

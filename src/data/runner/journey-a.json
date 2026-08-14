@@ -242,23 +242,96 @@
             "workflow": "A6",
             "journey": "A",
             "category": "api",
-            "testName": "biometricEnrollment",
-            "testTitle": "Biometric enrollment",
-            "testDescription": "Enroll employees on iris or face (preferred) or fingerprint so kiosks can identify them, with card or badge fallback for those who cannot enroll. The detailed enrollment-capture sequence is library-limited.",
+            "testName": "contractGatherLogs",
+            "testTitle": "Gather Logs command returns a per-device run reaching terminal status",
+            "testDescription": "Tier 1 contract: POST connectivity/device-command/gather-logs is permission-gated and CSRF-guarded, returns the per-device run envelope, persists a DeviceCommandRun and polls to a terminal status. A 400 no-eligible-devices outcome is contract-valid; 401/403/5xx are not.",
             "segments": [
-                "pack-house",
-                "nursery",
-                "perennial-grower"
-            ],
-            "modules": [
-                "Bio-Identification",
-                "Connectivity"
+                "all"
             ],
             "tags": [
                 "regression"
             ],
-            "demo": true,
-            "status": "draft",
+            "req": [
+                "A6-R1",
+                "A6-R2",
+                "A6-R3",
+                "A6-R4",
+                "A6-R5",
+                "A6-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A6-002",
+            "workflow": "A6",
+            "journey": "A",
+            "category": "api",
+            "testName": "contractRequestPartialData",
+            "testTitle": "Request Partial Data command returns a per-device run reaching terminal status",
+            "testDescription": "Tier 1 contract: POST connectivity/device-command/request-partial-data with a valid date range behaves as above — per-device run envelope, persisted run, terminal poll.",
+            "segments": [
+                "all"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A6-R1",
+                "A6-R2",
+                "A6-R3",
+                "A6-R4",
+                "A6-R5",
+                "A6-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A6-003",
+            "workflow": "A6",
+            "journey": "A",
+            "category": "api",
+            "testName": "contractSetTimezone",
+            "testTitle": "Set Timezone command returns a per-device run reaching terminal status",
+            "testDescription": "Tier 1 contract: POST connectivity/device-command/set-timezone behaves as above, and short-circuits with skipped=true plus an empty device list when no biometric-kiosk devices exist.",
+            "segments": [
+                "all"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A6-R1",
+                "A6-R2",
+                "A6-R3",
+                "A6-R4",
+                "A6-R5",
+                "A6-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A6-004",
+            "workflow": "A6",
+            "journey": "A",
+            "category": "api",
+            "testName": "parityPerDeviceResultsMatchLegacy",
+            "testTitle": "Web per-device result and log output matches legacy for the same device set",
+            "testDescription": "Tier 2 parity, host-bound: the web per-device result/log output — device set, per-device statuses, one file per device and MessageType.Single — matches the legacy baseline for the same devices. Needs PET_DEVICE_CMD_EQUIV=1, live send and a baseline file that only exists on the windows-automation host.",
+            "segments": [
+                "all"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A6-R7",
+                "A6-R8",
+                "A6-R9"
+            ],
+            "status": "automated",
             "enabled": false
         },
         {

@@ -23,8 +23,8 @@ and it predates the journey-B specs reaching `main`; the push run is current `ma
 | Catalog workflows | 69 |
 | Covered to some depth | 18 (journey 3, screens 5, partial 10) |
 | No automation | 51 |
-| **Proven by a run** (passing or mixed) | **12** |
-| Evidence too thin to count (mostly-skipped / skipped-only / not-run) | 4 |
+| **Proven by a run** (passing or mixed) | **11** |
+| Evidence too thin to count (mostly-skipped / skipped-only / not-run) | 5 |
 | Failing | 2 |
 
 Reachability splits the backlog — a browser suite cannot reach a kiosk punch or a
@@ -54,7 +54,7 @@ totals above.
 | A3 | A | Setup and configuration (office) | Job setup and earning codes | ui | browser | Windows\|Piece Payment | 6 | partial | webpet | webpet/job.spec.ts webpet/job-group.spec.ts | 1 | 0 | 20 | 20 | 19 | 1 | 0 | 0 | mixed | 31692620907/webpet | Job form covers payment type, overtime rule, hourly rate and the per-payment-type required fields; job groups have full form coverage. | Earning codes are never asserted — the field the payroll export (E9/E10) depends on. | Extend job.spec with earning-code entry and assert it reaches the export identifier. |
 | A4 | A | Setup and configuration (office) | Crew setup | ui | browser | Windows\|Department\|Notification | 5 | screens | webpet | webpet/crew.spec.ts webpet/setup-batch-b-smoke.spec.ts | 1 | 0 | 16 | 16 | 16 | 0 | 0 | 0 | passing | 31692620907/webpet | New/edit crew forms including export-identifier auto-population and read-only-after-create rules. | Auto-break, exercise and notification-user behaviour set on the crew are configured but never exercised downstream. | Cover the crew's auto-break/notification settings once D10 or B12 is automated. |
 | A5 | A | Setup and configuration (office) | Employee setup | ui | browser | Windows | 6 | screens | webpet | webpet/employee.spec.ts webpet/employee-documents.spec.ts webpet/setup-batch-b-smoke.spec.ts webpet/onboarding-badges.spec.ts | 1 | 0 | 28 | 28 | 26 | 2 | 0 | 0 | mixed | 31692620907/webpet | The most-linked record in the system: identity fields, badges, the WEBPET-2006 Name gate, documents tab and grid FK columns. | Meal waivers and compliance data are not asserted; Documents tab is skipped without S3_ENDPOINT. | Assert meal-waiver fields — E7 depends on them. |
-| A6 | A | Setup and configuration (office) | Biometric enrollment | device | device | Bio-Identification\|Connectivity | 5 | partial | webpet | webpet/equiv/biometric-device-commands-equivalence.spec.ts | 1 | 0 | 4 | 3 | 3 | 0 | 0 | 0 | passing | 31692620907/webpet | Device-command mailbox parity (Gather Logs, Request Partial Data, Set Timezone) against the legacy host. | Enrolment itself is iris/face/finger capture on a kiosk — no browser surface. | Parked with the device automation. |
+| A6 | A | Setup and configuration (office) | Biometric enrollment | device | device | Bio-Identification\|Connectivity | 5 | partial | journey | tests/api/journey-a-setup/a06-biometric-device-commands.spec.ts | 4 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | not-run |  | Device-command mailbox parity (Gather Logs, Request Partial Data, Set Timezone) against the legacy host. | Enrolment itself is iris/face/finger capture on a kiosk — no browser surface. | Parked with the device automation. |
 | A7 | A | Setup and configuration (office) | Scan device registration and data scoping | ui | browser | Connectivity\|Network | 5 | screens | webpet | webpet/equiv/scan-device-create-de15-pocket-pda.spec.ts webpet/data-scoping.spec.ts webpet/scan-mode.spec.ts webpet/scan-mode-gating.spec.ts | 1 | 0 | 51 | 51 | 47 | 4 | 0 | 0 | mixed | 31692620907/webpet | Device record creation with type/login, plus the scoping half — SU visibility and restricted-user leakage (PET-441) — and Scan Mode route gating. | Pushing setup to the device and scoping crews/fields/jobs onto it is not covered; restricted-user provisioning skips on dev (POST /api/users 500). | Re-enable the restricted-user block once dev user provisioning is fixed. |
 | A8 | A | Setup and configuration (office) | GPS field boundary mapping | ui | browser | Mapping | 4 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  |  | Mapping module — field boundary drawing has no automation at all. | Needs the Mapping module licensed on dev before it can be planned. |
 | A9 | A | Setup and configuration (office) | Piece-out and sticker-roll configuration | ui | browser | Piece Payment\|Electronic Token\|Traceability - Stickers | 4 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  |  | Piece method (sticker roll vs badge) and piece-out preferences are unconfigured and untested; blocks B4-B8. | Plan alongside A11 — both live in Preferences. |
@@ -121,7 +121,7 @@ totals above.
 
 ## webpet tests outside the catalog
 
-23 of 56 webpet spec files (180 of 408 runner rows) map to no catalog workflow. This is
+23 of 55 webpet spec files (180 of 404 runner rows) map to no catalog workflow. This is
 cloud-rebuild surface the PET-Tiger catalog does not describe — bonus wizard,
 inventory, customer/department/billing, and the shared UI primitives — not wasted
 coverage.

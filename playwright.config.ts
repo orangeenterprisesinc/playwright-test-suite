@@ -249,12 +249,21 @@ export default defineConfig({
             dependencies: ['auth-setup'],
         },
 
-        // API-only specs (tests/api/*.spec.ts). No browser, no storageState, and
-        // no auth-setup dependency — src/fixtures/api.fixture.ts creates its own
-        // request context and applies the configured AUTH_TYPE strategy itself.
+        // API-only specs (tests/api/*.spec.ts). No browser and no storageState:
+        // the specs build their own request context — either api.fixture, which
+        // applies the configured AUTH_TYPE strategy itself, or base.fixture's
+        // `sessionApi`.
+        //
+        // `sessionApi` is why auth-setup is a dependency despite there being no
+        // browser here: it reads the session off `.auth/user.json`, so without
+        // the ordering an api spec can start before auth-setup has written the
+        // file and die with "No authenticated API session" — a cold-checkout and
+        // CI-ordering failure that looks nothing like its cause. api.fixture
+        // specs pay only the ordering, not a second login.
         {
             name: 'api',
             testDir: './tests/api',
+            dependencies: ['auth-setup'],
         },
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
@@ -294,12 +303,7 @@ export default defineConfig({
                       // Host-bound parity specs, excluded from COLLECTION rather than
                       // skipped — a skipped test still shows up in the report. See
                       // hostBoundExclusions.json for why and how to re-enable.
-                      //
-                      // Whole-file where the file holds nothing else, per-test where it
-                      // does: biometric-device-commands-equivalence also carries three
-                      // Tier-1 contract tests (WP-0170..0172) that run on any stack.
                       testIgnore: HOST_BOUND.files.map((f) => `**/${f}`),
-                      grepInvert: new RegExp(HOST_BOUND.tag),
                       ...(WEBPET_PARITY
                           ? {
                                 timeout: 30 * 1000,

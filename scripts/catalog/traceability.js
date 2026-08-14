@@ -129,11 +129,23 @@ function build() {
         const tally = tallyFor(files, runs);
 
         const automated = workflowRows.filter((r) => r.status === 'automated');
-        // A journey spec is the catalog's own end-to-end shape, so it outranks
-        // whatever screen-level depth the webpet map claims.
-        const depth = automated.length && DEPTH_RANK[entry.depth] < DEPTH_RANK.journey
-            ? 'journey'
-            : entry.depth;
+
+        // Depth is whatever the map says — it is the judgement layer, and this is
+        // the only column a human authors.
+        //
+        // This used to promote to 'journey' automatically whenever automated
+        // journey rows existed, on the reasoning that a journey spec is the
+        // catalog's own end-to-end shape. That held only while every journey spec
+        // was written from the catalog. It stopped being true the moment webpet
+        // specs began relocating into the journey suite: they arrive with journey
+        // rows but the same screen- or contract-level coverage they always had, so
+        // the promotion silently upgraded a workflow to "end-to-end automated" on
+        // the strength of a file move. A6 caught it — three device-command
+        // contract tests promoted "Biometric enrollment" to journey depth.
+        //
+        // The staleness this guarded against is caught below instead, by naming
+        // the workflow rather than by guessing on its behalf.
+        const depth = entry.depth;
 
         const suites = [journeySpecs.length ? 'journey' : null, webpetSpecs.length ? 'webpet' : null]
             .filter(Boolean).join('+') || '—';
@@ -277,6 +289,19 @@ function main() {
             if (!fs.existsSync(path.join(ROOT, 'tests', 'webpet', spec))) {
                 problems.push(`${id}: mapped spec tests/webpet/${spec} does not exist`);
             }
+        }
+    }
+
+    // Depth is no longer inferred from the presence of automated rows (see build()),
+    // so a workflow can now be automated while the map still says nothing covers it.
+    // That reads as a coverage gap in every report. Name it instead of guessing.
+    for (const row of built.sheet) {
+        if (row.journey_rows_automated > 0 && row.coverage_depth === 'none') {
+            problems.push(
+                `${row.workflow_id}: has ${row.journey_rows_automated} automated journey row(s) but ` +
+                `workflow-coverage-map.json still records depth 'none' — set the depth this ` +
+                `automation actually reaches (journey / screens / partial).`,
+            );
         }
     }
 
