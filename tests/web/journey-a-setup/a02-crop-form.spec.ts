@@ -1,44 +1,56 @@
 /**
- * Crop form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when CropListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
+ * Crop form-page e2e for Catalog workflow **A2 — Ranch, field, crop, and
+ * variety setup**.
  *
- * Framework-alignment reference spec (Batch 01). Every locator moved into
- * CropFormPage / CropListPage unchanged, and the action order and assertions of
- * each test are identical to the lifted version — the only intended differences
- * are the titles, the tags and the testCaseId annotations. Runner ids are
- * unchanged (WP-0096…WP-0108): the sync script merges on the annotation first,
- * so retitling does not renumber.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A2 |
+ * | Plan | `test-plans/journey-a/a02-ranch-field-crop-variety-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A2-025`…`A2-037` |
+ *
+ * Relocated from `tests/webpet/crop.spec.ts` (WP-0096…WP-0108). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
+ *
+ * This file provisions its one Crop in `beforeAll`, and no test here reads a
+ * record another test created, so — unlike the ranch/field list files —
+ * there is no need to serialize.
+ *
+ * The Cancel test asserts the list grid is visible *before* asserting the
+ * discarded crop is absent from it: `base.fixture` pins no locale (unlike
+ * `webpet.fixture`), so that positive anchor is what keeps the absence check
+ * meaningful — a silently failed navigation would otherwise make the absence
+ * check vacuously pass.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureCrop, deleteCrop, type EnsuredCrop } from '@data/generated/data-factory';
 
 // This file creates its own Crop via the API instead of depending on a shared
 // "Admin" crop that may not exist in every client DB. The duplicate-name tests
 // re-enter this crop's name to trigger the uniqueness check; the edit tests
-// assert against its returned values. See data-factory.ts.
+// assert against its returned values.
 let crop: EnsuredCrop;
 
-test.beforeAll(async ({ request }) => {
-    crop = await ensureCrop(request);
+test.beforeAll(async ({ sessionApi }) => {
+    crop = await ensureCrop(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (crop) await deleteCrop(request, crop.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (crop) await deleteCrop(sessionApi, crop.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
 
 // ── New Crop Form ──────────────────────────────────────────────────────────────
 
-test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPBatch01'] }, () => {
+test.describe('New crop form', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Crop] Verify that the new crop form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0096' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-025' },
+            { type: 'requirement', description: 'A2-R25' },
+        ],
     }, async ({ pages }) => {
         await pages.cropForm.gotoNew();
         await expect(pages.cropForm.nameInput).toBeVisible();
@@ -48,8 +60,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0097' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-026' },
+            { type: 'requirement', description: 'A2-R26' },
+        ],
     }, async ({ pages }) => {
         const form = pages.cropForm;
         await form.gotoNew();
@@ -65,8 +80,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0098' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-027' },
+            { type: 'requirement', description: 'A2-R27' },
+        ],
     }, async ({ pages }) => {
         await pages.cropForm.gotoNew();
         await pages.cropForm.fillName('TestCrop');
@@ -74,8 +92,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that export identifier auto-populate is skipped when the field is already filled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0099' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-028' },
+            { type: 'requirement', description: 'A2-R28' },
+        ],
     }, async ({ pages }) => {
         const form = pages.cropForm;
         await form.gotoNew();
@@ -85,8 +106,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0100' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-029' },
+            { type: 'requirement', description: 'A2-R29|A2-R30' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.cropForm;
         await form.gotoNew();
@@ -95,14 +119,18 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
         // triggers the UnsavedChangesModal guard, and "Don't Save" abandons edits.
         await form.discardChanges();
         await page.waitForURL('**/setup/crops');
-        // List page is now DataGrid (role=grid); no <td> elements.
+        // Positive anchor before the negative: proves the grid actually rendered,
+        // so the absence check below cannot pass because navigation silently failed.
         await expect(pages.cropList.grid.getRoot()).toBeVisible();
         await expect(pages.cropList.cropNamed('ShouldNotBeSaved')).not.toBeVisible();
     });
 
     test('[Crop] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0101' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-030' },
+            { type: 'requirement', description: 'A2-R31' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.cropForm;
         // Our factory crop already exists. The blur-time uniqueness check catches
@@ -115,8 +143,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that submitting a duplicate name maps the server error to the Name field inline.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0102' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-031' },
+            { type: 'requirement', description: 'A2-R32' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.cropForm;
         // Submit a duplicate name so the Go API responds with a structured 409
@@ -136,8 +167,11 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
     });
 
     test('[Crop] Verify that blurring the name against a duplicate value fires the uniqueness check before submit.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0103' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-032' },
+            { type: 'requirement', description: 'A2-R33' },
+        ],
     }, async ({ pages }) => {
         const form = pages.cropForm;
         // The blur-time hook hits /api/validation/unique with entity=crop,
@@ -153,11 +187,14 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
 
 // ── Edit Crop Form ─────────────────────────────────────────────────────────────
 
-test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPBatch01'] }, () => {
+test.describe('Edit crop form', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Crop] Verify that the edit form loads the existing crop data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0104' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-033' },
+            { type: 'requirement', description: 'A2-R34' },
+        ],
     }, async ({ pages }) => {
         const form = pages.cropForm;
         await form.gotoEdit(crop.id);
@@ -166,8 +203,11 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
     });
 
     test('[Crop] Verify that the name and export identifier are read-only on an existing crop.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0105' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-034' },
+            { type: 'requirement', description: 'A2-R35|A2-R36' },
+        ],
     }, async ({ pages }) => {
         const form = pages.cropForm;
         await form.gotoEdit(crop.id);
@@ -177,8 +217,11 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
     });
 
     test('[Crop] Verify that the traceability assignment sections render on the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0106' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-035' },
+            { type: 'requirement', description: 'A2-R37' },
+        ],
     }, async ({ pages }) => {
         // The legacy tabbed UI migrated to per-attribute AssignmentTab widgets in
         // the (edit-only) Traceability section, each headed "Include <attribute>".
@@ -187,8 +230,11 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
     });
 
     test('[Crop] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0107' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-036' },
+            { type: 'requirement', description: 'A2-R38' },
+        ],
     }, async ({ page, pages }) => {
         await pages.cropForm.gotoEdit(crop.id);
         await pages.cropForm.footer.cancelButton.click();
@@ -196,8 +242,11 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
     });
 
     test('[Crop] Verify that a nonexistent crop id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0108' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-037' },
+            { type: 'requirement', description: 'A2-R39' },
+        ],
     }, async ({ pages }) => {
         await pages.cropForm.gotoEdit(999999);
         await expect(pages.cropForm.notFoundMessage).toBeVisible();

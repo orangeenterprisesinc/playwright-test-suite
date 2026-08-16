@@ -28,6 +28,11 @@ import { BonusWizardPage } from '../pages/bonus/BonusWizardPage';
 import { CustomerListPage } from '../pages/setup/CustomerListPage';
 import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { TermListPage } from '../pages/setup/TermListPage';
+import { RanchListPage } from '../pages/setup/RanchListPage';
+import { RanchFormPage } from '../pages/setup/RanchFormPage';
+import { FieldListPage } from '../pages/setup/FieldListPage';
+import { VarietyListPage } from '../pages/setup/VarietyListPage';
+import { TraceLookupListPage } from '../pages/setup/TraceLookupListPage';
 // Still under src/pages/webpet/ and src/components/webpet/ — each of these is
 // also used by web-pet specs that have not relocated yet. A page object moves
 // to its journey home in the batch that relocates its *last* web-pet consumer;
@@ -36,6 +41,9 @@ import { TermListPage } from '../pages/setup/TermListPage';
 import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
 import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
+import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
+import { CropListPage } from '../pages/webpet/setup/CropListPage';
+import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
@@ -81,6 +89,26 @@ export interface PageObjects {
     /** Terms list — gated on the GrowerBilling module. */
     readonly termList: TermListPage;
 
+    // ── Setup ▸ A2 traceability hierarchy ───────────────────────────
+    /** Ranch list (A2, D7). */
+    readonly ranchList: RanchListPage;
+    /** Ranch New/Edit form, including the boundary editor (A2). */
+    readonly ranchForm: RanchFormPage;
+    /** Field list (A2, D7). */
+    readonly fieldList: FieldListPage;
+    /** Crop New/Edit form (A2). */
+    readonly cropForm: CropFormPage;
+    /** Crop list (A2). */
+    readonly cropList: CropListPage;
+    /** Variety New/Edit form (A2). */
+    readonly varietyForm: VarietyFormPage;
+    /** Variety list (A2). */
+    readonly varietyList: VarietyListPage;
+    /** Traceability ▸ Grades lookup list (A2). */
+    readonly gradeList: TraceLookupListPage;
+    /** Traceability ▸ Sizes lookup list (A2). */
+    readonly sizeList: TraceLookupListPage;
+
     /** The authenticated shell: sidebar navigation and dashboard. */
     readonly shell: AppShellPage;
 
@@ -121,6 +149,20 @@ export function createPageObjects(page: Page): PageObjects {
         get departmentList() { return lazy('departmentList', () => new DepartmentListPage(page)); },
         get billingCenterForm() { return lazy('billingCenterForm', () => new BillingCenterFormPage(page)); },
         get termList() { return lazy('termList', () => new TermListPage(page)); },
+        get ranchList() { return lazy('ranchList', () => new RanchListPage(page)); },
+        get ranchForm() { return lazy('ranchForm', () => new RanchFormPage(page)); },
+        get fieldList() { return lazy('fieldList', () => new FieldListPage(page)); },
+        get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
+        get cropList() { return lazy('cropList', () => new CropListPage(page)); },
+        get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },
+        get varietyList() { return lazy('varietyList', () => new VarietyListPage(page)); },
+        // Route and title are constructor args — the same class serves both lookups.
+        get gradeList() {
+            return lazy('gradeList', () => new TraceLookupListPage(page, '/setup/traceability/grades', 'Grades'));
+        },
+        get sizeList() {
+            return lazy('sizeList', () => new TraceLookupListPage(page, '/setup/traceability/sizes', 'Sizes'));
+        },
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };

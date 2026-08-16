@@ -175,6 +175,1275 @@
             "enabled": false
         },
         {
+            "id": "A2-002",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "pageTitleReadsRanchesNotRanchs",
+            "testTitle": "[Ranch] Verify that the page title reads \"Ranches\" and not the historic typo.",
+            "testDescription": "Regression guard for a historic \"Ranchs\" typo in the page header.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-003",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gridRendersExpectedColumnHeaders",
+            "testTitle": "[Ranch] Verify that the grid renders with the expected column headers.",
+            "testDescription": "The ranch grid renders Name, Barcode, Department, Worker Comp Code and Active columns.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-004",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editIconColumnLinksToRecord",
+            "testTitle": "[Ranch] Verify that the rightmost edit-icon column links to the ranch record.",
+            "testDescription": "The rightmost column carries a SquarePen edit anchor to the ranch record.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-005",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "multiUpdateButtonPaintsAriaPressed",
+            "testTitle": "[Ranch] Verify that the Multi Update button paints aria-pressed when toggled.",
+            "testDescription": "The Multi Update toggle reflects its state in aria-pressed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-006",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "outboundNewLinkCarriesSearchSuffix",
+            "testTitle": "[Ranch] Verify that the outbound New Ranch link carries the URL search suffix.",
+            "testDescription": "The New Ranch link propagates the list URL state.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-007",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "activeToggleFlipsAndUndoRestores",
+            "testTitle": "[Ranch] Verify that the Active toggle flips and bulk-undo restores it.",
+            "testDescription": "An inline Active toggle applies immediately and the SelectedRowsBar Undo reverts it.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-008",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "workerCompCodeTextEditAndUndo",
+            "testTitle": "[Ranch] Verify that a WorkerCompCode text edit applies and undo reverts it.",
+            "testDescription": "An inline WorkerCompCode text edit commits on Enter and Undo reverts it. The empty cell shows an em dash, as does the Department cell, so the WCC button is the second one in column order.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-009",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "applyToAllPropagatesCachePatch",
+            "testTitle": "[Ranch] Verify that Apply to all propagates the cache patch to every selected row.",
+            "testDescription": "Regression guard: the cache patch must reach every selected row, not just the edited one — the server already applied it to all.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-010",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "justThisRowUpdatesOnlyEditedRow",
+            "testTitle": "[Ranch] Verify that Just this row updates only the edited row.",
+            "testDescription": "Declining propagation updates the edited row alone and leaves the other selection untouched.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-011",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameFilterUpdatesUrl",
+            "testTitle": "[Ranch] Verify that typing in the Name filter updates the URL.",
+            "testDescription": "Typing in the Name text filter reflects into the URL as ?name=.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-012",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "sortableHeaderUpdatesUrl",
+            "testTitle": "[Ranch] Verify that clicking a sortable header updates the URL.",
+            "testDescription": "Clicking the Name header flips the default name-ascending sort, reflected as ?sort=name.desc.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-013",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "boundarySectionRendersEditMapAndAdvanced",
+            "testTitle": "[Ranch] Verify that the boundary section renders with its Edit Map control and Advanced disclosure.",
+            "testDescription": "The Map section renders its Edit Map header control, the full-screen editor opens and closes on Escape, and the Advanced disclosure starts collapsed then reveals raw point and polygon inputs.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R11",
+                "A2-R12",
+                "A2-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-014",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "polygonSavesViaAdvancedAndRoundTrips",
+            "testTitle": "[Ranch] Verify that a polygon saved via the Advanced text fallback round-trips on reload.",
+            "testDescription": "A polygon entered through the Advanced text fallback saves and reads back through the API. SKIPPED: unstable in the full serial suite though reliable in isolation — shared map-editor state leaves the form not dirty, so Save stays disabled. Test-design issue, not app behaviour.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R14"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-015",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gridRendersExpectedColumnHeaders",
+            "testTitle": "[Field] Verify that the grid renders with the expected column headers.",
+            "testDescription": "The field grid renders Name, Ranch, Barcode, Crop, Area and Active columns.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R15"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-016",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editIconColumnLinksToRecord",
+            "testTitle": "[Field] Verify that the rightmost edit-icon column links to the field record.",
+            "testDescription": "The rightmost column carries an edit anchor to the field record.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R16"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-017",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "multiUpdateButtonPaintsAriaPressed",
+            "testTitle": "[Field] Verify that the Multi Update button paints aria-pressed when toggled.",
+            "testDescription": "The Multi Update toggle reflects its state in aria-pressed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R17"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-018",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "outboundNewLinkCarriesSearchSuffix",
+            "testTitle": "[Field] Verify that the outbound New link carries the URL search suffix.",
+            "testDescription": "The create link propagates the list URL state, so arriving with ?sort=name.desc yields a link carrying it.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R18"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-019",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "insightsStripToggleReflectedInUrl",
+            "testTitle": "[Field] Verify that the insights-strip toggle is reflected in the URL.",
+            "testDescription": "Expanding the insights strip sets ?expand=top; shrinking removes it.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R19"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-020",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "activeToggleFlipsAndUndoRestores",
+            "testTitle": "[Field] Verify that the Active toggle flips and bulk-undo restores it.",
+            "testDescription": "An inline Active toggle applies immediately and the SelectedRowsBar Undo reverts it.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R20"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-021",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "applyToAllPropagatesCachePatch",
+            "testTitle": "[Field] Verify that Apply to all propagates the cache patch to every selected row.",
+            "testDescription": "Regression guard: the cache patch must reach every selected row, not just the edited one — the server already applied it to all.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R21"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-022",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "justThisRowUpdatesOnlyEditedRow",
+            "testTitle": "[Field] Verify that Just this row updates only the edited row.",
+            "testDescription": "Declining propagation updates the edited row alone and leaves the other selection untouched.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R22"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-023",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "codeFilterUpdatesUrl",
+            "testTitle": "[Field] Verify that typing in the Code filter updates the URL.",
+            "testDescription": "Typing in the Code text filter reflects into the URL as ?code=.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R23"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-024",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "sortableHeaderUpdatesUrl",
+            "testTitle": "[Field] Verify that clicking a sortable header updates the URL.",
+            "testDescription": "Clicking a sortable column header reflects into the URL as ?sort=.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R24"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-025",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Crop] Verify that the new crop form renders the expected fields.",
+            "testDescription": "The new Crop form renders Name, Export Identifier and the Active switch (an ActiveField Switch since it migrated off a native select).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R25"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-026",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Crop] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid; a focus/blur with no value is not enough.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R26"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-027",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Crop] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R27"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-028",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulateSkippedWhenFilled",
+            "testTitle": "[Crop] Verify that export identifier auto-populate is skipped when the field is already filled.",
+            "testDescription": "Auto-populate does not overwrite an Export Identifier the user already filled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R28"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-029",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Crop] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R29",
+                "A2-R30"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-030",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Crop] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "The blur-time uniqueness check catches a duplicate name, so Save stays disabled and the form does not navigate.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R31"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-031",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameSubmitMapsServerErrorInline",
+            "testTitle": "[Crop] Verify that submitting a duplicate name maps the server error to the Name field inline.",
+            "testDescription": "A duplicate name surfaces an inline uniqueness error and the footer error-summary trigger.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R32"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-032",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameBlurFiresUniquenessCheck",
+            "testTitle": "[Crop] Verify that blurring the name against a duplicate value fires the uniqueness check before submit.",
+            "testDescription": "Blurring Name calls /api/validation/unique (entity=crop, field=name) and sets an inline error without a submit.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R33"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-033",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingCropData",
+            "testTitle": "[Crop] Verify that the edit form loads the existing crop data.",
+            "testDescription": "The edit form is populated with the stored Name and Export Identifier for the crop.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R34"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-034",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameAndExportIdentifierReadOnly",
+            "testTitle": "[Crop] Verify that the name and export identifier are read-only on an existing crop.",
+            "testDescription": "Name and Export Identifier are readonly once the crop exists.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R35",
+                "A2-R36"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-035",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "traceabilitySectionsRenderOnEdit",
+            "testTitle": "[Crop] Verify that the traceability assignment sections render on the edit form.",
+            "testDescription": "The edit-only Traceability section renders its per-attribute AssignmentTab widgets.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R37"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-036",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Crop] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the crop list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R38"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-037",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Crop] Verify that a nonexistent crop id shows an error message.",
+            "testDescription": "An unresolvable crop id renders the not-found message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R39"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-038",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Variety] Verify that the new variety form renders all expected fields.",
+            "testDescription": "The new Variety form renders the sheet-mode Crop picker, Name, Code, Export Identifier and the Active switch.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R40"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-039",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cropDropdownPopulatedFromDatabase",
+            "testTitle": "[Variety] Verify that the crop dropdown is populated with crops from the database.",
+            "testDescription": "Opening the Crop picker lists the crops that exist in the database.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R41"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-040",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilRequiredFieldsProvided",
+            "testTitle": "[Variety] Verify that Save is disabled until all required fields are provided.",
+            "testDescription": "Variety needs both Name and the Crop foreign key; Name alone leaves Save disabled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R42",
+                "A2-R43"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-041",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesFromCropAndName",
+            "testTitle": "[Variety] Verify that the export identifier auto-populates from crop and name on blur.",
+            "testDescription": "Blurring Name composes Export Identifier as crop,name rather than copying Name.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R44"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-042",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulateSkippedWhenFilled",
+            "testTitle": "[Variety] Verify that export identifier auto-populate is skipped when the field is already filled.",
+            "testDescription": "Auto-populate does not overwrite an Export Identifier the user already filled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R45"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-043",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Variety] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R46",
+                "A2-R47"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-044",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameForSameCropShowsConflict",
+            "testTitle": "[Variety] Verify that a duplicate name for the same crop shows a conflict error.",
+            "testDescription": "A variety name that repeats within the same crop returns a 409 and keeps the user on the create form. Uniqueness is scoped to the parent crop, not global.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R48"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-045",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingVarietyData",
+            "testTitle": "[Variety] Verify that the edit form loads the existing variety data.",
+            "testDescription": "The edit form is populated with the stored Name, Code and Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R49"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-046",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameCodeAndExportIdentifierReadOnly",
+            "testTitle": "[Variety] Verify that the name, barcode and export identifier are read-only.",
+            "testDescription": "Name, Code and Export Identifier are readonly once the variety exists.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R50",
+                "A2-R51"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-047",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "activeToggleNotDisabled",
+            "testTitle": "[Variety] Verify that the active toggle is not disabled.",
+            "testDescription": "The Active switch stays enabled on the edit form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R52"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-048",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Variety] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the variety list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R53"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-049",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsNotFoundMessage",
+            "testTitle": "[Variety] Verify that a nonexistent variety id shows a not-found message.",
+            "testDescription": "An unresolvable variety id renders the not-found message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R54"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-050",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gradeListRendersGridAndMultiUpdateToggles",
+            "testTitle": "[Grade] Verify that the list renders its grid and the Multi Update button toggles aria-pressed.",
+            "testDescription": "GradeListPage page chrome plus the Multi Update aria-pressed flip. Grade proxies the six sibling TraceLookupItem clones.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R55",
+                "A2-R56"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-051",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gradeListNewLinkCarriesSearchSuffix",
+            "testTitle": "[Grade] Verify that the outbound New Grade link carries the URL search suffix.",
+            "testDescription": "The New Grade link propagates the list URL state.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R57",
+                "A2-R58"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-052",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "varietyListRendersCropFkAndReadOnlyColumns",
+            "testTitle": "[Variety] Verify that the list renders its grid with the Crop FK and read-only name columns.",
+            "testDescription": "VarietyListPage renders the alias-driven Crop foreign-key column alongside its read-only columns.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R59",
+                "A2-R60"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-053",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "varietyListReportButtonVisible",
+            "testTitle": "[Variety] Verify that the Report button is visible on the alias-aware page header.",
+            "testDescription": "The alias-aware page header exposes the Report control, renamed from Print Report.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R61",
+                "A2-R62"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-054",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "sizeListRendersActiveAndBulkItemColumns",
+            "testTitle": "[Size] Verify that the list renders its grid with the active and bulk-item toggle columns.",
+            "testDescription": "SizeListPage renders the bulkItem toggle column unique to Size, plus the read-only quantity and unit columns.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R63",
+                "A2-R64"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-055",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createsVarietyWithCorrectDbValues",
+            "testTitle": "[Equiv] Verify that creating a variety writes the correct DB values.",
+            "testDescription": "Creating a variety through the sheet-mode Crop picker writes cropCounter, name, the composed exportIdentifier and an auto-assigned code. The name is a per-run substitute because the crop+name unique constraint is unfiltered, so soft-deleted rows still block re-inserts; afterAll soft-deletes the row it created.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R65",
+                "A2-R66",
+                "A2-R67",
+                "A2-R68",
+                "A2-R69"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "A3-001",
             "workflow": "A3",
             "journey": "A",

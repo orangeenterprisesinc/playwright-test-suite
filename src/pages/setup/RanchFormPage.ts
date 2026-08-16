@@ -15,7 +15,7 @@
  *   `#polygon` inputs — the text fallback for entering coordinates.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
 
 /**
  * @extends WebpetFormPage

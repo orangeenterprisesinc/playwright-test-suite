@@ -1,21 +1,24 @@
 /**
- * FieldListPage e2e — targets the new DataGrid lib (post PET-424 migration).
+ * FieldListPage e2e for Catalog workflow **A2 — Ranch, field, crop, and
+ * variety setup**.
  *
- * Replaces an earlier suite that drove the legacy DataTable + MultiUpdatePanel
- * UI; that DOM no longer exists. Coverage: page chrome (columns, outbound
- * link searchSuffix), inline editing on Active (toggle), Ranch + Crop (FK
- * comboboxes), multi-edit propagation (yes/no), undo via the SelectedRowsBar
- * pill, URL state, insights strip toggle (`?expand=top`).
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A2 |
+ * | Plan | `test-plans/journey-a/a02-ranch-field-crop-variety-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A2-015`…`A2-024` |
  *
- * Test data (DelLlano, WEBPET-831): creates two fields under a dedicated ranch
- * and targets their grid rows by exact edit-link id. Each test toggles Active
- * and Undo-restores, so it self-cleans.
+ * Relocated from `tests/webpet/field.spec.ts` (WP-0197…WP-0206). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
  *
- * Framework-aligned (Batch 03): the whole grid surface — rows, column headers,
- * multi-update, Undo, the propagate dialog, text filters and the insights strip
- * — lives on WebpetDataGridComponent. Action order and assertions unchanged.
+ * Tests here mutate their own fields (toggle Active) and Undo-restore, so
+ * they cannot run in parallel with each other — kept serial despite
+ * `playwright.config`'s `fullyParallel: true` at `workers: 2`.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureRanch,
     deleteRanch,
@@ -25,41 +28,40 @@ import {
     type EnsuredField,
 } from '@data/generated/data-factory';
 
-// Tests in this file mutate DB state on their own fields — cannot run in
-// parallel without racing. Serialize despite playwright.config's
-// `fullyParallel: true`.
 test.describe.configure({ mode: 'serial' });
 
 // This file owns two fields (under a dedicated ranch), created fresh via the
-// API (no dependency on a seeded Field 1 / Field 5 or on there being ≥2 active
-// uniquely-named fields). The inline-edit/multi-edit tests toggle Active and
-// Undo to restore; afterAll deletes both fields + the ranch regardless, so no
-// rows leak. See data-factory.ts. Field counts are small (well under the
-// DataGrid's 100-row virtualization threshold), so every row — including ours —
-// renders in the DOM for row lookups.
+// API (no dependency on a seeded Field 1 / Field 5). The inline-edit/multi-edit
+// tests toggle Active and Undo to restore; afterAll deletes both fields + the
+// ranch regardless, so no rows leak. Field counts are small (well under the
+// DataGrid's 100-row virtualization threshold), so every row — including
+// ours — renders in the DOM for row lookups.
 let fieldRanch: EnsuredRanch;
 let fieldA: EnsuredField;
 let fieldB: EnsuredField;
 
-test.beforeAll(async ({ request }) => {
-    fieldRanch = await ensureRanch(request);
-    fieldA = await ensureField(request, { ranchId: fieldRanch.id });
-    fieldB = await ensureField(request, { ranchId: fieldRanch.id });
+test.beforeAll(async ({ sessionApi }) => {
+    fieldRanch = await ensureRanch(sessionApi);
+    fieldA = await ensureField(sessionApi, { ranchId: fieldRanch.id });
+    fieldB = await ensureField(sessionApi, { ranchId: fieldRanch.id });
 });
 
-test.afterAll(async ({ request }) => {
-    if (fieldA) await deleteField(request, fieldA.id);
-    if (fieldB) await deleteField(request, fieldB.id);
-    if (fieldRanch) await deleteRanch(request, fieldRanch.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (fieldA) await deleteField(sessionApi, fieldA.id);
+    if (fieldB) await deleteField(sessionApi, fieldB.id);
+    if (fieldRanch) await deleteRanch(sessionApi, fieldRanch.id);
 });
 
 // ── Page chrome ─────────────────────────────────────────────────────────────
 
-test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '@wp-field', '@WPBatch03'] }, () => {
+test.describe('FieldListPage — page chrome', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Field] Verify that the grid renders with the expected column headers.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0197' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-015' },
+            { type: 'requirement', description: 'A2-R15' },
+        ],
     }, async ({ pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -73,8 +75,11 @@ test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '
     });
 
     test('[Field] Verify that the rightmost edit-icon column links to the field record.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0198' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-016' },
+            { type: 'requirement', description: 'A2-R16' },
+        ],
     }, async ({ pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -86,8 +91,11 @@ test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '
     });
 
     test('[Field] Verify that the Multi Update button paints aria-pressed when toggled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0199' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-017' },
+            { type: 'requirement', description: 'A2-R17' },
+        ],
     }, async ({ pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -99,8 +107,11 @@ test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '
     });
 
     test('[Field] Verify that the outbound New link carries the URL search suffix.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0200' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-018' },
+            { type: 'requirement', description: 'A2-R18' },
+        ],
     }, async ({ pages }) => {
         const list = pages.fieldList;
         await list.gotoListWithQuery('?sort=name.desc');
@@ -108,8 +119,11 @@ test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '
     });
 
     test('[Field] Verify that the insights-strip toggle is reflected in the URL.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0201' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-019' },
+            { type: 'requirement', description: 'A2-R19' },
+        ],
     }, async ({ page, pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -126,11 +140,14 @@ test.describe('FieldListPage — page chrome', { tag: ['@WebPet', '@wp-setup', '
 
 // ── Inline editing on a single row ──────────────────────────────────────────
 
-test.describe('FieldListPage — inline edit on a resolved field', { tag: ['@WebPet', '@wp-setup', '@wp-field', '@WPBatch03'] }, () => {
+test.describe('FieldListPage — inline edit on a resolved field', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Field] Verify that the Active toggle flips and bulk-undo restores it.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0202' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-020' },
+            { type: 'requirement', description: 'A2-R20' },
+        ],
     }, async ({ pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -149,11 +166,14 @@ test.describe('FieldListPage — inline edit on a resolved field', { tag: ['@Web
 
 // ── Multi-edit propagation ──────────────────────────────────────────────────
 
-test.describe('FieldListPage — multi-edit propagation', { tag: ['@WebPet', '@wp-setup', '@wp-field', '@WPBatch03'] }, () => {
+test.describe('FieldListPage — multi-edit propagation', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Field] Verify that Apply to all propagates the cache patch to every selected row.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0203' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-021' },
+            { type: 'requirement', description: 'A2-R21' },
+        ],
     }, async ({ pages }) => {
         const grid = pages.fieldList.grid;
         await pages.fieldList.gotoList();
@@ -182,8 +202,11 @@ test.describe('FieldListPage — multi-edit propagation', { tag: ['@WebPet', '@w
     });
 
     test('[Field] Verify that Just this row updates only the edited row.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0204' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-022' },
+            { type: 'requirement', description: 'A2-R22' },
+        ],
     }, async ({ pages }) => {
         const grid = pages.fieldList.grid;
         await pages.fieldList.gotoList();
@@ -211,11 +234,14 @@ test.describe('FieldListPage — multi-edit propagation', { tag: ['@WebPet', '@w
 
 // ── URL state ───────────────────────────────────────────────────────────────
 
-test.describe('FieldListPage — URL state', { tag: ['@WebPet', '@wp-setup', '@wp-field', '@WPBatch03'] }, () => {
+test.describe('FieldListPage — URL state', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Field] Verify that typing in the Code filter updates the URL.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0205' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-023' },
+            { type: 'requirement', description: 'A2-R23' },
+        ],
     }, async ({ page, pages }) => {
         const list = pages.fieldList;
         await list.gotoList();
@@ -228,8 +254,11 @@ test.describe('FieldListPage — URL state', { tag: ['@WebPet', '@wp-setup', '@w
     });
 
     test('[Field] Verify that clicking a sortable header updates the URL.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0206' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-024' },
+            { type: 'requirement', description: 'A2-R24' },
+        ],
     }, async ({ page, pages }) => {
         const list = pages.fieldList;
         await list.gotoList();

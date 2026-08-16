@@ -1,20 +1,30 @@
 /**
- * Variety form-page e2e — list-page coverage moved to
- * traceability-batch-a-smoke.spec.ts when VarietyListPage migrated to the
- * new DataGrid lib (PET-424). Form pages were not touched by that
- * migration, so the form tests below remain valid against the existing DOM.
+ * Variety form-page e2e for Catalog workflow **A2 — Ranch, field, crop, and
+ * variety setup**.
  *
- * DelLlano migration (WEBPET-831): crops and varieties are resolved by NAME
- * (DelLlano ids differ from the legacy PetData ids this spec was authored
- * against — there is no APPLE/BEANS/"Granny Smith"). active migrated off
- * native <select> to the ActiveField Switch (#active), and the dirty-Cancel
- * relabel ("Discard changes" + UnsavedChangesModal) matches the other forms.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A2 |
+ * | Plan | `test-plans/journey-a/a02-ranch-field-crop-variety-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A2-038`…`A2-049` |
  *
- * Framework-aligned (Batch 02): locators live in VarietyFormPage /
- * VarietyListPage, and the sheet-mode Crop picker is driven through
- * ParentPickerComponent. Action order and assertions unchanged.
+ * Relocated from `tests/webpet/variety.spec.ts` (WP-0395…WP-0406). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
+ *
+ * This file provisions two Crops and a Variety in `beforeAll`, and no test
+ * here reads a record another test created, so — unlike the ranch/field list
+ * files — there is no need to serialize.
+ *
+ * The Cancel test asserts the list grid is visible *before* asserting the
+ * discarded variety is absent from it: `base.fixture` pins no locale (unlike
+ * `webpet.fixture`), so that positive anchor is what keeps the absence check
+ * meaningful — a silently failed navigation would otherwise make the absence
+ * check vacuously pass.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureCrop,
     deleteCrop,
@@ -28,34 +38,33 @@ import {
 // duplicate-name test has a real conflict; a second so the dropdown test sees
 // two options) and a Variety — instead of depending on seeded STRAWBERRIES /
 // BLUEBERRIES that don't exist in every client DB. Assert against the returned
-// values. See data-factory.ts.
+// values.
 let cropA: EnsuredCrop; // has the variety
 let cropB: EnsuredCrop; // second crop, for the dropdown test
 let variety: EnsuredVariety;
 
-test.beforeAll(async ({ request }) => {
-    cropA = await ensureCrop(request);
-    cropB = await ensureCrop(request);
-    variety = await ensureVariety(request, { cropId: cropA.id });
+test.beforeAll(async ({ sessionApi }) => {
+    cropA = await ensureCrop(sessionApi);
+    cropB = await ensureCrop(sessionApi);
+    variety = await ensureVariety(sessionApi, { cropId: cropA.id });
 });
 
-test.afterAll(async ({ request }) => {
-    if (variety) await deleteVariety(request, variety.id);
-    if (cropA) await deleteCrop(request, cropA.id);
-    if (cropB) await deleteCrop(request, cropB.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (variety) await deleteVariety(sessionApi, variety.id);
+    if (cropA) await deleteCrop(sessionApi, cropA.id);
+    if (cropB) await deleteCrop(sessionApi, cropB.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
 
 // ── New Variety Form ───────────────────────────────────────────────────────────
 
-test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety', '@WPBatch02'] }, () => {
+test.describe('New variety form', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Variety] Verify that the new variety form renders all expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0395' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-038' },
+            { type: 'requirement', description: 'A2-R40' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -70,8 +79,11 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
     });
 
     test('[Variety] Verify that the crop dropdown is populated with crops from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0396' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-039' },
+            { type: 'requirement', description: 'A2-R41' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -81,8 +93,11 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
     });
 
     test('[Variety] Verify that Save is disabled until all required fields are provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0397' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-040' },
+            { type: 'requirement', description: 'A2-R42|A2-R43' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -100,8 +115,11 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
     });
 
     test('[Variety] Verify that the export identifier auto-populates from crop and name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0398' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-041' },
+            { type: 'requirement', description: 'A2-R44' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -112,8 +130,11 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
     });
 
     test('[Variety] Verify that export identifier auto-populate is skipped when the field is already filled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0399' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-042' },
+            { type: 'requirement', description: 'A2-R45' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -126,8 +147,11 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
     });
 
     test('[Variety] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0400' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-043' },
+            { type: 'requirement', description: 'A2-R46|A2-R47' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -136,14 +160,18 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
         // triggers the UnsavedChangesModal guard, and "Don't Save" abandons edits.
         await form.discardChanges();
         await page.waitForURL('**/setup/varieties');
-        // List page is now DataGrid (role=grid); no <td> elements.
+        // Positive anchor before the negative: proves the grid actually rendered,
+        // so the absence check below cannot pass because navigation silently failed.
         await expect(pages.varietyList.grid.getRoot()).toBeVisible();
         await expect(pages.varietyList.varietyNamed('ShouldNotBeSaved')).not.toBeVisible();
     });
 
     test('[Variety] Verify that a duplicate name for the same crop shows a conflict error.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0401' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-044' },
+            { type: 'requirement', description: 'A2-R48' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.varietyForm;
         // Our factory variety's name collides for the same (factory) crop.
@@ -163,11 +191,14 @@ test.describe('New variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety',
 
 // ── Edit Variety Form ──────────────────────────────────────────────────────────
 
-test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety', '@WPBatch02'] }, () => {
+test.describe('Edit variety form', { tag: ['@JourneyA', '@A2'] }, () => {
 
     test('[Variety] Verify that the edit form loads the existing variety data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0402' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-045' },
+            { type: 'requirement', description: 'A2-R49' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoEdit(variety.id);
@@ -178,8 +209,11 @@ test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety'
     });
 
     test('[Variety] Verify that the name, barcode and export identifier are read-only.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0403' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-046' },
+            { type: 'requirement', description: 'A2-R50|A2-R51' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoEdit(variety.id);
@@ -190,8 +224,11 @@ test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety'
     });
 
     test('[Variety] Verify that the active toggle is not disabled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0404' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-047' },
+            { type: 'requirement', description: 'A2-R52' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoEdit(variety.id);
@@ -200,8 +237,11 @@ test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety'
     });
 
     test('[Variety] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0405' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-048' },
+            { type: 'requirement', description: 'A2-R53' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.varietyForm;
         await form.gotoEdit(variety.id);
@@ -211,8 +251,11 @@ test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety'
     });
 
     test('[Variety] Verify that a nonexistent variety id shows a not-found message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0406' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A2-049' },
+            { type: 'requirement', description: 'A2-R54' },
+        ],
     }, async ({ pages }) => {
         await pages.varietyForm.gotoEdit(999999);
         await expect(pages.varietyForm.notFoundMessage).toBeVisible();

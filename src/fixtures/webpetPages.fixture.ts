@@ -51,21 +51,16 @@ import { EmployeeListPage } from '../pages/webpet/setup/EmployeeListPage';
 import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
 import { EquipmentListPage } from '../pages/webpet/setup/EquipmentListPage';
 import { FieldFormPage } from '../pages/webpet/setup/FieldFormPage';
-import { FieldListPage } from '../pages/webpet/setup/FieldListPage';
 import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
 import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
 import { JobListPage } from '../pages/webpet/setup/JobListPage';
 import { JobGroupFormPage } from '../pages/webpet/setup/JobGroupFormPage';
 import { JobGroupListPage } from '../pages/webpet/setup/JobGroupListPage';
-import { RanchFormPage } from '../pages/webpet/setup/RanchFormPage';
-import { RanchListPage } from '../pages/webpet/setup/RanchListPage';
 import { TermListPage } from '../pages/setup/TermListPage';
 import { TimeSheetValidationFormPage } from '../pages/webpet/setup/TimeSheetValidationFormPage';
 import { TimeSheetValidationListPage } from '../pages/webpet/setup/TimeSheetValidationListPage';
 import { TimeInListPage } from '../pages/webpet/input/TimeInListPage';
-import { TraceLookupListPage } from '../pages/webpet/setup/TraceLookupListPage';
 import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
-import { VarietyListPage } from '../pages/webpet/setup/VarietyListPage';
 
 /**
  * Every web-pet page object, lazily constructed.
@@ -106,20 +101,8 @@ export interface WebpetPages {
     readonly cropList: CropListPage;
     /** Variety create/edit form (`/setup/varieties/{new,:id}`) — sheet-mode Crop picker. */
     readonly varietyForm: VarietyFormPage;
-    /** Variety list (`/setup/varieties`). */
-    readonly varietyList: VarietyListPage;
-    /** Ranch create/edit form (`/setup/ranches/{new,:id}`) — includes the map boundary section. */
-    readonly ranchForm: RanchFormPage;
-    /** Ranch list (`/setup/ranches`) — inline edit, multi-edit, undo, URL state. */
-    readonly ranchList: RanchListPage;
     /** Field create/edit form (`/setup/fields/{new,:id}`) — thirteen ParentPickers. */
     readonly fieldForm: FieldFormPage;
-    /** Field list (`/setup/fields`) — same grid surface plus the insights strip. */
-    readonly fieldList: FieldListPage;
-    /** Grade list (`/setup/traceability/grades`) — proxy for the six sibling lookups. */
-    readonly gradeList: TraceLookupListPage;
-    /** Size list (`/setup/traceability/sizes`) — extra bulkItem + read-only columns. */
-    readonly sizeList: TraceLookupListPage;
 
     // ── Setup ▸ People ──────────────────────────────────────────────
     /** Crew create/edit form (`/setup/crews/{new,:id}`). */
@@ -243,7 +226,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
         get cropList() { return lazy('cropList', () => new CropListPage(page)); },
         get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },
-        get varietyList() { return lazy('varietyList', () => new VarietyListPage(page)); },
         get crewForm() { return lazy('crewForm', () => new CrewFormPage(page)); },
         get crewList() { return lazy('crewList', () => new CrewListPage(page)); },
         get departmentForm() { return lazy('departmentForm', () => new DepartmentFormPage(page)); },
@@ -252,18 +234,9 @@ export function createWebpetPages(page: Page): WebpetPages {
         get employeeList() { return lazy('employeeList', () => new EmployeeListPage(page)); },
         get customerForm() { return lazy('customerForm', () => new CustomerFormPage(page)); },
         get customerList() { return lazy('customerList', () => new CustomerListPage(page)); },
-        get ranchForm() { return lazy('ranchForm', () => new RanchFormPage(page)); },
-        get ranchList() { return lazy('ranchList', () => new RanchListPage(page)); },
         get fieldForm() { return lazy('fieldForm', () => new FieldFormPage(page)); },
-        get fieldList() { return lazy('fieldList', () => new FieldListPage(page)); },
         get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
         get reportEditor() { return lazy('reportEditor', () => new ReportEditorPage(page)); },
-        get gradeList() {
-            return lazy('gradeList', () => new TraceLookupListPage(page, '/setup/traceability/grades', 'Grades'));
-        },
-        get sizeList() {
-            return lazy('sizeList', () => new TraceLookupListPage(page, '/setup/traceability/sizes', 'Sizes'));
-        },
         get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
         get jobList() { return lazy('jobList', () => new JobListPage(page)); },
         get jobGroupForm() { return lazy('jobGroupForm', () => new JobGroupFormPage(page)); },

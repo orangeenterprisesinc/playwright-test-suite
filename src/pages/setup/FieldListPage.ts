@@ -9,7 +9,7 @@
  * `field.spec.ts` covers the list only — there are no field form tests.
  */
 import { Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage
