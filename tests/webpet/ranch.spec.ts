@@ -22,7 +22,7 @@ import { apiUrl } from '@config/webpetEnv';
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { Page } from '@playwright/test';
-import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory';
+import { ensureRanch, deleteRanch, type EnsuredRanch } from '@data/generated/data-factory';
 
 // Tests in this file mutate DB state on their own ranches and cannot run in
 // parallel without racing each other. Serialize — even though

@@ -11,7 +11,7 @@
  * `:not(.hidden)` filter matters — the full option set stays mounted.
  */
 import { test } from '@fixtures/webpet.fixture';
-import { ensureCrop, deleteCrop, type EnsuredCrop } from './data-factory';
+import { ensureCrop, deleteCrop, type EnsuredCrop } from '@data/generated/data-factory';
 
 // Owns its own crop (edit form hosts the mobile tab dropdown), instead of a
 // hardcoded crop id that may not exist in every client DB. See data-factory.ts.

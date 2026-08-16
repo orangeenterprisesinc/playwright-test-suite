@@ -20,7 +20,7 @@
  */
 import { WEBPET_SAMPLE_PDF } from '@config/webpetPaths';
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureEmployee, deleteEmployee } from './data-factory';
+import { ensureEmployee, deleteEmployee } from '@data/generated/data-factory';
 
 test.describe('Employee Documents tab', { tag: ['@WebPet', '@wp-documents', '@WPBatch08'] }, () => {
 

@@ -37,7 +37,7 @@ import {
     deleteCustomer,
     ensureBoard,
     deleteBoard,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 // ── Save / create success toasts ────────────────────────────────────────────
 

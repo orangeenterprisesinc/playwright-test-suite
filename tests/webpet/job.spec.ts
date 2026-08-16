@@ -10,7 +10,7 @@ import { apiUrl } from '@config/webpetEnv';
  */
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureJob, deleteJob, type EnsuredJob } from './data-factory';
+import { ensureJob, deleteJob, type EnsuredJob } from '@data/generated/data-factory';
 
 // This file owns its own Job, created fresh via the API (no dependency on a
 // seeded "0 - PISCA" / "0-Boxing" row). Assert against `job.*`, never a literal

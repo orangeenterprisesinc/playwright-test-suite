@@ -19,7 +19,7 @@
  * /api/onboarding-badges.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureEmployee, deleteEmployee } from './data-factory';
+import { ensureEmployee, deleteEmployee } from '@data/generated/data-factory';
 
 test.describe('Onboarding Badges — list page chrome', { tag: ['@WebPet', '@wp-setup', '@wp-badge', '@WPBatch06'] }, () => {
 

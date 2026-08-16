@@ -24,7 +24,7 @@
  * `aria-labelledby` link that is the stable way in.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureCrew, deleteCrew, type EnsuredCrew } from './data-factory';
+import { ensureCrew, deleteCrew, type EnsuredCrew } from '@data/generated/data-factory';
 
 // This file owns its own Crew (created via the API) for the edit-page dirty
 // checks, instead of the shared hardcoded "Crew 01" / id=1 row — so it can run

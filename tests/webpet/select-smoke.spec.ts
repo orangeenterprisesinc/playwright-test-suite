@@ -26,7 +26,7 @@ import {
     deleteJob,
     type EnsuredCrew,
     type EnsuredJob,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 // Crew and Job refs de-hardcoded to factory-created rows (were the shared id=1
 // crew and /setup/jobs/1 job). Assert against `crew.*` / `job.*` so no two

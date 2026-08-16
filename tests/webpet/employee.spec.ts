@@ -19,7 +19,7 @@ import {
     type EnsuredCrew,
     type EnsuredDepartment,
     type EnsuredEmployee,
-} from './data-factory';
+} from '@data/generated/data-factory';
 import { API_BASE_URL, WEB_BASE_URL, WEBPET_NONSU_USER, WEBPET_NONSU_PASSWORD } from '@config/webpetEnv';
 import { EmployeeFormPage } from '@pages/webpet/setup/EmployeeFormPage';
 import { request as pwRequest } from '@playwright/test';

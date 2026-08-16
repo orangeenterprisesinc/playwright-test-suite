@@ -7,7 +7,7 @@
  * two FK-selection skips.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureEquipment, deleteEquipment, type EnsuredEquipment } from './data-factory';
+import { ensureEquipment, deleteEquipment, type EnsuredEquipment } from '@data/generated/data-factory';
 
 // This file creates its own Equipment (with a resolved Equipment Type FK) via
 // the API instead of depending on a seeded "Forklift". Assert against the

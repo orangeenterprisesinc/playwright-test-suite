@@ -29,7 +29,7 @@ import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths';
 import { API_BASE_URL, apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { APIRequestContext } from '@playwright/test';
-import { ensureCrop, deleteCrop, type EnsuredCrop } from '../data-factory';
+import { ensureCrop, deleteCrop, type EnsuredCrop } from '@data/generated/data-factory';
 
 // Unique per-run suffix avoids the unfiltered unique-constraint ghost-row issue.
 const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();

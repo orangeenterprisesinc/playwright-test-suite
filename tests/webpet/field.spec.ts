@@ -23,7 +23,7 @@ import {
     deleteField,
     type EnsuredRanch,
     type EnsuredField,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 // Tests in this file mutate DB state on their own fields — cannot run in
 // parallel without racing. Serialize despite playwright.config's

@@ -1,47 +1,50 @@
-/**
- * Department form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when DepartmentListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
- *
- * DelLlano migration (WEBPET-831): the "ADP 5" fixture is resolved by NAME —
- * DelLlano identity ids differ from the legacy PetData ids this spec was first
- * authored against, so we never hardcode a DepartmentCounter. Field selectors
- * were updated for the shared components (ActiveField Switch / shadcn Select /
- * Checkbox), and the onBlur-validation + dirty-Cancel (UnsavedChangesModal)
- * patterns mirror employee.spec.ts. Seed: tests/webpet/seed/delllano-e2e-seed.sql.
- *
- * Framework-aligned (Batch 01): locators live in DepartmentFormPage /
- * DepartmentListPage; action order and assertions are unchanged.
- */
-import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureDepartment, deleteDepartment, type EnsuredDepartment } from './data-factory';
+// spec: test-plans/screens/records.md
+// seed: tests/seed.spec.ts
 
-// This file creates its own Department via the API (cloned from an existing
-// record so the ~10 create-time validators are satisfied by construction)
-// instead of depending on a seeded "ADP 5". Assert against the returned values.
-// See data-factory.ts.
+/**
+ * Department form-page e2e — form-only coverage (list-page coverage moved to
+ * setup-batch-b-smoke.spec.ts before this migration; not carried here).
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/records.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-095`…`SCR-104` |
+ *
+ * Relocated from `tests/webpet/department.spec.ts` (WP-0134…WP-0143). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describes; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi` — see the note in `customer.spec.ts`, which carries
+ * the same change and the fixture-runner justification.
+ *
+ * This file creates its own Department via the API (cloned from an existing
+ * record so the ~10 create-time validators are satisfied by construction)
+ * instead of depending on a seeded "ADP 5". Assert against the returned
+ * values. See `src/data/generated/data-factory.ts`.
+ */
+import { expect, test } from '@fixtures/base.fixture';
+import { ensureDepartment, deleteDepartment, type EnsuredDepartment } from '@data/generated/data-factory';
+
 let dept: EnsuredDepartment;
 
-test.beforeAll(async ({ request }) => {
-    dept = await ensureDepartment(request);
+test.beforeAll(async ({ sessionApi }) => {
+    dept = await ensureDepartment(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (dept) await deleteDepartment(request, dept.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (dept) await deleteDepartment(sessionApi, dept.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
 
 // ── New Department Form ────────────────────────────────────────────────────────
 
-test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-department', '@WPBatch01'] }, () => {
+test.describe('New department form', { tag: ['@Screens', '@Records'] }, () => {
 
     test('[Department] Verify that the new department form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0134' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-095' },
+            { type: 'requirement', description: 'SCR-R120' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoNew();
@@ -57,8 +60,11 @@ test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-depart
     });
 
     test('[Department] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0135' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-096' },
+            { type: 'requirement', description: 'SCR-R121' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoNew();
@@ -75,8 +81,11 @@ test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-depart
     });
 
     test('[Department] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0136' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-097' },
+            { type: 'requirement', description: 'SCR-R122' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoNew();
@@ -85,8 +94,11 @@ test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-depart
     });
 
     test('[Department] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0137' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-098' },
+            { type: 'requirement', description: 'SCR-R123|SCR-R124' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.departmentForm;
         await form.gotoNew();
@@ -96,14 +108,18 @@ test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-depart
         // navigation guard, and "Don't Save" abandons edits and proceeds to the list.
         await form.discardChanges();
         await page.waitForURL('**/setup/departments');
-        // List page is now DataGrid (role=grid); no <td> elements.
+        // Positive anchor before the negative: proves the grid actually rendered,
+        // so the absence check below cannot pass because navigation silently failed.
         await expect(pages.departmentList.grid.getRoot()).toBeVisible();
         await expect(pages.departmentList.departmentNamed('ShouldNotBeSaved')).not.toBeVisible();
     });
 
     test('[Department] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0138' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-099' },
+            { type: 'requirement', description: 'SCR-R125' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.departmentForm;
         // Our factory department already exists; error shown inline.
@@ -120,11 +136,14 @@ test.describe('New department form', { tag: ['@WebPet', '@wp-setup', '@wp-depart
 
 // ── Edit Department Form ───────────────────────────────────────────────────────
 
-test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-department', '@WPBatch01'] }, () => {
+test.describe('Edit department form', { tag: ['@Screens', '@Records'] }, () => {
 
     test('[Department] Verify that the edit form loads the existing department data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0139' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-100' },
+            { type: 'requirement', description: 'SCR-R126' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoEdit(dept.id);
@@ -133,8 +152,11 @@ test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-depar
     });
 
     test('[Department] Verify that the name, barcode and export identifier are read-only.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0140' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-101' },
+            { type: 'requirement', description: 'SCR-R127' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoEdit(dept.id);
@@ -145,8 +167,11 @@ test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-depar
     });
 
     test('[Department] Verify that the first-day-of-week and crew-required controls stay editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0141' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-102' },
+            { type: 'requirement', description: 'SCR-R128' },
+        ],
     }, async ({ pages }) => {
         const form = pages.departmentForm;
         await form.gotoEdit(dept.id);
@@ -158,8 +183,11 @@ test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-depar
     });
 
     test('[Department] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0142' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-103' },
+            { type: 'requirement', description: 'SCR-R129' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.departmentForm;
         await form.gotoEdit(dept.id);
@@ -170,8 +198,11 @@ test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-depar
     });
 
     test('[Department] Verify that a nonexistent department id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0143' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-104' },
+            { type: 'requirement', description: 'SCR-R130' },
+        ],
     }, async ({ pages }) => {
         await pages.departmentForm.gotoEdit(999999);
         await expect(pages.departmentForm.notFoundMessage).toBeVisible();

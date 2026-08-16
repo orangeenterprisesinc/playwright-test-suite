@@ -13,7 +13,7 @@
  * its own so none is silently widened.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
 
 /**
  * @extends WebpetFormPage

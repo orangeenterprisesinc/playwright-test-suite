@@ -1235,6 +1235,521 @@
             ],
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "SCR-078",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Customer] Verify that the new customer form renders the expected fields.",
+            "testDescription": "The new Customer form renders Name, the Customer Type picker and the Active checkbox.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R100"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-079",
+            "category": "ui",
+            "testName": "customerTypeDropdownPopulatedFromDatabase",
+            "testTitle": "[Customer] Verify that the customer type dropdown is populated from the database.",
+            "testDescription": "Filtering the Customer Type picker by a type that exists in this database surfaces it.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R101"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-080",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Customer] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R102"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-081",
+            "category": "ui",
+            "testName": "exportIdentifierStaysEmptyAfterNameBlur",
+            "testTitle": "[Customer] Verify that the export identifier stays empty after a name blur (GAP-033 fix).",
+            "testDescription": "Export Identifier must NOT auto-fill from Name on this screen (GAP-033).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R103"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-082",
+            "category": "ui",
+            "testName": "manuallyFilledExportIdentifierNotOverwritten",
+            "testTitle": "[Customer] Verify that a manually filled export identifier is not overwritten.",
+            "testDescription": "A manually entered Export Identifier survives a name blur.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R104"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-083",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Customer] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R105",
+                "SCR-R106"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-084",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Customer] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "A duplicate customer name is rejected via alert() and the user stays on the create form.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R107"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-085",
+            "category": "ui",
+            "testName": "editFormLoadsExistingCustomerData",
+            "testTitle": "[Customer] Verify that the edit form loads the existing customer data.",
+            "testDescription": "The edit form is populated with the stored Name.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R108"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-086",
+            "category": "ui",
+            "testName": "nameReadOnlyCodeAndExportIdentifierEditable",
+            "testTitle": "[Customer] Verify that the name is read-only while barcode and export identifier stay editable.",
+            "testDescription": "Only Name locks after save on this screen; Code and Export Identifier stay editable. Logged for SME review in OPEN_QUESTIONS.md (WEBPET-831) — the test asserts current behaviour deliberately.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R109",
+                "SCR-R110"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-087",
+            "category": "ui",
+            "testName": "activeCheckboxEditable",
+            "testTitle": "[Customer] Verify that the active checkbox is editable.",
+            "testDescription": "The Active checkbox stays enabled on the edit form.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R111"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-088",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Customer] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the customer list.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R112"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-089",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Customer] Verify that a nonexistent customer id shows an error message.",
+            "testDescription": "An unresolvable customer id renders the failed-to-load message.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R113"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-090",
+            "category": "ui",
+            "testName": "contactAddButtonDisabledUntilValueEntered",
+            "testTitle": "[Customer] Verify that the contact Add button is disabled until a value is entered.",
+            "testDescription": "The contacts add-row Add button is disabled while the value field is empty.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R114"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-091",
+            "category": "ui",
+            "testName": "invalidEmailContactKeepsSaveDisabled",
+            "testTitle": "[Customer] Verify that an invalid e-mail contact keeps Save disabled.",
+            "testDescription": "A malformed E-mail contact makes the form invalid, so FormFooter keeps Save disabled. Inline messages are deferred (WEBPET-831).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R115"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-092",
+            "category": "ui",
+            "testName": "invalidWebPageContactKeepsSaveDisabled",
+            "testTitle": "[Customer] Verify that an invalid web page contact keeps Save disabled.",
+            "testDescription": "A malformed Web page contact makes the form invalid, so FormFooter keeps Save disabled.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R116"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-093",
+            "category": "ui",
+            "testName": "malformedPhoneContactKeepsSaveDisabled",
+            "testTitle": "[Customer] Verify that appending a malformed phone contact keeps Save disabled.",
+            "testDescription": "A malformed Phone contact makes the form invalid, so FormFooter keeps Save disabled (WEBPET-61).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R117"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-094",
+            "category": "ui",
+            "testName": "validPhoneContactEnablesSave",
+            "testTitle": "[Customer] Verify that appending a valid phone contact enables Save.",
+            "testDescription": "A well-formed Phone contact leaves the form dirty and valid, so FormFooter enables Save.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R118"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-095",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Department] Verify that the new department form renders the expected fields.",
+            "testDescription": "The new Department form renders Name, Export Identifier, the Active switch, the first-day-of-week Select and the crew-required Checkbox.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R120"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-096",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Department] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R121"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-097",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Department] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R122"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-098",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Department] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R123",
+                "SCR-R124"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-099",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Department] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "Submitting a duplicate department name leaves Save enabled and keeps the user on the create form.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R125"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-100",
+            "category": "ui",
+            "testName": "editFormLoadsExistingDepartmentData",
+            "testTitle": "[Department] Verify that the edit form loads the existing department data.",
+            "testDescription": "The edit form is populated with the stored Name and Code for the department.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R126"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-101",
+            "category": "ui",
+            "testName": "nameCodeAndExportIdentifierReadOnly",
+            "testTitle": "[Department] Verify that the name, barcode and export identifier are read-only.",
+            "testDescription": "Name, Code and Export Identifier are readonly once the department exists.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R127"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-102",
+            "category": "ui",
+            "testName": "firstDayOfWeekAndCrewRequiredEditable",
+            "testTitle": "[Department] Verify that the first-day-of-week and crew-required controls stay editable.",
+            "testDescription": "The first-day-of-week Select and crew-required Checkbox stay enabled on the edit form.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R128"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-103",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Department] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form navigates straight to the list, with no unsaved-changes guard.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R129"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-104",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Department] Verify that a nonexistent department id shows an error message.",
+            "testDescription": "An unresolvable department id renders the not-found message.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R130"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-105",
+            "category": "ui",
+            "testName": "newFormRendersNameField",
+            "testTitle": "[Billing Center] Verify that the new form renders the name field.",
+            "testDescription": "The new Billing Center form renders its Name field. Returns early when the route 403s because GrowerBilling is not licensed.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R135"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-106",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Billing Center] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R136"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-107",
+            "category": "ui",
+            "testName": "cancelReturnsToList",
+            "testTitle": "[Billing Center] Verify that Cancel returns to the list.",
+            "testDescription": "Cancel on a pristine create form returns to the billing centre list.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R137"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-108",
+            "category": "ui",
+            "testName": "createNavigatesToEditForm",
+            "testTitle": "[Billing Center] Verify that creating a billing center navigates to the edit form.",
+            "testDescription": "A successful create navigates to the edit form, where Name is populated and now read-only. Uses a per-run token because the unique constraints ignore soft deletes, so a fixed name can be permanently squatted by a deleted ghost row.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R138",
+                "SCR-R139"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-109",
+            "category": "ui",
+            "testName": "nameReadOnlyOnExistingRecord",
+            "testTitle": "[Billing Center] Verify that the name is read-only on an existing record.",
+            "testDescription": "Name is readonly once the billing centre exists. Skips when the record created by WP-0004 is not present.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R140"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-110",
+            "category": "ui",
+            "testName": "activeToggleFlipsAndSaves",
+            "testTitle": "[Billing Center] Verify that the active toggle can be flipped and saved.",
+            "testDescription": "The header Active switch can be flipped and saved, returning to the list. The control is a role=switch here, unlike the checkbox and id-based variants on peer screens.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R141"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-111",
+            "category": "ui",
+            "testName": "listPageRendersWhenGrowerBillingEnabled",
+            "testTitle": "[Term] Verify that the list page renders when the GrowerBilling module is enabled.",
+            "testDescription": "The Terms list renders its heading and New Term affordance when GrowerBilling is licensed; when the module is absent the route 403s and the sidebar entry is hidden, which is an accepted outcome.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R145",
+                "SCR-R146"
+            ],
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

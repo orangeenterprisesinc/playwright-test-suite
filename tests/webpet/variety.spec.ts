@@ -22,7 +22,7 @@ import {
     deleteVariety,
     type EnsuredCrop,
     type EnsuredVariety,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 // This file creates its own two Crops (one carrying a Variety, so the
 // duplicate-name test has a real conflict; a second so the dropdown test sees

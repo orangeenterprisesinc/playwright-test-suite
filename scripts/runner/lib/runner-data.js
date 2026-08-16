@@ -194,6 +194,49 @@ function specClaims() {
 }
 
 /**
+ * Removes comments while leaving string and template literals intact.
+ *
+ * A regex-only strip (`/\/\*[\s\S]*?\*\//g`) is wrong here, and silently so: a
+ * Playwright URL glob contains both delimiters. `'**\/billing-centers/**'` ends
+ * in `/**`, which reads as a comment *opening*, and the next `'**\/setup/…'`
+ * closes it — swallowing every `test()` call in between and under-counting the
+ * file. That surfaced as billing-center.spec.ts "declares 4 but parsed 6".
+ *
+ * Scanning for the quote characters is enough to avoid it. Regex literals can
+ * also hide a delimiter, but a spec that opens one on the same line as a
+ * `test()` declaration does not occur here, and the failure mode stays loud.
+ */
+function stripComments(source) {
+    let out = '';
+    for (let i = 0; i < source.length;) {
+        const c = source[i];
+        const next = source[i + 1];
+        if (c === '/' && next === '*') {
+            i += 2;
+            while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i++;
+            i += 2;
+            out += ' ';
+        } else if (c === '/' && next === '/') {
+            while (i < source.length && source[i] !== '\n') i++;
+            out += ' ';
+        } else if (c === "'" || c === '"' || c === '`') {
+            out += c;
+            i++;
+            while (i < source.length) {
+                if (source[i] === '\\') { out += source[i] + (source[i + 1] ?? ''); i += 2; continue; }
+                out += source[i];
+                if (source[i] === c) { i++; break; }
+                i++;
+            }
+        } else {
+            out += c;
+            i++;
+        }
+    }
+    return out;
+}
+
+/**
  * How many test declarations each owned spec file contains, keyed by
  * repo-relative path.
  *
@@ -211,7 +254,7 @@ function specClaims() {
 function specTestCallCounts() {
     const counts = new Map();
     for (const file of specFiles()) {
-        const source = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const source = stripComments(fs.readFileSync(file, 'utf8'));
         const relative = path.relative(ROOT, file).split(path.sep).join('/');
         counts.set(relative, (source.match(/(?<!\.)\btest\(\s*['"`]/g) ?? []).length);
     }

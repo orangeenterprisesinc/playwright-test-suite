@@ -16,7 +16,7 @@ import {
     deleteDepartment,
     type EnsuredCrew,
     type EnsuredDepartment,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 // This file owns its own Crew AND its own Department, created fresh via the API
 // (no dependency on a shared, hardcoded "Crew 01" / id=1 or a seeded "ADP 5"

@@ -25,9 +25,18 @@ import { UsersPage } from '../pages/admin/UsersPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { BonusWizardPage } from '../pages/bonus/BonusWizardPage';
-// Still under src/components/webpet/ — the bonus specs relocated ahead of the
-// shared toast surface, which the remaining web-pet specs also use. Moves with
-// a later batch; the import crosses the tree until then.
+import { CustomerListPage } from '../pages/setup/CustomerListPage';
+import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
+import { TermListPage } from '../pages/setup/TermListPage';
+// Still under src/pages/webpet/ and src/components/webpet/ — each of these is
+// also used by web-pet specs that have not relocated yet. A page object moves
+// to its journey home in the batch that relocates its *last* web-pet consumer;
+// until then the import crosses the tree. Moving one earlier would drop it from
+// the web-pet registry and break those specs at typecheck.
+import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
+import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
+import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
+import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
 /**
@@ -57,6 +66,23 @@ export interface PageObjects {
     // ── Bonus ───────────────────────────────────────────────────────
     /** The Bonus wizard (`/bonus`, `/bonus/:type`) — 18 types, two steps. */
     readonly bonusWizard: BonusWizardPage;
+
+    // ── Setup ▸ records ─────────────────────────────────────────────
+    /** Customer New/Edit form, including the contacts sub-form. */
+    readonly customerForm: CustomerFormPage;
+    /** Customer list. */
+    readonly customerList: CustomerListPage;
+    /** Department New/Edit form. */
+    readonly departmentForm: DepartmentFormPage;
+    /** Department list. */
+    readonly departmentList: DepartmentListPage;
+    /** Billing Center New/Edit form — gated on the GrowerBilling module. */
+    readonly billingCenterForm: BillingCenterFormPage;
+    /** Terms list — gated on the GrowerBilling module. */
+    readonly termList: TermListPage;
+
+    /** The authenticated shell: sidebar navigation and dashboard. */
+    readonly shell: AppShellPage;
 
     /**
      * The global toast surface.
@@ -89,6 +115,13 @@ export function createPageObjects(page: Page): PageObjects {
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
         get bonusWizard() { return lazy('bonusWizard', () => new BonusWizardPage(page)); },
+        get customerForm() { return lazy('customerForm', () => new CustomerFormPage(page)); },
+        get customerList() { return lazy('customerList', () => new CustomerListPage(page)); },
+        get departmentForm() { return lazy('departmentForm', () => new DepartmentFormPage(page)); },
+        get departmentList() { return lazy('departmentList', () => new DepartmentListPage(page)); },
+        get billingCenterForm() { return lazy('billingCenterForm', () => new BillingCenterFormPage(page)); },
+        get termList() { return lazy('termList', () => new TermListPage(page)); },
+        get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };
 }

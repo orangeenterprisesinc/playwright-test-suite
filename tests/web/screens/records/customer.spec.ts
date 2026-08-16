@@ -1,50 +1,73 @@
-/**
- * Customer form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when CustomerListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
- *
- * Framework-aligned (Batch 02): locators live in CustomerFormPage /
- * CustomerListPage, the Customer Type picker in ParentPickerComponent, and the
- * contacts sub-form in CustomerContactsComponent. Action order and assertions
- * unchanged.
- */
-import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureCustomer, deleteCustomer, type EnsuredCustomer } from './data-factory';
+// spec: test-plans/screens/records.md
+// seed: tests/seed.spec.ts
 
-// This file owns its own Customer, created fresh via the API (no dependency on
-// a seeded "DFV" row). `customerTypeName` is resolved from whatever the DB
-// actually has so the type-dropdown test doesn't depend on a seeded "Grower".
-// Assert against `customer.*` / `customerTypeName`, never a literal — that is
-// what makes the file safe to run alongside others in parallel. See
-// data-factory.ts.
+/**
+ * Customer form-page e2e — form-only coverage (list-page coverage moved to
+ * setup-batch-b-smoke.spec.ts before this migration; not carried here).
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/records.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-078`…`SCR-094` |
+ *
+ * Relocated from `tests/webpet/customer.spec.ts` (WP-0109…WP-0125). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describes; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi` (see the note below).
+ *
+ * This file owns its own Customer, created fresh via the API (no dependency on
+ * a seeded "DFV" row). `customerTypeName` is resolved from whatever the DB
+ * actually has so the type-dropdown test doesn't depend on a seeded "Grower".
+ * Assert against `customer.*` / `customerTypeName`, never a literal — that is
+ * what makes the file safe to run alongside others in parallel. See
+ * `src/data/generated/data-factory.ts`.
+ *
+ * Customer contact rows support 15 types (PET-17). Email (type=4) and Web page
+ * (type=13) are validated at schema level via superRefine; phone-like types
+ * are accepted as any non-empty string pending legacy confirmation. Inline
+ * message display is deferred (WEBPET-831), so those tests assert the reliable
+ * signal instead: FormFooter keeps Save disabled while the form is invalid.
+ *
+ * ## beforeAll/afterAll on a test-scoped fixture
+ *
+ * `sessionApi` is `test`-scoped, same as webpet's own `request` override was.
+ * Playwright's `beforeAll`/`afterAll` hook type is `(args: TestArgs &
+ * WorkerArgs, testInfo) => …` — not restricted to worker fixtures — and its
+ * fixture runner resolves whatever a hook destructures regardless of scope,
+ * tearing the test-scoped instance back down once the hook returns
+ * (`node_modules/playwright/lib/worker/fixtureRunner.js`, `teardownScope`).
+ * That is mechanically identical to how webpet's `request` was used here; the
+ * `customer`/`customerTypeName` values captured are plain data, so nothing
+ * outlives that teardown.
+ */
+import { expect, test } from '@fixtures/base.fixture';
+import { ensureCustomer, deleteCustomer, type EnsuredCustomer } from '@data/generated/data-factory';
+
 let customer: EnsuredCustomer;
 let customerTypeName: string;
 
-test.beforeAll(async ({ request }) => {
-    customer = await ensureCustomer(request);
-    const types = (await (await request.get('/api/customer-types')).json()) as Array<{ name: string }>;
+test.beforeAll(async ({ sessionApi }) => {
+    customer = await ensureCustomer(sessionApi);
+    const types = (await (await sessionApi.get('/api/customer-types')).json()) as Array<{ name: string }>;
     if (types.length === 0) throw new Error('No customer types exist — cannot exercise the type dropdown');
     customerTypeName = types[0].name;
 });
 
-test.afterAll(async ({ request }) => {
-    if (customer) await deleteCustomer(request, customer.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (customer) await deleteCustomer(sessionApi, customer.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
-//
-// Error handling: alert() — API errors surfaced via window.alert.
 
 // ── New Customer Form ──────────────────────────────────────────────────────────
 
-test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer', '@WPBatch02'] }, () => {
+test.describe('New customer form', { tag: ['@Screens', '@Records'] }, () => {
 
     test('[Customer] Verify that the new customer form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0109' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-078' },
+            { type: 'requirement', description: 'SCR-R100' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -55,8 +78,11 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
     });
 
     test('[Customer] Verify that the customer type dropdown is populated from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0110' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-079' },
+            { type: 'requirement', description: 'SCR-R101' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -67,8 +93,11 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
     });
 
     test('[Customer] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0111' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-080' },
+            { type: 'requirement', description: 'SCR-R102' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -84,8 +113,11 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
     });
 
     test('[Customer] Verify that the export identifier stays empty after a name blur (GAP-033 fix).', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0112' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-081' },
+            { type: 'requirement', description: 'SCR-R103' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -94,8 +126,11 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
     });
 
     test('[Customer] Verify that a manually filled export identifier is not overwritten.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0113' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-082' },
+            { type: 'requirement', description: 'SCR-R104' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -105,8 +140,11 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
     });
 
     test('[Customer] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0114' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-083' },
+            { type: 'requirement', description: 'SCR-R105|SCR-R106' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -115,14 +153,18 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
         // in the UnsavedChangesModal abandons edits.
         await form.discardChanges();
         await page.waitForURL('**/setup/customers');
-        // List page is now DataGrid (role=grid); no <td> elements.
+        // Positive anchor before the negative: proves the grid actually rendered,
+        // so the absence check below cannot pass because navigation silently failed.
         await expect(pages.customerList.grid.getRoot()).toBeVisible();
         await expect(pages.customerList.customerNamed('ShouldNotBeSaved')).not.toBeVisible();
     });
 
     test('[Customer] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0115' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-084' },
+            { type: 'requirement', description: 'SCR-R107' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.customerForm;
         // This file's own customer already exists; re-using its name must be
@@ -139,11 +181,14 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
 
 // ── Edit Customer Form ─────────────────────────────────────────────────────────
 
-test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer', '@WPBatch02'] }, () => {
+test.describe('Edit customer form', { tag: ['@Screens', '@Records'] }, () => {
 
     test('[Customer] Verify that the edit form loads the existing customer data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0116' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-085' },
+            { type: 'requirement', description: 'SCR-R108' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -151,13 +196,15 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
     });
 
     test('[Customer] Verify that the name is read-only while barcode and export identifier stay editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0117' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-086' },
+            { type: 'requirement', description: 'SCR-R109|SCR-R110' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         // Unlike peer setup forms, CustomerFormPage locks only `name` on edit;
-        // `code` and `exportIdentifier` stay editable. Logged for SME review in
-        // OPEN_QUESTIONS.md (WEBPET-831) — flip back if they should be read-only.
+        // `code` and `exportIdentifier` stay editable (WEBPET-831).
         await form.gotoEdit(customer.id);
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
@@ -166,8 +213,11 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
     });
 
     test('[Customer] Verify that the active checkbox is editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0118' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-087' },
+            { type: 'requirement', description: 'SCR-R111' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -176,8 +226,11 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
     });
 
     test('[Customer] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0119' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-088' },
+            { type: 'requirement', description: 'SCR-R112' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -186,8 +239,11 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
     });
 
     test('[Customer] Verify that a nonexistent customer id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0120' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-089' },
+            { type: 'requirement', description: 'SCR-R113' },
+        ],
     }, async ({ pages }) => {
         await pages.customerForm.gotoEdit(999999);
         await expect(pages.customerForm.notFoundMessage).toBeVisible();
@@ -196,16 +252,15 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
 });
 
 // ── Contact Validation (PET-17) ────────────────────────────────────────────────
-//
-// Customer contact rows support 15 types. Email (type=4) and Web page (type=13)
-// are validated at schema level via superRefine; phone-like types are accepted
-// as any non-empty string pending legacy confirmation (see OPEN_QUESTIONS.md).
 
-test.describe('Customer contact validation', { tag: ['@WebPet', '@wp-setup', '@wp-customer', '@WPBatch02'] }, () => {
+test.describe('Customer contact validation', { tag: ['@Screens', '@Records'] }, () => {
 
     test('[Customer] Verify that the contact Add button is disabled until a value is entered.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0121' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-090' },
+            { type: 'requirement', description: 'SCR-R114' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -213,22 +268,27 @@ test.describe('Customer contact validation', { tag: ['@WebPet', '@wp-setup', '@w
     });
 
     test('[Customer] Verify that an invalid e-mail contact keeps Save disabled.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0122' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-091' },
+            { type: 'requirement', description: 'SCR-R115' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
         // Set the add-row type to "E-mail", enter a malformed value, then Add.
         await form.contacts.addContact('E-mail', 'not-an-email');
-        // The appended invalid contact makes the form invalid. Inline message display
-        // is deferred (WEBPET-831) — same as the phone tests below — so assert the
-        // reliable signal: FormFooter keeps Save disabled while the form is invalid.
+        // Inline message display is deferred (WEBPET-831) — assert the reliable
+        // signal: FormFooter keeps Save disabled while the form is invalid.
         await expect(form.footer.saveButton).toBeDisabled();
     });
 
     test('[Customer] Verify that an invalid web page contact keeps Save disabled.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0123' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-092' },
+            { type: 'requirement', description: 'SCR-R116' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -238,15 +298,13 @@ test.describe('Customer contact validation', { tag: ['@WebPet', '@wp-setup', '@w
     });
 
     // ── Phone-format validation (WEBPET-61) ──────────────────────────────────────
-    //
-    // Numeric Phone/Fax/Pager types validate format on new/changed values only.
-    // Inline message display is deferred (WEBPET-831), so these assert the reliable
-    // signal: FormFooter disables Save while the form is invalid, enables it when
-    // dirty + valid (PET-450).
 
     test('[Customer] Verify that appending a malformed phone contact keeps Save disabled.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0124' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-093' },
+            { type: 'requirement', description: 'SCR-R117' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);
@@ -255,8 +313,11 @@ test.describe('Customer contact validation', { tag: ['@WebPet', '@wp-setup', '@w
     });
 
     test('[Customer] Verify that appending a valid phone contact enables Save.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0125' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-094' },
+            { type: 'requirement', description: 'SCR-R118' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoEdit(customer.id);

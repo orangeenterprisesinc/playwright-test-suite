@@ -8,7 +8,7 @@
  * JobGroupListPage; action order and assertions are unchanged.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureJobGroup, deleteJobGroup, type EnsuredJobGroup } from './data-factory';
+import { ensureJobGroup, deleteJobGroup, type EnsuredJobGroup } from '@data/generated/data-factory';
 
 // This file owns its own JobGroup, created fresh via the API (no dependency on
 // a seeded "Hourly" row). Assert against `group.*`, never a literal — that is

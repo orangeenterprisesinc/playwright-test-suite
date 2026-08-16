@@ -12,7 +12,7 @@
  * so retitling does not renumber.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureCrop, deleteCrop, type EnsuredCrop } from './data-factory';
+import { ensureCrop, deleteCrop, type EnsuredCrop } from '@data/generated/data-factory';
 
 // This file creates its own Crop via the API instead of depending on a shared
 // "Admin" crop that may not exist in every client DB. The duplicate-name tests

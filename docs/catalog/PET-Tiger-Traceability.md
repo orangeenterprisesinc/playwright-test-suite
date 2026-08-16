@@ -121,16 +121,13 @@ totals above.
 
 ## webpet tests outside the catalog
 
-21 of 53 webpet spec files (103 of 327 runner rows) map to no catalog workflow. This is
+17 of 49 webpet spec files (69 of 293 runner rows) map to no catalog workflow. This is
 cloud-rebuild surface the PET-Tiger catalog does not describe — inventory,
 customer/department/billing, and the shared UI primitives — not wasted coverage.
 As each area relocates to `tests/web/screens/` it leaves this list; bonus was
 the first to go.
 
-- `billing-center.spec.ts` (6)
 - `console-diagnostic.spec.ts` (1)
-- `customer.spec.ts` (17)
-- `department.spec.ts` (10)
 - `equiv/crew-04-timecard-multi-entry-workflow.spec.ts` (1)
 - `form-field-states.spec.ts` (6)
 - `inventory-center.spec.ts` (1)
@@ -146,7 +143,6 @@ the first to go.
 - `profile-avatar.spec.ts` (1)
 - `profile-change-password.spec.ts` (3)
 - `select-smoke.spec.ts` (4)
-- `term.spec.ts` (1)
 - `timesheet_validation.spec.ts` (11)
 
 ---

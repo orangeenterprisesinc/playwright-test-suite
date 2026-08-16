@@ -46,7 +46,7 @@ import {
     type EnsuredField,
     type EnsuredRanch,
     type EnsuredVariety,
-} from './data-factory';
+} from '@data/generated/data-factory';
 
 let dept: EnsuredDepartment;
 /** Has `variety` under it — drives the "refilters and clears" cascade. */
