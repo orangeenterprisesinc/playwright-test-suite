@@ -1,14 +1,30 @@
 /**
- * Employee form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when EmployeeListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
+ * Employee form-page e2e for Catalog workflow **A5 — Employee setup**.
  *
- * Framework-aligned (Batch 02): locators live in EmployeeFormPage /
- * EmployeeListPage; the Department and Crew ParentPickers are driven through
- * ParentPickerComponent. Action order and assertions unchanged.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A5 |
+ * | Plan | `test-plans/journey-a/a05-employee-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A5-002`…`A5-017` |
+ *
+ * Relocated from `tests/webpet/employee.spec.ts` (WP-0145…WP-0158, WP-0407,
+ * WP-0408). Every assertion below is the one that spec carried, in the same
+ * order and the same describes; what changed is the fixture (`base.fixture`),
+ * the id/tag vocabulary, and `beforeAll`/`afterAll` moving from webpet's
+ * `request` fixture to `sessionApi`.
+ *
+ * Two tests (`A5-002`, `A5-010`) both carried web-pet's `@wp-smoke` tag; a
+ * journey file allows at most one `@Smoke`, so `A5-010` (the edit form loading
+ * saved data) keeps it and `A5-002` (the new-form render) demotes to
+ * `['@HighLevel', '@Regression']`.
+ *
+ * `A5-013` (WP-0408) keeps its whole-test env gate verbatim — `test.skip` on
+ * missing `WEBPET_NONSU_USER`/`WEBPET_NONSU_PASSWORD` — and its temp-employee
+ * cleanup stays in a `finally`, not `afterAll`: Employee has no purge endpoint
+ * (WEBPET-1798), so a soft-deleted name would be stuck forever if the delete
+ * were hoisted and never ran on a mid-file failure.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureCrew,
     deleteCrew,
@@ -33,33 +49,32 @@ let dept: EnsuredDepartment;
 let crew: EnsuredCrew;
 let emp: EnsuredEmployee;
 
-test.beforeAll(async ({ request }) => {
-    dept = await ensureDepartment(request);
-    crew = await ensureCrew(request);
-    emp = await ensureEmployee(request, { department: { id: dept.id, name: dept.name } });
+test.beforeAll(async ({ sessionApi }) => {
+    dept = await ensureDepartment(sessionApi);
+    crew = await ensureCrew(sessionApi);
+    emp = await ensureEmployee(sessionApi, { department: { id: dept.id, name: dept.name } });
 });
 
-test.afterAll(async ({ request }) => {
+test.afterAll(async ({ sessionApi }) => {
     // Delete the employee first — it FK-references the crew/department.
-    if (emp) await deleteEmployee(request, emp.id);
-    if (crew) await deleteCrew(request, crew.id);
-    if (dept) await deleteDepartment(request, dept.id);
+    if (emp) await deleteEmployee(sessionApi, emp.id);
+    if (crew) await deleteCrew(sessionApi, crew.id);
+    if (dept) await deleteDepartment(sessionApi, dept.id);
 });
 
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
-//
 // Field labels use aliases from the Preferences table.
 // These tests assume defaults: Employee = "Employee".
 
 // ── New Employee Form ──────────────────────────────────────────────────────────
 
-test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee', '@WPBatch02'] }, () => {
+test.describe('New employee form', { tag: ['@JourneyA', '@A5'] }, () => {
 
     test('[Employee] Verify that the new employee form renders all expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0145' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-002' },
+            { type: 'requirement', description: 'A5-R1' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -75,8 +90,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that the department dropdown is populated from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0146' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-003' },
+            { type: 'requirement', description: 'A5-R2' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -87,8 +105,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that the crew dropdown is populated from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0147' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-004' },
+            { type: 'requirement', description: 'A5-R3' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -97,8 +118,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0148' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-005' },
+            { type: 'requirement', description: 'A5-R4' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -115,8 +139,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that the export identifier stays empty after a name blur (GAP-016 fix).', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0149' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-006' },
+            { type: 'requirement', description: 'A5-R5' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         // Legacy EmployeeForm.cs does NOT auto-fill ExportIdentifier from Name.
@@ -127,8 +154,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that a manually filled export identifier is not overwritten.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0150' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-007' },
+            { type: 'requirement', description: 'A5-R6' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         // Guard against a future regression that re-introduces the auto-fill:
@@ -140,8 +170,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0151' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-008' },
+            { type: 'requirement', description: 'A5-R7|A5-R8' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -157,8 +190,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     });
 
     test('[Employee] Verify that a duplicate name shows a conflict error.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0152' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-009' },
+            { type: 'requirement', description: 'A5-R9' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.employeeForm;
         // Our factory employee already exists; API errors surface via alert() — auto-dismiss it.
@@ -177,11 +213,14 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
 
 // ── Edit Employee Form ─────────────────────────────────────────────────────────
 
-test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee', '@WPBatch02'] }, () => {
+test.describe('Edit employee form', { tag: ['@JourneyA', '@A5'] }, () => {
 
     test('[Employee] Verify that the edit form loads the existing employee data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0153' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-010' },
+            { type: 'requirement', description: 'A5-R10' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
@@ -191,8 +230,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that the barcode and export identifier are read-only and the name is editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0154' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-011' },
+            { type: 'requirement', description: 'A5-R11|A5-R12' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
@@ -207,8 +249,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0407' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-012' },
+            { type: 'requirement', description: 'A5-R13' },
+        ],
     }, async ({ page, pages }) => {
         // Flip both unlocking terms of the WEBPET-2006 gate client-side (the
         // third, the temporary-name escape hatch, is off because emp.name is
@@ -234,9 +279,12 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0408' },
-    }, async ({ browser, request }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-013' },
+            { type: 'requirement', description: 'A5-R14' },
+        ],
+    }, async ({ browser, sessionApi }) => {
         test.skip(
             !WEBPET_NONSU_USER || !WEBPET_NONSU_PASSWORD,
             'WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD not set — needed for a real non-SU ' +
@@ -249,7 +297,7 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         // (below) makes the first term false; the preferences rewrite makes the
         // second false — so an editable Name here is attributable only to this
         // employee's name starting with "Temporary Badge".
-        const tempEmp = await ensureEmployee(request, { namePrefix: 'Temporary Badge' });
+        const tempEmp = await ensureEmployee(sessionApi, { namePrefix: 'Temporary Badge' });
 
         let nonSuContext: Awaited<ReturnType<typeof browser.newContext>> | undefined;
         try {
@@ -274,19 +322,29 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
             nonSuContext = await browser.newContext({ storageState, baseURL: WEB_BASE_URL });
             const nonSuPage = await nonSuContext.newPage();
 
-            // No /api/session/me rewrite here (unlike WP-0407): the non-SU
+            // No /api/session/me rewrite here (unlike A5-012): the non-SU
             // account already answers isSU=false truthfully server-side, so
             // patching the response would duplicate a real signal, not add one.
             await nonSuPage.route('**/api/preferences*', async (route) => {
-                const response = await route.fetch();
-                const body = await response.json().catch(() => null);
-                if (body) body.allowRecordNameModification = false;
-                await route.fulfill({ response, json: body });
+                try {
+                    const response = await route.fetch();
+                    const body = await response.json().catch(() => null);
+                    if (body) body.allowRecordNameModification = false;
+                    await route.fulfill({ response, json: body });
+                } catch (error) {
+                    // Real round trip (route.fetch) on a context this test closes
+                    // itself in `finally` right after the assertions below — it can
+                    // still be in flight when that close happens. Playwright fails
+                    // the test on a throwing route callback, so a teardown race here
+                    // would be reported as a product failure. Same guard as
+                    // webpet.fixture's session/me handler.
+                    if (!/has been closed/i.test(String(error))) throw error;
+                }
             });
 
-            // No locale pin (unlike the fixture's `context` override) — these
-            // are readonly-attribute assertions, not text assertions, so the
-            // pinned 'en' locale is not load-bearing here.
+            // No locale pin (unlike webpet.fixture's `context` override) — these
+            // are readonly-attribute assertions, not text assertions, so a
+            // pinned locale is not load-bearing here.
             const form = new EmployeeFormPage(nonSuPage);
             await form.gotoEdit(tempEmp.id);
             await form.waitForForm();
@@ -297,13 +355,16 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
             // has no purge endpoint (WEBPET-1798) — a soft-deleted name is stuck
             // forever, so cleanup must run even on failure.
             await nonSuContext?.close();
-            await deleteEmployee(request, tempEmp.id);
+            await deleteEmployee(sessionApi, tempEmp.id);
         }
     });
 
     test('[Employee] Verify that the first name and last name fields are editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0155' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-014' },
+            { type: 'requirement', description: 'A5-R15' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
@@ -313,8 +374,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that the department dropdown shows the current value.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0156' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-015' },
+            { type: 'requirement', description: 'A5-R16' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
@@ -323,8 +387,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0157' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-016' },
+            { type: 'requirement', description: 'A5-R17' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
@@ -334,8 +401,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
     });
 
     test('[Employee] Verify that a nonexistent employee id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0158' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A5-017' },
+            { type: 'requirement', description: 'A5-R18' },
+        ],
     }, async ({ pages }) => {
         await pages.employeeForm.gotoEdit(999999);
         await expect(pages.employeeForm.notFoundMessage).toBeVisible();

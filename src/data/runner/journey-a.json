@@ -155,6 +155,31 @@
             "enabled": true
         },
         {
+            "id": "A1-007",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createsUserWithCorrectDbValues",
+            "testTitle": "[Equiv] Verify that creating a user writes the correct DB values.",
+            "testDescription": "Driving the SPA user form writes the legacy scenario’s Users row: role, initials, language, all seventeen permission flags, employee access and personal info. Login name, email and initials are per-run substitutes because all three are unique-constrained and there is no DELETE endpoint.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A1-R1",
+                "A1-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "A2-001",
             "workflow": "A2",
             "journey": "A",
@@ -1507,6 +1532,404 @@
             "enabled": false
         },
         {
+            "id": "A5-002",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Employee] Verify that the new employee form renders all expected fields.",
+            "testDescription": "The new Employee form renders Name, Code, Export Identifier, First/Last Name, the Department and Crew pickers and the Active checkbox.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A5-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-003",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "departmentDropdownPopulatedFromDatabase",
+            "testTitle": "[Employee] Verify that the department dropdown is populated from the database.",
+            "testDescription": "Opening the Department picker lists departments from the database.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-004",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "crewDropdownPopulatedFromDatabase",
+            "testTitle": "[Employee] Verify that the crew dropdown is populated from the database.",
+            "testDescription": "Opening the Crew picker lists crews from the database.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-005",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Employee] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-006",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierStaysEmptyAfterNameBlur",
+            "testTitle": "[Employee] Verify that the export identifier stays empty after a name blur (GAP-016 fix).",
+            "testDescription": "Export Identifier must NOT auto-fill from Name: legacy EmployeeForm.cs never did, and the web divergence was removed in PET-581 (GAP-016).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-007",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "manuallyFilledExportIdentifierNotOverwritten",
+            "testTitle": "[Employee] Verify that a manually filled export identifier is not overwritten.",
+            "testDescription": "Guards against re-introducing the auto-fill: a manually entered Export Identifier survives a name blur.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-008",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Employee] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R7",
+                "A5-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-009",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameShowsConflictError",
+            "testTitle": "[Employee] Verify that a duplicate name shows a conflict error.",
+            "testDescription": "A duplicate employee name returns a 409 surfaced via alert(), and the user stays on the create form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-010",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingEmployeeData",
+            "testTitle": "[Employee] Verify that the edit form loads the existing employee data.",
+            "testDescription": "The edit form is populated with the stored Name, First Name and Last Name.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A5-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-011",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "barcodeAndExportIdReadOnlyNameEditable",
+            "testTitle": "[Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+            "testDescription": "Barcode and Export Identifier are readonly once the employee exists; Name is gated (WEBPET-2006) and editable for su. Locked side covered by WP-0407.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R11",
+                "A5-R12"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-012",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameReadOnlyForNonSuWithModificationDisallowed",
+            "testTitle": "[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.",
+            "testDescription": "The locked side of the WEBPET-2006 name gate: with isSU=false and AllowRecordNameModification=false (both rewritten client-side via page.route), Name renders readonly on an existing employee.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-013",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameEditableForTempBadgeEmployeeAsNonSu",
+            "testTitle": "[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.",
+            "testDescription": "The third (escape-hatch) term of the WEBPET-2006 name gate: a REAL non-SU login plus a client-side AllowRecordNameModification=false rewrite falsify the first two terms, so Name staying editable is attributable only to the stored name starting with \"Temporary Badge\" (case-insensitive startsWith; record origin irrelevant). Self-skips until WEBPET_NONSU_USER/WEBPET_NONSU_PASSWORD are set (skip-allowlist entry, PET-12468).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R14"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-014",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "firstAndLastNameEditable",
+            "testTitle": "[Employee] Verify that the first name and last name fields are editable.",
+            "testDescription": "First Name and Last Name remain editable on the edit form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R15"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-015",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "departmentDropdownShowsCurrentValue",
+            "testTitle": "[Employee] Verify that the department dropdown shows the current value.",
+            "testDescription": "The Department picker reflects the department the employee belongs to.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R16"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-016",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Employee] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the employee list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R17"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-017",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Employee] Verify that a nonexistent employee id shows an error message.",
+            "testDescription": "An unresolvable employee id renders the failed-to-load message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R18"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A5-018",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "documentUploadListSortDownloadDelete",
+            "testTitle": "[Documents] Verify the upload, list, sort, download and delete happy path.",
+            "testDescription": "Full document happy path against a live object store. S3-gated at module scope so the skip decision cannot shift. The tab is a real ARIA tab and the list is a plain table, not the DataGrid.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A5-R19",
+                "A5-R20",
+                "A5-R21"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
             "id": "A6-001",
             "workflow": "A6",
             "journey": "A",
@@ -1753,6 +2176,165 @@
             ],
             "status": "draft",
             "enabled": false
+        },
+        {
+            "id": "A13-002",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "badgeListPageTitle",
+            "testTitle": "[Badge] Verify that the list page title reads Onboarding Badges.",
+            "testDescription": "The onboarding-badges list renders its heading (PET-559).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A13-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A13-003",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "badgeGridRendersExpectedColumns",
+            "testTitle": "[Badge] Verify that the grid renders with the expected columns.",
+            "testDescription": "The badge grid renders Name, Barcode, Export Identifier, Crew, Department and Active columns.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A13-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A13-004",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newBadgeButtonNavigatesToForm",
+            "testTitle": "[Badge] Verify that the New Badge button navigates to the new-record form.",
+            "testDescription": "The New Badge control navigates to the new-record route under /setup/badge.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A13-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A13-005",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "badgeFormRendersNarrowFieldSet",
+            "testTitle": "[Badge] Verify that the new-record form renders its name, barcode, export identifier and active fields.",
+            "testDescription": "The badge form exposes only Name, Barcode, Export Identifier and Active — narrower than a regular Employee, which is the point of RecordType 1.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A13-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A13-006",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "badgeSaveDisabledUntilNameEntered",
+            "testTitle": "[Badge] Verify that Save is disabled until a name is entered.",
+            "testDescription": "FormFooter keeps Save disabled while the form is pristine or invalid.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A13-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A13-007",
+            "workflow": "A13",
+            "journey": "A",
+            "category": "ui",
+            "testName": "regularEmployeesAbsentFromBadgeList",
+            "testTitle": "[Badge] Verify that regular employees do not appear in the onboarding-badges list.",
+            "testDescription": "Cross-contamination guard: a freshly created RecordType 0 employee must not appear in /api/onboarding-badges. Any leakage is a backend regression.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Onboarding",
+                "Human Resources",
+                "Document",
+                "Signature"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A13-R6"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A14-001",

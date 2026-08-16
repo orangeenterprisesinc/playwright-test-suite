@@ -1,32 +1,43 @@
-import { apiUrl } from '@config/webpetEnv';
 /**
- * Equivalence test: create-user-amy-sandoval
+ * Equivalence test: create-user-amy-sandoval, for Catalog workflow **A1 —
+ * License, serial number, and user setup**.
  *
- * Scenario: Create a new Users record for Amy Sandoval with Administrator role
- *           and full permissions
- * Source:   specs/processed/create-user-amy-sandoval.scenario.yaml
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A1 |
+ * | Plan | `test-plans/journey-a/a01-user-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A1-007` |
+ *
+ * Relocated from `tests/webpet/equiv/create-user-amy-sandoval.spec.ts`
+ * (WP-0174). Scenario: create a new Users record for Amy Sandoval with
+ * Administrator role and full permissions; source
+ * `specs/processed/create-user-amy-sandoval.scenario.yaml`.
  *
  * testIsolation: substitute — 'Amy Sandoval' login name + email replaced with
- * unique per-run tokens. Users_Name_Unique is unfiltered, EmailAddress must be
- * unique in TigerMaster (WEBPET-776), and there is no DELETE API endpoint, so
- * per-run tokens are the only safe isolation strategy.
- * Old ZZTEST_USR_* rows accumulate in BOTH databases — periodic SQL cleanup:
- *   DELETE FROM Users WHERE Name LIKE 'ZZTEST_USR_%'
- *   DELETE FROM TigerMaster.dbo.Users WHERE Name LIKE 'ZZTEST_USR_%'
+ * unique per-run tokens. Users_Name_Unique is unfiltered and EmailAddress must
+ * be unique in TigerMaster (WEBPET-776), so per-run tokens are the only safe
+ * isolation strategy.
+ *
+ * Cleanup: `DELETE /users/{id}` shipped with WEBPET-1606, and this repo has no
+ * DB access from tests at all (the SQL layer was removed 2026-08-04) — the
+ * created user is tracked via `cleanup.track('user', …)` and removed by the
+ * `cleanup` fixture's drain, the same idiom `a01-user-setup.spec.ts` uses. The
+ * original spec's header claiming "no DELETE endpoint, needs periodic SQL
+ * cleanup" was stale; there is no SQL transport in this suite at all.
  *
  * Fields with assert: ignore: UsersCounter (PK), Password (stored hashed),
  * UpdateTime (server timestamp).
  *
  * ShortcutCounter and AliasSetCounter are DB columns not exposed by
  * GET /api/users/:id — cannot be asserted via the API. Both are null on
- * create; if a gap is suspected, verify directly via SQL.
+ * create; if a gap is suspected, verify directly via the API/product, not SQL.
  *
- * Framework-aligned (Batch 14): the form's controls moved onto `UsersFormPage`,
- * including the base-ui Checkbox walk that `clickPermissionCheckbox` used to do
- * inline — see that class for why the field id is not directly clickable.
+ * The form's controls live on `UsersFormPage`, including the base-ui Checkbox
+ * walk that `clickPermission` does — see that class for why the field id is
+ * not directly clickable.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
-import type { Page } from '@playwright/test';
+import { expect, test } from '@fixtures/base.fixture';
+import type { APIRequestContext } from '@playwright/test';
 
 const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
 const SAFE_NAME = `ZZTEST_USR_${RUN_TOKEN}`;
@@ -38,8 +49,8 @@ const TEST_PASSWORD = 'Test@12345';
 // here (POST 409s → no navigation). Pick the lowest free 2-letter code at
 // runtime — same approach as global-setup.ts's freeUserInitials. Documented
 // divergence from the recorded scenario, like EmailAddress below.
-async function freeUserInitials(page: Page): Promise<string> {
-    const res = await page.request.get(apiUrl('/api/users'));
+async function freeUserInitials(sessionApi: APIRequestContext): Promise<string> {
+    const res = await sessionApi.get('/api/users');
     const users = (await res.json()) as Array<{ userInitials?: string }>;
     const used = new Set(users.map((u) => (u.userInitials ?? '').toUpperCase()));
     const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -50,14 +61,17 @@ async function freeUserInitials(page: Page): Promise<string> {
     throw new Error('No free 2-letter user initials available');
 }
 
-test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
+test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@JourneyA', '@A1'] }, () => {
 
     test('[Equiv] Verify that creating a user writes the correct DB values.', {
-        tag: ['@wp-e2e', '@wp-settings'],
-        annotation: { type: 'testCaseId', description: 'WP-0174' },
-    }, async ({ page, pages }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A1-007' },
+            { type: 'requirement', description: 'A1-R1|A1-R10' },
+        ],
+    }, async ({ page, pages, sessionApi, cleanup }) => {
         const form = pages.usersForm;
-        const initials = await freeUserInitials(page);
+        const initials = await freeUserInitials(sessionApi);
         await form.gotoNew();
 
         // ── General section ───────────────────────────────────────────────────
@@ -112,15 +126,16 @@ test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@WebPet', '@wp-e
         await expect(form.saveButton).toBeEnabled();
         await form.saveButton.click();
         await page.waitForURL(/\/settings\/users\/\d+/);
+        // The user now exists — track it for cleanup before any assertion below
+        // can fail and skip past it.
+        cleanup.track('user', SAFE_NAME);
 
         const match = page.url().match(/\/settings\/users\/(\d+)/);
         expect(match, 'URL should contain new user ID after save').not.toBeNull();
         const createdId = parseInt(match![1]!, 10);
 
         // ── DB assertions via GET /api/users/:id ──────────────────────────────
-        // page.request carries the browser session cookie (RequireAuth).
-
-        const res = await page.request.get(apiUrl(`/api/users/${createdId}`));
+        const res = await sessionApi.get(`/api/users/${createdId}`);
         expect(res.ok()).toBe(true);
         const row = await res.json();
 

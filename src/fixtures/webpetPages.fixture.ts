@@ -33,8 +33,6 @@ import { TimeCardFormPage } from '../pages/webpet/input/TimeCardFormPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { ReportEditorPage } from '../pages/webpet/settings/ReportEditorPage';
-import { OnboardingBadgeFormPage } from '../pages/webpet/setup/OnboardingBadgeFormPage';
-import { OnboardingBadgeListPage } from '../pages/webpet/setup/OnboardingBadgeListPage';
 import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { BillingCenterListPage } from '../pages/webpet/setup/BillingCenterListPage';
 import { InventoryListPage } from '../pages/webpet/setup/InventoryListPage';
@@ -117,10 +115,6 @@ export interface WebpetPages {
     readonly employeeForm: EmployeeFormPage;
     /** Employee list (`/setup/employees`). */
     readonly employeeList: EmployeeListPage;
-    /** Onboarding Badge create/edit form (`/setup/badge/{new,:id}`) — Employee RecordType 1. */
-    readonly onboardingBadgeForm: OnboardingBadgeFormPage;
-    /** Onboarding Badge list (`/setup/badge`). */
-    readonly onboardingBadgeList: OnboardingBadgeListPage;
 
     // ── Setup ▸ Customers ───────────────────────────────────────────
     /** Customer create/edit form (`/setup/customers/{new,:id}`) — includes the contacts sub-form. */
@@ -221,8 +215,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
         get boardForm() { return lazy('boardForm', () => new BoardFormPage(page)); },
         get profile() { return lazy('profile', () => new ProfilePage(page)); },
-        get onboardingBadgeForm() { return lazy('onboardingBadgeForm', () => new OnboardingBadgeFormPage(page)); },
-        get onboardingBadgeList() { return lazy('onboardingBadgeList', () => new OnboardingBadgeListPage(page)); },
         get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
         get cropList() { return lazy('cropList', () => new CropListPage(page)); },
         get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },

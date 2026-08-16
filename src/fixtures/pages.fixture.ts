@@ -33,6 +33,8 @@ import { RanchFormPage } from '../pages/setup/RanchFormPage';
 import { FieldListPage } from '../pages/setup/FieldListPage';
 import { VarietyListPage } from '../pages/setup/VarietyListPage';
 import { TraceLookupListPage } from '../pages/setup/TraceLookupListPage';
+import { OnboardingBadgeListPage } from '../pages/setup/OnboardingBadgeListPage';
+import { OnboardingBadgeFormPage } from '../pages/setup/OnboardingBadgeFormPage';
 // Still under src/pages/webpet/ and src/components/webpet/ — each of these is
 // also used by web-pet specs that have not relocated yet. A page object moves
 // to its journey home in the batch that relocates its *last* web-pet consumer;
@@ -44,6 +46,9 @@ import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
 import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
 import { CropListPage } from '../pages/webpet/setup/CropListPage';
 import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
+import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
+import { EmployeeListPage } from '../pages/webpet/setup/EmployeeListPage';
+import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
@@ -109,6 +114,19 @@ export interface PageObjects {
     /** Traceability ▸ Sizes lookup list (A2). */
     readonly sizeList: TraceLookupListPage;
 
+    // ── Setup ▸ People ──────────────────────────────────────────────
+    /** Employee New/Edit form (A5), including the Documents tab. */
+    readonly employeeForm: EmployeeFormPage;
+    /** Employee list (A5). */
+    readonly employeeList: EmployeeListPage;
+    /** Onboarding Badge New/Edit form (`/setup/badge`, A13) — Employee RecordType 1. */
+    readonly onboardingBadgeForm: OnboardingBadgeFormPage;
+    /** Onboarding Badge list (A13). */
+    readonly onboardingBadgeList: OnboardingBadgeListPage;
+
+    /** Web-pet's own user admin form (`/settings/users`, A1) — not the journey `users` screen. */
+    readonly usersForm: UsersFormPage;
+
     /** The authenticated shell: sidebar navigation and dashboard. */
     readonly shell: AppShellPage;
 
@@ -163,6 +181,11 @@ export function createPageObjects(page: Page): PageObjects {
         get sizeList() {
             return lazy('sizeList', () => new TraceLookupListPage(page, '/setup/traceability/sizes', 'Sizes'));
         },
+        get employeeForm() { return lazy('employeeForm', () => new EmployeeFormPage(page)); },
+        get employeeList() { return lazy('employeeList', () => new EmployeeListPage(page)); },
+        get onboardingBadgeForm() { return lazy('onboardingBadgeForm', () => new OnboardingBadgeFormPage(page)); },
+        get onboardingBadgeList() { return lazy('onboardingBadgeList', () => new OnboardingBadgeListPage(page)); },
+        get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };

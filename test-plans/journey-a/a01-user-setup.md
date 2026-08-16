@@ -43,7 +43,7 @@ back*. Ids are stable — append, never re-sort.
 
 | id | Requirement | Cases |
 |---|---|---|
-| `A1-R1` | When the New User form is saved with Name, Password, Role, Initials and Email Address populated, PET Tiger shall create the user and display "User created". | `A1-001`, `A1-002`, `A1-003`, `A1-006` |
+| `A1-R1` | When the New User form is saved with Name, Password, Role, Initials and Email Address populated, PET Tiger shall create the user and display "User created". | `A1-001`, `A1-002`, `A1-003`, `A1-006`, `A1-007` |
 | `A1-R2` | When the Users list is filtered by Name, PET Tiger shall display exactly the matching user's row, with its Initials, Role and Email Address. | `A1-001`, `A1-002` |
 | `A1-R3` | While the last-edited field on the General tab has not been blurred, PET Tiger shall keep Save disabled. | (POM) |
 | `A1-R4` | If Initials match those of an existing user, then PET Tiger shall keep Save disabled, display "Already in use", and remain on the New User form. | `A1-005` |
@@ -52,6 +52,7 @@ back*. Ids are stable — append, never re-sort.
 | `A1-R7` | When a user is deleted, PET Tiger shall remove it from the Users list and release its Name, Initials and Email Address for reuse. | `A1-001` |
 | `A1-R8` | When an existing user is opened for edit, PET Tiger shall load its saved values into the form. | `A1-001` |
 | `A1-R9` | When a serial is applied, PET Tiger shall enable the modules and ceilings it encodes. | — not automatable: serials are generated in the legacy PET Setup (Delphi) tool, which has no web surface (catalog steps 2–3) |
+| `A1-R10` | When a newly created user is read back through `GET /api/users/{id}`, PET Tiger shall return every submitted value — name, role, initials, email, language, personal info, permission flags, employee access and access-to-reverse — unchanged. | `A1-007` |
 
 `A1-R3` and `A1-R4` both end with Save disabled, and that is the point: the same
 pixel means "still validating" in one and "rejected" in the other. Splitting them
@@ -152,6 +153,14 @@ the delete call in
 | `A1-004` | Every Role option is offered in the documented order | `A1-R6` | `regression` | 1 |
 | `A1-005` | Creating a user with an Initials value already in use is rejected | `A1-R4`, `A1-R5` | `regression` | 1 |
 | `A1-006` | Create a user with a non-administrator role | `A1-R1` | `high-level\|regression` | 1 |
+| `A1-007` | Create a user and verify every submitted field persisted, read back via the API | `A1-R1`, `A1-R10` | `regression` | 1 |
+
+`A1-007` lives in its own spec, `a01-user-create.spec.ts`, relocated from the
+web-pet suite. It reuses `A1-R1` rather than restating it — the New User form it
+saves carries exactly R1's field set — and adds `A1-R10` for the field-level
+persistence check no other case makes. It deliberately does **not** cite `A1-R8`:
+that requirement's observable is the *edit form loading* saved values, and this
+test reads the record through the API without reopening the form.
 
 `A1-001` holds the file's single `smoke` slot: it is the widest path through the
 workflow (create → list → edit → delete) and the only case that exercises `A1-R7`

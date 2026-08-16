@@ -11,7 +11,7 @@
  * (AppRouter path `'badge'`), while the API resource is `/api/onboarding-badges`.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
 
 /**
  * @extends WebpetFormPage
