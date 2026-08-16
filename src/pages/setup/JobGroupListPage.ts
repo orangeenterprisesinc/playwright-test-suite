@@ -2,7 +2,7 @@
  * @fileoverview Job Group list — `/setup/jobs/groups`.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage

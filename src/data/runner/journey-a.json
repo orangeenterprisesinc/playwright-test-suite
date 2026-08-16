@@ -1469,6 +1469,49 @@
             "enabled": true
         },
         {
+            "id": "A2-056",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cropListRendersGridMultiUpdateAndReport",
+            "testTitle": "[Crop] Verify that the list renders its grid, Multi Update toggle and Report button.",
+            "testDescription": "CropListPage page chrome after the PET-424 migration: grid columns, the Report print control and the Multi Update toggle.",
+            "segments": [
+                "all"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A2-R70",
+                "A2-R71"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A2-057",
+            "workflow": "A2",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cropListNewLinkCarriesSearchSuffix",
+            "testTitle": "[Crop] Verify that the outbound New Crop link carries the URL search suffix.",
+            "testDescription": "The New Crop link propagates the list URL state.",
+            "segments": [
+                "all"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A2-R72"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "A3-001",
             "workflow": "A3",
             "journey": "A",
@@ -1488,6 +1531,500 @@
             ],
             "status": "draft",
             "enabled": false
+        },
+        {
+            "id": "A3-002",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Job] Verify that the new job form renders the expected fields.",
+            "testDescription": "The new Job form renders Name and the payment-type Select.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A3-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-003",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameAndOvertimeRule",
+            "testTitle": "[Job] Verify that Save is disabled until the required name, overtime rule and hourly rate are provided.",
+            "testDescription": "Job needs both Name and an Overtime Rules foreign key; Name alone leaves Save disabled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R2",
+                "A3-R3",
+                "A3-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-004",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Job] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-005",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Job] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R6",
+                "A3-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-006",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Job] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "A duplicate job name returns a server 409 and keeps the user on the create form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R8",
+                "A3-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-007",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "idleTimeAndJobEndCheckboxDefaults",
+            "testTitle": "[Job] Verify that the idle-time and job-end checkboxes render with their correct defaults.",
+            "testDescription": "PET-60 non-nullable booleans render as shadcn Checkboxes with their legacy NOT NULL DEFAULT values. SKIPPED pending rework of the data-state and round-trip handling.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R10",
+                "A3-R11"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-008",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingJobData",
+            "testTitle": "[Job] Verify that the edit form loads the existing job data.",
+            "testDescription": "The edit form is populated with the stored Name and Code.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A3-R12"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-009",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameAliasCodeAndExportIdentifierReadOnly",
+            "testTitle": "[Job] Verify that the name, alias, code and export identifier are read-only.",
+            "testDescription": "Name, Alias, Code and Export Identifier are all readonly once the job exists — the widest read-only set of the setup forms.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-010",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Job] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the job list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R14"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-011",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Job] Verify that a nonexistent job id shows an error message.",
+            "testDescription": "An unresolvable job id renders the not-found message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R15"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-012",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "idleTimeAndJobEndRoundTripAsBooleans",
+            "testTitle": "[Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.",
+            "testDescription": "PET-60 booleans survive a UI toggle and save as pure booleans, never null. SKIPPED pending the same rework as WP-0233.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R16",
+                "A3-R17"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A3-013",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Job Group] Verify that the new job group form renders the expected fields.",
+            "testDescription": "The new Job Group form renders Name, Export Identifier, Code and the Active switch.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A3-R18"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-014",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Job Group] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R19"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-015",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Job Group] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R20"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-016",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Job Group] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R21",
+                "A3-R22"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-017",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Job Group] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "Submitting a duplicate job group name returns a server 409 and keeps the user on the create form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R23"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-018",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingJobGroupData",
+            "testTitle": "[Job Group] Verify that the edit form loads the existing job group data.",
+            "testDescription": "The edit form is populated with the stored Name and Code for the job group.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A3-R24"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-019",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameReadOnlyExportIdentifierAndCodeEditable",
+            "testTitle": "[Job Group] Verify that the name is read-only while export identifier and code stay editable.",
+            "testDescription": "Only Name locks after save; Export Identifier and Code stay editable, unlike Department and Crew.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R25",
+                "A3-R26"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-020",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Job Group] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the job group list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R27"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A3-021",
+            "workflow": "A3",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Job Group] Verify that a nonexistent job group id shows an error message.",
+            "testDescription": "An unresolvable job group id renders the not-found message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A3-R28"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A4-001",
@@ -1510,6 +2047,336 @@
             ],
             "status": "draft",
             "enabled": false
+        },
+        {
+            "id": "A4-002",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Crew] Verify that the new crew form renders the expected fields.",
+            "testDescription": "The new Crew form renders Name, Export Identifier, the Active switch and the Department ParentPicker combobox.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A4-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-003",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "departmentDropdownPopulatedFromDatabase",
+            "testTitle": "[Crew] Verify that the department dropdown is populated from the database.",
+            "testDescription": "Filtering the Department combobox by a known department name surfaces it, proving the list is DB-backed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-004",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameProvided",
+            "testTitle": "[Crew] Verify that Save is disabled until a required name is provided.",
+            "testDescription": "FormFooter keeps Save disabled until the form is both dirty and valid.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-005",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Crew] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-006",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Crew] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R5",
+                "A4-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-007",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingCrewData",
+            "testTitle": "[Crew] Verify that the edit form loads the existing crew data.",
+            "testDescription": "The edit form is populated with the stored Name for the crew.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A4-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-008",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameCodeAndExportIdentifierReadOnly",
+            "testTitle": "[Crew] Verify that the name, barcode and export identifier are read-only.",
+            "testDescription": "Name, Code and Export Identifier are readonly once the crew exists.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-009",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "shortNameFieldEditable",
+            "testTitle": "[Crew] Verify that the short name field is editable.",
+            "testDescription": "Short Name remains editable on the edit form, unlike the other identity fields.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-010",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "departmentDropdownPopulatedOnEdit",
+            "testTitle": "[Crew] Verify that the department dropdown is populated on the edit form.",
+            "testDescription": "The Department combobox on the edit form lists every department, not just the crew current one.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-011",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Crew] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the crew list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R11"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-012",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Crew] Verify that a nonexistent crew id shows an error message.",
+            "testDescription": "An unresolvable crew id renders the not-found message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R12"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-013",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "crewListRendersDepartmentFkColumn",
+            "testTitle": "[Crew] Verify that the list renders its grid with the Department FK column.",
+            "testDescription": "CrewListPage renders its grid including the Department foreign-key column.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A4-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A4-014",
+            "workflow": "A4",
+            "journey": "A",
+            "category": "ui",
+            "testName": "crewListMultiUpdatePaintsAriaPressed",
+            "testTitle": "[Crew] Verify that the Multi Update toggle paints aria-pressed.",
+            "testDescription": "The Multi Update toggle reflects its state in aria-pressed.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Department",
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A4-R14"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A5-001",
@@ -1928,6 +2795,30 @@
             ],
             "status": "automated",
             "enabled": false
+        },
+        {
+            "id": "A5-019",
+            "workflow": "A5",
+            "journey": "A",
+            "category": "ui",
+            "testName": "employeeListRendersDualFkColumns",
+            "testTitle": "[Employee] Verify that the list renders its grid with both Department and Crew FK columns.",
+            "testDescription": "EmployeeListPage renders both Department and Crew foreign-key columns — the dual-FK proxy shape.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A5-R22"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A6-001",

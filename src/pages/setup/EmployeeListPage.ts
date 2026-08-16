@@ -2,7 +2,7 @@
  * @fileoverview Employee list — `/setup/employees`.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage

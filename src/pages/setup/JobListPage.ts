@@ -5,7 +5,7 @@
  * grid's exact-href row matching matters more here than elsewhere.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage

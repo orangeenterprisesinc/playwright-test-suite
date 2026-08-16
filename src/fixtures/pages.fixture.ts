@@ -35,6 +35,10 @@ import { VarietyListPage } from '../pages/setup/VarietyListPage';
 import { TraceLookupListPage } from '../pages/setup/TraceLookupListPage';
 import { OnboardingBadgeListPage } from '../pages/setup/OnboardingBadgeListPage';
 import { OnboardingBadgeFormPage } from '../pages/setup/OnboardingBadgeFormPage';
+import { JobListPage } from '../pages/setup/JobListPage';
+import { JobGroupFormPage } from '../pages/setup/JobGroupFormPage';
+import { JobGroupListPage } from '../pages/setup/JobGroupListPage';
+import { TimeCardFormPage } from '../pages/processing/TimeCardFormPage';
 // Still under src/pages/webpet/ and src/components/webpet/ — each of these is
 // also used by web-pet specs that have not relocated yet. A page object moves
 // to its journey home in the batch that relocates its *last* web-pet consumer;
@@ -44,11 +48,14 @@ import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
 import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
 import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
-import { CropListPage } from '../pages/webpet/setup/CropListPage';
+import { CropListPage } from '../pages/setup/CropListPage';
 import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
 import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
-import { EmployeeListPage } from '../pages/webpet/setup/EmployeeListPage';
+import { EmployeeListPage } from '../pages/setup/EmployeeListPage';
 import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
+import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
+import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
+import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
@@ -126,6 +133,24 @@ export interface PageObjects {
 
     /** Web-pet's own user admin form (`/settings/users`, A1) — not the journey `users` screen. */
     readonly usersForm: UsersFormPage;
+    /** Crew New/Edit form (A4). */
+    readonly crewForm: CrewFormPage;
+    /** Crew list (A4). */
+    readonly crewList: CrewListPage;
+
+    // ── Setup ▸ Jobs (A3) ───────────────────────────────────────────
+    /** Job New/Edit form — Overtime Rules FK required. */
+    readonly jobForm: JobFormPage;
+    /** Job list. */
+    readonly jobList: JobListPage;
+    /** Job Group New/Edit form. */
+    readonly jobGroupForm: JobGroupFormPage;
+    /** Job Group list. */
+    readonly jobGroupList: JobGroupListPage;
+
+    // ── Input ▸ time cards (D3) ─────────────────────────────────────
+    /** Time card entry form — office correction of a crew time card. */
+    readonly timeCardForm: TimeCardFormPage;
 
     /** The authenticated shell: sidebar navigation and dashboard. */
     readonly shell: AppShellPage;
@@ -186,6 +211,13 @@ export function createPageObjects(page: Page): PageObjects {
         get onboardingBadgeForm() { return lazy('onboardingBadgeForm', () => new OnboardingBadgeFormPage(page)); },
         get onboardingBadgeList() { return lazy('onboardingBadgeList', () => new OnboardingBadgeListPage(page)); },
         get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
+        get crewForm() { return lazy('crewForm', () => new CrewFormPage(page)); },
+        get crewList() { return lazy('crewList', () => new CrewListPage(page)); },
+        get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
+        get jobList() { return lazy('jobList', () => new JobListPage(page)); },
+        get jobGroupForm() { return lazy('jobGroupForm', () => new JobGroupFormPage(page)); },
+        get jobGroupList() { return lazy('jobGroupList', () => new JobGroupListPage(page)); },
+        get timeCardForm() { return lazy('timeCardForm', () => new TimeCardFormPage(page)); },
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };

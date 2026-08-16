@@ -9,7 +9,7 @@
  * locks after save, while Export Identifier and Code stay editable.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
 
 /**
  * @extends WebpetFormPage

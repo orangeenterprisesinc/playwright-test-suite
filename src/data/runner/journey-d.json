@@ -64,6 +64,30 @@
             "enabled": false
         },
         {
+            "id": "D3-002",
+            "workflow": "D3",
+            "journey": "D",
+            "category": "ui",
+            "testName": "createsThreeTimeInAndOneTimeOut",
+            "testTitle": "[Equiv] Verify that three Time In records and one Time Out record are written with the correct DB values.",
+            "testDescription": "Declared-skip: the legacy View > Time Cards multi-entry form has no web equivalent yet. When it lands, this walks three query-prefilled Time In punches plus a Time Out for employee 1257 on the 2099-01-15 sentinel date and asserts every persisted column.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "D3-R1",
+                "D3-R2"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
             "id": "D4-001",
             "workflow": "D4",
             "journey": "D",

@@ -8,7 +8,7 @@
  * thin: the substantive list coverage moved to `setup-batch-b-smoke.spec.ts`.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage

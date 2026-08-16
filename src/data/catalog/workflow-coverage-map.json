@@ -30,39 +30,29 @@
         },
         "A2": {
             "depth": "screens",
-            "webpetSpecs": [
-                "setup-batch-b-smoke.spec.ts"
-            ],
-            "note": "Every record type in the hierarchy has form + list + inline-edit + multi-edit coverage, including Grade/Size/Variety. Relocated to the journey suite as rows A2-002..A2-055 (tests/web/journey-a-setup/a02-*); depth stays screens because none of it builds the hierarchy end to end.",
+            "webpetSpecs": [],
+            "note": "Every record type in the hierarchy has form + list + inline-edit + multi-edit coverage, including Grade/Size/Variety. Relocated to the journey suite as rows A2-002..A2-055 (tests/web/journey-a-setup/a02-*); depth stays screens because none of it builds the hierarchy end to end. setup-batch-b-smoke was the last web-pet spec for A2; its crop-list rows are A2-056/A2-057.",
             "gap": "No end-to-end build of the ranch→field→crop→variety hierarchy in one journey, and no assertion that field capture resolves against it.",
             "next": "Add a journey spec that builds the hierarchy once and verifies a job references it."
         },
         "A3": {
             "depth": "partial",
-            "webpetSpecs": [
-                "job.spec.ts",
-                "job-group.spec.ts"
-            ],
-            "note": "Job form covers payment type, overtime rule, hourly rate and the per-payment-type required fields; job groups have full form coverage.",
+            "webpetSpecs": [],
+            "note": "Job and job-group form CRUD, validation, the payment-type control set and the read-only field sets are covered by journey rows A3-002..A3-021 (tests/web/journey-a-setup/a03-*). A3-012 is enabled=0: ensureJob cannot build a savable paymentType 8/15 job, so the include-idle-time / act-as-job-end API round-trip (A3-R16, A3-R17) is unproven. Depth stays partial — earning codes are still never asserted.",
             "gap": "Earning codes are never asserted — the field the payroll export (E9/E10) depends on.",
             "next": "Extend job.spec with earning-code entry and assert it reaches the export identifier."
         },
         "A4": {
             "depth": "screens",
-            "webpetSpecs": [
-                "crew.spec.ts",
-                "setup-batch-b-smoke.spec.ts"
-            ],
-            "note": "New/edit crew forms including export-identifier auto-population and read-only-after-create rules.",
+            "webpetSpecs": [],
+            "note": "Crew form CRUD, validation, the read-only field set, the Department picker and list chrome are covered by journey rows A4-002..A4-014 (tests/web/journey-a-setup/a04-*). Depth stays screens — auto-break rules, exercise time and crew-driven notification behaviour are never exercised.",
             "gap": "Auto-break, exercise and notification-user behaviour set on the crew are configured but never exercised downstream.",
             "next": "Cover the crew's auto-break/notification settings once D10 or B12 is automated."
         },
         "A5": {
             "depth": "screens",
-            "webpetSpecs": [
-                "setup-batch-b-smoke.spec.ts"
-            ],
-            "note": "Employee form, validation, the three-term WEBPET-2006 Name gate and the Documents tab are covered. Relocated to journey rows A5-002..A5-018 (tests/web/journey-a-setup/a05-*); depth stays screens because pay rates, meal waivers and compliance are never asserted.",
+            "webpetSpecs": [],
+            "note": "Employee form, validation, the three-term WEBPET-2006 Name gate and the Documents tab are covered. Relocated to journey rows A5-002..A5-018 (tests/web/journey-a-setup/a05-*); depth stays screens because pay rates, meal waivers and compliance are never asserted. The employee-list render relocated as A5-019; setup-batch-b-smoke was the last web-pet spec for A5.",
             "gap": "Meal waivers and compliance data are not asserted; Documents tab is skipped without S3_ENDPOINT.",
             "next": "Assert meal-waiver fields — E7 depends on them."
         },
@@ -333,7 +323,7 @@
         "D3": {
             "depth": "none",
             "webpetSpecs": [],
-            "note": "",
+            "note": "Relocated as journey row D3-002 (tests/web/journey-d-processing/d03-timecard-multi-entry), but enabled=0 and body-skipped: the web app has no multi-entry time-card surface, and the test writes TimeCard rows with no cleanup path now that DB access is removed. Depth stays none — a disabled row is not coverage.",
             "gap": "Add missing time-in and correct the time card.",
             "next": "Plan with D2/D4."
         },

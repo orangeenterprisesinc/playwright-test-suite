@@ -128,7 +128,14 @@ function build() {
         ]);
         const tally = tallyFor(files, runs);
 
-        const automated = workflowRows.filter((r) => r.status === 'automated');
+        // `enabled` matters as much as `status`: a quarantined row is still
+        // status=automated, but the gate skips it, so it proves nothing. Counting
+        // it would push the staleness check below into demanding a depth for a
+        // workflow whose only automation never runs — inventing exactly the false
+        // coverage this matrix exists to prevent. D3-002 is the live example.
+        const automated = workflowRows.filter(
+            (r) => r.status === 'automated' && String(r.enabled) === '1',
+        );
 
         // Depth is whatever the map says — it is the judgement layer, and this is
         // the only column a human authors.

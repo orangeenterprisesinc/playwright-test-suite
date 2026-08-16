@@ -1,13 +1,34 @@
 /**
- * Job Group form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when JobGroupListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
+ * Job Group form-page e2e for Catalog workflow **A3 — Job setup and earning
+ * codes**.
  *
- * Framework-aligned (Batch 01): locators live in JobGroupFormPage /
- * JobGroupListPage; action order and assertions are unchanged.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A3 |
+ * | Plan | `test-plans/journey-a/a03-job-setup-and-earning-codes.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A3-013`…`A3-021` (continues the `A3-R…` requirement family started in `a03-job-form.spec.ts`) |
+ *
+ * Relocated from `tests/webpet/job-group.spec.ts` (WP-0219…WP-0227). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
+ *
+ * Route: /setup/jobs/groups, /setup/jobs/groups/new, /setup/jobs/groups/:id
+ * Only "name" is read-only after save; exportIdentifier and code remain editable.
+ *
+ * `A3-017` (the duplicate-name test) is a deliberate non-repair: it shares a
+ * hole that its job-form sibling (`A3-006`) fixed — no assertion on the
+ * surfaced error message, just that the create form stays reachable —
+ * closing that gap needs live browser probing, so it is relocated verbatim,
+ * including its `page.on('dialog')` dismiss handler.
+ *
+ * Two tests (`A3-013`, `A3-018`) both carried web-pet's `@wp-smoke` tag; a
+ * journey file allows at most one `@Smoke`, so `A3-018` (the edit form
+ * loading saved data) keeps it and `A3-013` (the new-form render) demotes to
+ * `['@HighLevel', '@Regression']`.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureJobGroup, deleteJobGroup, type EnsuredJobGroup } from '@data/generated/data-factory';
 
 // This file owns its own JobGroup, created fresh via the API (no dependency on
@@ -16,28 +37,24 @@ import { ensureJobGroup, deleteJobGroup, type EnsuredJobGroup } from '@data/gene
 // data-factory.ts.
 let group: EnsuredJobGroup;
 
-test.beforeAll(async ({ request }) => {
-    group = await ensureJobGroup(request);
+test.beforeAll(async ({ sessionApi }) => {
+    group = await ensureJobGroup(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (group) await deleteJobGroup(request, group.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (group) await deleteJobGroup(sessionApi, group.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
-//
-// Route: /setup/jobs/groups, /setup/jobs/groups/new, /setup/jobs/groups/:id
-// Only "name" is read-only after save; exportIdentifier and code remain editable.
 
 // ── New Job Group Form ─────────────────────────────────────────────────────────
 
-test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-group', '@WPBatch01'] }, () => {
+test.describe('New job group form', { tag: ['@JourneyA', '@A3'] }, () => {
 
     test('[Job Group] Verify that the new job group form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0219' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-013' },
+            { type: 'requirement', description: 'A3-R18' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoNew();
@@ -49,8 +66,11 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
     });
 
     test('[Job Group] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0220' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-014' },
+            { type: 'requirement', description: 'A3-R19' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoNew();
@@ -66,8 +86,11 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
     });
 
     test('[Job Group] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0221' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-015' },
+            { type: 'requirement', description: 'A3-R20' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoNew();
@@ -76,8 +99,11 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
     });
 
     test('[Job Group] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0222' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-016' },
+            { type: 'requirement', description: 'A3-R21|A3-R22' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoNew();
@@ -92,8 +118,11 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
     });
 
     test('[Job Group] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0223' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-017' },
+            { type: 'requirement', description: 'A3-R23' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobGroupForm;
         // This file's own job-group name triggers a server 409 on submit, keeping
@@ -110,11 +139,14 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
 
 // ── Edit Job Group Form ────────────────────────────────────────────────────────
 
-test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-group', '@WPBatch01'] }, () => {
+test.describe('Edit job group form', { tag: ['@JourneyA', '@A3'] }, () => {
 
     test('[Job Group] Verify that the edit form loads the existing job group data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0224' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-018' },
+            { type: 'requirement', description: 'A3-R24' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoEdit(group.id);
@@ -123,8 +155,11 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
     });
 
     test('[Job Group] Verify that the name is read-only while export identifier and code stay editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0225' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-019' },
+            { type: 'requirement', description: 'A3-R25|A3-R26' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoEdit(group.id);
@@ -135,8 +170,11 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
     });
 
     test('[Job Group] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0226' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-020' },
+            { type: 'requirement', description: 'A3-R27' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoEdit(group.id);
@@ -145,8 +183,11 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
     });
 
     test('[Job Group] Verify that a nonexistent job group id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0227' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-021' },
+            { type: 'requirement', description: 'A3-R28' },
+        ],
     }, async ({ pages }) => {
         await pages.jobGroupForm.gotoEdit(999999);
         await expect(pages.jobGroupForm.notFoundMessage).toBeVisible();

@@ -1,14 +1,29 @@
 /**
- * Crew form-page e2e — list-page coverage moved to
- * setup-batch-b-smoke.spec.ts when CrewListPage migrated to the new
- * DataGrid lib (PET-424). Form pages were not touched by that migration,
- * so the form tests below remain valid against the existing DOM.
+ * Crew form-page e2e for Catalog workflow **A4 — Crew setup**.
  *
- * Framework-aligned (Batch 01): locators live in CrewFormPage / CrewListPage,
- * and the Department ParentPicker is driven through ParentPickerComponent
- * instead of the free-function helpers. Action order and assertions unchanged.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A4 |
+ * | Plan | `test-plans/journey-a/a04-crew-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A4-002`…`A4-012` |
+ *
+ * Relocated from `tests/webpet/crew.spec.ts` (WP-0085…WP-0095). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
+ *
+ * List-page coverage for Crew lives in `a04-setup-list-smoke.spec.ts`
+ * (CrewListPage migrated to the DataGrid lib under PET-424); form pages were
+ * not touched by that migration, so the form tests below remain valid
+ * against the existing DOM.
+ *
+ * Two tests (`A4-002`, `A4-007`) both carried web-pet's `@wp-smoke` tag; a
+ * journey file allows at most one `@Smoke`, so `A4-007` (the edit form
+ * loading saved data) keeps it and `A4-002` (the new-form render) demotes to
+ * `['@HighLevel', '@Regression']`.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureCrew,
     deleteCrew,
@@ -26,27 +41,26 @@ import {
 let crew: EnsuredCrew;
 let dept: EnsuredDepartment;
 
-test.beforeAll(async ({ request }) => {
-    crew = await ensureCrew(request);
-    dept = await ensureDepartment(request);
+test.beforeAll(async ({ sessionApi }) => {
+    crew = await ensureCrew(sessionApi);
+    dept = await ensureDepartment(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (crew) await deleteCrew(request, crew.id);
-    if (dept) await deleteDepartment(request, dept.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (crew) await deleteCrew(sessionApi, crew.id);
+    if (dept) await deleteDepartment(sessionApi, dept.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
 
 // ── New Crew Form ──────────────────────────────────────────────────────────────
 
-test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPBatch01'] }, () => {
+test.describe('New crew form', { tag: ['@JourneyA', '@A4'] }, () => {
 
     test('[Crew] Verify that the new crew form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0085' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-002' },
+            { type: 'requirement', description: 'A4-R1' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -59,8 +73,11 @@ test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPB
     });
 
     test('[Crew] Verify that the department dropdown is populated from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0086' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-003' },
+            { type: 'requirement', description: 'A4-R2' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -72,8 +89,11 @@ test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPB
     });
 
     test('[Crew] Verify that Save is disabled until a required name is provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0087' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-004' },
+            { type: 'requirement', description: 'A4-R3' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -90,8 +110,11 @@ test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPB
     });
 
     test('[Crew] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0088' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-005' },
+            { type: 'requirement', description: 'A4-R4' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -100,8 +123,11 @@ test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPB
     });
 
     test('[Crew] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0089' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-006' },
+            { type: 'requirement', description: 'A4-R5|A4-R6' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -119,11 +145,14 @@ test.describe('New crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPB
 
 // ── Edit Crew Form ─────────────────────────────────────────────────────────────
 
-test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WPBatch01'] }, () => {
+test.describe('Edit crew form', { tag: ['@JourneyA', '@A4'] }, () => {
 
     test('[Crew] Verify that the edit form loads the existing crew data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0090' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-007' },
+            { type: 'requirement', description: 'A4-R7' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -131,8 +160,11 @@ test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WP
     });
 
     test('[Crew] Verify that the name, barcode and export identifier are read-only.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0091' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-008' },
+            { type: 'requirement', description: 'A4-R8' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -143,8 +175,11 @@ test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WP
     });
 
     test('[Crew] Verify that the short name field is editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0092' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-009' },
+            { type: 'requirement', description: 'A4-R9' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -153,8 +188,11 @@ test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WP
     });
 
     test('[Crew] Verify that the department dropdown is populated on the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0093' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-010' },
+            { type: 'requirement', description: 'A4-R10' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -166,8 +204,11 @@ test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WP
     });
 
     test('[Crew] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0094' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-011' },
+            { type: 'requirement', description: 'A4-R11' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -176,8 +217,11 @@ test.describe('Edit crew form', { tag: ['@WebPet', '@wp-setup', '@wp-crew', '@WP
     });
 
     test('[Crew] Verify that a nonexistent crew id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0095' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A4-012' },
+            { type: 'requirement', description: 'A4-R12' },
+        ],
     }, async ({ pages }) => {
         await pages.crewForm.gotoEdit(999999);
         await expect(pages.crewForm.notFoundMessage).toBeVisible();

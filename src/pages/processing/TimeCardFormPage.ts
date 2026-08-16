@@ -24,7 +24,7 @@
  * matches, which is why it is spelled out here.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

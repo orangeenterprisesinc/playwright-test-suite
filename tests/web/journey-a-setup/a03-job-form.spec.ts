@@ -1,15 +1,35 @@
-import { apiUrl } from '@config/webpetEnv';
 /**
- * Job form-page e2e.
+ * Job form-page e2e for Catalog workflow **A3 — Job setup and earning
+ * codes**.
  *
- * Framework-aligned (Batch 03): locators live in JobFormPage / JobListPage, and
- * the Overtime Rules ParentPicker is driven through ParentPickerComponent.
- * The two PET-60 tests (WP-0233/WP-0238) were skipped from Batch 03 until
- * 2026-08-06, when probing showed no payment type renders both checkboxes at
- * once — they now assert each checkbox under its own payment type.
+ * | | |
+ * |---|---|
+ * | Catalog | `docs/catalog/PET-Tiger-Workflow-Catalog.docx` → A3 |
+ * | Plan | `test-plans/journey-a/a03-job-setup-and-earning-codes.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A3-002`…`A3-012` (job-group forms continue the same A3 requirement family as `A3-013`…`A3-021` in `a03-job-group-form.spec.ts`) |
+ *
+ * Relocated from `tests/webpet/job.spec.ts` (WP-0228…WP-0238). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`. `apiUrl` stays imported from `@config/webpetEnv`
+ * for the round-trip GETs in `A3-012`.
+ *
+ * `A3-012` (WP-0238) is relocated but stays quarantined: `ensureJob` cannot
+ * build a savable paymentType 8/15 job (see its inline comment), so the
+ * round trip below is landed with `enabled=0` in the runner CSV rather than
+ * repaired here. Provisioning inside the test now goes through `sessionApi`;
+ * `page.request` stays for the round-trip GETs because those are verifying
+ * the browser context's own cookies/baseURL, not a standalone API call.
+ *
+ * Two tests (`A3-002`, `A3-008`) both carried web-pet's `@wp-smoke` tag; a
+ * journey file allows at most one `@Smoke`, so `A3-008` (the edit form
+ * loading saved data) keeps it and `A3-002` (the new-form render) demotes to
+ * `['@HighLevel', '@Regression']`.
  */
+import { apiUrl } from '@config/webpetEnv';
 import type { Locator } from '@playwright/test';
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureJob, deleteJob, type EnsuredJob } from '@data/generated/data-factory';
 
 // This file owns its own Job, created fresh via the API (no dependency on a
@@ -18,25 +38,24 @@ import { ensureJob, deleteJob, type EnsuredJob } from '@data/generated/data-fact
 // data-factory.ts.
 let job: EnsuredJob;
 
-test.beforeAll(async ({ request }) => {
-    job = await ensureJob(request);
+test.beforeAll(async ({ sessionApi }) => {
+    job = await ensureJob(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (job) await deleteJob(request, job.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (job) await deleteJob(sessionApi, job.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
 
 // ── New Job Form ───────────────────────────────────────────────────────────────
 
-test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBatch03'] }, () => {
+test.describe('New job form', { tag: ['@JourneyA', '@A3'] }, () => {
 
     test('[Job] Verify that the new job form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0228' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-002' },
+            { type: 'requirement', description: 'A3-R1' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoNew();
@@ -45,8 +64,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     });
 
     test('[Job] Verify that Save is disabled until the required name, overtime rule and hourly rate are provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0229' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-003' },
+            { type: 'requirement', description: 'A3-R2|A3-R3|A3-R4' },
+        ],
     }, async ({ pages }) => {
         // There was never a hidden fourth required field. WEBPET-1831 found the real
         // cause: JobGeneralSection's Controller-wrapped fields wired onChange but not
@@ -73,8 +95,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     });
 
     test('[Job] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0230' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-004' },
+            { type: 'requirement', description: 'A3-R5' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoNew();
@@ -83,8 +108,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     });
 
     test('[Job] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0231' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-005' },
+            { type: 'requirement', description: 'A3-R6|A3-R7' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobForm;
         await form.gotoNew();
@@ -97,8 +125,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     });
 
     test('[Job] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0232' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-006' },
+            { type: 'requirement', description: 'A3-R8|A3-R9' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobForm;
         // This file's own job name triggers a server 409 on submit.
@@ -143,8 +174,11 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
     // — so each default is asserted under its own type. The original single-view
     // version of this test asserted a UI state the form never has.
     test('[Job] Verify that the idle-time and job-end checkboxes render with their correct defaults.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0233' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-007' },
+            { type: 'requirement', description: 'A3-R10|A3-R11' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoNew();
@@ -167,11 +201,14 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
 
 // ── Edit Job Form ──────────────────────────────────────────────────────────────
 
-test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBatch03'] }, () => {
+test.describe('Edit job form', { tag: ['@JourneyA', '@A3'] }, () => {
 
     test('[Job] Verify that the edit form loads the existing job data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0234' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-008' },
+            { type: 'requirement', description: 'A3-R12' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoEdit(job.id);
@@ -180,8 +217,11 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     });
 
     test('[Job] Verify that the name, alias, code and export identifier are read-only.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0235' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-009' },
+            { type: 'requirement', description: 'A3-R13' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoEdit(job.id);
@@ -193,8 +233,11 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     });
 
     test('[Job] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0236' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-010' },
+            { type: 'requirement', description: 'A3-R14' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobForm;
         await form.gotoEdit(job.id);
@@ -203,8 +246,11 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     });
 
     test('[Job] Verify that a nonexistent job id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0237' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-011' },
+            { type: 'requirement', description: 'A3-R15' },
+        ],
     }, async ({ pages }) => {
         await pages.jobForm.gotoEdit(999999);
         await expect(pages.jobForm.notFoundMessage).toBeVisible();
@@ -212,7 +258,7 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
 
     // PET-60: toggling Include Idle Time / Acts as Determined by Job End on the
     // edit form round-trips through the API as pure booleans (never null). No
-    // payment type renders both checkboxes (see WP-0233), so each round-trips on
+    // payment type renders both checkboxes (see A3-007), so each round-trips on
     // its own dedicated factory job — which also removes the old full-record
     // PUT-restore: the jobs are deleted, not restored.
     //
@@ -226,12 +272,15 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
     // invalid_body), so ensureJob cannot build a savable one. Identify that field
     // before re-enabling; the round-trip below is otherwise ready.
     test('[Job] Verify that the idle-time and job-end checkboxes round-trip as booleans.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0238' },
-    }, async ({ page, pages, request }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A3-012' },
+            { type: 'requirement', description: 'A3-R16|A3-R17' },
+        ],
+    }, async ({ page, pages, sessionApi }) => {
         const form = pages.jobForm;
 
-        // page.request (not the `request` fixture) is deliberate — it carries the
+        // page.request (not the `sessionApi` fixture) is deliberate — it carries the
         // browser context's cookies and the page's baseURL, which is what the
         // round-trip is verifying. See seed/TRIAGE-DELLLANO.md.
         const roundTrip = async (
@@ -255,18 +304,18 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
             expect(after[field]).toBe(!original);
         };
 
-        const jobIdle = await ensureJob(request, { namePrefix: 'E2EJobIdle', paymentType: 8 });
+        const jobIdle = await ensureJob(sessionApi, { namePrefix: 'E2EJobIdle', paymentType: 8 });
         try {
             await roundTrip(jobIdle.id, form.includeIdleTimeControl, 'includeIdleTime');
         } finally {
-            await deleteJob(request, jobIdle.id);
+            await deleteJob(sessionApi, jobIdle.id);
         }
 
-        const jobActAs = await ensureJob(request, { namePrefix: 'E2EJobActAs', paymentType: 1 });
+        const jobActAs = await ensureJob(sessionApi, { namePrefix: 'E2EJobActAs', paymentType: 1 });
         try {
             await roundTrip(jobActAs.id, form.actAsDeterminedByJobEndControl, 'actAsDeterminedByJobEnd');
         } finally {
-            await deleteJob(request, jobActAs.id);
+            await deleteJob(sessionApi, jobActAs.id);
         }
     });
 

@@ -29,7 +29,6 @@ import { ReconcileJobCardsPage } from '../pages/webpet/accounting/ReconcileJobCa
 import { ScanLandingPage } from '../pages/webpet/scan/ScanLandingPage';
 import { ScanScreenPage } from '../pages/webpet/scan/ScanScreenPage';
 import { ScanDeviceFormPage } from '../pages/webpet/setup/ScanDeviceFormPage';
-import { TimeCardFormPage } from '../pages/webpet/input/TimeCardFormPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { ReportEditorPage } from '../pages/webpet/settings/ReportEditorPage';
@@ -37,7 +36,6 @@ import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { BillingCenterListPage } from '../pages/webpet/setup/BillingCenterListPage';
 import { InventoryListPage } from '../pages/webpet/setup/InventoryListPage';
 import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
-import { CropListPage } from '../pages/webpet/setup/CropListPage';
 import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
 import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
 import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
@@ -45,15 +43,11 @@ import { CustomerListPage } from '../pages/setup/CustomerListPage';
 import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
 import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
-import { EmployeeListPage } from '../pages/webpet/setup/EmployeeListPage';
 import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
 import { EquipmentListPage } from '../pages/webpet/setup/EquipmentListPage';
 import { FieldFormPage } from '../pages/webpet/setup/FieldFormPage';
 import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
 import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
-import { JobListPage } from '../pages/webpet/setup/JobListPage';
-import { JobGroupFormPage } from '../pages/webpet/setup/JobGroupFormPage';
-import { JobGroupListPage } from '../pages/webpet/setup/JobGroupListPage';
 import { TermListPage } from '../pages/setup/TermListPage';
 import { TimeSheetValidationFormPage } from '../pages/webpet/setup/TimeSheetValidationFormPage';
 import { TimeSheetValidationListPage } from '../pages/webpet/setup/TimeSheetValidationListPage';
@@ -95,8 +89,6 @@ export interface WebpetPages {
     // ── Setup ▸ Traceability ────────────────────────────────────────
     /** Crop create/edit form (`/setup/crops/{new,:id}`). */
     readonly cropForm: CropFormPage;
-    /** Crop list (`/setup/crops`). */
-    readonly cropList: CropListPage;
     /** Variety create/edit form (`/setup/varieties/{new,:id}`) — sheet-mode Crop picker. */
     readonly varietyForm: VarietyFormPage;
     /** Field create/edit form (`/setup/fields/{new,:id}`) — thirteen ParentPickers. */
@@ -113,8 +105,6 @@ export interface WebpetPages {
     readonly departmentList: DepartmentListPage;
     /** Employee create/edit form (`/setup/employees/{new,:id}`) — Department + Crew pickers. */
     readonly employeeForm: EmployeeFormPage;
-    /** Employee list (`/setup/employees`). */
-    readonly employeeList: EmployeeListPage;
 
     // ── Setup ▸ Customers ───────────────────────────────────────────
     /** Customer create/edit form (`/setup/customers/{new,:id}`) — includes the contacts sub-form. */
@@ -125,12 +115,6 @@ export interface WebpetPages {
     // ── Setup ▸ Jobs ────────────────────────────────────────────────
     /** Job create/edit form (`/setup/jobs/{new,:id}`) — Overtime Rules FK required. */
     readonly jobForm: JobFormPage;
-    /** Job list (`/setup/jobs`). */
-    readonly jobList: JobListPage;
-    /** Job Group create/edit form (`/setup/jobs/groups/{new,:id}`). */
-    readonly jobGroupForm: JobGroupFormPage;
-    /** Job Group list (`/setup/jobs/groups`). */
-    readonly jobGroupList: JobGroupListPage;
     /** Board create/edit form (`/setup/boards/{new,:id}`) — error-toast coverage only. */
     readonly boardForm: BoardFormPage;
 
@@ -176,8 +160,6 @@ export interface WebpetPages {
     // ── Input ───────────────────────────────────────────────────────
     /** Time In list (`/input/time-in`) — counter-keyed dropdown columns. */
     readonly timeInList: TimeInListPage;
-    /** Time card entry forms (`/input/time-{in,out}/{new,:id}`) — query-prefilled. */
-    readonly timeCardForm: TimeCardFormPage;
 
     // ── Setup ▸ Inventory ───────────────────────────────────────────
     // Five structurally identical list pages; one class, five bindings.
@@ -216,23 +198,18 @@ export function createWebpetPages(page: Page): WebpetPages {
         get boardForm() { return lazy('boardForm', () => new BoardFormPage(page)); },
         get profile() { return lazy('profile', () => new ProfilePage(page)); },
         get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
-        get cropList() { return lazy('cropList', () => new CropListPage(page)); },
         get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },
         get crewForm() { return lazy('crewForm', () => new CrewFormPage(page)); },
         get crewList() { return lazy('crewList', () => new CrewListPage(page)); },
         get departmentForm() { return lazy('departmentForm', () => new DepartmentFormPage(page)); },
         get departmentList() { return lazy('departmentList', () => new DepartmentListPage(page)); },
         get employeeForm() { return lazy('employeeForm', () => new EmployeeFormPage(page)); },
-        get employeeList() { return lazy('employeeList', () => new EmployeeListPage(page)); },
         get customerForm() { return lazy('customerForm', () => new CustomerFormPage(page)); },
         get customerList() { return lazy('customerList', () => new CustomerListPage(page)); },
         get fieldForm() { return lazy('fieldForm', () => new FieldFormPage(page)); },
         get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
         get reportEditor() { return lazy('reportEditor', () => new ReportEditorPage(page)); },
         get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
-        get jobList() { return lazy('jobList', () => new JobListPage(page)); },
-        get jobGroupForm() { return lazy('jobGroupForm', () => new JobGroupFormPage(page)); },
-        get jobGroupList() { return lazy('jobGroupList', () => new JobGroupListPage(page)); },
         get equipmentForm() { return lazy('equipmentForm', () => new EquipmentFormPage(page)); },
         get equipmentList() { return lazy('equipmentList', () => new EquipmentListPage(page)); },
         get termList() { return lazy('termList', () => new TermListPage(page)); },
@@ -248,7 +225,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get scanLanding() { return lazy('scanLanding', () => new ScanLandingPage(page)); },
         get scanScreen() { return lazy('scanScreen', () => new ScanScreenPage(page)); },
         get scanDeviceForm() { return lazy('scanDeviceForm', () => new ScanDeviceFormPage(page)); },
-        get timeCardForm() { return lazy('timeCardForm', () => new TimeCardFormPage(page)); },
         get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
         get billingCenterForm() { return lazy('billingCenterForm', () => new BillingCenterFormPage(page)); },
         get billingCenterList() { return lazy('billingCenterList', () => new BillingCenterListPage(page)); },

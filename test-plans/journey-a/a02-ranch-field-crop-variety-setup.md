@@ -152,6 +152,14 @@ reads that note. D7 stays `partial`.
 | `A2-R67` | When a Variety is created, PET Tiger shall persist its Name exactly as entered. | `A2-055` |
 | `A2-R68` | When a Variety is created, PET Tiger shall derive its Export Identifier from the Crop and Name. | `A2-055` |
 | `A2-R69` | When a Variety is created, PET Tiger shall assign it an auto-generated Code. | `A2-055` |
+| `A2-R70` | When the Crop list is opened, PET Tiger shall render its grid columns and the Report button. | `A2-056` |
+| `A2-R71` | When Multi Update is toggled on the Crop list, PET Tiger shall reflect its state in `aria-pressed`. | `A2-056` |
+| `A2-R72` | PET Tiger shall preserve the list's current URL search suffix on the outbound New Crop link. | `A2-057` |
+
+`A2-056` and `A2-057` arrived in batch 6 from `setup-batch-b-smoke.spec.ts` and
+live in `tests/web/journey-a-setup/a04-setup-list-smoke.spec.ts` — a file shared
+with A4 and A5, since each of its list-render tests belongs to the workflow whose
+screen it renders. That spec was the **last** web-pet file covering A2.
 
 `A2-R70` onward is reserved for the unautomated `A2-001` journey.
 

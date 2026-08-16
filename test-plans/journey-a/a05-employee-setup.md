@@ -55,7 +55,13 @@ rather than duplicated. Same mechanism as D7 in
 | `A5-R20` | When the document list is sorted, PET Tiger shall re-render without losing the uploaded row. | `A5-018` |
 | `A5-R21` | When a listed document is downloaded PET Tiger shall return a successful response, and when its deletion is confirmed it shall remove the row from the list. | `A5-018` |
 
-`A5-R22` onward is reserved for the unautomated `A5-001` journey.
+| `A5-R22` | When the Employee list is opened, PET Tiger shall render its grid including both the Department and Crew foreign-key columns. | `A5-019` |
+
+`A5-019` arrived in batch 6 from `setup-batch-b-smoke.spec.ts` and lives in
+`tests/web/journey-a-setup/a04-setup-list-smoke.spec.ts`, shared with A2 and A4.
+That spec was the **last** web-pet file covering A5.
+
+`A5-R23` onward is reserved for the unautomated `A5-001` journey.
 
 ## The three-term Name gate (WEBPET-2006)
 
