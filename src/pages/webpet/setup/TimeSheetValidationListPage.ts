@@ -20,13 +20,24 @@ import { WebpetListPage } from '../WebpetListPage';
  * @extends WebpetListPage
  */
 export class TimeSheetValidationListPage extends WebpetListPage {
-    /** The create link, matched on its exact href. */
+    /**
+     * The create link, matched on its exact href **and visibility**.
+     *
+     * The app renders three anchors at this href — the focusable desktop control
+     * (`tabindex="0"`) plus two `tabindex="-1"` copies the collapsing
+     * `PageHeaderActions` header emits, one a measurement ghost and one an
+     * `aria-label`led overflow-menu entry. The href alone therefore resolves to
+     * 3 elements and is a strict-mode violation.
+     *
+     * `:visible` narrows to the control a user can actually reach at the current
+     * viewport, rather than `.first()` papering over the ambiguity by position.
+     */
     readonly newLink: Locator;
 
     constructor(page: Page) {
         super(page, '/setup/timesheet/validations', /timesheet validations/i);
 
-        this.newLink = page.locator(`a[href="${this.pageUrl}/new"]`);
+        this.newLink = page.locator(`a[href="${this.pageUrl}/new"]:visible`);
     }
 
     /** Relative URL of the soft-deleted list. */
