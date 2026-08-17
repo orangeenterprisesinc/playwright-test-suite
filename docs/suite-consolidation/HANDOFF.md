@@ -1,6 +1,6 @@
 # Suite consolidation — handoff
 
-Written 2026-08-16. Everything below is measured, not estimated. If a number here
+Written 2026-08-16, updated 2026-08-17 (batches 7 and 8 landed). Everything below is measured, not estimated. If a number here
 disagrees with what §9's commands report, trust the commands and update this file.
 
 ## 1. Goal and current phase
@@ -13,7 +13,7 @@ Two phases:
 | Phase | What | State |
 |---|---|---|
 | Phase 0 | Foundation — checker guards, `SCR-###` id space, CI budget, traceability | ✅ complete |
-| Phase 1 | Relocation, 12 batches | 🔄 **batches 1–6 done, 7–12 remain** |
+| Phase 1 | Relocation, 12 batches | 🔄 **batches 1–8 done, 9–12 remain** |
 | Phase 2 | Retirement, `RET-01`…`RET-06` | ⬜ not started |
 
 This is internal framework debt and is **deliberately not in Jira**. The 14
@@ -27,15 +27,15 @@ on its own branch cut from the updated `main`. It is out of scope here.
 
 | | Tests | Files |
 |---|---|---|
-| Journey (`tests/web` + `tests/api`) | **244** | **29** |
-| web-pet (`tests/webpet`) | **178** | **34** |
+| Journey (`tests/web` + `tests/api`) | **314** | **37** |
+| web-pet (`tests/webpet`) | **108** | **21** |
 
 * Started at journey 14 / web-pet 407.
-* **Absorbed: 229 of 407 (56%). Remaining: 178.**
-* Journey runner rows: **308 across 8 files** — 243 claimed by specs, 65 reserved
+* **Absorbed: 299 of 407 (73%). Remaining: 108.**
+* Journey runner rows: **378 across 8 files** — 313 claimed by specs, 65 reserved
   (`status=draft`, not yet automated; these are the Jira-ticket backlog).
-* web-pet rows: **178** (177 live + 1 known-stale).
-* Catalog coverage: **10 of 69 workflows** have ≥1 automated row.
+* web-pet rows: **108** (107 live + 1 known-stale).
+* Catalog coverage: **13 of 69 workflows** have ≥1 automated row.
 * Coverage depth: `{"journey":3,"screens":5,"partial":10,"none":51}`.
 
 Final expected end state: **~420 tests in one suite**, of which ~13 land
@@ -44,54 +44,22 @@ Final expected end state: **~420 tests in one suite**, of which ~13 land
 ## 3. Branch and commit
 
 * Branch: **`feature/suite-consolidation`** (cut from `main`)
-* HEAD: **`ee117f1a3585892abdc87dbe044d819538e08b77`**
-  (`refactor(webpet): relocate the crew, job and job-group specs`)
-* **14 commits. Working tree clean. Nothing has ever been pushed.**
+* HEAD: **`2b45301`** (`refactor(webpet): relocate the scan mode, device and time-in specs`)
+* **16 commits. Working tree clean. Nothing has ever been pushed.**
+
+This file records the SHA *before* its own commit, so §9's `git rev-parse` will
+report one commit ahead whenever the handoff itself was the last thing written.
 
 **Never push, open a PR, or comment via `gh` without being asked.** The user
 applies changes themselves. Local commits are fine and expected.
 
-## 4. Batches 7–12
+## 4. Batches 9–12
 
-178 tests, 34 files. Counts are exact, taken from
+108 tests, 21 files. Counts are exact, taken from
 `src/data/webpet/webpetRunnerManager.csv`.
 
-### Batch 7 — A12 equipment + inventory (17 tests)
-
-| Source | Tests |
-|---|---|
-| `tests/webpet/equipment.spec.ts` | 11 |
-| `tests/webpet/inventory-center.spec.ts` | 1 |
-| `tests/webpet/inventory-item.spec.ts` | 1 |
-| `tests/webpet/inventory-item-type.spec.ts` | 1 |
-| `tests/webpet/inventory-setup.spec.ts` | 1 |
-| `tests/webpet/inventory-unit.spec.ts` | 1 |
-| `tests/webpet/inventory-unit-type.spec.ts` | 1 |
-
-Equipment is catalog **A12** (`screens`) → `journey-a.csv`, `A12-###`. The six
-inventory files map to **no catalog workflow** → `src/data/runner/screens.csv`,
-`SCR-###`, plan under `test-plans/screens/`. Continue `SCR-` numbering after the
-highest existing id.
-
-**Trap:** `inventory-setup.spec.ts` is module-gated on `Inventory` and its header
-describes a second seeded session. Check for silent early-return guards.
-
-### Batch 8 — A7 scan / device (53 tests)
-
-| Source | Tests |
-|---|---|
-| `tests/webpet/scan-mode-gating.spec.ts` | 25 |
-| `tests/webpet/scan-mode.spec.ts` | 22 |
-| `tests/webpet/data-scoping.spec.ts` | 3 |
-| `tests/webpet/equiv/scan-device-create-de15-pocket-pda.spec.ts` | 1 |
-| `tests/webpet/equiv/scan-time-in-equivalence.spec.ts` | 1 |
-| `tests/webpet/time-in.spec.ts` | 1 |
-
-Largest batch. A7 and B3. `time-in.spec.ts` also carries D7 credit — record that
-as a coverage-map note, not a second row.
-
-**Trap:** `time-in.spec.ts` declares `mode: 'serial'` in its source. Preserve it
-exactly.
+Batches 7 (A12 equipment + inventory, 17) and 8 (A7/B3 scan, device and time-in,
+53) are done — commits `25826d5` and `2b45301`.
 
 ### Batch 9 — E9/E10 export + accounting (28 tests) ⚠️ hardest
 
@@ -226,7 +194,7 @@ Followed for batches 1–6. Deviating from it is how counts drift.
 8. **Gates** (all must pass):
    ```
    npm run typecheck
-   npm run lint                     # 0 errors; 61 warnings is the current baseline
+   npm run lint                     # 0 errors; 59 warnings is the current baseline
    npm run runner:sync && npm run runner:check
    npm run webpet:runner:sync && npm run webpet:runner:check
    npm run coverage:trace && npm run coverage:trace:check
@@ -240,6 +208,9 @@ Followed for batches 1–6. Deviating from it is how counts drift.
     ```
     npm run test:dev -- <paths> --project=chromium --reporter=list
     ```
+    Specs under `tests/api/` belong to the separate `api` project
+    (`playwright.config.ts` `testDir: ./tests/api`). A mixed batch needs
+    `--project=chromium --project=api`, or the api specs are silently not run.
     Redirect to a file; do not pipe through `grep` alone — a filter that matches
     nothing has twice hidden a real result.
 11. **Failures** → classify first, then `playwright-test-healer`. Never weaken an
@@ -312,6 +283,19 @@ Followed for batches 1–6. Deviating from it is how counts drift.
   only by the test timeout and consumes the whole budget. A generic "test timeout
   exceeded" does **not** prove the flow was merely slow — raising the timeout just
   makes the hang longer.
+* **A guard that reads the filesystem may be a stale proxy.** `existsSync` on an
+  auth storage state meant "provisioned and live" only while a `setup` project
+  dependency refreshed it. Relocation drops that dependency, so the same guard
+  silently flips from *skip* to *run against a dead session*. Check what refreshes
+  any file a relocated guard tests for. `A7-051` is the worked example.
+* **Sync test bodies are invisible to `runner:check`.** A placeholder written
+  `}, () => {` parses as 0 tests; the F1 guard catches it as a declared-vs-parsed
+  mismatch. Use `async` bodies everywhere, including body-skipped placeholders.
+* **`playwright/no-networkidle` is `warn` only under `tests/webpet/**`**
+  (`config/lint/.eslintrc.json`). Any relocated spec carrying a `networkidle` wait
+  turns it into a lint **error** on arrival. Decide deliberately: suppress with
+  reasoning, or rewrite and prove the rewrite with a run. Do not rewrite a wait
+  blind in a relocation batch.
 * **A test that was `skipped` or `enabled=0` in web-pet is unverified code**, and
   the page object under it has usually rotted. See §7.
 * **Setup and cleanup go through the app's API.** There is no DB access; the SQL
@@ -361,6 +345,7 @@ Full diagnosis: `test-plans/journey-a/a05-employee-setup.md`.
 | `A3-012` | `journey-a.csv` | `ensureJob` cannot build a savable paymentType 8/15 job; `POST /api/jobs` rejects `lookBackPeriod` with `400 invalid_body`. **A data-factory task, not a spec edit.** `A3-R16`/`A3-R17` unproven. |
 | `D3-002` | `journey-d.csv` | No multi-entry time-card surface exists, and the test writes TimeCard rows dated 2099 with **no cleanup path**. Double-guarded. Re-enabling needs the capability **and** a TimeCard delete route. |
 | `A6-004` | `journey-a.csv` | Host-bound; its baseline file exists only on the `windows-automation` host. |
+| `A7-051` | `journey-a.csv` | PET-441 restricted-user leakage. Its `existsSync(WEBPET_RESTRICTED_STORAGE)` skip guard was only valid inside the web-pet project, whose `webpet-setup` dependency refreshed that storage stateevery run. The journey `api` project has none, so the stale session-cookie file 401s. **Needs journey-side provisioning (RET-03), not a spec edit.** `A7-R16` unproven. |
 
 ## 8. Phase 2 — retirement checklist
 
@@ -396,27 +381,27 @@ Run only after batch 12, when `tests/webpet` holds no spec files and
 cd d:/RnD/playwrightNewFrameworkBuild/playwright-test-suite
 
 git branch --show-current          # feature/suite-consolidation
-git rev-parse HEAD                 # ee117f1a3585892abdc87dbe044d819538e08b77
+git rev-parse HEAD                 # 2b45301 (or one ahead, if this file was recommitted)
 git status --porcelain             # empty
 
 npx playwright test --list | grep '^Total:'
-#   Total: 244 tests in 29 files
+#   Total: 314 tests in 37 files
 WEBPET_ENABLED=1 npx playwright test --project=webpet --list | grep '^Total:'
-#   Total: 178 tests in 34 files
+#   Total: 108 tests in 21 files
 
 npm run runner:check
-#   308 rows across 8 files; 243 claimed by specs; 65 reserved
-#   Catalog coverage: 10/69 workflows have at least one automated row
+#   378 rows across 8 files; 313 claimed by specs; 65 reserved
+#   Catalog coverage: 13/69 workflows have at least one automated row
 #   passes with 1 warning (scopes/anthony-vineyards.json confirmed=false — pre-existing)
 
 npm run webpet:runner:check
-#   OK — 177 tests all have rows (177 annotated, 0 structural), 1 known-stale
+#   OK — 107 tests all have rows (107 annotated, 0 structural), 1 known-stale
 
 npm run coverage:trace:check
 #   depth: {"journey":3,"screens":5,"partial":10,"none":51}
 
 npm run typecheck                  # 0 errors
-npm run lint                       # 0 errors, 61 warnings (baseline)
+npm run lint                       # 0 errors, 59 warnings (baseline)
 ```
 
 Sanity check that dev staging is reachable before starting a batch:
