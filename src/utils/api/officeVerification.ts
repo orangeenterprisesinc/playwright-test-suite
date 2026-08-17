@@ -218,13 +218,13 @@ async function importViaInternetUi(
         `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
             `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
             `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
-            `WEBMAIL_LIVE_SEND_ENABLED=true plus a ClientRelayRegistration row with a SendPassword ` +
-            `(SQL-only). Those two gate the PULL only — the pulled file then lands in the same ` +
-            `unclaimed state as a direct upload, because the import worker is disabled ` +
-            `(PT_IMPORT_WORKER_DISABLED=true — WEBPET-2137). Object storage is no longer a ` +
-            `blocker (WEBPET-1830, fixed 2026-08-12). ` +
-            'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead — ' +
-            'that route never touched storage or the worker, so it works regardless.',
+            `WEBMAIL_LIVE_SEND_ENABLED=true on the API task, plus a ClientRelayRegistration row ` +
+            `with LiveSendEnabled=1 and either a SendPassword (SQL-only) or CopyNumber > 0 — the ` +
+            `latter is settable via PUT admin/tm/clients/{id}/relay-registration, so the SQL may ` +
+            `be avoidable. These gate the PULL only; everything downstream already works — ` +
+            `object storage (WEBPET-1830) and the import worker (WEBPET-2137 / PET-12482) are ` +
+            `both fixed, so IMPORT_TRANSPORT=single-folder proves the import today. ` +
+            'OFFICE_TRANSPORT_SUBSTITUTE=1 verifies only the office screens, never the import.',
     ).toBe(true);
 
     // The mailbox can hold envelopes from earlier runs too — wait for every
