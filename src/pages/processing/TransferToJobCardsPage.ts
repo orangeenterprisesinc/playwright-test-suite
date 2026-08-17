@@ -64,6 +64,13 @@ export class TransferToJobCardsPage extends BasePage {
     readonly panelPhaseValue: Locator;
     readonly panelEmployeeValue: Locator;
     readonly panelWorkCrewValue: Locator;
+    /**
+     * GPS Reading is a plain text box, NOT an Autocomplete combobox like the
+     * lookup fields beside it (no dropdown chevron in the recording) — so the
+     * textbox role, not combobox. Note the deployed dev build has the label in
+     * its bundle but did not render the field on a card that carries a fix, so
+     * the caller must treat absence as a renderable state, not an error.
+     */
     readonly panelGpsValue: Locator;
 
     constructor(page: Page) {
@@ -92,7 +99,7 @@ export class TransferToJobCardsPage extends BasePage {
         this.panelPhaseValue = this.comboboxByLabel('Phase');
         this.panelEmployeeValue = this.comboboxByLabel('Employee');
         this.panelWorkCrewValue = this.comboboxByLabel('Work Crew');
-        this.panelGpsValue = this.comboboxByLabel('GPS Reading');
+        this.panelGpsValue = this.timeInPanel.getByRole('textbox', { name: /^GPS Reading\b/ });
     }
 
     async goto(): Promise<void> {

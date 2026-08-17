@@ -63,19 +63,26 @@ export const NO_STORAGE_REASON =
     'IaC-PetTiger-Web. The localhost stack boots MinIO and is unaffected.';
 
 /**
- * Why a stored file never gets parsed: the import worker is switched off.
+ * Why a stored file can sit at `received`. Two causes, indistinguishable at the
+ * API — both look exactly like "queued" (200, `received`, empty message), which
+ * is why this spells them out instead of surfacing a bare timeout.
  *
- * `PT_IMPORT_WORKER_DISABLED=true` is set on the dev API task, so the upload is
- * stored and acknowledged (200, `received`, empty message) and then nothing ever
- * claims it. Indistinguishable from "queued" at the API, which is why this needs
- * spelling out rather than surfacing as a bare timeout.
+ * 1. The worker is off (`PT_IMPORT_WORKER_DISABLED=true`) — nothing ever claims
+ *    the file. WEBPET-2137 / PET-12482; fixed on dev 2026-08-14.
+ * 2. The worker is on but not due yet. It claims files per client on the cadence
+ *    in that client's `SrvcRealTimeImportInterval` preference (minutes), so the
+ *    wait is up to a full interval. This is the usual cause now.
  */
-export const WORKER_DISABLED_REASON =
-    'The file was stored successfully but never parsed — the run stayed at "received". On dev ' +
-    'staging the connectivity import worker is disabled (PT_IMPORT_WORKER_DISABLED=true on the ' +
-    'pettiger-dev-tigerden task; the API logs "import-worker: disabled ... pipeline will not run" ' +
-    'at startup), so no uploaded file is ever processed. Tracked as WEBPET-2137 — the fix is one ' +
-    'env var, no code change.';
+export const STUCK_AT_RECEIVED_REASON =
+    'The file was stored successfully but has not been parsed — the run is still at "received". ' +
+    'Two causes look identical here. (a) The import worker is off: check CloudWatch ' +
+    '/ecs/pettiger/dev/tigerden for "import-worker: disabled via PT_IMPORT_WORKER_DISABLED=true" ' +
+    'at container start (WEBPET-2137 / PET-12482 — fixed on dev 2026-08-14, so this should be ' +
+    'absent). (b) More likely: the worker is running but this client is not due yet — it claims ' +
+    'queued files every SrvcRealTimeImportInterval minutes (GET /api/preferences → ' +
+    'serviceImportInterval). Raise IMPORT_POLL_TIMEOUT_MS above that interval, or ask for ' +
+    'PT_IMPORT_POLL_INTERVAL=10s on the dev task to make the tick immediate. Note a preference ' +
+    'change only applies from the NEXT due time, so one old interval must lapse first.';
 
 /**
  * A request context that can post multipart as the logged-in user.
@@ -114,7 +121,11 @@ export async function importDeviceExport(
     opts: { fileName?: string; timeoutMs?: number } = {},
 ): Promise<ImportRunResult> {
     const fileName = opts.fileName ?? `FromDevice-${Date.now()}.xml`;
-    const timeoutMs = opts.timeoutMs ?? 60_000;
+    // The worker claims queued files on a PER-CLIENT cadence read from the
+    // SrvcRealTimeImportInterval preference — 15 MINUTES on dev staging, not the
+    // legacy 2-minute default. 60s is fine wherever PT_IMPORT_POLL_INTERVAL sets
+    // a fast tick; raise it via IMPORT_POLL_TIMEOUT_MS to ride out a real cadence.
+    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 60_000);
 
     const res = await upload.post(IMPORT_PATH, {
         multipart: {
@@ -159,7 +170,7 @@ export async function importDeviceExport(
         if (Date.now() > deadline) {
             // 'received' specifically means stored-but-unclaimed, so name the cause
             // instead of reporting a bare timeout.
-            const stuck = String(last.status) === 'received' ? ` ${WORKER_DISABLED_REASON}` : '';
+            const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
             throw new Error(
                 `Import run ${runId} did not reach a terminal status within ${timeoutMs}ms ` +
                     `(last: ${String(last.status)}).${stuck}`,
