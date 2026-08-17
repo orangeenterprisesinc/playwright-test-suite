@@ -17,7 +17,7 @@
  * a relocated locator silently match nothing.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

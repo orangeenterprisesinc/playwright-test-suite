@@ -187,6 +187,412 @@
             "enabled": false
         },
         {
+            "id": "E9-002",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "headerAndDefaultDatesRender",
+            "testTitle": "[Export] Verify that the page header and default date inputs render.",
+            "testDescription": "The page header, description, both export-type tabs and the 7-day-lookback default dates all render.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "E9-R1"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-003",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "findCandidatesSubmitsFilter",
+            "testTitle": "[Export] Verify that Find Candidates submits the filter and populates the result table.",
+            "testDescription": "Find Candidates POSTs the filter; a 200 returns a numeric matchedCount plus a 200-capped preview and the count label renders, while a 403 (seeded user without accounting.export) is an accepted outcome.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R2"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-004",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "colorLegendRendersWithRows",
+            "testTitle": "[Export] Verify that the color legend renders below the table when results have rows.",
+            "testDescription": "With two mocked rows of distinct paymentType the payment-type colour legend and both result rows render (PET-138).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R3"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-005",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "invertedDateRangeRejected",
+            "testTitle": "[Export] Verify that an inverted date range is rejected without firing a request.",
+            "testDescription": "An inverted date range shows the order error and keeps Find Candidates disabled, so no request fires.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R4"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-006",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "typeQueryParamSurvivesReload",
+            "testTitle": "[Export] Verify that the ?type= URL parameter survives a page reload.",
+            "testDescription": "The ?type= parameter is preserved on direct navigation and across a reload.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "E9-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-007",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "costAccountingTabDisabledUnlicensed",
+            "testTitle": "[Export] Verify that the Cost Accounting tab is disabled with a tooltip when the module is not licensed.",
+            "testDescription": "With CostAccounting stripped from session/me the tab renders disabled, and hovering its focusable wrapper span surfaces the explanatory tooltip.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-008",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "moduleNotLicensedBannerOnRefusal",
+            "testTitle": "[Export] Verify that the module.not_licensed banner shows when the Cost Accounting tab is selected and the server refuses.",
+            "testDescription": "A module.not_licensed 403 from the candidates endpoint renders the inline banner and deliberately fires no global error toast.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R7"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-009",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "sidebarHiddenWithoutExportPermission",
+            "testTitle": "[Export] Verify that the sidebar entry is hidden for a user without accounting.export.",
+            "testDescription": "With enableExportToAccounting and accounting.export removed from session/me the sidebar entry is absent from the nav container.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-010",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "directNavigation403ForFieldSupervisor",
+            "testTitle": "[Export] Verify that direct URL navigation returns 403 for FieldSupervisor.",
+            "testDescription": "A role-check 403 from the candidates endpoint is surfaced as-is on direct navigation.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R9"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-011",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "v2ChromeRendersAndPrepareLoadsCounters",
+            "testTitle": "[Export] Verify that the v2 chrome renders and Prepare populates readiness and queue.",
+            "testDescription": "The v2 dispatch workspace renders its top strip, spine and grid, shows the pick-a-date-range empty state, and after a date preset is applied all four readiness counters carry numeric counts.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "E9-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-012",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "newIaFlagNoLongerFallsBackToV1",
+            "testTitle": "[Export] Verify that the pt-export-new-ia flag no longer falls back to the v1 page.",
+            "testDescription": "?pt-export-new-ia=false still serves the v2 workspace — the legacy JobExportPage moved to /setup/exports/jobs.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R11"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-013",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "draftLifecyclePostPatchDelete",
+            "testTitle": "[Export] Verify that Prepare, a toggle flip and Clear filters fire POST, PATCH and DELETE /runs in order.",
+            "testDescription": "Prepare upserts the ExportRun draft (POST /runs), a batch-toggle flip PATCHes it with If-Match, and Clear filters DELETEs it; readiness reports 2 ready from the mocked analyze.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R12"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-014",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "recentExportsSheetDrillDownAndBack",
+            "testTitle": "[Export] Verify that Recent Exports opens the Sheet, lists runs, drills into one and returns.",
+            "testDescription": "The History button opens the Recent Exports sheet, a row drills into its outcomes, the failed filter hides the succeeded row, and Back returns to the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-015",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "retryAllFailedPostsRunWithParent",
+            "testTitle": "[Export] Verify that Retry all failed dispatches POST /run with jobCardCounterIds and parentRunCounter.",
+            "testDescription": "Retry all failed POSTs /run carrying jobCardCounterIds [2,3] — the two retry-eligible outcomes — and parentRunCounter 303.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R14"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E9-016",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "rowToggleAndBulkExcludePatchDraft",
+            "testTitle": "[Export] Verify that toggling a row PATCHes the draft with excludedRecordIds.",
+            "testDescription": "Toggling one row checkbox in the expanded pending bucket PATCHes the draft with excludedRecordIds, and bulk exclude PATCHes all three ids at once.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R15"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-017",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "mobileDestinationChipOpensSheet",
+            "testTitle": "[Export] Verify that the mobile chrome shows the destination chip and opens the bottom sheet.",
+            "testDescription": "At 375x800 the destination chip replaces the inline panel, the CTA region carries sticky bottom-0 positioning, and tapping the chip opens the bottom sheet showing the not-configured empty state.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R16"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E9-018",
+            "workflow": "E9",
+            "journey": "E",
+            "category": "ui",
+            "testName": "mobileReadinessAndQueueRender",
+            "testTitle": "[Export] Verify that the readiness strip and review queue render in the mobile layout.",
+            "testDescription": "At 375x800 all four readiness cards render in the two-column grid and Prepare populates the pending and already-exported review-queue buckets.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E9-R17"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
             "id": "E10-001",
             "workflow": "E10",
             "journey": "E",
@@ -205,6 +611,240 @@
             ],
             "status": "draft",
             "enabled": false
+        },
+        {
+            "id": "E10-002",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "headerRendersAndPreferenceGateRespected",
+            "testTitle": "[Reconcile] Verify that the page header renders and the preference gate is respected.",
+            "testDescription": "The header always renders; with IncludeReconcileJCs off no page chrome renders at all, and with it on the Reconcile CTA is present but disabled until a date scope is picked.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "E10-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-003",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "preAnalyzePromptWithoutDateRange",
+            "testTitle": "[Reconcile] Verify that the pre-analyze prompt shows when no date range is selected.",
+            "testDescription": "With no date scope the grid renders its pick-a-range empty state plus the wave-arrow hint pointing from the status column at the date column.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-004",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "liveReconcileRunCompletes",
+            "testTitle": "[Reconcile] Verify that the page renders and a reconcile run completes against the live API.",
+            "testDescription": "A live run against the seeded API: apply Last 30 days, confirm, and POST /api/job-cards/reconcile with dryRun:false returns 200 with numeric matched/updated counts and the summary panel renders.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "E10-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-005",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "sidebarPresenceMatchesExportPermission",
+            "testTitle": "[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.",
+            "testDescription": "The sidebar entry is attached exactly when the session grants accounting.export, via derivedPermissions or the capabilities action map.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R4"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "E10-006",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "directUrlRedirectsWithoutPermission",
+            "testTitle": "[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.",
+            "testDescription": "Without accounting.export a direct /reconcile-job-cards URL redirects to the app root.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-007",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "preferenceOffKeepsUrlAndShowsBanner",
+            "testTitle": "[Reconcile] Verify that with the preference off the URL stays stable and the banner shows.",
+            "testDescription": "With the preference off the URL stays on /reconcile-job-cards and the disabled banner renders in place of the page.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-008",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "summaryPanelRendersFailureRows",
+            "testTitle": "[Reconcile] Verify that the summary panel renders inline failure rows when failures exist.",
+            "testDescription": "A mocked response carrying two failures renders the summary panel, both inline failure rows and the CSV download button.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-009",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "downloadAbsentWhenSummaryClean",
+            "testTitle": "[Reconcile] Verify that the CSV download button is absent when the summary is all-clean.",
+            "testDescription": "A mocked all-clean response renders the all-good state and no CSV download button.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-010",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "serverErrorShowsToastNoSummary",
+            "testTitle": "[Reconcile] Verify that a 5xx response triggers an error toast and no summary panel.",
+            "testDescription": "A mocked 500 from the real (non-dry-run) reconcile POST surfaces an error toast and renders no summary panel.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "E10-011",
+            "workflow": "E10",
+            "journey": "E",
+            "category": "ui",
+            "testName": "badRequestShowsToastNoSummary",
+            "testTitle": "[Reconcile] Verify that a 4xx response triggers an error toast and no summary panel.",
+            "testDescription": "A mocked 400 from the real (non-dry-run) reconcile POST surfaces an error toast and renders no summary panel.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "E10-R9"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "E11-001",

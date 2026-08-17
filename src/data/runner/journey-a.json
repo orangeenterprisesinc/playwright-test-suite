@@ -180,6 +180,31 @@
             "enabled": true
         },
         {
+            "id": "A1-008",
+            "workflow": "A1",
+            "journey": "A",
+            "category": "ui",
+            "testName": "webExportMatchesLegacyAndRoundTrips",
+            "testTitle": "[Equiv] Verify that the web export matches legacy PET-Setup and round-trips through import.",
+            "testDescription": "Host-bound: the Go export engine’s <OrangeExportFile> matches the legacy PET-Setup baseline on header, version, section set, Clear flags, record counts and per-record column values across the 15 round-trippable entities, and re-imports cleanly. Skips unless PET_EXPORT_EQUIV=1 and a legacy baseline file exist.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Windows",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A1-R11",
+                "A1-R12"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
             "id": "A2-001",
             "workflow": "A2",
             "journey": "A",

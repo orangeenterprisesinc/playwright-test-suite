@@ -53,6 +53,36 @@ back*. Ids are stable — append, never re-sort.
 | `A1-R8` | When an existing user is opened for edit, PET Tiger shall load its saved values into the form. | `A1-001` |
 | `A1-R9` | When a serial is applied, PET Tiger shall enable the modules and ceilings it encodes. | — not automatable: serials are generated in the legacy PET Setup (Delphi) tool, which has no web surface (catalog steps 2–3) |
 | `A1-R10` | When a newly created user is read back through `GET /api/users/{id}`, PET Tiger shall return every submitted value — name, role, initials, email, language, personal info, permission flags, employee access and access-to-reverse — unchanged. | `A1-007` |
+| `A1-R11` | When the web export engine serialises PET-Setup, PET Tiger shall produce an export file matching the legacy baseline on header, version, section set, Clear flags, record counts and per-record column values across the 15 round-trippable entities. | `A1-008` — **unproven** |
+| `A1-R12` | When a web-produced export file is re-imported through the import engine, PET Tiger shall drive the run to a terminal completed or partial status. | `A1-008` — **unproven** |
+
+## `A1-008` is quarantined — host-bound, and it retires a config mechanism
+
+`A1-008` (`tests/web/journey-a-setup/a01-export-pet-setup-equivalence.spec.ts`)
+is `enabled=0`. It diffs the web export against a baseline file produced by the
+legacy WinForms app on the `windows-automation` host (`C:\Scripts\*.yaml`). No CI
+runner — GitHub-hosted or self-hosted — has that file, so it could only ever
+report as noise. **`A1-R11` and `A1-R12` are unproven in CI.** Same disposition as
+`A6-004`.
+
+Until this batch it was excluded from *collection* by a `testIgnore` in
+`playwright.config.ts` driven by `src/data/webpet/hostBoundExclusions.json`, with
+its row carrying `stale=true` so `webpet:runner:check` stayed green. That
+mechanism existed only for this one file and retires with it: the JSON is deleted
+and its three consumers — the config import, the `testIgnore`, and the
+`EXCLUDED_IDS` set in `scripts/webpet/ids-check.js` — are removed.
+
+The journey side needs none of it. The spec is collected, the row's `enabled=0`
+gate skips it with a reason, and its own describe-level
+`test.skip(!EQUIV_ENABLED, …)` names the host-bound cause if it is ever
+force-run. A visible, explained skip beats an invisible exclusion.
+
+Its authentication also changed, and this was not optional. The source used
+`csrfFromStorage()` against `WEBPET_ADMIN_STORAGE`, a storage state refreshed only
+by the `webpet-setup` project — which journey projects never run. Keeping it would
+have rebuilt the exact trap that took `A7-051` down in batch 8, where a
+file-existence check stopped implying a live session. It now uses `sessionApi`,
+which carries the session cookie and CSRF token itself.
 
 `A1-R3` and `A1-R4` both end with Save disabled, and that is the point: the same
 pixel means "still validating" in one and "rejected" in the other. Splitting them

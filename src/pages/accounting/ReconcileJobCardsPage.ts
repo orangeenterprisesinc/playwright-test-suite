@@ -23,8 +23,8 @@
  * rather than fulfilling.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
-import { DateRangeFilterComponent } from '../../../components/webpet/DateRangeFilterComponent';
+import { BasePage } from '../BasePage';
+import { DateRangeFilterComponent } from '../../components/accounting/DateRangeFilterComponent';
 
 /**
  * @extends BasePage

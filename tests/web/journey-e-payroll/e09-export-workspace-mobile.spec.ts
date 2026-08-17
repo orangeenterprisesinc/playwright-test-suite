@@ -1,7 +1,21 @@
 /**
- * PET-491 — Export to Accounting v2 mobile-optimized layout smoke test.
+ * Export to Accounting — v2 mobile-optimized layout, for Catalog workflow
+ * **E9 — Payroll export file**.
  *
- * Runs at viewport 375×800 (iPhone SE-ish). Asserts that:
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-e/e09-payroll-export.md` |
+ * | Runner rows | `src/data/runner/journey-e.csv` → `E9-017`, `E9-018` |
+ *
+ * Relocated from `tests/webpet/export-to-accounting-v2-mobile.spec.ts`
+ * (WP-0181, WP-0182). Every assertion below is the one that spec carried, in
+ * the same order; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and wrapping both `page.route` registrations in
+ * `guardTeardownRace` (`base.fixture` does not swallow the "…has been closed"
+ * teardown race that `webpet.fixture` did — see `src/utils/routeGuard.ts`).
+ *
+ * PET-491 — Export to Accounting v2 mobile-optimized layout smoke test. Runs
+ * at viewport 375×800 (iPhone SE-ish). Asserts that:
  *  - The inline Destination panel is hidden on mobile (replaced by the chip).
  *  - The DestinationSheet trigger chip is visible and tappable.
  *  - Tapping the chip opens the bottom sheet containing destination content.
@@ -11,24 +25,35 @@
  * Mocks the Analyze response so the test is stable regardless of dev-DB state
  * and so the Review Queue has rows that justify the sticky-CTA check.
  *
- * Framework-aligned (Batch 12). Note this is the only web-pet file with a
- * `test.use`: the viewport override stays at **describe** scope, because
- * `viewport` is a context option and a per-test override cannot resize a context
- * that has already been built.
+ * This is the only file in journey-e-payroll with a `test.use`: the viewport
+ * override stays at **describe** scope, because `viewport` is a context
+ * option and a per-test override cannot resize a context that has already
+ * been built.
+ *
+ * Both tests below are quarantined (`enabled=0`, `BUG-18`): the mobile
+ * destination-chip and readiness-strip testids are absent from the deployed
+ * source.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
+import { guardTeardownRace } from '@utils/routeGuard';
 
 const CANDIDATES = '/api/job-cards/export-to-accounting/candidates';
 
-test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@WebPet', '@wp-accounting', '@WPBatch12'] }, () => {
+test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@JourneyE', '@E9'] }, () => {
     test.use({ viewport: { width: 375, height: 800 } });
 
+    // Quarantined (row enabled=0). Reconfirmed failing in the CI dry run of
+    // 2026-08-06 (run 31089496460): destination-chip/bottom-sheet testid absent
+    // from deployed source. Export-UI rework pending a product decision, BUG-18.
     test('[Export] Verify that the mobile chrome shows the destination chip and opens the bottom sheet.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-visual'],
-        annotation: { type: 'testCaseId', description: 'WP-0181' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E9-017' },
+            { type: 'requirement', description: 'E9-R16' },
+        ],
     }, async ({ page, pages }) => {
         const workspace = pages.exportWorkspace;
-        await page.route(`**${CANDIDATES}`, async (route) => {
+        await page.route(`**${CANDIDATES}`, guardTeardownRace(async (route) => {
             if (route.request().method() === 'POST') {
                 await route.fulfill({
                     status: 200,
@@ -73,7 +98,7 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
             } else {
                 await route.continue();
             }
-        });
+        }));
 
         await workspace.gotoWorkspace();
 
@@ -98,12 +123,18 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
         await expect(workspace.destinationNotConfigured).toBeVisible();
     });
 
+    // Quarantined (row enabled=0). Reconfirmed failing in the CI dry run of
+    // 2026-08-06 (run 31089496460): readiness-strip testid absent from deployed
+    // source. Export-UI rework pending a product decision, BUG-18.
     test('[Export] Verify that the readiness strip and review queue render in the mobile layout.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-visual'],
-        annotation: { type: 'testCaseId', description: 'WP-0182' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E9-018' },
+            { type: 'requirement', description: 'E9-R17' },
+        ],
     }, async ({ page, pages }) => {
         const workspace = pages.exportWorkspace;
-        await page.route(`**${CANDIDATES}`, async (route) => {
+        await page.route(`**${CANDIDATES}`, guardTeardownRace(async (route) => {
             if (route.request().method() === 'POST') {
                 await route.fulfill({
                     status: 200,
@@ -175,7 +206,7 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
             } else {
                 await route.continue();
             }
-        });
+        }));
 
         await workspace.gotoWorkspace();
 

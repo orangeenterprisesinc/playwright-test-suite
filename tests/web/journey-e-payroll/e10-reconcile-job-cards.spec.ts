@@ -1,33 +1,36 @@
+/* eslint-disable playwright/no-networkidle --
+ * Ten waits relocated verbatim from tests/webpet, where
+ * config/lint/.eslintrc.json downgraded this rule to a warning. Rewriting a
+ * wait is a timing change this relocation batch cannot validate; tracked for
+ * the post-consolidation cleanup.
+ */
 /**
- * Coverage for the Reconcile Job Cards page (TTJC-aligned layout).
+ * Reconcile Job Cards, for Catalog workflow **E10 — Export-identifier
+ * matching**.
  *
- * Asserts the page renders, the preference gate works, the Reconcile
- * button is gated until a date scope is picked, the DateRangePicker (in
- * the grid's column-filter row) drives the preview fetch, and Reconcile
- * issues a POST /reconcile via the confirmation dialog.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-e/e10-export-identifier-matching.md` |
+ * | Runner rows | `src/data/runner/journey-e.csv` → `E10-002`…`E10-011` |
  *
- * Server prereqs: PetData with IncludeReconcileJCs preference set true.
+ * Relocated from `tests/webpet/reconcile-job-cards.spec.ts`
+ * (WP-0298…WP-0307). Every assertion below is the one that spec carried, in
+ * the same order and the same describe; what changed is the fixture
+ * (`base.fixture`), the id/tag vocabulary, and wrapping every `page.route`
+ * registration — including the one inside `mockReconcilePost` — in
+ * `guardTeardownRace` (`base.fixture` does not swallow the "…has been
+ * closed" teardown race that `webpet.fixture` did — see
+ * `src/utils/routeGuard.ts`). The `return;` statements inside those handlers
+ * are interceptor control flow and were preserved exactly.
  *
- * ## Framework alignment (Batch 12) — where the skips live and why
- *
- * Eleven `test.skip` callsites for ten tests. Every one of them turns on server
- * state the suite cannot set: the `IncludeReconcileJCs` preference, the
- * `accounting.export` permission, or whether the seeded DB has any JobCards in the
- * last 30 days. They stay **in the spec**, never inside `ReconcileJobCardsPage`:
- * a page object that skipped for you would make a skipped test look like a passing
- * one at the callsite. The page object answers the question
- * ({@link ReconcileJobCardsPage.applyLast30IfEnabled} returns a boolean); the spec
- * decides what to do with the answer.
- *
- * The route mocks stay here too, and they must keep inspecting `postData()` for
- * `"dryRun":true` and falling back: the preview count and the real run POST to the
- * same URL, so a blanket fulfill would stub out the preview and the confirm dialog
- * would never be reachable.
+ * `E10-005` (WP-0301) is quarantined (`enabled=0`) — see the comment above
+ * its test.
  */
 import type { Page } from '@playwright/test';
 import { apiUrl } from '@config/webpetEnv';
-import { expect, test } from '@fixtures/webpet.fixture';
-import type { ReconcileJobCardsPage } from '@pages/webpet/accounting/ReconcileJobCardsPage';
+import { expect, test } from '@fixtures/base.fixture';
+import { guardTeardownRace } from '@utils/routeGuard';
+import type { ReconcileJobCardsPage } from '@pages/accounting/ReconcileJobCardsPage';
 
 type MockReconcileResponse = {
     summary: {
@@ -52,7 +55,7 @@ const mockReconcilePost = async (
     page: Page,
     response: MockReconcileResponse | { status: number; body: object },
 ) => {
-    await page.route('**/api/job-cards/reconcile', async (route, req) => {
+    await page.route('**/api/job-cards/reconcile', guardTeardownRace(async (route, req) => {
         if (req.method() !== 'POST') {
             await route.fallback();
             return;
@@ -74,7 +77,7 @@ const mockReconcilePost = async (
                 body: JSON.stringify(response),
             });
         }
-    });
+    }));
 };
 
 /** Pick a scope, wait for the preview, then confirm the run. Skips on either gate. */
@@ -138,11 +141,14 @@ const hasExportPermission = async (page: Page): Promise<boolean> => {
     );
 };
 
-test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBatch12'] }, () => {
+test.describe('Reconcile Job Cards', { tag: ['@JourneyE', '@E10'] }, () => {
 
     test('[Reconcile] Verify that the page header renders and the preference gate is respected.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0298' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-002' },
+            { type: 'requirement', description: 'E10-R1' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -161,8 +167,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that the pre-analyze prompt shows when no date range is selected.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0299' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-003' },
+            { type: 'requirement', description: 'E10-R2' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -179,8 +188,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that the page renders and a reconcile run completes against the live API.', {
-        tag: ['@wp-ui', '@wp-e2e'],
-        annotation: { type: 'testCaseId', description: 'WP-0300' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-004' },
+            { type: 'requirement', description: 'E10-R3' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -236,9 +248,18 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         await expect(reconcile.summaryPanel).toBeVisible();
     });
 
+    // Quarantined (row enabled=0). The sidebar entry is absent while
+    // accounting.export IS granted — reconfirmed failing in the CI dry run of
+    // 2026-08-06 (run 31089496460) and tracked as BUG-14. This is an open
+    // product question (permission-only vs permission+IncludeReconcileJCs
+    // gating), not a settled bug — see the plan for why the assertion itself
+    // is not adjusted.
     test('[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0301' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-005' },
+            { type: 'requirement', description: 'E10-R4' },
+        ],
     }, async ({ page, pages }) => {
         await pages.shell.gotoRoot();
         await page.waitForLoadState('networkidle');
@@ -254,8 +275,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0302' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-006' },
+            { type: 'requirement', description: 'E10-R5' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await pages.shell.gotoRoot();
@@ -274,8 +298,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that with the preference off the URL stays stable and the banner shows.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0303' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-007' },
+            { type: 'requirement', description: 'E10-R6' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -292,8 +319,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     // ── Mocked POST /api/job-cards/reconcile branches ─────────────────────────
 
     test('[Reconcile] Verify that the summary panel renders inline failure rows when failures exist.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0304' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-008' },
+            { type: 'requirement', description: 'E10-R7' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -327,8 +357,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that the CSV download button is absent when the summary is all-clean.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0305' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-009' },
+            { type: 'requirement', description: 'E10-R8' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -358,8 +391,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that a 5xx response triggers an error toast and no summary panel.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0306' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-010' },
+            { type: 'requirement', description: 'E10-R9' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
@@ -377,8 +413,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     });
 
     test('[Reconcile] Verify that a 4xx response triggers an error toast and no summary panel.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0307' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'E10-011' },
+            { type: 'requirement', description: 'E10-R9' },
+        ],
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();

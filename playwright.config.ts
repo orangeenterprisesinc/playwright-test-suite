@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnvFiles } from './src/config/envLoader';
-import HOST_BOUND from './src/data/webpet/hostBoundExclusions.json';
 
 /**
  * Playwright configuration for the PET Tiger UI + API test suite.
@@ -300,10 +299,6 @@ export default defineConfig({
                       name: 'webpet',
                       testDir: './tests/webpet',
                       dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
-                      // Host-bound parity specs, excluded from COLLECTION rather than
-                      // skipped — a skipped test still shows up in the report. See
-                      // hostBoundExclusions.json for why and how to re-enable.
-                      testIgnore: HOST_BOUND.files.map((f) => `**/${f}`),
                       ...(WEBPET_PARITY
                           ? {
                                 timeout: 30 * 1000,

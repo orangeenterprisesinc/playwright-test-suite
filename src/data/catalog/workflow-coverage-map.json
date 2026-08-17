@@ -21,10 +21,8 @@
     "workflows": {
         "A1": {
             "depth": "journey",
-            "webpetSpecs": [
-                "equiv/export-pet-setup-equivalence.spec.ts"
-            ],
-            "note": "Journey suite owns A1 end-to-end (A1-001…A1-006, user lifecycle + 17 roles). webpet adds a legacy-parity user create; the PET-Setup export parity spec is host-bound and never collected in CI. Field-level create persistence relocated as A1-007 (tests/web/journey-a-setup/a01-user-create), citing existing A1-R1 plus new A1-R10.",
+            "webpetSpecs": [],
+            "note": "Journey suite owns A1 end-to-end (A1-001…A1-006, user lifecycle + 17 roles). webpet adds a legacy-parity user create; PET-Setup export parity relocated as A1-008 (tests/web/journey-a-setup/a01-export-pet-setup-equivalence), enabled=0 and host-bound per the A6-004 pattern, citing new A1-R11/A1-R12 — unproven in CI, it runs only on the windows-automation host. The hostBoundExclusions.json testIgnore mechanism retired with it. Field-level create persistence relocated as A1-007 (tests/web/journey-a-setup/a01-user-create), citing existing A1-R1 plus new A1-R10.",
             "gap": "Serial/license application and module ceilings have no web surface — catalog steps 2-3 are automated nowhere (A1-R9).",
             "next": "None for the web half; serial steps stay manual."
         },
@@ -424,26 +422,16 @@
         },
         "E9": {
             "depth": "partial",
-            "webpetSpecs": [
-                "export-to-accounting.spec.ts",
-                "export-to-accounting-v2.spec.ts",
-                "export-to-accounting-v2-exportrun.spec.ts",
-                "export-to-accounting-v2-mobile.spec.ts",
-                "export-to-accounting-v2-recent-exports.spec.ts",
-                "export-to-accounting-v2-retry.spec.ts",
-                "export-to-accounting-v2-row-selection.spec.ts"
-            ],
-            "note": "The dispatch workspace is well covered: filters, ExportRun draft lifecycle, per-row selection, retry with parentRunCounter, recent exports, mobile layout, and the accounting.export permission paths.",
-            "gap": "No payroll file is generated or its format checked, and no job cards exist to export. Module licensing on dev skips the 403/not-licensed paths.",
+            "webpetSpecs": [],
+            "note": "Relocated to journey rows E9-002..E9-018 (tests/web/journey-e-payroll/e09-export-filter, e09-export-workspace, e09-export-workspace-mobile). The v2 dispatch workspace is live: chrome and readiness, the no-v1-fallback assertion, recent exports, retry with parentRunCounter, the unlicensed-tab and sidebar-permission paths. Ten of seventeen rows are enabled=0 under BUG-18 (retired v1 filter IA x6, draft lifecycle x2, mobile x2), each reconfirmed failing in the CI dry run of 2026-08-06 (run 31089496460).",
+            "gap": "No payroll file is generated or its format checked, and no job cards exist to export (E9-001 stays draft). E9-R1..R4, R7, R9, R12, R15, R16 and R17 are unproven pending the BUG-18 export-UI rework decision.",
             "next": "Assert a generated export file once D4 produces job cards."
         },
         "E10": {
             "depth": "partial",
-            "webpetSpecs": [
-                "reconcile-job-cards.spec.ts"
-            ],
-            "note": "Reconcile run against the live API with the preference gate, permission gate, inline failure rows, CSV download and 4xx/5xx error paths — this is export-identifier matching.",
-            "gap": "Most of the file skips on dev (accounting.export permission and the reconcile preference are off), so the matching logic itself is unproven there.",
+            "webpetSpecs": [],
+            "note": "Relocated as E10-002..E10-011 (tests/web/journey-e-payroll/e10-reconcile-job-cards): preference gate, pre-analyze prompt, a live reconcile run, the permission redirect, the disabled banner, inline failure rows, CSV download and the 4xx/5xx paths.",
+            "gap": "Several enabled rows runtime-skip on dev because accounting.export and the reconcile preference are off, so the matching logic is unexercised there. E10-005 is enabled=0 pending BUG-14 product answer (permission-only vs permission+IncludeReconcileJCs gating), so E10-R4 is unproven. E10-001 stays draft.",
             "next": "Grant accounting.export to the dev run user and enable the reconcile preference."
         },
         "E11": {

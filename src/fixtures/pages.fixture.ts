@@ -41,6 +41,9 @@ import { JobGroupListPage } from '../pages/setup/JobGroupListPage';
 import { TimeCardFormPage } from '../pages/processing/TimeCardFormPage';
 import { EquipmentListPage } from '../pages/setup/EquipmentListPage';
 import { InventoryListPage } from '../pages/setup/InventoryListPage';
+import { ExportToAccountingPage } from '../pages/accounting/ExportToAccountingPage';
+import { ExportDispatchWorkspacePage } from '../pages/accounting/ExportDispatchWorkspacePage';
+import { ReconcileJobCardsPage } from '../pages/accounting/ReconcileJobCardsPage';
 import { ScanScreenPage } from '../pages/scan/ScanScreenPage';
 import { ScanLandingPage } from '../pages/scan/ScanLandingPage';
 import { ScanDeviceFormPage } from '../pages/setup/ScanDeviceFormPage';
@@ -174,6 +177,14 @@ export interface PageObjects {
     /** Unit list. */
     readonly inventoryUnitList: InventoryListPage;
 
+    // ── Accounting ▸ export and reconcile (E9, E10) ─────────────────
+    /** Export to Accounting, v1 filter surface (`/export-to-accounting`). */
+    readonly exportToAccounting: ExportToAccountingPage;
+    /** Export to Accounting v2 dispatch workspace. */
+    readonly exportWorkspace: ExportDispatchWorkspacePage;
+    /** Reconcile Job Cards — preference- and permission-gated. */
+    readonly reconcileJobCards: ReconcileJobCardsPage;
+
     // ── Scan Mode (A7) ──────────────────────────────────────────────
     /** The scan landing grid (`/scan`) — one card per scan screen. */
     readonly scanLanding: ScanLandingPage;
@@ -270,6 +281,9 @@ export function createPageObjects(page: Page): PageObjects {
         get inventoryUnitList() {
             return lazy('inventoryUnitList', () => new InventoryListPage(page, '/setup/inventory/units', 'Units'));
         },
+        get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
+        get exportWorkspace() { return lazy('exportWorkspace', () => new ExportDispatchWorkspacePage(page)); },
+        get reconcileJobCards() { return lazy('reconcileJobCards', () => new ReconcileJobCardsPage(page)); },
         get scanLanding() { return lazy('scanLanding', () => new ScanLandingPage(page)); },
         get scanScreen() { return lazy('scanScreen', () => new ScanScreenPage(page)); },
         get scanDeviceForm() { return lazy('scanDeviceForm', () => new ScanDeviceFormPage(page)); },
