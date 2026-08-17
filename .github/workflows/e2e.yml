@@ -202,6 +202,34 @@ jobs:
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
+      # --- Journey B device→office import (B1-001, B2-001) ----------------------
+      # Which route carries the device export into the office. The DEFAULT is
+      # `internet` — Connectivity ▸ Import ▸ Internet, the relay pull Amy's
+      # recordings show — and it CANNOT pass here: dev still lacks
+      # WEBMAIL_LIVE_SEND_ENABLED on the API task plus a ClientRelayRegistration
+      # row, so the pull is refused before the importer is ever reached.
+      #
+      # `single-folder` posts the same envelope straight to the importer, which
+      # needs only the import worker (enabled by PET-12482). It exercises the
+      # identical office-side assertions — rows matched by reference and linked
+      # by id, programCreated=true, GPS preserved, Transfer to Job Cards — so a
+      # green run here means the device→office import genuinely works.
+      #
+      # The trade: this is not literally Amy's screen path. That fidelity is
+      # covered by a headed demo run; a nightly that is permanently red on a
+      # known ticketed env gap teaches people to ignore red, and gives us no
+      # regression protection on the path that DOES work. Delete this line once
+      # the two relay gates open and CI covers her exact route unchanged.
+      IMPORT_TRANSPORT: 'single-folder'
+      # The worker claims queued files on the client's SrvcRealTimeImportInterval
+      # cadence (minutes — GET /api/preferences → serviceImportInterval), NOT on
+      # arrival. Dev was 15 min and is now 1, so the 60s default is too tight to
+      # be reliable; this rides out a slow tick without hiding a real stall.
+      IMPORT_POLL_TIMEOUT_MS: '180000'
+      # OFFICE_TRANSPORT_SUBSTITUTE is deliberately NOT set: it would create the
+      # punches through the office API when the import fails, turning a broken
+      # pipeline green. Keep it unset so CI only passes on a real import.
+      # -------------------------------------------------------------------------
       # No DB_* env. Test-data cleanup goes through the app's API using the session
       # auth-setup already established, so it needs no database access at all — dev
       # staging's SQL Server is VPC-private and opening it to GitHub's runner IP

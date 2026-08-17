@@ -33,6 +33,12 @@ export interface OfficeTimeCard {
     jobCounter?: number | null;
     /** True for imported rows — the mapper stamps it explicitly. */
     programCreated?: boolean;
+    /**
+     * The device's `<GpsReading>`, stored verbatim by the importer
+     * (`importmap/timecard.go` maps the column). Only place the value is
+     * observable — the office UI has no field for it.
+     */
+    gpsReading?: string | null;
     transferred?: boolean;
     version?: string;
     [key: string]: unknown;
@@ -112,4 +118,37 @@ export async function deleteTimeCard(
 /** The `<Reference>` values an export envelope carries, in document order. */
 export function referencesInExport(xml: string): string[] {
     return [...xml.matchAll(/<Reference>([^<]+)<\/Reference>/g)].map((m) => m[1]);
+}
+
+/**
+ * Delete any punch these fixture employees already have on `day`, before a run
+ * adds its own.
+ *
+ * Needed because the import is asynchronous on a per-client cadence (15 minutes
+ * on dev): when a run's poll times out, the file still imports later and creates
+ * rows the test never saw and therefore never cleaned up. Those orphans then give
+ * the *next* run a second punch for the same employee on the same day, which the
+ * office flags as a duplicate Time In and shows as **Blocking** rather than
+ * Warning — so a stale run breaks every later one until someone clears it by hand.
+ *
+ * Scoped to the seeded employee ids and one day, so it can only ever remove this
+ * suite's own fixture data.
+ */
+export async function sweepFixtureCards(
+    request: APIRequestContext,
+    opts: { employeeIds: number[]; day: string },
+): Promise<{ removed: number; failed: number }> {
+    const wanted = new Set(opts.employeeIds);
+    const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter((c) =>
+        wanted.has(Number(c.employeeCounter)),
+    );
+
+    let removed = 0;
+    let failed = 0;
+    for (const card of existing) {
+        const { deleted } = await deleteTimeCard(request, card.timeCardCounter);
+        if (deleted) removed += 1;
+        else failed += 1;
+    }
+    return { removed, failed };
 }

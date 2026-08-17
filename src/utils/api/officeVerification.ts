@@ -12,6 +12,7 @@ import {
     findByReferences,
     isoDay,
     referencesInExport,
+    sweepFixtureCards,
     type OfficeTimeCard,
 } from './timeCardsApi';
 import { createCrewTimeIn, punchTime } from './crewTimeInApi';
@@ -217,13 +218,13 @@ async function importViaInternetUi(
         `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
             `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
             `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
-            `WEBMAIL_LIVE_SEND_ENABLED=true plus a ClientRelayRegistration row with a SendPassword ` +
-            `(SQL-only). Those two gate the PULL only — the pulled file then lands in the same ` +
-            `unclaimed state as a direct upload, because the import worker is disabled ` +
-            `(PT_IMPORT_WORKER_DISABLED=true — WEBPET-2137). Object storage is no longer a ` +
-            `blocker (WEBPET-1830, fixed 2026-08-12). ` +
-            'Set OFFICE_TRANSPORT_SUBSTITUTE=1 to exercise the office half via the API instead — ' +
-            'that route never touched storage or the worker, so it works regardless.',
+            `WEBMAIL_LIVE_SEND_ENABLED=true on the API task, plus a ClientRelayRegistration row ` +
+            `with LiveSendEnabled=1 and either a SendPassword (SQL-only) or CopyNumber > 0 — the ` +
+            `latter is settable via PUT admin/tm/clients/{id}/relay-registration, so the SQL may ` +
+            `be avoidable. These gate the PULL only; everything downstream already works — ` +
+            `object storage (WEBPET-1830) and the import worker (WEBPET-2137 / PET-12482) are ` +
+            `both fixed, so IMPORT_TRANSPORT=single-folder proves the import today. ` +
+            'OFFICE_TRANSPORT_SUBSTITUTE=1 verifies only the office screens, never the import.',
     ).toBe(true);
 
     // The mailbox can hold envelopes from earlier runs too — wait for every
@@ -235,6 +236,28 @@ async function importViaInternetUi(
 export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {
     const { sessionApi, pages, testInfo, expected, absentEmployeeIds = [], label, crewId, ranchId } = input;
 
+    // Clear this fixture's punches for the target day BEFORE importing. The import
+    // is asynchronous on a per-client cadence, so a run whose poll times out still
+    // gets its rows minutes later — rows no test ever cleaned up. A leftover punch
+    // gives the next run a second one for the same employee on the same day, which
+    // the office flags as a duplicate Time In and renders **Blocking** instead of
+    // Warning, failing every later run until someone clears it by hand.
+    const punchDate = input.punchDate ?? new Date();
+    const punchDay = isoDay(punchDate);
+    const swept = await sweepFixtureCards(sessionApi, {
+        employeeIds: [...expected.map((c) => c.employeeId), ...absentEmployeeIds],
+        day: punchDay,
+    });
+    if (swept.removed || swept.failed) {
+        testInfo.annotations.push({
+            type: 'pre-run-sweep',
+            description:
+                `Removed ${swept.removed} leftover punch(es) for this fixture on ${punchDay} ` +
+                `(${swept.failed} could not be deleted) — orphans from an earlier run whose ` +
+                'import landed after its poll timed out.',
+        });
+    }
+
     const { transport, references } =
         process.env.IMPORT_TRANSPORT === 'single-folder'
             ? await importViaSingleFolder(input)
@@ -242,8 +265,6 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
 
-    const punchDate = input.punchDate ?? new Date();
-    const punchDay = isoDay(punchDate);
     const cards = await findByReferences(sessionApi, references, {
         from: punchDay,
         to: punchDay,
@@ -273,6 +294,17 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
             // stamps it true, an office-API write leaves it false. Asserting it per
             // transport proves the rows came from the route this run actually used,
             // so a silent fallback can never masquerade as a successful import.
+            // The device's GPS fix, proven to survive the import. Asserted on the
+            // card rather than in the Time In panel: the deployed office build
+            // renders no GPS Reading field at all (verified against a card that
+            // definitely has one), so the API is the only place the value is
+            // observable. Only a real import carries it — an office-API punch has none.
+            if (want.gps && transport === 'device-import') {
+                expect(
+                    String(card!.gpsReading ?? ''),
+                    `the device's GpsReading must survive the import for ${want.employeeCode}`,
+                ).toBe(want.gps);
+            }
             expect(
                 card!.programCreated,
                 `${transport} rows should have programCreated=${transport === 'device-import'}`,
@@ -323,10 +355,24 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
             if (panelExpected.crewName) {
                 await expect(transferPage.panelWorkCrewValue).toHaveValue(panelExpected.crewName);
             }
-            // Office-API substitute punches carry no GPS — only a real device
-            // import can be asserted here.
+            // Panel GPS, when the build renders it (Amy's recording shows the
+            // field; dev's bundle carries the label yet has been seen omitting
+            // the control). The card-level assertion above is the authoritative
+            // proof either way, so absence is annotated, never failed — the same
+            // posture as transfer-grid-not-asserted.
             if (panelExpected.gps && transport === 'device-import') {
-                await expect(transferPage.panelGpsValue).toHaveValue(panelExpected.gps);
+                if ((await transferPage.panelGpsValue.count()) > 0) {
+                    await expect(transferPage.panelGpsValue).toHaveValue(panelExpected.gps);
+                } else {
+                    testInfo.annotations.push({
+                        type: 'gps-not-rendered-in-panel',
+                        description:
+                            'The Time In panel rendered no GPS Reading field for a card that ' +
+                            'carries a fix (the recording shows one, and the deployed bundle ' +
+                            'contains the label). The value itself was asserted on the card ' +
+                            'via the API.',
+                    });
+                }
             }
             await transferPage.cancelPanel();
 
