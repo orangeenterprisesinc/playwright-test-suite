@@ -21,7 +21,7 @@
  * area editor, and Back returns to the index. There is no left nav.
  */
 import { FrameLocator, Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

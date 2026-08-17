@@ -20,7 +20,6 @@
  */
 import type { Page } from '@playwright/test';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
-import { DashboardPage } from '../pages/webpet/shell/DashboardPage';
 import { LoginPage } from '../pages/webpet/shell/LoginPage';
 import { BoardFormPage } from '../pages/webpet/setup/BoardFormPage';
 import { ExportToAccountingPage } from '../pages/accounting/ExportToAccountingPage';
@@ -28,7 +27,6 @@ import { ExportDispatchWorkspacePage } from '../pages/accounting/ExportDispatchW
 import { ReconcileJobCardsPage } from '../pages/accounting/ReconcileJobCardsPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
-import { ReportEditorPage } from '../pages/webpet/settings/ReportEditorPage';
 import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { BillingCenterListPage } from '../pages/webpet/setup/BillingCenterListPage';
 import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
@@ -60,8 +58,6 @@ export interface WebpetPages {
     // ── Shell ───────────────────────────────────────────────────────
     /** Sidebar navigation, the user menu and its language submenu. */
     readonly shell: AppShellPage;
-    /** The dashboard widget canvas and palette (`/dashboard`). */
-    readonly dashboard: DashboardPage;
     /** The sign-in screen (`/login`) — reached from an unauthenticated context. */
     readonly login: LoginPage;
     /**
@@ -77,8 +73,6 @@ export interface WebpetPages {
     readonly profile: ProfilePage;
     /** User admin form (`/settings/users/{new,:id}`) — web-pet's own, not the journey suite's. */
     readonly usersForm: UsersFormPage;
-    /** WYSIWYG Report Editor (`/settings/reports/:name`) — host DOM plus a sandboxed preview frame. */
-    readonly reportEditor: ReportEditorPage;
 
     // ── Setup ▸ Traceability ────────────────────────────────────────
     /** Crop create/edit form (`/setup/crops/{new,:id}`). */
@@ -164,7 +158,6 @@ export function createWebpetPages(page: Page): WebpetPages {
 
     return {
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
-        get dashboard() { return lazy('dashboard', () => new DashboardPage(page)); },
         get login() { return lazy('login', () => new LoginPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
         get boardForm() { return lazy('boardForm', () => new BoardFormPage(page)); },
@@ -180,7 +173,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get customerList() { return lazy('customerList', () => new CustomerListPage(page)); },
         get fieldForm() { return lazy('fieldForm', () => new FieldFormPage(page)); },
         get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
-        get reportEditor() { return lazy('reportEditor', () => new ReportEditorPage(page)); },
         get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
         get equipmentForm() { return lazy('equipmentForm', () => new EquipmentFormPage(page)); },
         get termList() { return lazy('termList', () => new TermListPage(page)); },

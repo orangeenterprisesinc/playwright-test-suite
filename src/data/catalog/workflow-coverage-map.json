@@ -210,10 +210,8 @@
         },
         "B14": {
             "depth": "partial",
-            "webpetSpecs": [
-                "dashboard.spec.ts"
-            ],
-            "note": "Dashboard shell only: route bootstrap, widget palette, and persistence across reload.",
+            "webpetSpecs": [],
+            "note": "Dashboard shell coverage lives in journey rows F1-002..F1-006 (tests/web/journey-f-analysis/f01-dashboard-shell.spec.ts). A journey row carries one workflow, so B14 credit is recorded here rather than as a row — nothing the shell asserts is field-specific, and B14-001 stays reserved for the report-backed field board.",
             "gap": "No report-driven live board, no interval refresh, no crew productivity or cost data — the substance of B14/F1.",
             "next": "Automate a report-backed dashboard once F7 report execution is covered."
         },
@@ -457,10 +455,8 @@
         },
         "F1": {
             "depth": "partial",
-            "webpetSpecs": [
-                "dashboard.spec.ts"
-            ],
-            "note": "Same shell coverage as B14 — widgets render, persist and survive reload.",
+            "webpetSpecs": [],
+            "note": "Dashboard shell automated as journey rows F1-002..F1-006 (tests/web/journey-f-analysis/f01-dashboard-shell.spec.ts): route bootstrap with default-board seeding, the greeting and Edit Widgets header, the palette toggle, palette append, and persistence across a full reload. B14 takes cross-credit.",
             "gap": "No report-backed live data, refresh interval, or output/speed/cost figures.",
             "next": "Blocked on F7 report execution."
         },
@@ -501,12 +497,10 @@
         },
         "F7": {
             "depth": "partial",
-            "webpetSpecs": [
-                "report-editor-wysiwyg.spec.ts"
-            ],
-            "note": "The WYSIWYG report editor's acceptance journey: preview selection, area drill-in, column reorder, zoom, orientation and PDF preview.",
-            "gap": "Editing a report layout is not running a report — no parameters, no screen/printer/file/Excel output. Nearly the whole file skips on dev for want of the seeded report.",
-            "next": "Seed the report fixture on dev, then automate run-with-parameters and export."
+            "webpetSpecs": [],
+            "note": "Editor relocated to journey rows F7-002..F7-014 (tests/web/journey-f-analysis/f07-report-editor.spec.ts). Only F7-009 executes (zoom and auto-fit, which incidentally proves the editor route renders a preview sheet); the other 12 rows are enabled=0 because the editor was rebuilt from a sandboxed iframe with markers and an inspector to an inline ReportCanvas with popovers (web-pet bfe869b10, bb9065e1e) and the spec awaits a rewrite. F7-R1..R7 and F7-R9..R13 are unproven. In web-pet all 13 rows were enabled=1 while 12 tests were test.fixme-d, so the matrix credited 13 automated rows for 1 asserting test.",
+            "gap": "Editing a report layout is not running a report — no parameters and no screen, printer, file or Excel output. 12 of 13 editor rows are quarantined pending the ReportCanvas rewrite.",
+            "next": "Rewrite the editor spec and ReportEditorPage against the ReportCanvas UI, re-enabling F7-002..F7-014 incrementally, then automate run-with-parameters and export."
         }
     }
 }

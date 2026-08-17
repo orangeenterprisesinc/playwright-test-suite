@@ -1,37 +1,29 @@
 /**
- * WYSIWYG Report Editor — end-to-end acceptance journey (WEBPET-731).
+ * WYSIWYG Report Editor — relocated acceptance journey for Catalog workflow
+ * **F7 — Report generation and export**.
  *
- * THIS SPEC IS THE GATE for WEBPET-731..740. The Definition of Done for the
- * WYSIWYG feature is this journey passing in a REAL browser against the running
- * stack — not unit tests. Built acceptance-first: the entry-point test passes
- * today; the full journey is `test.fixme` and is enabled incrementally as each
- * P-ticket lands, until the sign-off ticket (WEBPET-740) removes the last fixme
- * and the whole journey is green.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-f/f07-report-editor.md` |
+ * | Runner rows | `src/data/runner/journey-f.csv` → `F7-002`…`F7-014` |
  *
- * Stack runbook (what must be up for this spec to run):
- *   pnpm dev:minio   # docker gotenberg + minio
- *   pnpm dev:api     # Go API (SQL Server via apps/api/.env)
- *   pnpm dev:web     # Vite dev server on :3000
+ * Relocated from `tests/webpet/report-editor-wysiwyg.spec.ts` (WP-0308…WP-0320).
+ * Every assertion below is the one that spec carried, in the same order and the
+ * same describe; what changed is the fixture (`base.fixture`) and the id/tag
+ * vocabulary.
  *
- * Fixture: drives the seeded "Ranch" report (a known, registered report). The
- * editing steps set a draft state that is never saved, so they need no cleanup.
- *
- * Framework-aligned (Batch 10): locators live in ReportEditorPage, which
- * separates the **host** DOM from the **sandboxed preview frame** — the two
- * families look similar (`data-active-area` vs `data-area`) and mixing them up
- * yields a locator that never resolves.
- *
- * STALE — the editor was rebuilt after these were authored. web-pet replaced the
- * sandboxed iframe with an inline React ReportCanvas (bfe869b10, 2026-06-10) and
- * dropped the marker overlay + right inspector rail for popover editors + an
- * anchor menu (bb9065e1e); none of `data-marker-area` / `data-active-area` /
- * `data-inspector-area` exist any more, in source or in the deployed bundle. Only
- * WP-0315 (zoom, testid `preview-sheet`) survived the rebuild and still passes.
- * The rest are fixme'd below until this file and ReportEditorPage are rewritten
- * against the ReportCanvas UI. The earlier note here blaming a missing seeded
- * report on dev was wrong — the report renders; the architecture moved.
+ * 12 of these 13 tests are `test.fixme`'d in the source and remain so here: the
+ * app rebuilt the editor after they were authored (iframe → inline
+ * ReportCanvas, markers/inspector → popovers), so none of `data-marker-area` /
+ * `data-active-area` / `data-inspector-area` exist any more, in source or in
+ * the deployed bundle. Their runner rows are `enabled=0`, so the traceability
+ * matrix stops crediting them as coverage until the rewrite lands. `F7-009`
+ * (zoom, testid `preview-sheet`) is the only test that survived the rebuild
+ * and the only live row — it carries the file's only `@Smoke` (the source's
+ * `@wp-smoke` sat on WP-0308/F7-002, which is fixme'd; a test that asserts
+ * nothing must not hold the file's only smoke tag).
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 
 /** The seeded report this journey drives. */
 const REPORT = 'Ranch';
@@ -40,15 +32,18 @@ const REPORT = 'Ranch';
 const STALE_EDITOR =
     'editor rebuilt: iframe→inline ReportCanvas (web-pet bfe869b10), markers/inspector→popovers (bb9065e1e) — spec rewrite pending';
 
-test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet', '@wp-reporteditor', '@WPBatch10'] }, () => {
+test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@JourneyF', '@F7'] }, () => {
 
     // ── Entry point — real, passing today ──────────────────────────────────────
     // Proves the journey can reach the editor on a known report and that the
     // preview renders. If this breaks, the gate goes red regardless of the
     // WYSIWYG work below.
     test('[Report Editor] Verify that the editor opens on a seeded report with a live preview.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0308' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-002' },
+            { type: 'requirement', description: 'F7-R1' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // asserts the removed iframe + old heading
         const editor = pages.reportEditor;
@@ -61,8 +56,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P0b (WEBPET-733): the preview is an interactive selection surface ───────
     test('[Report Editor] Verify that clicking an editable area in the preview selects it.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0309' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-003' },
+            { type: 'requirement', description: 'F7-R2' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // iframe sandbox + data-active-area are gone
         const editor = pages.reportEditor;
@@ -79,8 +77,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P0c (WEBPET-734): numbered markers + inspector Sheet; no left nav ───────
     test('[Report Editor] Verify that a marker opens its area and the index drills in.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0310' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-004' },
+            { type: 'requirement', description: 'F7-R3' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // markers + inspector Sheet + index removed
         const editor = pages.reportEditor;
@@ -100,8 +101,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P1 (WEBPET-735): mingled area editors — edit a field, preview reflects ──
     test('[Report Editor] Verify that editing the Company Name updates the preview.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0311' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-005' },
+            { type: 'requirement', description: 'F7-R4' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // driven via the removed marker overlay
         const editor = pages.reportEditor;
@@ -121,8 +125,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P2 (WEBPET-736): tabbed Table editor ───────────────────────────────────
     test('[Report Editor] Verify that the table area opens a tabbed editor.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0312' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-006' },
+            { type: 'requirement', description: 'F7-R5' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // driven via the removed marker overlay
         const editor = pages.reportEditor;
@@ -137,8 +144,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P2 (WEBPET-736): drag-to-reorder columns in the preview ─────────────────
     test('[Report Editor] Verify that dragging a column header reorders the preview columns.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0313' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-007' },
+            { type: 'requirement', description: 'F7-R6' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // frameColumnHeaders reach through the removed iframe
         const editor = pages.reportEditor;
@@ -152,16 +162,26 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
         // Drag the 2nd header onto the 1st → the 2nd column becomes first.
         await headers.nth(1).dragTo(headers.nth(0));
 
+        // Relocated verbatim. config/lint/.eslintrc.json downgrades
+        // prefer-web-first-assertions to a warning for tests/webpet/** only, so
+        // this rule was silenced there rather than satisfied. The test is
+        // test.fixme'd pending the ReportCanvas rewrite, so converting to
+        // toHaveAttribute() would change an assertion no run can validate — the
+        // rewrite owns it.
         await expect(async () => {
             const firstAfter = await editor.frameColumnHeaders.nth(0).getAttribute('data-col-id');
+            // eslint-disable-next-line playwright/prefer-web-first-assertions
             expect(firstAfter).toBe(secondBefore);
         }).toPass({ timeout: 15000 });
     });
 
     // ── Each main section carries a pointed label tag naming the region ─────────
     test('[Report Editor] Verify that each main section is labelled with its name on the preview.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0314' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-008' },
+            { type: 'requirement', description: 'F7-R7' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // labels lived on the removed markers
         const editor = pages.reportEditor;
@@ -172,8 +192,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P4 (WEBPET-738): zoom control scales the preview sheet ──────────────────
     test('[Report Editor] Verify that zooming in enlarges the preview sheet and reset restores it.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0315' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-009' },
+            { type: 'requirement', description: 'F7-R8' },
+        ],
     }, async ({ pages }) => {
         const editor = pages.reportEditor;
         await editor.gotoReport(REPORT);
@@ -201,8 +224,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P4 (WEBPET-738): markers carry an accessible name ───────────────────────
     test('[Report Editor] Verify that a preview marker exposes its region name as an accessible label.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0316' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-010' },
+            { type: 'requirement', description: 'F7-R9' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // aria-label lived on the removed markers
         const editor = pages.reportEditor;
@@ -213,8 +239,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P4 (WEBPET-738): the preview stays mounted across a draft re-render ──────
     test('[Report Editor] Verify that editing keeps the preview sheet mounted.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0317' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-011' },
+            { type: 'requirement', description: 'F7-R10' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // edits are driven via the removed marker overlay
         const editor = pages.reportEditor;
@@ -234,8 +263,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
 
     // ── P3 (WEBPET-737): page setup / widgets / filter-summary areas ────────────
     test('[Report Editor] Verify that switching orientation reflects in the preview aspect.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0318' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-012' },
+            { type: 'requirement', description: 'F7-R11' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, STALE_EDITOR); // Page Setup lived on the removed inspector index
         const editor = pages.reportEditor;
@@ -261,8 +293,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
     });
 
     test('[Report Editor] Verify that the widgets and filter-summary areas are reachable from the index.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0319' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-013' },
+            { type: 'requirement', description: 'F7-R12' },
+        ],
     }, async ({ pages }) => {
         // Not just stale — the feature moved: widgets were hidden from the editor
         // flow on purpose (web-pet 219d5ac83). Rewrite must decide whether this
@@ -283,8 +318,11 @@ test.describe('WYSIWYG Report Editor — acceptance journey', { tag: ['@WebPet',
     // Each P-ticket turns one step into a real assertion; WEBPET-740 removes this
     // fixme and the whole journey must be green.
     test('[Report Editor] Verify the full hover to marker to sheet journey reflects in the preview and PDF.', {
-        tag: ['@wp-ui', '@wp-e2e'],
-        annotation: { type: 'testCaseId', description: 'WP-0320' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F7-014' },
+            { type: 'requirement', description: 'F7-R13' },
+        ],
     }, async ({ pages }) => {
         test.fixme(true, 'WYSIWYG canvas not built yet — enabled by WEBPET-732..740');
 

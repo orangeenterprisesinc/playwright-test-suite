@@ -41,6 +41,8 @@ import { JobGroupListPage } from '../pages/setup/JobGroupListPage';
 import { TimeCardFormPage } from '../pages/processing/TimeCardFormPage';
 import { EquipmentListPage } from '../pages/setup/EquipmentListPage';
 import { InventoryListPage } from '../pages/setup/InventoryListPage';
+import { DashboardPage } from '../pages/analysis/DashboardPage';
+import { ReportEditorPage } from '../pages/analysis/ReportEditorPage';
 import { ExportToAccountingPage } from '../pages/accounting/ExportToAccountingPage';
 import { ExportDispatchWorkspacePage } from '../pages/accounting/ExportDispatchWorkspacePage';
 import { ReconcileJobCardsPage } from '../pages/accounting/ReconcileJobCardsPage';
@@ -177,6 +179,12 @@ export interface PageObjects {
     /** Unit list. */
     readonly inventoryUnitList: InventoryListPage;
 
+    // ── Analysis (F1, F7) ───────────────────────────────────────────
+    /** The dashboard widget canvas and palette (`/dashboard`). */
+    readonly dashboard: DashboardPage;
+    /** WYSIWYG Report Editor — host DOM plus the preview sheet. */
+    readonly reportEditor: ReportEditorPage;
+
     // ── Accounting ▸ export and reconcile (E9, E10) ─────────────────
     /** Export to Accounting, v1 filter surface (`/export-to-accounting`). */
     readonly exportToAccounting: ExportToAccountingPage;
@@ -281,6 +289,8 @@ export function createPageObjects(page: Page): PageObjects {
         get inventoryUnitList() {
             return lazy('inventoryUnitList', () => new InventoryListPage(page, '/setup/inventory/units', 'Units'));
         },
+        get dashboard() { return lazy('dashboard', () => new DashboardPage(page)); },
+        get reportEditor() { return lazy('reportEditor', () => new ReportEditorPage(page)); },
         get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
         get exportWorkspace() { return lazy('exportWorkspace', () => new ExportDispatchWorkspacePage(page)); },
         get reconcileJobCards() { return lazy('reconcileJobCards', () => new ReconcileJobCardsPage(page)); },

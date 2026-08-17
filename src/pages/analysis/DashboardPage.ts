@@ -21,7 +21,7 @@
  * the render signals.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /** LocalStorage key holding the persisted board documents. */
 const DASHBOARDS_STORAGE_KEY = 'pt.dashboards.v2';

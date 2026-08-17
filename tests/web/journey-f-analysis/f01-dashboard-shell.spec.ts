@@ -1,30 +1,29 @@
 /**
- * Smoke-level Playwright coverage for the Dashboard shell (PET-439).
+ * Dashboard shell — relocated Playwright coverage for Catalog workflow
+ * **F1 — Real-time productivity dashboard**.
  *
- * Scope: route loads, default board auto-provisions, widget palette toggles,
- * palette-click append persists, full page reload restores the layout.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-f/f01-dashboard-shell.md` |
+ * | Runner rows | `src/data/runner/journey-f.csv` → `F1-002`…`F1-006` |
  *
- * Why click-not-DnD: the palette's plus-icon button calls onAdd(def.id) on
- * the same code path the dnd-kit drop invokes (WidgetPalette.tsx). Synthetic
- * DnD gestures against dnd-kit's PointerSensor are empirically flaky in
- * headless Playwright; the click affordance proves the orchestration without
- * driving the DnD library.
- *
- * Per-test isolation: each test clears the persisted boards via addInitScript so
- * every navigation hits the auto-create-default-board branch, eliminating
- * cross-test order dependence. The shared fixture pins pt.locale but does NOT
- * touch dashboards storage.
- *
- * Framework-aligned (Batch 06): locators and the storage reset live on
- * DashboardPage. Action order and assertions unchanged.
+ * Relocated from `tests/webpet/dashboard.spec.ts` (WP-0126…WP-0130). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same three describes; what changed is the fixture (`base.fixture`) and the
+ * id/tag vocabulary. F1-002 carries the file's only `@Smoke` — the source
+ * also marked F1-003 (WP-0127) smoke, but under the one-smoke-per-file rule
+ * F1-003 demotes to `@HighLevel` here.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 
-test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-shell', '@wp-dashboard', '@WPBatch06'] }, () => {
+test.describe('Dashboard shell — route + bootstrap', { tag: ['@JourneyF', '@F1'] }, () => {
 
     test('[Dashboard] Verify that the route loads and seeds a default board on first visit.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0126' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F1-002' },
+            { type: 'requirement', description: 'F1-R1' },
+        ],
     }, async ({ pages }) => {
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
@@ -42,8 +41,11 @@ test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-s
     });
 
     test('[Dashboard] Verify that the header shows a greeting and an Edit Widgets button.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0127' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F1-003' },
+            { type: 'requirement', description: 'F1-R2' },
+        ],
     }, async ({ pages }) => {
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
@@ -59,11 +61,14 @@ test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-s
 
 });
 
-test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shell', '@wp-dashboard', '@WPBatch06'] }, () => {
+test.describe('Dashboard shell — widget palette', { tag: ['@JourneyF', '@F1'] }, () => {
 
     test('[Dashboard] Verify that the Edit Widgets button toggles the palette open and closed.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0128' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F1-004' },
+            { type: 'requirement', description: 'F1-R3' },
+        ],
     }, async ({ pages }) => {
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
@@ -85,8 +90,11 @@ test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shel
     });
 
     test('[Dashboard] Verify that the palette plus-button appends a widget to the active board.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0129' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F1-005' },
+            { type: 'requirement', description: 'F1-R4' },
+        ],
     }, async ({ pages }) => {
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
@@ -111,11 +119,14 @@ test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shel
 
 });
 
-test.describe('Dashboard shell — persistence + reload', { tag: ['@WebPet', '@wp-shell', '@wp-dashboard', '@WPBatch06'] }, () => {
+test.describe('Dashboard shell — persistence + reload', { tag: ['@JourneyF', '@F1'] }, () => {
 
     test('[Dashboard] Verify that a new widget persists and survives a full page reload.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0130' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'F1-006' },
+            { type: 'requirement', description: 'F1-R5' },
+        ],
     }, async ({ page, pages }) => {
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
