@@ -1,11 +1,20 @@
+// spec: test-plans/screens/shared.md
+// seed: tests/seed.spec.ts
+
 /**
  * ParentPicker coverage across every consumer form — both modes, the create
  * affordance, cascading filters, and the combobox-inside-sheet case.
  *
- * Framework-aligned (Batch 07): this is a **component** spec, so it drives
- * `ParentPickerComponent` through each form's page object rather than through
- * free-function helpers. The batches before this one already depend on that
- * component; this file is what actually hardens it.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/shared.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-118`…`SCR-138` |
+ *
+ * Relocated from `tests/webpet/parent-picker.spec.ts` (WP-0260…WP-0280). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describes; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
  *
  * Two idioms recur below and are worth stating once:
  *
@@ -19,17 +28,14 @@
  *   assertions.
  *
  * This file owns every row it selects, created fresh via the API — it does not
- * depend on the DelLlano seed. It used to name "ADP 5", "STRAWBERRIES", crop
- * counters 2 and 3 and ranch 6 directly, which made 4 tests fail (and 3 more
- * time out behind them) on any DB without those exact rows, dev staging
- * included. The component under test is the picker, never a particular row, so
- * the names below come from the factory. Same pattern as crew.spec.ts.
+ * depend on the DelLlano seed. The component under test is the picker, never a
+ * particular row, so the names below come from the factory.
  *
- * The cascade tests need a specific *shape* of data, not specific values:
- * WP-0273 needs a Ranch with at least one Field; WP-0279 needs one Crop that
- * has a Variety and a second that has none. Both are built in `beforeAll`.
+ * The cascade tests need a specific *shape* of data, not specific values: one
+ * test needs a Ranch with at least one Field; another needs one Crop that has
+ * a Variety and a second that has none. Both are built in `beforeAll`.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureCrop,
     deleteCrop,
@@ -58,23 +64,23 @@ let variety: EnsuredVariety;
 let ranch: EnsuredRanch;
 let field: EnsuredField;
 
-test.beforeAll(async ({ request }) => {
-    dept = await ensureDepartment(request, { namePrefix: 'E2EPickDept' });
-    cropWithVariety = await ensureCrop(request, { namePrefix: 'E2EPickCropV' });
-    cropWithoutVariety = await ensureCrop(request, { namePrefix: 'E2EPickCropN' });
-    variety = await ensureVariety(request, { namePrefix: 'E2EPickVar', cropId: cropWithVariety.id });
-    ranch = await ensureRanch(request, { namePrefix: 'E2EPickRanch' });
-    field = await ensureField(request, { namePrefix: 'E2EPickField', ranchId: ranch.id });
+test.beforeAll(async ({ sessionApi }) => {
+    dept = await ensureDepartment(sessionApi, { namePrefix: 'E2EPickDept' });
+    cropWithVariety = await ensureCrop(sessionApi, { namePrefix: 'E2EPickCropV' });
+    cropWithoutVariety = await ensureCrop(sessionApi, { namePrefix: 'E2EPickCropN' });
+    variety = await ensureVariety(sessionApi, { namePrefix: 'E2EPickVar', cropId: cropWithVariety.id });
+    ranch = await ensureRanch(sessionApi, { namePrefix: 'E2EPickRanch' });
+    field = await ensureField(sessionApi, { namePrefix: 'E2EPickField', ranchId: ranch.id });
 });
 
-test.afterAll(async ({ request }) => {
+test.afterAll(async ({ sessionApi }) => {
     // Children before parents — the API blocks a delete with live FK rows.
-    if (field) await deleteField(request, field.id);
-    if (ranch) await deleteRanch(request, ranch.id);
-    if (variety) await deleteVariety(request, variety.id);
-    if (cropWithoutVariety) await deleteCrop(request, cropWithoutVariety.id);
-    if (cropWithVariety) await deleteCrop(request, cropWithVariety.id);
-    if (dept) await deleteDepartment(request, dept.id);
+    if (field) await deleteField(sessionApi, field.id);
+    if (ranch) await deleteRanch(sessionApi, ranch.id);
+    if (variety) await deleteVariety(sessionApi, variety.id);
+    if (cropWithoutVariety) await deleteCrop(sessionApi, cropWithoutVariety.id);
+    if (cropWithVariety) await deleteCrop(sessionApi, cropWithVariety.id);
+    if (dept) await deleteDepartment(sessionApi, dept.id);
 });
 
 /** A name guaranteed not to match anything, for the "+ Create" assertions. */
@@ -82,11 +88,14 @@ const unknownName = () => `ZZZ_Test_${Date.now()}`;
 
 // ─── combobox-mode tests ────────────────────────────────────────────────────
 
-test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — combobox mode', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that the employee Department combobox filters and selects.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0260' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-118' },
+            { type: 'requirement', description: 'SCR-R150|SCR-R151' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -107,8 +116,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that the employee Department combobox is clearable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0261' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-119' },
+            { type: 'requirement', description: 'SCR-R152' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -128,8 +140,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that the customer Customer Type combobox filters and selects.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0262' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-120' },
+            { type: 'requirement', description: 'SCR-R150|SCR-R151' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -149,8 +164,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that Create appears for an unknown customer type name.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0263' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-121' },
+            { type: 'requirement', description: 'SCR-R153' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -167,8 +185,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that Create is hidden for an existing customer type name.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0264' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-122' },
+            { type: 'requirement', description: 'SCR-R154' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -181,8 +202,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that the field Department combobox loads and selects.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0265' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-123' },
+            { type: 'requirement', description: 'SCR-R150' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();
@@ -196,8 +220,11 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
     });
 
     test('[Picker] Verify that the crew Department combobox loads and selects.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0266' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-124' },
+            { type: 'requirement', description: 'SCR-R150' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -214,11 +241,14 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
 
 // ─── sheet-mode tests ───────────────────────────────────────────────────────
 
-test.describe('Parent Picker — sheet mode', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — sheet mode', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that the crew Default Ranch sheet select works.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0267' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-125' },
+            { type: 'requirement', description: 'SCR-R156' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -234,8 +264,11 @@ test.describe('Parent Picker — sheet mode', { tag: ['@WebPet', '@wp-picker', '
     });
 
     test('[Picker] Verify that the variety Crop sheet lists existing crops.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0268' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-126' },
+            { type: 'requirement', description: 'SCR-R156' },
+        ],
     }, async ({ pages }) => {
         const form = pages.varietyForm;
         await form.gotoNew();
@@ -248,8 +281,11 @@ test.describe('Parent Picker — sheet mode', { tag: ['@WebPet', '@wp-picker', '
     });
 
     test('[Picker] Verify that the field Ranch sheet lists real ranches.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0269' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-127' },
+            { type: 'requirement', description: 'SCR-R156' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();
@@ -264,11 +300,14 @@ test.describe('Parent Picker — sheet mode', { tag: ['@WebPet', '@wp-picker', '
 
 // ─── picker-only combobox + cascading filter ────────────────────────────────
 
-test.describe('Parent Picker — picker-only combobox', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — picker-only combobox', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that the employee Crew combobox loads and offers no Create.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0270' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-128' },
+            { type: 'requirement', description: 'SCR-R155' },
+        ],
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
@@ -284,8 +323,11 @@ test.describe('Parent Picker — picker-only combobox', { tag: ['@WebPet', '@wp-
     });
 
     test('[Picker] Verify that the customer State sheet loads real states and offers no Create.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0271' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-129' },
+            { type: 'requirement', description: 'SCR-R156' },
+        ],
     }, async ({ pages }) => {
         const form = pages.customerForm;
         await form.gotoNew();
@@ -300,8 +342,11 @@ test.describe('Parent Picker — picker-only combobox', { tag: ['@WebPet', '@wp-
     });
 
     test('[Picker] Verify that the field Color combobox is present and offers Create.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0272' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-130' },
+            { type: 'requirement', description: 'SCR-R153' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();
@@ -317,11 +362,14 @@ test.describe('Parent Picker — picker-only combobox', { tag: ['@WebPet', '@wp-
 
 });
 
-test.describe('Parent Picker — cascading filter', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — cascading filter', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that the crew Default Field combobox filters by the selected Default Ranch.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0273' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-131' },
+            { type: 'requirement', description: 'SCR-R157' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -353,11 +401,14 @@ test.describe('Parent Picker — cascading filter', { tag: ['@WebPet', '@wp-pick
 
 // ─── per-consumer smoke coverage ────────────────────────────────────────────
 
-test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — per-consumer smoke', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that all five crew picker fields load.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0274' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-132' },
+            { type: 'requirement', description: 'SCR-R158' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoNew();
@@ -371,8 +422,11 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
     });
 
     test('[Picker] Verify that the equipment Equipment Type combobox loads options.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0275' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-133' },
+            { type: 'requirement', description: 'SCR-R155' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoNew();
@@ -387,8 +441,11 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
     });
 
     test('[Picker] Verify that the job Overtime Rules combobox loads options.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0276' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-134' },
+            { type: 'requirement', description: 'SCR-R155' },
+        ],
     }, async ({ pages }) => {
         const form = pages.jobForm;
         await form.gotoNew();
@@ -402,8 +459,11 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
     });
 
     test('[Picker] Verify that the user Time Card Defaults tab loads its three selectors.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0277' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-135' },
+            { type: 'requirement', description: 'SCR-R158' },
+        ],
     }, async ({ pages }) => {
         // User admin lives under /settings, not /setup.
         const form = pages.usersForm;
@@ -417,8 +477,11 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
     });
 
     test('[Picker] Verify that every field traceability picker loads.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0278' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-136' },
+            { type: 'requirement', description: 'SCR-R158' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();
@@ -437,8 +500,11 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
     });
 
     test('[Picker] Verify that changing the field Crop refilters Variety and clears the selection.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0279' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-137' },
+            { type: 'requirement', description: 'SCR-R157' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();
@@ -468,11 +534,14 @@ test.describe('Parent Picker — per-consumer smoke', { tag: ['@WebPet', '@wp-pi
 
 // ─── combobox-inside-sheet regression ───────────────────────────────────────
 
-test.describe('Parent Picker — combobox inside sheet', { tag: ['@WebPet', '@wp-picker', '@WPBatch07'] }, () => {
+test.describe('Parent Picker — combobox inside sheet', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Picker] Verify that a combobox inside the Ranch edit sheet works.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0280' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-138' },
+            { type: 'requirement', description: 'SCR-R159' },
+        ],
     }, async ({ pages }) => {
         const form = pages.fieldForm;
         await form.gotoNew();

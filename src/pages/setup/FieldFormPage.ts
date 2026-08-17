@@ -18,9 +18,9 @@
  * clears any selection.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
-import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
-import { EntitySheetComponent } from '../../../components/webpet/EntitySheetComponent';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
+import { ParentPickerComponent } from '../../components/webpet/ParentPickerComponent';
+import { EntitySheetComponent } from '../../components/EntitySheetComponent';
 
 /**
  * @extends WebpetFormPage

@@ -16,7 +16,7 @@
  * is their only accessible handle.
  */
 import { Locator, Page } from '@playwright/test';
-import { BaseComponent } from '../BaseComponent';
+import { BaseComponent } from './BaseComponent';
 
 /**
  * @extends BaseComponent

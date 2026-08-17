@@ -1,29 +1,36 @@
+// spec: test-plans/screens/shared.md
+// seed: tests/seed.spec.ts
+
 /**
- * Exercises the shared dirty + error border contract (PET-16):
- * Every field primitive inside a FormProvider auto-renders:
- *   data-dirty="true" + yellow-green border-warning/40   when dirty
- *   aria-invalid="true" + border-destructive + ring      when invalid
+ * Exercises the shared dirty + error border contract (PET-16): every field
+ * primitive inside a FormProvider auto-renders `data-dirty="true"` +
+ * yellow-green `border-warning/40` when dirty, and `aria-invalid="true"` +
+ * `border-destructive` + ring when invalid. Driven by `useFieldFormState(name)`
+ * consumed by Input, Textarea, Label, Select (via root-name propagated through
+ * context), Combobox, Switch, Checkbox, RadioGroup, ColorPickerInput, and
+ * ParentPicker.
  *
- * Driven by useFieldFormState(name) consumed by Input, Textarea, Label,
- * Select (via root-name propagated through context), Combobox, Switch,
- * Checkbox, RadioGroup, ColorPickerInput, and ParentPicker.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/shared.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-139`…`SCR-144` |
  *
- * Prereqs — same as every other spec:
- *   cd apps/api && go run .
- *   cd apps/web && pnpm dev
+ * Relocated from `tests/webpet/form-field-states.spec.ts` (WP-0207…WP-0212).
+ * Every assertion below is the one that spec carried, in the same order and the
+ * same describe; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request` fixture
+ * to `sessionApi`.
  *
  * Stable fixtures used:
  *   - a factory-created Crew (see beforeAll) — edit-page dirty checks
  *   - /setup/crews/new     — new-page error checks (name required, no locked fields)
  *
- * Framework-aligned (Batch 05): the field primitives live on WebpetFormPage
- * (`switchFor`, `checkboxFor`, `colorPickerTrigger`, …) because the contract is
- * shared by every form, not specific to Crew — Crew is only the vehicle. base-ui
- * splits Switch and Checkbox so `id="<field>"` lands on a hidden input while the
- * visible control carries the state attributes; those helpers encode the
- * `aria-labelledby` link that is the stable way in.
+ * base-ui splits Switch and Checkbox so `id="<field>"` lands on a hidden input
+ * while the visible control carries the state attributes; the page-object
+ * helpers used below (`switchFor`, `checkboxFor`, `colorPickerTrigger`) encode
+ * the `aria-labelledby` link that is the stable way in.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureCrew, deleteCrew, type EnsuredCrew } from '@data/generated/data-factory';
 
 // This file owns its own Crew (created via the API) for the edit-page dirty
@@ -32,21 +39,24 @@ import { ensureCrew, deleteCrew, type EnsuredCrew } from '@data/generated/data-f
 // data-factory.ts.
 let crew: EnsuredCrew;
 
-test.beforeAll(async ({ request }) => {
-    crew = await ensureCrew(request);
+test.beforeAll(async ({ sessionApi }) => {
+    crew = await ensureCrew(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (crew) await deleteCrew(request, crew.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (crew) await deleteCrew(sessionApi, crew.id);
 });
 
 const DIRTY = 'true';
 
-test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-formstate', '@WPBatch05'] }, () => {
+test.describe('Field state — dirty + error borders', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Form State] Verify that an Input goes clean to dirty on edit and invalid on clear.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0207' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-139' },
+            { type: 'requirement', description: 'SCR-R160|SCR-R161' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         // Dirty path — use an editable Input on the edit page (shortName is not locked)
@@ -75,8 +85,11 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     });
 
     test('[Form State] Verify that a Switch goes clean to dirty after a toggle.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0208' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-140' },
+            { type: 'requirement', description: 'SCR-R160' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -95,8 +108,11 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     });
 
     test('[Form State] Verify that a Checkbox goes clean to dirty after a toggle.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0209' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-141' },
+            { type: 'requirement', description: 'SCR-R160' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -111,8 +127,11 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     });
 
     test('[Form State] Verify that a combobox-mode ParentPicker reflects dirty on its input.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0210' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-142' },
+            { type: 'requirement', description: 'SCR-R160' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -136,8 +155,11 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     });
 
     test('[Form State] Verify that a sheet-mode ParentPicker reflects dirty on its trigger.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0211' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-143' },
+            { type: 'requirement', description: 'SCR-R160' },
+        ],
     }, async ({ pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -155,8 +177,11 @@ test.describe('Field state — dirty + error borders', { tag: ['@WebPet', '@wp-f
     });
 
     test('[Form State] Verify that a ColorPickerInput goes clean to dirty after a colour pick.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0212' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-144' },
+            { type: 'requirement', description: 'SCR-R160' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);

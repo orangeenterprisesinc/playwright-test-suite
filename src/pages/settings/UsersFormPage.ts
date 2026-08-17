@@ -34,8 +34,8 @@
  *   accepts either so it does not have to be reversed when the two converge.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
-import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
+import { BasePage } from '../BasePage';
+import { ParentPickerComponent } from '../../components/webpet/ParentPickerComponent';
 
 /**
  * @extends BasePage

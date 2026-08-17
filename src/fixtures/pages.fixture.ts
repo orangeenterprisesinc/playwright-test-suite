@@ -31,6 +31,7 @@ import { TermListPage } from '../pages/setup/TermListPage';
 import { RanchListPage } from '../pages/setup/RanchListPage';
 import { RanchFormPage } from '../pages/setup/RanchFormPage';
 import { FieldListPage } from '../pages/setup/FieldListPage';
+import { FieldFormPage } from '../pages/setup/FieldFormPage';
 import { VarietyListPage } from '../pages/setup/VarietyListPage';
 import { TraceLookupListPage } from '../pages/setup/TraceLookupListPage';
 import { OnboardingBadgeListPage } from '../pages/setup/OnboardingBadgeListPage';
@@ -58,16 +59,17 @@ import { TimeInListPage } from '../pages/input/TimeInListPage';
 import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
 import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
-import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
+import { CropFormPage } from '../pages/setup/CropFormPage';
 import { CropListPage } from '../pages/setup/CropListPage';
-import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
-import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
+import { VarietyFormPage } from '../pages/setup/VarietyFormPage';
+import { EmployeeFormPage } from '../pages/setup/EmployeeFormPage';
 import { EmployeeListPage } from '../pages/setup/EmployeeListPage';
-import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
+import { UsersFormPage } from '../pages/settings/UsersFormPage';
 import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
-import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
-import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
-import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
+import { CrewListPage } from '../pages/setup/CrewListPage';
+import { JobFormPage } from '../pages/setup/JobFormPage';
+import { EquipmentFormPage } from '../pages/setup/EquipmentFormPage';
+import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
@@ -120,6 +122,8 @@ export interface PageObjects {
     readonly ranchForm: RanchFormPage;
     /** Field list (A2, D7). */
     readonly fieldList: FieldListPage;
+    /** Field New/Edit form (A2) — thirteen ParentPickers and the record-edit sheet. */
+    readonly fieldForm: FieldFormPage;
     /** Crop New/Edit form (A2). */
     readonly cropForm: CropFormPage;
     /** Crop list (A2). */
@@ -145,6 +149,8 @@ export interface PageObjects {
 
     /** Web-pet's own user admin form (`/settings/users`, A1) — not the journey `users` screen. */
     readonly usersForm: UsersFormPage;
+    /** The user's own profile (`/profile`) — language, password, avatar. */
+    readonly profile: ProfilePage;
     /** Crew New/Edit form (A4). */
     readonly crewForm: CrewFormPage;
     /** Crew list (A4). */
@@ -250,6 +256,7 @@ export function createPageObjects(page: Page): PageObjects {
         get ranchList() { return lazy('ranchList', () => new RanchListPage(page)); },
         get ranchForm() { return lazy('ranchForm', () => new RanchFormPage(page)); },
         get fieldList() { return lazy('fieldList', () => new FieldListPage(page)); },
+        get fieldForm() { return lazy('fieldForm', () => new FieldFormPage(page)); },
         get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
         get cropList() { return lazy('cropList', () => new CropListPage(page)); },
         get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },
@@ -266,6 +273,7 @@ export function createPageObjects(page: Page): PageObjects {
         get onboardingBadgeForm() { return lazy('onboardingBadgeForm', () => new OnboardingBadgeFormPage(page)); },
         get onboardingBadgeList() { return lazy('onboardingBadgeList', () => new OnboardingBadgeListPage(page)); },
         get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
+        get profile() { return lazy('profile', () => new ProfilePage(page)); },
         get crewForm() { return lazy('crewForm', () => new CrewFormPage(page)); },
         get crewList() { return lazy('crewList', () => new CrewListPage(page)); },
         get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },

@@ -14,9 +14,9 @@
  * was removed in PET-581 (GAP-016). Two tests guard that it stays removed.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
-import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
-import { EmployeeDocumentsComponent } from '../../../components/webpet/EmployeeDocumentsComponent';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
+import { ParentPickerComponent } from '../../components/webpet/ParentPickerComponent';
+import { EmployeeDocumentsComponent } from '../../components/EmployeeDocumentsComponent';
 
 /**
  * @extends WebpetFormPage

@@ -1,5 +1,17 @@
+// spec: test-plans/screens/shared.md
+// seed: tests/seed.spec.ts
+
 /**
  * Console diagnostic harvest.
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/shared.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-153` |
+ *
+ * Relocated from `tests/webpet/console-diagnostic.spec.ts` (WP-0084). Every
+ * assertion below is the one that spec carried; what changed is the fixture
+ * (`base.fixture`) and the id and tag vocabulary.
  *
  * Not a test in the usual sense: it navigates two representative routes,
  * collects every console error/warning, page error and failed request, prints
@@ -7,15 +19,15 @@
  * It is always green by construction — its value is the log, read by a human
  * after a run.
  *
- * Framework-aligned (Batch 06): nothing to relocate. The file contains no
- * locators at all — only page event listeners — so the conversion is the
- * fixture import, the title, the tags and the runner annotation. Recorded here
- * so a future reader does not go looking for the page object.
+ * The file contains no locators at all — only page event listeners — so the
+ * conversion is the fixture import, the title, the tags and the runner
+ * annotation. Recorded here so a future reader does not go looking for the
+ * page object.
  *
- * `page.waitForTimeout` is kept deliberately (R4): it gives late-firing console
+ * `page.waitForTimeout` is kept deliberately — it gives late-firing console
  * output a window to arrive before the listeners are torn down.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import type { Page } from '@playwright/test';
 
 type Entry = { route: string; kind: string; text: string; location?: string };
@@ -53,16 +65,24 @@ async function capture(page: Page, route: string): Promise<Entry[]> {
         });
     });
 
+    // Relocated verbatim. This file is a diagnostic harvester: the networkidle
+    // window plus its deliberate settle tail IS the capture period, so rewriting
+    // the wait changes what gets harvested — and a relocation batch cannot
+    // validate a rewritten wait.
+    // eslint-disable-next-line playwright/no-networkidle
     await page.goto(route, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);
     return entries;
 }
 
-test.describe('Console diagnostics', { tag: ['@WebPet', '@wp-diagnostics', '@WPBatch06'] }, () => {
+test.describe('Console diagnostics', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Diagnostics] Capture console output for the fields list and the profile page.', {
-        tag: ['@wp-ui', '@wp-visual'],
-        annotation: { type: 'testCaseId', description: 'WP-0084' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-153' },
+            { type: 'requirement', description: 'SCR-R169' },
+        ],
     }, async ({ page }) => {
         const all: Entry[] = [];
         all.push(...(await capture(page, '/setup/fields')));

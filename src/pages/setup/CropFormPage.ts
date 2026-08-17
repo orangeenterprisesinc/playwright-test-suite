@@ -20,7 +20,7 @@
  * - Name and Export Identifier are `readonly` once the record exists.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
 
 /**
  * @extends WebpetFormPage

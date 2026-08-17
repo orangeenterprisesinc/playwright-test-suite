@@ -6,7 +6,7 @@
  * test: a portaled combobox popup opening from inside a portaled sheet.
  */
 import { Locator, Page } from '@playwright/test';
-import { BaseComponent } from '../BaseComponent';
+import { BaseComponent } from './BaseComponent';
 
 /**
  * @extends BaseComponent

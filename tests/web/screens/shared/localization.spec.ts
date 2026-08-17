@@ -1,26 +1,39 @@
+// spec: test-plans/screens/shared.md
+// seed: tests/seed.spec.ts
+
 /**
  * Exercises the Header and Profile language pickers.
  *
- * The shared fixture pins every context to `en` and intercepts
- * `/api/session/me` to rewrite `user.language` to `en`, so these tests run
- * entirely in the English UI. They verify the picker's structure (System +
- * 3 locale options with BCP-47 suffixes) and the System-sentinel side
- * effect (a PUT /api/users/{id} with language=null).
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/shared.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-149`…`SCR-151` |
  *
- * Framework-aligned (Batch 06): the user-menu locators live on AppShellPage and
- * the Personal Details picker on ProfilePage. Action order and assertions
- * unchanged.
+ * Relocated from `tests/webpet/localization.spec.ts` (WP-0239…WP-0241). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describes; what changed is the fixture (`base.fixture`) and the id and tag
+ * vocabulary.
+ *
+ * `webpet.fixture` pinned every context to `en` and intercepted
+ * `/api/session/me` to rewrite `user.language` to `en`. `base.fixture` does
+ * neither — the locale pin is gone. Every English-copy assertion here is
+ * therefore *positive*: under a non-English session it fails loudly rather
+ * than passing vacuously. If it ever reds for that reason, the fix is a
+ * locale-neutral locator, never a weakened assertion.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 
 /** The picker's full option set, System sentinel first. */
 const LOCALE_OPTIONS = ['System', 'English (en)', 'Spanish (es)', 'Spanish (Mexico) (es-MX)'];
 
-test.describe('Language picker — Header', { tag: ['@WebPet', '@wp-shell', '@wp-localization', '@WPBatch06'] }, () => {
+test.describe('Language picker — Header', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Localization] Verify that the header dropdown lists the Language submenu with System and three locales.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0239' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-149' },
+            { type: 'requirement', description: 'SCR-R166' },
+        ],
     }, async ({ pages }) => {
         const shell = pages.shell;
         await shell.gotoRoot();
@@ -41,8 +54,11 @@ test.describe('Language picker — Header', { tag: ['@WebPet', '@wp-shell', '@wp
     });
 
     test('[Localization] Verify that picking System sends a null language to the user endpoint.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0240' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-150' },
+            { type: 'requirement', description: 'SCR-R167' },
+        ],
     }, async ({ page, pages }) => {
         const shell = pages.shell;
         await shell.gotoRoot();
@@ -63,11 +79,14 @@ test.describe('Language picker — Header', { tag: ['@WebPet', '@wp-shell', '@wp
 
 });
 
-test.describe('Language picker — Profile', { tag: ['@WebPet', '@wp-shell', '@wp-localization', '@WPBatch06'] }, () => {
+test.describe('Language picker — Profile', { tag: ['@Screens', '@Shared'] }, () => {
 
     test('[Localization] Verify that Profile Personal Details lists System and all three locales with BCP-47 suffixes.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0241' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-151' },
+            { type: 'requirement', description: 'SCR-R166' },
+        ],
     }, async ({ pages }) => {
         const profile = pages.profile;
         await profile.gotoProfile();

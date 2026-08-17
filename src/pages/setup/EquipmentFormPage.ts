@@ -13,8 +13,8 @@
  * right assertion and `toHaveAttribute('readonly')` would never pass.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
-import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
+import { ParentPickerComponent } from '../../components/webpet/ParentPickerComponent';
 
 /**
  * @extends WebpetFormPage

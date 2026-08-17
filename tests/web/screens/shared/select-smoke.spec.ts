@@ -1,24 +1,35 @@
+// spec: test-plans/screens/shared.md
+// seed: tests/seed.spec.ts
+
 /**
  * Visual smoke coverage for the Select→base-ui migration.
  *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/screens/shared.md` |
+ * | Runner rows | `src/data/runner/screens.csv` → `SCR-145`…`SCR-148` |
+ *
+ * Relocated from `tests/webpet/select-smoke.spec.ts` (WP-0368…WP-0371). Every
+ * assertion below is the one that spec carried, in the same order and the same
+ * describe; what changed is the fixture (`base.fixture`), the id and tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request` fixture
+ * to `sessionApi`.
+ *
  * Unusual by design: most of what this file produces are **screenshots** under
- * `e2e/.screenshots/`, not assertions — WP-0369 has no assertion at all. It
- * exists to capture the migrated controls for eyeball review, so the captures
- * are the deliverable and the few assertions are guard rails around them.
+ * `e2e/.screenshots/`, not assertions — the capture-only test (SCR-146) has no
+ * assertion at all. It exists to capture the migrated controls for eyeball
+ * review, so the captures are the deliverable and the few assertions are guard
+ * rails around them.
  *
- * Two conventions are deliberately broken here, both under R4 (behaviour
- * preservation):
- *   - `page.waitForTimeout(...)` is kept. The framework forbids it, but these
- *     waits exist to let popovers and scroll animations settle before a capture;
- *     replacing them with web-first waits would change what the screenshots show.
+ * Two conventions are deliberately broken here, both under the
+ * behaviour-preservation constraint of this relocation:
+ *   - `page.waitForTimeout(...)` is kept. These waits exist to let popovers and
+ *     scroll animations settle before a capture; replacing them with web-first
+ *     waits would change what the screenshots show.
  *   - The screenshot paths are CWD-relative and create a stray `e2e/` directory
- *     at the repo root. Already gitignored (`.gitignore` names this file).
- *
- * Framework-aligned (Batch 05): every locator moved onto CrewFormPage /
- * JobFormPage / CrewListPage. The screenshot and keyboard calls stay in the
- * spec — they are actions on the run, not page structure.
+ *     at the repo root. Already gitignored.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import {
     ensureCrew,
     deleteCrew,
@@ -34,24 +45,27 @@ import {
 let crew: EnsuredCrew;
 let job: EnsuredJob;
 
-test.beforeAll(async ({ request }) => {
-    crew = await ensureCrew(request);
+test.beforeAll(async ({ sessionApi }) => {
+    crew = await ensureCrew(sessionApi);
     // paymentType 8 = Non-Labor: WP-0370 needs includeIdleTime to render, which
     // only happens for Payment Type in {NonLabor, ExtraWages} (isAllowLookBackPeriod).
-    job = await ensureJob(request, { paymentType: 8 });
+    job = await ensureJob(sessionApi, { paymentType: 8 });
 });
 
-test.afterAll(async ({ request }) => {
-    if (crew) await deleteCrew(request, crew.id);
-    if (job) await deleteJob(request, job.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (crew) await deleteCrew(sessionApi, crew.id);
+    if (job) await deleteJob(sessionApi, job.id);
 });
 
-test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration', '@WPBatch05'] }, () => {
+test.describe('Select migration smoke', { tag: ['@Screens', '@Shared'] }, () => {
     test.describe.configure({ mode: 'serial' });
 
     test('[Select] Verify that the crew form renders its boolean Switches after the migration.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0368' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-145' },
+            { type: 'requirement', description: 'SCR-R162' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -75,8 +89,11 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
     });
 
     test('[Select] Capture the crew form ParentPickers in combobox and sheet mode.', {
-        tag: ['@wp-ui', '@wp-visual'],
-        annotation: { type: 'testCaseId', description: 'WP-0369' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-146' },
+            { type: 'requirement', description: 'SCR-R163' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.crewForm;
         await form.gotoEdit(crew.id);
@@ -92,8 +109,11 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
     });
 
     test('[Select] Verify the job form numeric enum, nullable tri-state and tab add-row.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0370' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-147' },
+            { type: 'requirement', description: 'SCR-R164' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.jobForm;
         await form.gotoEdit(job.id);
@@ -127,8 +147,11 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
     });
 
     test('[Select] Verify the crew list filter Select and Multi-Update toggle.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0371' },
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'SCR-148' },
+            { type: 'requirement', description: 'SCR-R165' },
+        ],
     }, async ({ page, pages }) => {
         const list = pages.crewList;
         await list.gotoList();

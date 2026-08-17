@@ -1841,6 +1841,564 @@
             ],
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "SCR-118",
+            "category": "ui",
+            "testName": "employeeDepartmentComboboxFiltersAndSelects",
+            "testTitle": "[Picker] Verify that the employee Department combobox filters and selects.",
+            "testDescription": "Combobox mode: the Department list filters as you type and the picked value lands in the input.",
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R150",
+                "SCR-R151"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-119",
+            "category": "ui",
+            "testName": "employeeDepartmentComboboxClearable",
+            "testTitle": "[Picker] Verify that the employee Department combobox is clearable.",
+            "testDescription": "Combobox clear-to-none is the X button, shown once a value is selected — not a list item. That idiom belongs to sheet mode.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R152"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-120",
+            "category": "ui",
+            "testName": "customerTypeComboboxFiltersAndSelects",
+            "testTitle": "[Picker] Verify that the customer Customer Type combobox filters and selects.",
+            "testDescription": "Combobox mode on a createable picker: filtering narrows the list and selection sets the input.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R150",
+                "SCR-R151"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-121",
+            "category": "ui",
+            "testName": "customerTypeCreateShownForUnknownName",
+            "testTitle": "[Picker] Verify that Create appears for an unknown customer type name.",
+            "testDescription": "A name matching nothing surfaces the + Create footer, because Customer Type registers a useCreateFromName handler. The footer is asserted, never clicked — clicking would mutate the DB.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R153"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-122",
+            "category": "ui",
+            "testName": "customerTypeCreateHiddenForExistingName",
+            "testTitle": "[Picker] Verify that Create is hidden for an existing customer type name.",
+            "testDescription": "The + Create footer must not appear for a name that already exists.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R154"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-123",
+            "category": "ui",
+            "testName": "fieldDepartmentComboboxLoadsAndSelects",
+            "testTitle": "[Picker] Verify that the field Department combobox loads and selects.",
+            "testDescription": "The field form Department combobox loads real options and selection sticks.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R150"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-124",
+            "category": "ui",
+            "testName": "crewDepartmentComboboxLoadsAndSelects",
+            "testTitle": "[Picker] Verify that the crew Department combobox loads and selects.",
+            "testDescription": "The crew form Department combobox loads real options and selection sticks.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R150"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-125",
+            "category": "ui",
+            "testName": "crewDefaultRanchSheetSelectWorks",
+            "testTitle": "[Picker] Verify that the crew Default Ranch sheet select works.",
+            "testDescription": "Sheet mode: the trigger renders and opening it lists real options, excluding the aria-hidden __none__ sentinel.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R156"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-126",
+            "category": "ui",
+            "testName": "varietyCropSheetListsExistingCrops",
+            "testTitle": "[Picker] Verify that the variety Crop sheet lists existing crops.",
+            "testDescription": "The variety form Crop sheet lists seeded crops.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R156"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-127",
+            "category": "ui",
+            "testName": "fieldRanchSheetListsRealRanches",
+            "testTitle": "[Picker] Verify that the field Ranch sheet lists real ranches.",
+            "testDescription": "The field form Ranch sheet lists at least one real ranch, sentinel excluded.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R156"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-128",
+            "category": "ui",
+            "testName": "employeeCrewComboboxLoadsWithoutCreate",
+            "testTitle": "[Picker] Verify that the employee Crew combobox loads and offers no Create.",
+            "testDescription": "Crew registers no useCreateFromName, so the + Create footer must stay hidden even for an unknown name.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R155"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-129",
+            "category": "ui",
+            "testName": "customerStateSheetLoadsWithoutCreate",
+            "testTitle": "[Picker] Verify that the customer State sheet loads real states and offers no Create.",
+            "testDescription": "State is a sheet-mode picker displaying shortName, not a combobox — an earlier version drove it with combobox helpers and matched nothing. There is no POST /api/states, and sheet mode has no create affordance at all.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R156"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-130",
+            "category": "ui",
+            "testName": "fieldColorComboboxOffersCreate",
+            "testTitle": "[Picker] Verify that the field Color combobox is present and offers Create.",
+            "testDescription": "Colour does register useCreateFromName, so an unknown name surfaces the + Create footer.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R153"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-131",
+            "category": "ui",
+            "testName": "crewDefaultFieldCascadesFromRanch",
+            "testTitle": "[Picker] Verify that the crew Default Field combobox filters by the selected Default Ranch.",
+            "testDescription": "Default Field is filtered by the selected Default Ranch, and changing the ranch clears the field selection via the onChange cascade.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R157"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-132",
+            "category": "ui",
+            "testName": "crewAllFivePickerFieldsLoad",
+            "testTitle": "[Picker] Verify that all five crew picker fields load.",
+            "testDescription": "Per-consumer smoke: all five crew pickers render, four combobox and one sheet.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R158"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-133",
+            "category": "ui",
+            "testName": "equipmentTypeComboboxLoadsOptions",
+            "testTitle": "[Picker] Verify that the equipment Equipment Type combobox loads options.",
+            "testDescription": "Per-consumer smoke: Equipment Type loads seeded options and offers no create.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R155"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-134",
+            "category": "ui",
+            "testName": "jobOvertimeRulesComboboxLoadsOptions",
+            "testTitle": "[Picker] Verify that the job Overtime Rules combobox loads options.",
+            "testDescription": "Per-consumer smoke: Overtime Rules loads options by ARIA role and offers no create.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R155"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-135",
+            "category": "ui",
+            "testName": "userTimecardTabThreeSelectorsLoad",
+            "testTitle": "[Picker] Verify that the user Time Card Defaults tab loads its three selectors.",
+            "testDescription": "Per-consumer smoke on /settings/users/new: the Time Card Defaults tab exposes Default Ranch, Field and Job. Tabs are ordinary buttons, not ARIA tabs.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R158"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-136",
+            "category": "ui",
+            "testName": "fieldTraceabilityPickersAllLoad",
+            "testTitle": "[Picker] Verify that every field traceability picker loads.",
+            "testDescription": "Per-consumer smoke: every traceability picker on the field form renders, in the correct mode — State and Crop are sheets, the rest comboboxes.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R158"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-137",
+            "category": "ui",
+            "testName": "fieldCropChangeRefiltersVariety",
+            "testTitle": "[Picker] Verify that changing the field Crop refilters Variety and clears the selection.",
+            "testDescription": "Changing Crop refilters the Variety list and clears the current selection. Verified by switching from a crop that has varieties to one that has none.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R157"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-138",
+            "category": "ui",
+            "testName": "comboboxInsideRanchEditSheetWorks",
+            "testTitle": "[Picker] Verify that a combobox inside the Ranch edit sheet works.",
+            "testDescription": "Regression: a portaled combobox popup opened from inside a portaled edit sheet still renders its options.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R159"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-139",
+            "category": "ui",
+            "testName": "inputDirtyOnEditAndInvalidOnClear",
+            "testTitle": "[Form State] Verify that an Input goes clean to dirty on edit and invalid on clear.",
+            "testDescription": "PET-16 contract for Input: data-dirty appears after an edit and aria-invalid after clearing a required field, with validation running on blur rather than submit.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160",
+                "SCR-R161"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-140",
+            "category": "ui",
+            "testName": "switchDirtyAfterToggle",
+            "testTitle": "[Form State] Verify that a Switch goes clean to dirty after a toggle.",
+            "testDescription": "PET-16 contract for Switch. base-ui puts the field id on a hidden input, so the visible control is reached through aria-labelledby.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-141",
+            "category": "ui",
+            "testName": "checkboxDirtyAfterToggle",
+            "testTitle": "[Form State] Verify that a Checkbox goes clean to dirty after a toggle.",
+            "testDescription": "PET-16 contract for Checkbox, reached the same way as Switch.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-142",
+            "category": "ui",
+            "testName": "comboboxPickerForwardsDirty",
+            "testTitle": "[Form State] Verify that a combobox-mode ParentPicker reflects dirty on its input.",
+            "testDescription": "PET-16 contract for a combobox-mode ParentPicker: the field name propagates so the ComboboxInput itself reflects dirty.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-143",
+            "category": "ui",
+            "testName": "sheetPickerForwardsDirty",
+            "testTitle": "[Form State] Verify that a sheet-mode ParentPicker reflects dirty on its trigger.",
+            "testDescription": "PET-16 contract for a sheet-mode ParentPicker. Picks an option other than the selected one, since re-picking the current value does not dirty the field and the nullable default is aria-hidden.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-144",
+            "category": "ui",
+            "testName": "colorPickerDirtyAfterPick",
+            "testTitle": "[Form State] Verify that a ColorPickerInput goes clean to dirty after a colour pick.",
+            "testDescription": "PET-16 contract for ColorPickerInput, whose trigger is an unlabelled button reached through its neighbouring label.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R160"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-145",
+            "category": "ui",
+            "testName": "crewFormBooleanSwitchesRender",
+            "testTitle": "[Select] Verify that the crew form renders its boolean Switches after the migration.",
+            "testDescription": "The crew form renders seven Switches after the Select to base-ui migration, with the grouping labels present.",
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R162"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-146",
+            "category": "ui",
+            "testName": "crewFormParentPickersCaptured",
+            "testTitle": "[Select] Capture the crew form ParentPickers in combobox and sheet mode.",
+            "testDescription": "Capture-only: screenshots the crew form ParentPickers in combobox and sheet mode for eyeball review. Asserts nothing by design.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R163"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-147",
+            "category": "ui",
+            "testName": "jobFormEnumTriStateAndTabAddRow",
+            "testTitle": "[Select] Verify the job form numeric enum, nullable tri-state and tab add-row.",
+            "testDescription": "The job form payment-type Select opens, the PET-60 tri-state checkbox reports a valid aria-checked value, and the Crops tab add-row Select opens.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R164"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-148",
+            "category": "ui",
+            "testName": "crewListFilterSelectAndMultiUpdate",
+            "testTitle": "[Select] Verify the crew list filter Select and Multi-Update toggle.",
+            "testDescription": "The crew list column-header filter Select opens and the Multi-Update toggle engages, captured for review.",
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R165"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-149",
+            "category": "ui",
+            "testName": "headerLanguageMenuListsSystemAndThreeLocales",
+            "testTitle": "[Localization] Verify that the header dropdown lists the Language submenu with System and three locales.",
+            "testDescription": "The sidebar user menu exposes a Language submenu listing System plus three locales with BCP-47 suffixes.",
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "SCR-R166"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-150",
+            "category": "ui",
+            "testName": "pickingSystemSendsNullLanguage",
+            "testTitle": "[Localization] Verify that picking System sends a null language to the user endpoint.",
+            "testDescription": "Choosing the System sentinel issues a PUT to the user endpoint carrying language=null.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R167"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-151",
+            "category": "ui",
+            "testName": "profileLanguagePickerListsAllLocales",
+            "testTitle": "[Localization] Verify that Profile Personal Details lists System and all three locales with BCP-47 suffixes.",
+            "testDescription": "The Personal Details language picker lists the same option set. PET-25 removed the duplicate Preferences-section picker, so this is its only home.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R166"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-152",
+            "category": "ui",
+            "testName": "mobileTabDropdownShowsLabelsNotValues",
+            "testTitle": "[Crop] Verify that the mobile tab dropdown shows labels rather than raw values.",
+            "testDescription": "At a mobile viewport the crop form tab strip collapses into a Select; its visible options are logged and captured to confirm they render labels rather than raw values.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R168"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-153",
+            "category": "ui",
+            "testName": "captureConsoleForFieldsAndProfile",
+            "testTitle": "[Diagnostics] Capture console output for the fields list and the profile page.",
+            "testDescription": "Log harvester, not a check: collects console errors, page errors and failed requests for two representative routes and prints a report. Always green by construction.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R169"
+            ],
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

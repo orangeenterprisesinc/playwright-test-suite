@@ -19,8 +19,8 @@
  * here so the skip can be lifted without re-deriving anything.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetFormPage } from '../WebpetFormPage';
-import { ParentPickerComponent } from '../../../components/webpet/ParentPickerComponent';
+import { WebpetFormPage } from '../webpet/WebpetFormPage';
+import { ParentPickerComponent } from '../../components/webpet/ParentPickerComponent';
 
 /**
  * @extends WebpetFormPage

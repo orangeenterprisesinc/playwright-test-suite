@@ -37,7 +37,7 @@ import {
     type EnsuredEmployee,
 } from '@data/generated/data-factory';
 import { API_BASE_URL, WEB_BASE_URL, WEBPET_NONSU_USER, WEBPET_NONSU_PASSWORD } from '@config/webpetEnv';
-import { EmployeeFormPage } from '@pages/webpet/setup/EmployeeFormPage';
+import { EmployeeFormPage } from '@pages/setup/EmployeeFormPage';
 import { request as pwRequest } from '@playwright/test';
 
 // This file creates its own Department + Crew + Employee via the API instead of

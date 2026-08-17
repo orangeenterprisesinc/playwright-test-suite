@@ -29,22 +29,14 @@ import { ToastComponent } from '../components/webpet/ToastComponent';
 import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { BillingCenterListPage } from '../pages/webpet/setup/BillingCenterListPage';
-import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
 import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
-import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
 import { CustomerFormPage } from '../pages/webpet/setup/CustomerFormPage';
 import { CustomerListPage } from '../pages/setup/CustomerListPage';
 import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
-import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
-import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
-import { FieldFormPage } from '../pages/webpet/setup/FieldFormPage';
-import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
-import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
 import { TermListPage } from '../pages/setup/TermListPage';
 import { TimeSheetValidationFormPage } from '../pages/webpet/setup/TimeSheetValidationFormPage';
 import { TimeSheetValidationListPage } from '../pages/webpet/setup/TimeSheetValidationListPage';
-import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
 
 /**
  * Every web-pet page object, lazily constructed.
@@ -71,28 +63,16 @@ export interface WebpetPages {
     // ── Settings ────────────────────────────────────────────────────
     /** The user's own profile (`/profile`) — language, password, avatar. */
     readonly profile: ProfilePage;
-    /** User admin form (`/settings/users/{new,:id}`) — web-pet's own, not the journey suite's. */
-    readonly usersForm: UsersFormPage;
 
     // ── Setup ▸ Traceability ────────────────────────────────────────
-    /** Crop create/edit form (`/setup/crops/{new,:id}`). */
-    readonly cropForm: CropFormPage;
-    /** Variety create/edit form (`/setup/varieties/{new,:id}`) — sheet-mode Crop picker. */
-    readonly varietyForm: VarietyFormPage;
-    /** Field create/edit form (`/setup/fields/{new,:id}`) — thirteen ParentPickers. */
-    readonly fieldForm: FieldFormPage;
 
     // ── Setup ▸ People ──────────────────────────────────────────────
     /** Crew create/edit form (`/setup/crews/{new,:id}`). */
     readonly crewForm: CrewFormPage;
-    /** Crew list (`/setup/crews`). */
-    readonly crewList: CrewListPage;
     /** Department create/edit form (`/setup/departments/{new,:id}`). */
     readonly departmentForm: DepartmentFormPage;
     /** Department list (`/setup/departments`). */
     readonly departmentList: DepartmentListPage;
-    /** Employee create/edit form (`/setup/employees/{new,:id}`) — Department + Crew pickers. */
-    readonly employeeForm: EmployeeFormPage;
 
     // ── Setup ▸ Customers ───────────────────────────────────────────
     /** Customer create/edit form (`/setup/customers/{new,:id}`) — includes the contacts sub-form. */
@@ -101,14 +81,10 @@ export interface WebpetPages {
     readonly customerList: CustomerListPage;
 
     // ── Setup ▸ Jobs ────────────────────────────────────────────────
-    /** Job create/edit form (`/setup/jobs/{new,:id}`) — Overtime Rules FK required. */
-    readonly jobForm: JobFormPage;
     /** Board create/edit form (`/setup/boards/{new,:id}`) — error-toast coverage only. */
     readonly boardForm: BoardFormPage;
 
     // ── Setup ▸ Equipment ───────────────────────────────────────────
-    /** Equipment create/edit form (`/setup/equipments/{new,:id}`) — Equipment Type FK required. */
-    readonly equipmentForm: EquipmentFormPage;
 
     // ── Setup ▸ Grower Billing ──────────────────────────────────────
     /** Terms list (`/setup/terms`) — module-gated, may legitimately 403. */
@@ -162,19 +138,11 @@ export function createWebpetPages(page: Page): WebpetPages {
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
         get boardForm() { return lazy('boardForm', () => new BoardFormPage(page)); },
         get profile() { return lazy('profile', () => new ProfilePage(page)); },
-        get cropForm() { return lazy('cropForm', () => new CropFormPage(page)); },
-        get varietyForm() { return lazy('varietyForm', () => new VarietyFormPage(page)); },
         get crewForm() { return lazy('crewForm', () => new CrewFormPage(page)); },
-        get crewList() { return lazy('crewList', () => new CrewListPage(page)); },
         get departmentForm() { return lazy('departmentForm', () => new DepartmentFormPage(page)); },
         get departmentList() { return lazy('departmentList', () => new DepartmentListPage(page)); },
-        get employeeForm() { return lazy('employeeForm', () => new EmployeeFormPage(page)); },
         get customerForm() { return lazy('customerForm', () => new CustomerFormPage(page)); },
         get customerList() { return lazy('customerList', () => new CustomerListPage(page)); },
-        get fieldForm() { return lazy('fieldForm', () => new FieldFormPage(page)); },
-        get usersForm() { return lazy('usersForm', () => new UsersFormPage(page)); },
-        get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
-        get equipmentForm() { return lazy('equipmentForm', () => new EquipmentFormPage(page)); },
         get termList() { return lazy('termList', () => new TermListPage(page)); },
         get timeSheetValidationForm() {
             return lazy('timeSheetValidationForm', () => new TimeSheetValidationFormPage(page));

@@ -57,6 +57,6 @@ Each area gets one plan covering its screens, added as that area's specs arrive.
 | `bonus.md` | bonus | `SCR-001`…`SCR-077` |
 | `records.md` | records | `SCR-078`…`SCR-111` |
 | `inventory.md` | inventory | `SCR-112`…`SCR-117` |
+| `shared.md` | shared | `SCR-118`…`SCR-153` |
 
-`shared.md`, `timesheet.md` and `profile.md` arrive with their relocation
-batches.
+`timesheet.md` and `profile.md` arrive with their relocation batch.
