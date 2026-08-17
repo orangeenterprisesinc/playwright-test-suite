@@ -41,6 +41,10 @@ import { JobGroupListPage } from '../pages/setup/JobGroupListPage';
 import { TimeCardFormPage } from '../pages/processing/TimeCardFormPage';
 import { EquipmentListPage } from '../pages/setup/EquipmentListPage';
 import { InventoryListPage } from '../pages/setup/InventoryListPage';
+import { ScanScreenPage } from '../pages/scan/ScanScreenPage';
+import { ScanLandingPage } from '../pages/scan/ScanLandingPage';
+import { ScanDeviceFormPage } from '../pages/setup/ScanDeviceFormPage';
+import { TimeInListPage } from '../pages/input/TimeInListPage';
 // Still under src/pages/webpet/ and src/components/webpet/ — each of these is
 // also used by web-pet specs that have not relocated yet. A page object moves
 // to its journey home in the batch that relocates its *last* web-pet consumer;
@@ -170,9 +174,19 @@ export interface PageObjects {
     /** Unit list. */
     readonly inventoryUnitList: InventoryListPage;
 
+    // ── Scan Mode (A7) ──────────────────────────────────────────────
+    /** The scan landing grid (`/scan`) — one card per scan screen. */
+    readonly scanLanding: ScanLandingPage;
+    /** Any `/scan/:segment` screen — the shared shell, input and status. */
+    readonly scanScreen: ScanScreenPage;
+    /** Scan device create/edit form — two-step: General on new, Preferences on edit. */
+    readonly scanDeviceForm: ScanDeviceFormPage;
+
     // ── Input ▸ time cards (D3) ─────────────────────────────────────
     /** Time card entry form — office correction of a crew time card. */
     readonly timeCardForm: TimeCardFormPage;
+    /** Time In list (`/input/time-in`) — counter-keyed dropdown columns. */
+    readonly timeInList: TimeInListPage;
 
     /** The authenticated shell: sidebar navigation and dashboard. */
     readonly shell: AppShellPage;
@@ -256,7 +270,11 @@ export function createPageObjects(page: Page): PageObjects {
         get inventoryUnitList() {
             return lazy('inventoryUnitList', () => new InventoryListPage(page, '/setup/inventory/units', 'Units'));
         },
+        get scanLanding() { return lazy('scanLanding', () => new ScanLandingPage(page)); },
+        get scanScreen() { return lazy('scanScreen', () => new ScanScreenPage(page)); },
+        get scanDeviceForm() { return lazy('scanDeviceForm', () => new ScanDeviceFormPage(page)); },
         get timeCardForm() { return lazy('timeCardForm', () => new TimeCardFormPage(page)); },
+        get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },
     };

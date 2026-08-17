@@ -65,15 +65,10 @@
         },
         "A7": {
             "depth": "screens",
-            "webpetSpecs": [
-                "equiv/scan-device-create-de15-pocket-pda.spec.ts",
-                "data-scoping.spec.ts",
-                "scan-mode.spec.ts",
-                "scan-mode-gating.spec.ts"
-            ],
-            "note": "Device record creation with type/login, plus the scoping half — SU visibility and restricted-user leakage (PET-441) — and Scan Mode route gating.",
-            "gap": "Pushing setup to the device and scoping crews/fields/jobs onto it is not covered; restricted-user provisioning skips on dev (POST /api/users 500).",
-            "next": "Re-enable the restricted-user block once dev user provisioning is fixed."
+            "webpetSpecs": [],
+            "note": "Device record creation with type/login, the scoping half — SU visibility and restricted-user leakage (PET-441) — and Scan Mode route gating, landing grid, decode routing and save. Relocated to journey rows A7-002..A7-052 (tests/web/journey-a-setup/a07-*, tests/api/journey-a-setup/a07-data-scoping). Depth stays screens: A7-046..A7-048 are body-skipped deferred surfaces asserting nothing, so the claim rests on the other 48 tests.",
+            "gap": "Pushing setup to the device and scoping crews/fields/jobs onto it is not covered. A7-051 (PET-441 restricted-user leakage) is enabled=0: its existsSync skip guard was only valid inside the webpet project, whose webpet-setup dependency refreshed the restricted storage state; the journey api project has none, so the stale session 401s. A7-R16 is unproven.",
+            "next": "Provision the restricted user from a journey-side setup project (RET-03), then re-enable A7-051."
         },
         "A8": {
             "depth": "none",
@@ -140,11 +135,8 @@
         },
         "B3": {
             "depth": "partial",
-            "webpetSpecs": [
-                "equiv/scan-time-in-equivalence.spec.ts",
-                "time-in.spec.ts"
-            ],
-            "note": "One legacy-parity scan writing a Time In row, plus the office Time In list's multi-edit dropdown (WEBPET-666).",
+            "webpetSpecs": [],
+            "note": "One legacy-parity scan writing a Time In row (journey row B3-003) plus the office Time In list multi-edit dropdown (WEBPET-666, journey row B3-002); tests/web/journey-b-field/b03-*.",
             "gap": "The parity spec skips unless SCAN_TIME_IN_EQUIV=1 and SCAN_EMPLOYEE_BARCODE are set, so nothing proves B3 in CI. Duplicate-range correction is uncovered.",
             "next": "Set SCAN_TIME_IN_EQUIV=1 + SCAN_EMPLOYEE_BARCODE in the dev run so the parity test executes."
         },
@@ -348,10 +340,8 @@
         },
         "D7": {
             "depth": "partial",
-            "webpetSpecs": [
-                "time-in.spec.ts"
-            ],
-            "note": "Multi-edit propagation is proven on setup screens (Field, Ranch) and on the Time In list's counter-keyed dropdown. The setup-screen half now lives in journey rows A2-009/A2-010 (ranch) and A2-021/A2-022 (field) — a journey row carries one workflow, so D7's credit is recorded here rather than as a row.",
+            "webpetSpecs": [],
+            "note": "Multi-edit propagation is proven on setup screens (Field, Ranch) and on the Time In list's counter-keyed dropdown, which now lives in journey row B3-002. The setup-screen half now lives in journey rows A2-009/A2-010 (ranch) and A2-021/A2-022 (field) — a journey row carries one workflow, so D7's credit is recorded here rather than as a row.",
             "gap": "Job-card multi-edit — reassigning the job across a batch of cards — and the permission gate on it are not covered.",
             "next": "Extend to job cards once D4 exists."
         },

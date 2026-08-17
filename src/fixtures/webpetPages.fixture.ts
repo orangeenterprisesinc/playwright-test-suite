@@ -26,9 +26,6 @@ import { BoardFormPage } from '../pages/webpet/setup/BoardFormPage';
 import { ExportToAccountingPage } from '../pages/webpet/accounting/ExportToAccountingPage';
 import { ExportDispatchWorkspacePage } from '../pages/webpet/accounting/ExportDispatchWorkspacePage';
 import { ReconcileJobCardsPage } from '../pages/webpet/accounting/ReconcileJobCardsPage';
-import { ScanLandingPage } from '../pages/webpet/scan/ScanLandingPage';
-import { ScanScreenPage } from '../pages/webpet/scan/ScanScreenPage';
-import { ScanDeviceFormPage } from '../pages/webpet/setup/ScanDeviceFormPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { ReportEditorPage } from '../pages/webpet/settings/ReportEditorPage';
@@ -49,7 +46,6 @@ import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
 import { TermListPage } from '../pages/setup/TermListPage';
 import { TimeSheetValidationFormPage } from '../pages/webpet/setup/TimeSheetValidationFormPage';
 import { TimeSheetValidationListPage } from '../pages/webpet/setup/TimeSheetValidationListPage';
-import { TimeInListPage } from '../pages/webpet/input/TimeInListPage';
 import { VarietyFormPage } from '../pages/webpet/setup/VarietyFormPage';
 
 /**
@@ -145,17 +141,10 @@ export interface WebpetPages {
     /** Reconcile Job Cards (`/reconcile-job-cards`) — preference- and permission-gated. */
     readonly reconcileJobCards: ReconcileJobCardsPage;
 
-    // ── Scan ────────────────────────────────────────────────────────
-    /** The Scan Mode landing grid (`/scan`) — one card per screen. */
-    readonly scanLanding: ScanLandingPage;
-    /** Any `/scan/:segment` screen — 25 routes, one shared shell. */
-    readonly scanScreen: ScanScreenPage;
-    /** Scan Device create/edit form (`/setup/scan-devices/{new,:id}`) — two-step create. */
-    readonly scanDeviceForm: ScanDeviceFormPage;
-
-    // ── Input ───────────────────────────────────────────────────────
-    /** Time In list (`/input/time-in`) — counter-keyed dropdown columns. */
-    readonly timeInList: TimeInListPage;
+    // Scan and Input moved to PageObjects (`src/fixtures/pages.fixture.ts`) with
+    // their specs — `tests/web/journey-a-setup/a07-*`, `tests/api/journey-a-setup/
+    // a07-data-scoping`, `tests/web/journey-b-field/b03-*`. No web-pet spec
+    // reaches them any more.
 }
 
 /**
@@ -204,10 +193,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
         get exportWorkspace() { return lazy('exportWorkspace', () => new ExportDispatchWorkspacePage(page)); },
         get reconcileJobCards() { return lazy('reconcileJobCards', () => new ReconcileJobCardsPage(page)); },
-        get scanLanding() { return lazy('scanLanding', () => new ScanLandingPage(page)); },
-        get scanScreen() { return lazy('scanScreen', () => new ScanScreenPage(page)); },
-        get scanDeviceForm() { return lazy('scanDeviceForm', () => new ScanDeviceFormPage(page)); },
-        get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
         get billingCenterForm() { return lazy('billingCenterForm', () => new BillingCenterFormPage(page)); },
         get billingCenterList() { return lazy('billingCenterList', () => new BillingCenterListPage(page)); },
     };

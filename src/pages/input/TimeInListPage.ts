@@ -15,7 +15,7 @@
  * reliably in the DOM, below the 100-row virtualization threshold.
  */
 import { Locator, Page } from '@playwright/test';
-import { WebpetListPage } from '../WebpetListPage';
+import { WebpetListPage } from '../webpet/WebpetListPage';
 
 /**
  * @extends WebpetListPage

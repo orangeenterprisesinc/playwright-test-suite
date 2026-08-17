@@ -1,5 +1,17 @@
-import { apiUrl } from '@config/webpetEnv';
 /**
+ * Scan Device create-form e2e for Catalog workflow **A7 — Scan devices &
+ * scoping verification**.
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-a/a07-scan-device-and-scoping.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A7-052` |
+ *
+ * Relocated from `tests/webpet/equiv/scan-device-create-de15-pocket-pda.spec.ts`
+ * (WP-0177). Every assertion below is the one that spec carried, in the same
+ * order; what changed is the fixture (`base.fixture`), the DB read-back
+ * (`page.request` → `sessionApi`), and the id/tag vocabulary.
+ *
  * Equivalence test: scan-device-create-de15-pocket-pda
  *
  * Scenario: Create a new Scan Device 'DE15' (Pocket PDA) with crews and save.
@@ -35,7 +47,7 @@ import { apiUrl } from '@config/webpetEnv';
  * that `networkidle` never settles here — are documented once on
  * `ScanDeviceFormPage` instead of being re-derived at each callsite.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 
 const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
 const SAFE_NAME = `ZZTEST_SD_${RUN_TOKEN}`;
@@ -48,12 +60,15 @@ const SAFE_PREFIX = `Z${RUN_TOKEN.slice(-2)}`;
 // and the test timed out on waitForURL. Substitute it like the other two.
 const SAFE_WEBMAIL = `${SAFE_NAME}@silo`;
 
-test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
+test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@JourneyA', '@A7'] }, () => {
 
     test('[Equiv] Verify that creating a scan device writes the correct DB values.', {
-        tag: ['@wp-e2e', '@wp-scan'],
-        annotation: { type: 'testCaseId', description: 'WP-0177' },
-    }, async ({ page, pages }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A7-052' },
+            { type: 'requirement', description: 'A7-R17' },
+        ],
+    }, async ({ page, pages, sessionApi }) => {
         const form = pages.scanDeviceForm;
         test.setTimeout(300_000);
 
@@ -134,7 +149,7 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         expect(putResponse.ok()).toBe(true);
 
         // ── DB assertions via GET /api/scan-devices/:id ────────────────────────
-        const res = await page.request.get(apiUrl(`/api/scan-devices/${deviceId}`));
+        const res = await sessionApi.get('/api/scan-devices/' + deviceId);
         expect(res.ok()).toBe(true);
         const row = await res.json();
 

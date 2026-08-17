@@ -41,7 +41,7 @@
  * the setup forms modelled by `WebpetFormPage`.
  */
 import { expect, Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

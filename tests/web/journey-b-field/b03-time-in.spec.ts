@@ -1,4 +1,23 @@
 /**
+ * Individual Time In list e2e for Catalog workflow **B3 — Individual time
+ * entry verification**: the counter-keyed dropdown multi-edit path
+ * (WEBPET-666 regression).
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-b/b03-individual-time-in.md` |
+ * | Runner rows | `src/data/runner/journey-b.csv` → `B3-002` |
+ *
+ * Relocated from `tests/webpet/time-in.spec.ts` (WP-0378). Every assertion
+ * below is the one that spec carried, in the same order; what changed is the
+ * fixture (`base.fixture`, `request` → `sessionApi` in `beforeAll`/`afterAll`
+ * and the `findPopulatedDay` helper) and the id/tag vocabulary.
+ *
+ * `test.describe.configure({ mode: 'serial' })` below is carried over verbatim
+ * from the source (its line 36) and stays at module level — it must run
+ * before the describe block below, and moving it inside one would change its
+ * scope.
+ *
  * TimeInListPage e2e — WEBPET-666 regression.
  *
  * Guards the dropdown-column multi-edit path on an Input page whose combobox
@@ -27,22 +46,22 @@
  * component. The Ranch column index is a named constant on the page object —
  * an off-by-one there silently drives the wrong column's editor.
  */
-import { apiUrl } from '@config/webpetEnv';
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureRanch, deleteRanch, type EnsuredRanch } from '@data/generated/data-factory';
 
 // Mutates shared Time In rows (ranchCounter) then restores via Undo — cannot
-// run in parallel with itself.
+// run in parallel with itself. Preserved verbatim at module scope from the
+// source (tests/webpet/time-in.spec.ts:36) — do not move inside a describe.
 test.describe.configure({ mode: 'serial' });
 
 let extraRanch: EnsuredRanch;
 
-test.beforeAll(async ({ request }) => {
-    extraRanch = await ensureRanch(request, { namePrefix: 'E2ETimeInRanch' });
+test.beforeAll(async ({ sessionApi }) => {
+    extraRanch = await ensureRanch(sessionApi, { namePrefix: 'E2ETimeInRanch' });
 });
 
-test.afterAll(async ({ request }) => {
-    if (extraRanch) await deleteRanch(request, extraRanch.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (extraRanch) await deleteRanch(sessionApi, extraRanch.id);
 });
 
 /**
@@ -58,10 +77,10 @@ test.afterAll(async ({ request }) => {
  * turns into a skip with a reason rather than a misleading row-count failure.
  */
 async function findPopulatedDay(
-    request: { get: (url: string) => Promise<{ ok: () => boolean; json: () => Promise<unknown> }> },
+    sessionApi: { get: (url: string) => Promise<{ ok: () => boolean; json: () => Promise<unknown> }> },
     min = 2,
 ): Promise<string | null> {
-    const res = await request.get(apiUrl('/api/time-cards/time-in'));
+    const res = await sessionApi.get('/api/time-cards/time-in');
     if (!res.ok()) return null;
     const rows = (await res.json()) as Array<{ dateTime?: string | null }>;
     const perDay = new Map<string, number>();
@@ -74,13 +93,16 @@ async function findPopulatedDay(
     return best ? best[0] : null;
 }
 
-test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@WebPet', '@wp-input', '@wp-timein', '@WPBatch09'] }, () => {
+test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@JourneyB', '@B3'] }, () => {
 
     test('[Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0378' },
-    }, async ({ pages, request }) => {
-        const day = await findPopulatedDay(request, 2);
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'B3-002' },
+            { type: 'requirement', description: 'B3-R1' },
+        ],
+    }, async ({ pages, sessionApi }) => {
+        const day = await findPopulatedDay(sessionApi, 2);
         test.skip(
             day === null,
             'no day in Time In carries 2+ rows on this environment — multi-edit needs two rows to compare',

@@ -6,7 +6,7 @@
  * and no `href`, so the card's *tag name* is part of the contract, not incidental.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

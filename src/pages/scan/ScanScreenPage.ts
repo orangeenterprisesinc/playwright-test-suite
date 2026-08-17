@@ -26,7 +26,7 @@
  * Do not consolidate them.
  */
 import { Locator, Page } from '@playwright/test';
-import { BasePage } from '../../BasePage';
+import { BasePage } from '../BasePage';
 
 /**
  * @extends BasePage

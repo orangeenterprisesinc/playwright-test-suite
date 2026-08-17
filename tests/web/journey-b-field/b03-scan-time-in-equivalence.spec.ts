@@ -1,5 +1,19 @@
-import { apiUrl } from '@config/webpetEnv';
 /**
+ * Scan-mode Time In equivalence e2e for Catalog workflow **B3 — Individual
+ * time entry verification**.
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-b/b03-individual-time-in.md` |
+ * | Runner rows | `src/data/runner/journey-b.csv` → `B3-003` |
+ *
+ * Relocated from `tests/webpet/equiv/scan-time-in-equivalence.spec.ts`
+ * (WP-0178). Every assertion below is the one that spec carried, in the same
+ * order; what changed is the fixture (`base.fixture`), the DB read-back
+ * (`page.request` → `sessionApi`), and the id/tag vocabulary. This test is
+ * expected to skip unless `SCAN_TIME_IN_EQUIV=1` and `SCAN_EMPLOYEE_BARCODE`
+ * are set — that is intended, not a defect.
+ *
  * Equivalence test: scan-time-in (WEBPET-908)
  *
  * Scenario: Drive the migrated Scan Mode "Time In" screen (/scan/time-in) — scan an employee
@@ -34,21 +48,24 @@ import { apiUrl } from '@config/webpetEnv';
  * correct here — Time In renders exactly one; the `.first()` variant exists only
  * for the duplicate-id driver screens.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 
 const ENABLED = process.env.SCAN_TIME_IN_EQUIV === '1';
 const EMPLOYEE_BARCODE = process.env.SCAN_EMPLOYEE_BARCODE ?? '';
 
-test.describe('Equivalence: scan-time-in', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
+test.describe('Equivalence: scan-time-in', { tag: ['@JourneyB', '@B3'] }, () => {
     test.skip(
         !ENABLED || EMPLOYEE_BARCODE === '',
         'Set SCAN_TIME_IN_EQUIV=1 and SCAN_EMPLOYEE_BARCODE=<active employee barcode> to run against a seeded DB.',
     );
 
     test('[Equiv] Verify that scanning an employee and saving writes a Time In row with the expected reference.', {
-        tag: ['@wp-e2e', '@wp-scan'],
-        annotation: { type: 'testCaseId', description: 'WP-0178' },
-    }, async ({ page, pages }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'B3-003' },
+            { type: 'requirement', description: 'B3-R2' },
+        ],
+    }, async ({ page, pages, sessionApi }) => {
         const screen = pages.scanScreen;
         test.setTimeout(120_000);
 
@@ -81,7 +98,7 @@ test.describe('Equivalence: scan-time-in', { tag: ['@WebPet', '@wp-equiv', '@WPB
         await expect(screen.status).toBeVisible();
 
         // ── DB assertions via GET /api/time-cards/time-in/:id ──────────────────
-        const get = await page.request.get(apiUrl(`/api/time-cards/time-in/${newId}`));
+        const get = await sessionApi.get('/api/time-cards/time-in/' + newId);
         expect(get.ok()).toBe(true);
         const row = await get.json();
 

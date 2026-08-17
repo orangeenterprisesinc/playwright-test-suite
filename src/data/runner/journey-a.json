@@ -2939,6 +2939,1237 @@
             "enabled": false
         },
         {
+            "id": "A7-002",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedPurchase",
+            "testTitle": "[Scan] Verify that /scan/purchase is gated by the Inventory module.",
+            "testDescription": "/scan/purchase either renders the shared scan-screen shell (the Inventory module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-003",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedUsage",
+            "testTitle": "[Scan] Verify that /scan/usage is gated by the Inventory module.",
+            "testDescription": "/scan/usage either renders the shared scan-screen shell (the Inventory module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-004",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedPhysicalCount",
+            "testTitle": "[Scan] Verify that /scan/physical-count is gated by the Inventory module.",
+            "testDescription": "/scan/physical-count either renders the shared scan-screen shell (the Inventory module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-005",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedTransferFrom",
+            "testTitle": "[Scan] Verify that /scan/transfer-from is gated by the Inventory module.",
+            "testDescription": "/scan/transfer-from either renders the shared scan-screen shell (the Inventory module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-006",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedTransferTo",
+            "testTitle": "[Scan] Verify that /scan/transfer-to is gated by the Inventory module.",
+            "testDescription": "/scan/transfer-to either renders the shared scan-screen shell (the Inventory module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-007",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedFieldTraceability",
+            "testTitle": "[Scan] Verify that /scan/field-traceability is gated by the Traceability module.",
+            "testDescription": "/scan/field-traceability either renders the shared scan-screen shell (the Traceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-008",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedWarehouseTraceability",
+            "testTitle": "[Scan] Verify that /scan/warehouse-traceability is gated by the Traceability module.",
+            "testDescription": "/scan/warehouse-traceability either renders the shared scan-screen shell (the Traceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-009",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedRunIn",
+            "testTitle": "[Scan] Verify that /scan/run-in is gated by the LabelTraceability module.",
+            "testDescription": "/scan/run-in either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-010",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedRunOut",
+            "testTitle": "[Scan] Verify that /scan/run-out is gated by the LabelTraceability module.",
+            "testDescription": "/scan/run-out either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-011",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedRunPieceCount",
+            "testTitle": "[Scan] Verify that /scan/run-piece-count is gated by the LabelTraceability module.",
+            "testDescription": "/scan/run-piece-count either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-012",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedRunProjection",
+            "testTitle": "[Scan] Verify that /scan/run-projection is gated by the LabelTraceability module.",
+            "testDescription": "/scan/run-projection either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-013",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedRunTracking",
+            "testTitle": "[Scan] Verify that /scan/run-tracking is gated by the LabelTraceability module.",
+            "testDescription": "/scan/run-tracking either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-014",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedAssignBarcodeRoll",
+            "testTitle": "[Scan] Verify that /scan/assign-barcode-roll is gated by the LabelTraceability module.",
+            "testDescription": "/scan/assign-barcode-roll either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-015",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "gatedAssignEmployeeCrew",
+            "testTitle": "[Scan] Verify that /scan/assign-employee-crew is gated by the LabelTraceability module.",
+            "testDescription": "/scan/assign-employee-crew either renders the shared scan-screen shell (the LabelTraceability module is on) or redirects away from the gated path (module off) — RequireModule is wired either way.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-016",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedTimeIn",
+            "testTitle": "[Scan] Verify that /scan/time-in renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/time-in renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-017",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedTimeOut",
+            "testTitle": "[Scan] Verify that /scan/time-out renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/time-out renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-018",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedPieceOut",
+            "testTitle": "[Scan] Verify that /scan/piece-out renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/piece-out renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-019",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedTimeCard",
+            "testTitle": "[Scan] Verify that /scan/time-card renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/time-card renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-020",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedPaidBreak",
+            "testTitle": "[Scan] Verify that /scan/paid-break renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/paid-break renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-021",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedMeal",
+            "testTitle": "[Scan] Verify that /scan/meal renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/meal renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-022",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedCrewTimeIn",
+            "testTitle": "[Scan] Verify that /scan/crew-time-in renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/crew-time-in renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-023",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedCrewTimeOut",
+            "testTitle": "[Scan] Verify that /scan/crew-time-out renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/crew-time-out renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-024",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedCrewPieceOut",
+            "testTitle": "[Scan] Verify that /scan/crew-piece-out renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/crew-piece-out renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-025",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedDriverTimeIn",
+            "testTitle": "[Scan] Verify that /scan/driver-time-in renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/driver-time-in renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-026",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "ungatedDriverTimeOut",
+            "testTitle": "[Scan] Verify that /scan/driver-time-out renders for any authenticated user with no module redirect.",
+            "testDescription": "/scan/driver-time-out renders for any authenticated user with no module redirect, and the shared scan input is present.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-027",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "landingListsEveryScreenCard",
+            "testTitle": "[Scan] Verify that the landing grid lists a card for every scan screen.",
+            "testDescription": "The landing grid mounts and renders a card for all 26 scan screen keys.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A7-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-028",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "wiredCardsLinkDeferredDimmed",
+            "testTitle": "[Scan] Verify that wired cards are links while deferred cards are dimmed and non-navigable.",
+            "testDescription": "Every wired card is an <a> whose href ends in its route segment; the deferred Pack House card is aria-disabled with no href at all.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-029",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "wiredCardNavigatesToScreen",
+            "testTitle": "[Scan] Verify that clicking a wired card navigates to its scan screen.",
+            "testDescription": "Clicking the Time In card navigates to /scan/time-in, which renders the shared scan input and the employee slot.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A7-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-030",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesTimeIn",
+            "testTitle": "[Scan] Verify that /scan/time-in resolves to a scan screen.",
+            "testDescription": "/scan/time-in resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-031",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesTimeOut",
+            "testTitle": "[Scan] Verify that /scan/time-out resolves to a scan screen.",
+            "testDescription": "/scan/time-out resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-032",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesPieceOut",
+            "testTitle": "[Scan] Verify that /scan/piece-out resolves to a scan screen.",
+            "testDescription": "/scan/piece-out resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-033",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesTimeCard",
+            "testTitle": "[Scan] Verify that /scan/time-card resolves to a scan screen.",
+            "testDescription": "/scan/time-card resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-034",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesPaidBreak",
+            "testTitle": "[Scan] Verify that /scan/paid-break resolves to a scan screen.",
+            "testDescription": "/scan/paid-break resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-035",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesMeal",
+            "testTitle": "[Scan] Verify that /scan/meal resolves to a scan screen.",
+            "testDescription": "/scan/meal resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-036",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesCrewTimeIn",
+            "testTitle": "[Scan] Verify that /scan/crew-time-in resolves to a scan screen.",
+            "testDescription": "/scan/crew-time-in resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-037",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesCrewTimeOut",
+            "testTitle": "[Scan] Verify that /scan/crew-time-out resolves to a scan screen.",
+            "testDescription": "/scan/crew-time-out resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-038",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesCrewPieceOut",
+            "testTitle": "[Scan] Verify that /scan/crew-piece-out resolves to a scan screen.",
+            "testDescription": "/scan/crew-piece-out resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-039",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesDriverTimeIn",
+            "testTitle": "[Scan] Verify that /scan/driver-time-in resolves to a scan screen.",
+            "testDescription": "/scan/driver-time-in resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-040",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "resolvesDriverTimeOut",
+            "testTitle": "[Scan] Verify that /scan/driver-time-out resolves to a scan screen.",
+            "testDescription": "/scan/driver-time-out resolves to a scan screen carrying the shared keyboard-wedge input.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R6"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-041",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "employeeBarcodeFillsSlot",
+            "testTitle": "[Scan] Verify that an employee record barcode fills the employee slot.",
+            "testDescription": "A mocked Employee record decode labels the employee slot with the resolved name and enables Save.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-042",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonEmployeeBarcodeRejected",
+            "testTitle": "[Scan] Verify that a non-employee record barcode is rejected with a message.",
+            "testDescription": "A mocked Job record decode on an employee screen shows the error status and leaves Save disabled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-043",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "commandBarcodeSwitchesMode",
+            "testTitle": "[Scan] Verify that a command barcode switches scan mode.",
+            "testDescription": "A mocked command decode targeting timeOut navigates to /scan/time-out, matching the legacy OpenScanModeForm flow.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-044",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "timeInSaveRoundTrips",
+            "testTitle": "[Scan] Verify that a Time In save round-trips through the screen shell.",
+            "testDescription": "With decode and the create endpoint mocked, Save POSTs /time-cards/time-in, shows the success status and clears the slot so Save returns to disabled.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-045",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "carryOverTogglePresentAndOn",
+            "testTitle": "[Scan] Verify that the carry-over toggle is present and defaults on.",
+            "testDescription": "The carry-over toggle renders with aria-checked=true by default — the legacy default — and flips to false on click. Local UI state only; the ScanModePrefs.UseCarryOver wiring is deferred (WEBPET-900).",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R11"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-046",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "packHouseDeferred",
+            "testTitle": "[Scan] Verify the Pack House scan screen — deferred (WEBPET-907 / WEBPET-878).",
+            "testDescription": "Declared-skip placeholder: the Pack House scan screen is deferred behind the LAN-reachability block (WEBPET-907 / WEBPET-878). It has no wired route and renders as a dimmed card.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R12"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-047",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "fingerprintCaptureDeferred",
+            "testTitle": "[Scan] Verify fingerprint capture — deferred (WEBPET-905).",
+            "testDescription": "Declared-skip placeholder: fingerprint capture is a BioIdentification device integration (WEBPET-905), not a navigable scan-entry screen.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R13"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-048",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "handPunchImportDeferred",
+            "testTitle": "[Scan] Verify HandPunch import provenance — deferred (WEBPET-906).",
+            "testDescription": "Declared-skip placeholder: HandPunch import is a batch device-import write path (WEBPET-906), not an interactive scan screen.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R14"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-049",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "api",
+            "testName": "employeesNonEmptyForSeededAdmin",
+            "testTitle": "[Scoping] Verify that the employees endpoint returns a non-empty array for the seeded admin.",
+            "testDescription": "The admin has no UserCrew or UserDepartment rows, so the no-filter branch must return every non-deleted RecordType 0 employee. An empty array would mean the handler started filtering SU incorrectly.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A7-R15"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-050",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "api",
+            "testName": "crewsNonEmptyForSeededAdmin",
+            "testTitle": "[Scoping] Verify that the crews endpoint returns a non-empty array for the seeded admin.",
+            "testDescription": "Same no-filter branch on the crews handler, which shares the scoping helper.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A7-R15"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A7-051",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "api",
+            "testName": "restrictedUserSeesOnlyAllowedCrew",
+            "testTitle": "[Scoping] Verify that a restricted user sees only employees in their allowed crew.",
+            "testDescription": "PET-441: a crew-scoped user sees a strict subset of the admin employee list, every visible row carries the assigned crew id, and the crews endpoint returns exactly that one crew. Skips when the restricted fixture was not provisioned.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R16"
+            ],
+            "status": "automated",
+            "enabled": false
+        },
+        {
+            "id": "A7-052",
+            "workflow": "A7",
+            "journey": "A",
+            "category": "ui",
+            "testName": "createsScanDeviceWithCorrectDbValues",
+            "testTitle": "[Equiv] Verify that creating a scan device writes the correct DB values.",
+            "testDescription": "The two-step scan-device create (General on the New form, Preferences and crews only on the Edit form) writes the legacy scenario’s Device row plus its DeviceCrew rows. Name and reference prefix are per-run substitutes; device type and crews are rebased to what DelLlano actually has.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Connectivity",
+                "Network"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A7-R17"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "A8-001",
             "workflow": "A8",
             "journey": "A",

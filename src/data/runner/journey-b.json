@@ -98,6 +98,55 @@
             "enabled": false
         },
         {
+            "id": "B3-002",
+            "workflow": "B3",
+            "journey": "B",
+            "category": "ui",
+            "testName": "counterKeyedDropdownMultiEditPersists",
+            "testTitle": "[Time In] Verify that editing a counter-keyed Ranch dropdown in multi-edit persists to every selected row.",
+            "testDescription": "WEBPET-666 regression: this page keys dropdown options by counter, not by name. The column onCommit used to resolve by name against a counter string, so the lookup failed, commitEdit never ran, and the edit silently reverted with no error. Field cannot expose this — it keys options by name.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "B3-R1"
+            ],
+            "jira": "WEBPET-1797",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "B3-003",
+            "workflow": "B3",
+            "journey": "B",
+            "category": "ui",
+            "testName": "scanTimeInWritesRowWithReference",
+            "testTitle": "[Equiv] Verify that scanning an employee and saving writes a Time In row with the expected reference.",
+            "testDescription": "The Scan Mode entry point round-trips to the same persisted TimeCard row as the legacy ScanTimeIn write: a generated reference, the scanned employee, and a live (not deleted, not transferred) row. Skips unless SCAN_TIME_IN_EQUIV=1 and SCAN_EMPLOYEE_BARCODE are set.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Real Time"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "B3-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "B4-001",
             "workflow": "B4",
             "journey": "B",

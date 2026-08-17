@@ -1,6 +1,21 @@
 /**
- * Regression coverage for the data-scoping boundary documented in
- * docs/02-migration/plan-data-scoping.md.
+ * Data-scoping regression for Catalog workflow **A7 — Scan devices & scoping
+ * verification**: the row-level visibility boundary enforced by the
+ * employees/crews list handlers.
+ *
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-a/a07-scan-device-and-scoping.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A7-049`…`A7-051` |
+ *
+ * Relocated from `tests/webpet/data-scoping.spec.ts` (WP-0131…WP-0133). This
+ * spec is API-only (no locators) and lives under `tests/api/` rather than
+ * `tests/web/` — the runner checker's `CATEGORY_FOLDER` map requires an
+ * `api`-tagged row to sit in the `api` folder. Every assertion below is the
+ * one that spec carried, in the same order and the same describes; what
+ * changed is the fixture (webpet's `request` → `sessionApi`), the
+ * restricted-user side context's base URL (`API_BASE_URL` →
+ * `getConfigValue(ConfigProperties.API_URL)`), and the id/tag vocabulary.
  *
  * PET Tiger ships single-tenant per deployment — no CompanyCounter / TenantId
  * column exists on any table. Row-level visibility is per-user via the
@@ -9,28 +24,22 @@
  * regressions in the scoping-helper call path (e.g., a future refactor that
  * nil-derefs LoadUserAllowedCrews when the user has zero assignments).
  *
- * Prereqs — same as every other spec:
- *   cd apps/api && go run .
- *   cd apps/web && pnpm dev
- *
  * PET-441 — the restricted-user scenario below runs end-to-end if the setup
  * project provisioned the RestrictedTest fixture. If it didn't (no crews in
  * seed, POST /api/users failed, etc.), the spec skips cleanly per the
  * test.skip guard.
- *
- * Framework-aligned (Batch 08): **nothing to relocate** — this file drives the
- * API only and contains no locators. The conversion is the import paths, the
- * titles, the tags and the runner annotations. Recorded here so a future reader
- * does not go looking for a page object.
  *
  * The restricted request context is built inline rather than as a fixture role:
  * the suite's `test` is admin-scoped, and swapping mid-test would change what
  * every other assertion in the file sees. A side context is the honest shape.
  */
 import { existsSync, readFileSync } from 'fs';
+// RET-03 owns moving these paths into the journey config tree. Re-deriving
+// them inline previously caused a silent skip-flip — see the module's own
+// header for the history — so they are imported from webpetPaths as-is.
 import { WEBPET_RESTRICTED_META, WEBPET_RESTRICTED_STORAGE } from '@config/webpetPaths';
-import { API_BASE_URL } from '@config/webpetEnv';
-import { expect, test, restrictedAuthAvailable } from '@fixtures/webpet.fixture';
+import { ConfigProperties, getConfigValue } from '@config/configProperties';
+import { expect, test } from '@fixtures/base.fixture';
 import { request as pwRequest } from '@playwright/test';
 
 interface RestrictedMeta {
@@ -55,13 +64,19 @@ function readRestrictedMeta(): RestrictedMeta | null {
     return JSON.parse(readFileSync(WEBPET_RESTRICTED_META, 'utf-8')) as RestrictedMeta;
 }
 
-test.describe('Data scoping — SU visibility regression', { tag: ['@WebPet', '@wp-scoping', '@WPBatch08'] }, () => {
+// Evaluation timing is load-bearing — must stay at module scope, not lazy.
+const restrictedAuthAvailable = existsSync(WEBPET_RESTRICTED_STORAGE);
+
+test.describe('Data scoping — SU visibility regression', { tag: ['@JourneyA', '@A7'] }, () => {
 
     test('[Scoping] Verify that the employees endpoint returns a non-empty array for the seeded admin.', {
-        tag: ['@wp-api', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0131' },
-    }, async ({ request }) => {
-        const res = await request.get('/api/employees');
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A7-049' },
+            { type: 'requirement', description: 'A7-R15' },
+        ],
+    }, async ({ sessionApi }) => {
+        const res = await sessionApi.get('/api/employees');
         expect(res.status()).toBe(200);
 
         const body = (await res.json()) as Array<{ employeeCounter: number; name: string }>;
@@ -78,10 +93,13 @@ test.describe('Data scoping — SU visibility regression', { tag: ['@WebPet', '@
     });
 
     test('[Scoping] Verify that the crews endpoint returns a non-empty array for the seeded admin.', {
-        tag: ['@wp-api', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0132' },
-    }, async ({ request }) => {
-        const res = await request.get('/api/crews');
+        tag: ['@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A7-050' },
+            { type: 'requirement', description: 'A7-R15' },
+        ],
+    }, async ({ sessionApi }) => {
+        const res = await sessionApi.get('/api/crews');
         expect(res.status()).toBe(200);
 
         const body = (await res.json()) as Array<{ crewCounter: number; name: string }>;
@@ -93,7 +111,7 @@ test.describe('Data scoping — SU visibility regression', { tag: ['@WebPet', '@
 
 });
 
-test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@WebPet', '@wp-scoping', '@WPBatch08'] }, () => {
+test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@JourneyA', '@A7'] }, () => {
     // The restricted-user fixture is provisioned by the setup project only when
     // POST /api/users + GET /api/crews are both available against the dev DB.
     // When unavailable (CI without DB, missing seed crew, etc.), skip the whole
@@ -106,9 +124,12 @@ test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@We
     );
 
     test('[Scoping] Verify that a restricted user sees only employees in their allowed crew.', {
-        tag: ['@wp-api', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0133' },
-    }, async ({ request: adminRequest }) => {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A7-051' },
+            { type: 'requirement', description: 'A7-R16' },
+        ],
+    }, async ({ sessionApi }) => {
         const meta = readRestrictedMeta();
         expect(
             meta,
@@ -117,7 +138,7 @@ test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@We
         const assignedCrewId = meta!.crewId;
 
         // Admin response — full population (no junction rows → no filter).
-        const adminRes = await adminRequest.get('/api/employees');
+        const adminRes = await sessionApi.get('/api/employees');
         expect(adminRes.status()).toBe(200);
         const adminEmployees = (await adminRes.json()) as EmployeeRow[];
         expect(adminEmployees.length).toBeGreaterThan(0);
@@ -125,7 +146,7 @@ test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@We
         // Restricted response — a separate request context carrying the restricted
         // storage state. See the file header for why this is not a fixture role.
         const restrictedCtx = await pwRequest.newContext({
-            baseURL: API_BASE_URL,
+            baseURL: getConfigValue(ConfigProperties.API_URL),
             storageState: WEBPET_RESTRICTED_STORAGE,
         });
         const restrictedRes = await restrictedCtx.get('/api/employees');
