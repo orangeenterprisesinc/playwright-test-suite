@@ -23,8 +23,8 @@ and it predates the journey-B specs reaching `main`; the push run is current `ma
 | Catalog workflows | 69 |
 | Covered to some depth | 18 (journey 3, screens 5, partial 10) |
 | No automation | 51 |
-| **Proven by a run** (passing or mixed) | **6** |
-| Evidence too thin to count (mostly-skipped / skipped-only / not-run) | 11 |
+| **Proven by a run** (passing or mixed) | **5** |
+| Evidence too thin to count (mostly-skipped / skipped-only / not-run) | 12 |
 | Failing | 2 |
 
 Reachability splits the backlog — a browser suite cannot reach a kiosk punch or a
@@ -60,7 +60,7 @@ totals above.
 | A9 | A | Setup and configuration (office) | Piece-out and sticker-roll configuration | ui | browser | Piece Payment\|Electronic Token\|Traceability - Stickers | 4 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  |  | Piece method (sticker roll vs badge) and piece-out preferences are unconfigured and untested; blocks B4-B8. | Plan alongside A11 — both live in Preferences. |
 | A10 | A | Setup and configuration (office) | Overtime, compliance, and penalty rule setup | ui | browser | Windows\|Department | 5 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  | job.spec.ts selects an existing overtime rule, but selecting one is not configuring the rule set. | Overtime templates and the meal/break penalty rule are never created or edited — the setup every E1-E7 calculation depends on. | Highest-value setup gap: automate rule setup before any payroll calculation work. |
 | A11 | A | Setup and configuration (office) | Preferences configuration | ui | browser | Windows | 4 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  | Preference gates are observed indirectly (reconcile-job-cards banner, inventory module ON), but the Preferences screen itself is never opened. | Decimal precision and accounting export format — the two preferences E6 and E9 hinge on — are unverified. | Automate the Preferences screen; it unblocks A9, E6 and E9. |
-| A12 | A | Setup and configuration (office) | Equipment setup | ui | browser | Equipment | 3 | screens | webpet | webpet/equipment.spec.ts | 1 | 0 | 11 | 11 | 11 | 0 | 0 | 0 | passing | 31692620907/webpet | New/edit equipment forms, read-only code and export identifier, disabled Equipment Type picker. | Cost accounting and hours-of-use tracking are not exercised. | Covered enough for setup; extend only when F3 is automated. |
+| A12 | A | Setup and configuration (office) | Equipment setup | ui | browser | Equipment | 3 | screens | journey | tests/web/journey-a-setup/a12-equipment-form.spec.ts | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | not-run |  | New/edit equipment forms, the Save gate, read-only code and export identifier and the disabled Equipment Type picker are covered by journey rows A12-002..A12-012 (tests/web/journey-a-setup/a12-equipment-form.spec.ts). Depth stays screens — Hourly Cost is only asserted editable, never entered, saved or read back. | Cost accounting, contractor billing and hours-of-use tracking are not exercised. | Covered enough for setup; extend only when F3 is automated. |
 | A13 | A | Setup and configuration (office) | Employee onboarding forms configuration | ui | browser | Onboarding\|Human Resources\|Document\|Signature | 4 | partial | journey | tests/web/journey-a-setup/a13-onboarding-badges.spec.ts | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | not-run |  | Badge list and create form are covered, relocated to journey rows A13-002..A13-007 (tests/web/journey-a-setup/a13-onboarding-badges). The Document module also gets cross-credit from A5-018 (employee documents upload/sort/download/delete) — a journey row carries one workflow, so the credit is recorded here rather than as a row. Forms configuration and per-situation form sets remain unautomated. | The forms themselves and form sets per situation — the substance of A13 — are not covered. | Plan the Onboarding forms configuration screen. |
 | A14 | A | Setup and configuration (office) | Device interface and behavior configuration | ui | browser | Connectivity\|Notification\|Time Card Questions | 4 | none | — |  | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | none |  |  | Alias sets (button labels), device preferences and clock-out questions are unconfigured — C10 and B12/C9 inherit this gap. | Automate alias sets and clock-out questions; both have office-side screens. |
 | B1 | B | Field harvest day (mobile field capture) | Crew time-in | device | device | core | 5 | journey | journey | tests/web/journey-b-field/b01-crew-time-in.spec.ts tests/api/relay-roundtrip.spec.ts | 2 | 0 | 0 | 2 | 1 | 0 | 1 | 0 | failing | 31704894160/journey | Journey suite automates the office half as transport: a real PET Pocket envelope is pushed through the Post Office relay and the imported punches are asserted by id. Capture UI is device-side and deferred. | Red on dev at a known environment gate — WebMail live relay disabled (WEBMAIL_LIVE_SEND_ENABLED + relay-registration row + WEBPET-1830). | Environment unblock, not a test fix. |
@@ -121,7 +121,7 @@ totals above.
 
 ## webpet tests outside the catalog
 
-16 of 34 webpet spec files (68 of 178 runner rows) map to no catalog workflow. This is
+10 of 27 webpet spec files (62 of 161 runner rows) map to no catalog workflow. This is
 cloud-rebuild surface the PET-Tiger catalog does not describe — inventory,
 customer/department/billing, and the shared UI primitives — not wasted coverage.
 As each area relocates to `tests/web/screens/` it leaves this list; bonus was
@@ -129,12 +129,6 @@ the first to go.
 
 - `console-diagnostic.spec.ts` (1)
 - `form-field-states.spec.ts` (6)
-- `inventory-center.spec.ts` (1)
-- `inventory-item-type.spec.ts` (1)
-- `inventory-item.spec.ts` (1)
-- `inventory-setup.spec.ts` (1)
-- `inventory-unit-type.spec.ts` (1)
-- `inventory-unit.spec.ts` (1)
 - `localization.spec.ts` (3)
 - `mobile-tab-labels.spec.ts` (1)
 - `notifications.spec.ts` (11)

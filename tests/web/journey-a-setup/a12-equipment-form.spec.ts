@@ -1,12 +1,18 @@
 /**
- * Equipment form-page e2e.
+ * Equipment form-page e2e for Catalog workflow **A12 — Equipment setup**.
  *
- * Framework-aligned (Batch 03): locators live in EquipmentFormPage /
- * EquipmentListPage, and the Equipment Type ParentPicker is driven through
- * ParentPickerComponent. Action order and assertions unchanged, including the
- * two FK-selection skips.
+ * | | |
+ * |---|---|
+ * | Plan | `test-plans/journey-a/a12-equipment-setup.md` |
+ * | Runner rows | `src/data/runner/journey-a.csv` → `A12-002`…`A12-012` |
+ *
+ * Relocated from `tests/webpet/equipment.spec.ts` (WP-0159…WP-0169). Every
+ * assertion below is the one that spec carried, in the same order and the
+ * same describes; what changed is the fixture (`base.fixture`), the id/tag
+ * vocabulary, and `beforeAll`/`afterAll` moving from webpet's `request`
+ * fixture to `sessionApi`.
  */
-import { expect, test } from '@fixtures/webpet.fixture';
+import { expect, test } from '@fixtures/base.fixture';
 import { ensureEquipment, deleteEquipment, type EnsuredEquipment } from '@data/generated/data-factory';
 
 // This file creates its own Equipment (with a resolved Equipment Type FK) via
@@ -14,27 +20,24 @@ import { ensureEquipment, deleteEquipment, type EnsuredEquipment } from '@data/g
 // returned values. See data-factory.ts.
 let equip: EnsuredEquipment;
 
-test.beforeAll(async ({ request }) => {
-    equip = await ensureEquipment(request);
+test.beforeAll(async ({ sessionApi }) => {
+    equip = await ensureEquipment(sessionApi);
 });
 
-test.afterAll(async ({ request }) => {
-    if (equip) await deleteEquipment(request, equip.id);
+test.afterAll(async ({ sessionApi }) => {
+    if (equip) await deleteEquipment(sessionApi, equip.id);
 });
-
-// Prerequisites:
-//   - dev server running:  cd apps/web && pnpm dev
-//   - API server running:  cd apps/api  && go run .
-//
-// Error handling: alert() — API errors surfaced via window.alert.
 
 // ── New Equipment Form ─────────────────────────────────────────────────────────
 
-test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipment', '@WPBatch03'] }, () => {
+test.describe('New equipment form', { tag: ['@JourneyA', '@A12'] }, () => {
 
     test('[Equipment] Verify that the new equipment form renders the expected fields.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0159' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-002' },
+            { type: 'requirement', description: 'A12-R1' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoNew();
@@ -45,8 +48,11 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
     });
 
     test('[Equipment] Verify that the equipment type dropdown is populated from the database.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0160' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-003' },
+            { type: 'requirement', description: 'A12-R2' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoNew();
@@ -57,8 +63,11 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
     });
 
     test('[Equipment] Verify that Save is disabled until the required name and type are provided.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0161' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-004' },
+            { type: 'requirement', description: 'A12-R3' },
+        ],
     }, async ({ pages }) => {
         // Un-skipped 2026-08-06: the skip's premise ("no shared helper selects a
         // combobox value") went stale — pickEquipmentType() uses comboboxItemByText,
@@ -78,8 +87,11 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
     });
 
     test('[Equipment] Verify that the export identifier auto-populates from the name on blur.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0162' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-005' },
+            { type: 'requirement', description: 'A12-R4' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoNew();
@@ -88,8 +100,11 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
     });
 
     test('[Equipment] Verify that Cancel returns to the list without saving.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0163' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-006' },
+            { type: 'requirement', description: 'A12-R5' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.equipmentForm;
         await form.gotoNew();
@@ -102,8 +117,11 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
     });
 
     test('[Equipment] Verify that a duplicate name keeps the user on the create form.', {
-        tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0164' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-007' },
+            { type: 'requirement', description: 'A12-R6|A12-R7' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.equipmentForm;
         // This file's own equipment name triggers the server 409 on submit —
@@ -126,7 +144,7 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
         // showing "Couldn't reach the server. Check your connection." for a request
         // the API answers 409 in ~1.6s — pinning that string would enshrine wording
         // that looks wrong, and pinning the right string would fail. See the note on
-        // this row in webpetRunnerManager.csv.
+        // this row in the plan (`test-plans/journey-a/a12-equipment-setup.md`).
         await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 10000 });
 
         await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
@@ -137,11 +155,14 @@ test.describe('New equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipme
 
 // ── Edit Equipment Form ────────────────────────────────────────────────────────
 
-test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipment', '@WPBatch03'] }, () => {
+test.describe('Edit equipment form', { tag: ['@JourneyA', '@A12'] }, () => {
 
     test('[Equipment] Verify that the edit form loads the existing equipment data.', {
-        tag: ['@wp-ui', '@wp-smoke'],
-        annotation: { type: 'testCaseId', description: 'WP-0165' },
+        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-008' },
+            { type: 'requirement', description: 'A12-R8' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoEdit(equip.id);
@@ -150,8 +171,11 @@ test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipm
     });
 
     test('[Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0166' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-009' },
+            { type: 'requirement', description: 'A12-R9' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoEdit(equip.id);
@@ -165,8 +189,11 @@ test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipm
     });
 
     test('[Equipment] Verify that the active checkbox and hourly cost are editable.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0167' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-010' },
+            { type: 'requirement', description: 'A12-R10' },
+        ],
     }, async ({ pages }) => {
         const form = pages.equipmentForm;
         await form.gotoEdit(equip.id);
@@ -176,8 +203,11 @@ test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipm
     });
 
     test('[Equipment] Verify that Cancel returns to the list from the edit form.', {
-        tag: ['@wp-ui', '@wp-regression'],
-        annotation: { type: 'testCaseId', description: 'WP-0168' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-011' },
+            { type: 'requirement', description: 'A12-R11' },
+        ],
     }, async ({ page, pages }) => {
         const form = pages.equipmentForm;
         await form.gotoEdit(equip.id);
@@ -186,8 +216,11 @@ test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipm
     });
 
     test('[Equipment] Verify that a nonexistent equipment id shows an error message.', {
-        tag: ['@wp-ui', '@wp-negative'],
-        annotation: { type: 'testCaseId', description: 'WP-0169' },
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'A12-012' },
+            { type: 'requirement', description: 'A12-R12' },
+        ],
     }, async ({ pages }) => {
         await pages.equipmentForm.gotoEdit(999999);
         await expect(pages.equipmentForm.notFoundMessage).toBeVisible();

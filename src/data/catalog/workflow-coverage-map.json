@@ -105,11 +105,9 @@
         },
         "A12": {
             "depth": "screens",
-            "webpetSpecs": [
-                "equipment.spec.ts"
-            ],
-            "note": "New/edit equipment forms, read-only code and export identifier, disabled Equipment Type picker.",
-            "gap": "Cost accounting and hours-of-use tracking are not exercised.",
+            "webpetSpecs": [],
+            "note": "New/edit equipment forms, the Save gate, read-only code and export identifier and the disabled Equipment Type picker are covered by journey rows A12-002..A12-012 (tests/web/journey-a-setup/a12-equipment-form.spec.ts). Depth stays screens — Hourly Cost is only asserted editable, never entered, saved or read back.",
+            "gap": "Cost accounting, contractor billing and hours-of-use tracking are not exercised.",
             "next": "Covered enough for setup; extend only when F3 is automated."
         },
         "A13": {

@@ -34,7 +34,6 @@ import { ProfilePage } from '../pages/webpet/settings/ProfilePage';
 import { ReportEditorPage } from '../pages/webpet/settings/ReportEditorPage';
 import { BillingCenterFormPage } from '../pages/setup/BillingCenterFormPage';
 import { BillingCenterListPage } from '../pages/webpet/setup/BillingCenterListPage';
-import { InventoryListPage } from '../pages/webpet/setup/InventoryListPage';
 import { CropFormPage } from '../pages/webpet/setup/CropFormPage';
 import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
 import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
@@ -44,7 +43,6 @@ import { DepartmentFormPage } from '../pages/webpet/setup/DepartmentFormPage';
 import { DepartmentListPage } from '../pages/webpet/setup/DepartmentListPage';
 import { EmployeeFormPage } from '../pages/webpet/setup/EmployeeFormPage';
 import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
-import { EquipmentListPage } from '../pages/webpet/setup/EquipmentListPage';
 import { FieldFormPage } from '../pages/webpet/setup/FieldFormPage';
 import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
 import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
@@ -121,8 +119,6 @@ export interface WebpetPages {
     // ── Setup ▸ Equipment ───────────────────────────────────────────
     /** Equipment create/edit form (`/setup/equipments/{new,:id}`) — Equipment Type FK required. */
     readonly equipmentForm: EquipmentFormPage;
-    /** Equipment list (`/setup/equipments`). */
-    readonly equipmentList: EquipmentListPage;
 
     // ── Setup ▸ Grower Billing ──────────────────────────────────────
     /** Terms list (`/setup/terms`) — module-gated, may legitimately 403. */
@@ -160,19 +156,6 @@ export interface WebpetPages {
     // ── Input ───────────────────────────────────────────────────────
     /** Time In list (`/input/time-in`) — counter-keyed dropdown columns. */
     readonly timeInList: TimeInListPage;
-
-    // ── Setup ▸ Inventory ───────────────────────────────────────────
-    // Five structurally identical list pages; one class, five bindings.
-    /** Inventory Item Type list (`/setup/inventory/item-types`). */
-    readonly inventoryItemTypeList: InventoryListPage;
-    /** Inventory Item list (`/setup/inventory/items`). */
-    readonly inventoryItemList: InventoryListPage;
-    /** Inventory Center list (`/setup/inventory/centers`). */
-    readonly inventoryCenterList: InventoryListPage;
-    /** Unit Type list (`/setup/inventory/unit-types`). */
-    readonly inventoryUnitTypeList: InventoryListPage;
-    /** Unit list (`/setup/inventory/units`). */
-    readonly inventoryUnitList: InventoryListPage;
 }
 
 /**
@@ -211,7 +194,6 @@ export function createWebpetPages(page: Page): WebpetPages {
         get reportEditor() { return lazy('reportEditor', () => new ReportEditorPage(page)); },
         get jobForm() { return lazy('jobForm', () => new JobFormPage(page)); },
         get equipmentForm() { return lazy('equipmentForm', () => new EquipmentFormPage(page)); },
-        get equipmentList() { return lazy('equipmentList', () => new EquipmentListPage(page)); },
         get termList() { return lazy('termList', () => new TermListPage(page)); },
         get timeSheetValidationForm() {
             return lazy('timeSheetValidationForm', () => new TimeSheetValidationFormPage(page));
@@ -228,20 +210,5 @@ export function createWebpetPages(page: Page): WebpetPages {
         get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
         get billingCenterForm() { return lazy('billingCenterForm', () => new BillingCenterFormPage(page)); },
         get billingCenterList() { return lazy('billingCenterList', () => new BillingCenterListPage(page)); },
-        get inventoryItemTypeList() {
-            return lazy('inventoryItemTypeList', () => new InventoryListPage(page, '/setup/inventory/item-types', 'Inventory Item Types'));
-        },
-        get inventoryItemList() {
-            return lazy('inventoryItemList', () => new InventoryListPage(page, '/setup/inventory/items', 'Inventory Items'));
-        },
-        get inventoryCenterList() {
-            return lazy('inventoryCenterList', () => new InventoryListPage(page, '/setup/inventory/centers', 'Inventory Centers'));
-        },
-        get inventoryUnitTypeList() {
-            return lazy('inventoryUnitTypeList', () => new InventoryListPage(page, '/setup/inventory/unit-types', 'Unit Types'));
-        },
-        get inventoryUnitList() {
-            return lazy('inventoryUnitList', () => new InventoryListPage(page, '/setup/inventory/units', 'Units'));
-        },
     };
 }

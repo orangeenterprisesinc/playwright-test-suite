@@ -1750,6 +1750,97 @@
             ],
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "SCR-112",
+            "category": "ui",
+            "testName": "inventoryCenterListRendersNotStub",
+            "testTitle": "[Inventory] Verify that the Inventory Center list page renders and is no longer the stub.",
+            "testDescription": "The Inventory Center list resolves the real DataTable rather than the InventoryStubPage placeholder, and shows its heading and create anchor (PET-210).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R200"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-113",
+            "category": "ui",
+            "testName": "inventoryItemTypeListRendersNotStub",
+            "testTitle": "[Inventory] Verify that the Inventory Item Type list page renders and is no longer the stub.",
+            "testDescription": "The Inventory Item Type list resolves the real DataTable rather than the placeholder (PET-209).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R200"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-114",
+            "category": "ui",
+            "testName": "inventoryItemListRendersNotStub",
+            "testTitle": "[Inventory] Verify that the Inventory Item list page renders and is no longer the stub.",
+            "testDescription": "The Inventory Item list resolves the real DataTable rather than the placeholder (PET-215).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R200"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-115",
+            "category": "ui",
+            "testName": "sidebarShowsInventorySetupGroupWithFiveLinks",
+            "testTitle": "[Inventory] Verify that the sidebar shows the Inventory Setup group with its five live links.",
+            "testDescription": "With the Inventory module on, the sidebar Inventory Setup collapsible exposes exactly five live links pointing at their routes (PET-200). Exact name matching is required or nested labels collide.",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R201",
+                "SCR-R202"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-116",
+            "category": "ui",
+            "testName": "inventoryUnitTypeListRendersNotStub",
+            "testTitle": "[Inventory] Verify that the Unit Type list page renders and is no longer the stub.",
+            "testDescription": "The Unit Type list resolves the real DataTable rather than the placeholder (PET-207).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R200"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "SCR-117",
+            "category": "ui",
+            "testName": "inventoryUnitListRendersNotStub",
+            "testTitle": "[Inventory] Verify that the Unit list page renders and is no longer the stub.",
+            "testDescription": "The Unit list resolves the real DataTable rather than the placeholder (PET-208).",
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "SCR-R200"
+            ],
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

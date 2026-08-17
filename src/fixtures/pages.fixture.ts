@@ -39,6 +39,8 @@ import { JobListPage } from '../pages/setup/JobListPage';
 import { JobGroupFormPage } from '../pages/setup/JobGroupFormPage';
 import { JobGroupListPage } from '../pages/setup/JobGroupListPage';
 import { TimeCardFormPage } from '../pages/processing/TimeCardFormPage';
+import { EquipmentListPage } from '../pages/setup/EquipmentListPage';
+import { InventoryListPage } from '../pages/setup/InventoryListPage';
 // Still under src/pages/webpet/ and src/components/webpet/ — each of these is
 // also used by web-pet specs that have not relocated yet. A page object moves
 // to its journey home in the batch that relocates its *last* web-pet consumer;
@@ -56,6 +58,7 @@ import { UsersFormPage } from '../pages/webpet/settings/UsersFormPage';
 import { CrewFormPage } from '../pages/webpet/setup/CrewFormPage';
 import { CrewListPage } from '../pages/webpet/setup/CrewListPage';
 import { JobFormPage } from '../pages/webpet/setup/JobFormPage';
+import { EquipmentFormPage } from '../pages/webpet/setup/EquipmentFormPage';
 import { AppShellPage } from '../pages/webpet/shell/AppShellPage';
 import { ToastComponent } from '../components/webpet/ToastComponent';
 
@@ -148,6 +151,25 @@ export interface PageObjects {
     /** Job Group list. */
     readonly jobGroupList: JobGroupListPage;
 
+    // ── Setup ▸ Equipment (A12) ─────────────────────────────────────
+    /** Equipment New/Edit form — Equipment Type FK required on create. */
+    readonly equipmentForm: EquipmentFormPage;
+    /** Equipment list. */
+    readonly equipmentList: EquipmentListPage;
+
+    // ── Setup ▸ Inventory ───────────────────────────────────────────
+    // One class, five screens: the lists differ only in route and heading.
+    /** Inventory Item Type list. */
+    readonly inventoryItemTypeList: InventoryListPage;
+    /** Inventory Item list. */
+    readonly inventoryItemList: InventoryListPage;
+    /** Inventory Center list. */
+    readonly inventoryCenterList: InventoryListPage;
+    /** Unit Type list. */
+    readonly inventoryUnitTypeList: InventoryListPage;
+    /** Unit list. */
+    readonly inventoryUnitList: InventoryListPage;
+
     // ── Input ▸ time cards (D3) ─────────────────────────────────────
     /** Time card entry form — office correction of a crew time card. */
     readonly timeCardForm: TimeCardFormPage;
@@ -217,6 +239,23 @@ export function createPageObjects(page: Page): PageObjects {
         get jobList() { return lazy('jobList', () => new JobListPage(page)); },
         get jobGroupForm() { return lazy('jobGroupForm', () => new JobGroupFormPage(page)); },
         get jobGroupList() { return lazy('jobGroupList', () => new JobGroupListPage(page)); },
+        get equipmentForm() { return lazy('equipmentForm', () => new EquipmentFormPage(page)); },
+        get equipmentList() { return lazy('equipmentList', () => new EquipmentListPage(page)); },
+        get inventoryItemTypeList() {
+            return lazy('inventoryItemTypeList', () => new InventoryListPage(page, '/setup/inventory/item-types', 'Inventory Item Types'));
+        },
+        get inventoryItemList() {
+            return lazy('inventoryItemList', () => new InventoryListPage(page, '/setup/inventory/items', 'Inventory Items'));
+        },
+        get inventoryCenterList() {
+            return lazy('inventoryCenterList', () => new InventoryListPage(page, '/setup/inventory/centers', 'Inventory Centers'));
+        },
+        get inventoryUnitTypeList() {
+            return lazy('inventoryUnitTypeList', () => new InventoryListPage(page, '/setup/inventory/unit-types', 'Unit Types'));
+        },
+        get inventoryUnitList() {
+            return lazy('inventoryUnitList', () => new InventoryListPage(page, '/setup/inventory/units', 'Units'));
+        },
         get timeCardForm() { return lazy('timeCardForm', () => new TimeCardFormPage(page)); },
         get shell() { return lazy('shell', () => new AppShellPage(page)); },
         get toasts() { return lazy('toasts', () => new ToastComponent(page)); },

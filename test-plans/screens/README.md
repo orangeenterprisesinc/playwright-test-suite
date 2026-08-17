@@ -51,4 +51,12 @@ place, and those arrive as new ids in an existing block rather than a renumber.
 ## Area plans
 
 Each area gets one plan covering its screens, added as that area's specs arrive.
-None exist yet — this directory is the scaffold the relocation batches fill.
+
+| Plan | Area | Rows |
+|---|---|---|
+| `bonus.md` | bonus | `SCR-001`…`SCR-077` |
+| `records.md` | records | `SCR-078`…`SCR-111` |
+| `inventory.md` | inventory | `SCR-112`…`SCR-117` |
+
+`shared.md`, `timesheet.md` and `profile.md` arrive with their relocation
+batches.

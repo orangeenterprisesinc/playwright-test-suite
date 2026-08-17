@@ -3046,6 +3046,262 @@
             "enabled": false
         },
         {
+            "id": "A12-002",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "newFormRendersExpectedFields",
+            "testTitle": "[Equipment] Verify that the new equipment form renders the expected fields.",
+            "testDescription": "The new Equipment form renders Name, the Equipment Type picker and the Active checkbox.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R1"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-003",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "equipmentTypeDropdownPopulatedFromDatabase",
+            "testTitle": "[Equipment] Verify that the equipment type dropdown is populated from the database.",
+            "testDescription": "Opening the Equipment Type picker lists types from the database.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R2"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-004",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "saveDisabledUntilNameAndTypeProvided",
+            "testTitle": "[Equipment] Verify that Save is disabled until the required name and type are provided.",
+            "testDescription": "Equipment needs both Name and an Equipment Type foreign key.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R3"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-005",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "exportIdentifierAutoPopulatesOnBlur",
+            "testTitle": "[Equipment] Verify that the export identifier auto-populates from the name on blur.",
+            "testDescription": "Blurring Name copies its value into an empty Export Identifier.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R4"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-006",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListWithoutSaving",
+            "testTitle": "[Equipment] Verify that Cancel returns to the list without saving.",
+            "testDescription": "Discard changes followed by the abandon action in the unsaved-changes guard drops the edits, and the record never reaches the list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R5"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-007",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "duplicateNameStaysOnCreateForm",
+            "testTitle": "[Equipment] Verify that a duplicate name keeps the user on the create form.",
+            "testDescription": "A duplicate equipment name is rejected and the user stays on the create form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R6",
+                "A12-R7"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-008",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "editFormLoadsExistingEquipmentData",
+            "testTitle": "[Equipment] Verify that the edit form loads the existing equipment data.",
+            "testDescription": "The edit form is populated with the stored Name and Code.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "smoke",
+                "high-level",
+                "regression"
+            ],
+            "req": [
+                "A12-R8"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-009",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nameCodeExportIdentifierReadOnlyTypeDisabled",
+            "testTitle": "[Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.",
+            "testDescription": "Name, Code and Export Identifier are readonly; the Equipment Type picker is disabled rather than readonly, because it is a combobox.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R9"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-010",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "activeAndHourlyCostEditable",
+            "testTitle": "[Equipment] Verify that the active checkbox and hourly cost are editable.",
+            "testDescription": "The Active checkbox and Hourly Cost stay enabled on the edit form.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R10"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-011",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "cancelReturnsToListFromEdit",
+            "testTitle": "[Equipment] Verify that Cancel returns to the list from the edit form.",
+            "testDescription": "Cancel on a pristine edit form returns to the equipment list.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R11"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "A12-012",
+            "workflow": "A12",
+            "journey": "A",
+            "category": "ui",
+            "testName": "nonexistentIdShowsErrorMessage",
+            "testTitle": "[Equipment] Verify that a nonexistent equipment id shows an error message.",
+            "testDescription": "An unresolvable equipment id renders the failed-to-load message.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Equipment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "A12-R12"
+            ],
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "A13-001",
             "workflow": "A13",
             "journey": "A",
