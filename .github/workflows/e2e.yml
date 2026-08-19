@@ -155,8 +155,11 @@ jobs:
     # A serial webpet run of the whole suite took 56.5 min on dev (see
     # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
     # so 75 left almost no headroom for a slow night. 90 does. The journey suite
-    # runs in a couple of minutes.
-    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 15 }}
+    # runs in a couple of minutes, but 15 left it almost no slack: against ~5 min
+    # of setup, a slow install alone cancelled the job before any test ran
+    # (2026-08-19). 30 absorbs a slow npm ci or install retry while still failing
+    # fast on a real hang.
+    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 30 }}
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
@@ -332,8 +335,16 @@ jobs:
       - name: Install test-suite deps
         run: npm ci
 
+      # Chromium-only suite (the firefox/webkit projects are commented out in
+      # playwright.config.ts) and ubuntu-latest already ships Chromium's system
+      # libraries — so --with-deps only added an apt-get, which hung on
+      # unreachable Ubuntu mirrors for 15 min on 2026-08-19 and cancelled both
+      # suites before a single test ran. Naming chromium also skips the unused
+      # firefox/webkit downloads. The step timeout makes a future stall fail fast
+      # instead of consuming the whole job budget.
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        timeout-minutes: 6
+        run: npx playwright install chromium
 
       # No database client to install: test-data cleanup is an API call over the
       # same session the tests use (src/utils/cleanup/cleanupRegistry.ts).
