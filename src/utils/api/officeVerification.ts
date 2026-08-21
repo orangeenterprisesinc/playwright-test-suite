@@ -207,14 +207,21 @@ async function importViaInternetUi(
     });
 
     const pulled = outcome.api.status === 'ok' && outcome.api.filesPulled >= 1;
-    if (!pulled && process.env.OFFICE_TRANSPORT_SUBSTITUTE === '1') {
+    // 'no-data' with our envelope already delivered is NOT a config failure when
+    // specs run in parallel: every worker shares the one office mailbox, so
+    // whichever test triggers first drains BOTH envelopes into its own run. The
+    // punches still land in the same client DB either way — the reference
+    // matching below proves ownership. Only a 'warning' means the pull could not
+    // run at all (a closed relay gate), which stays a hard, diagnostic failure.
+    const peerDrained = outcome.api.status === 'no-data';
+    if (!pulled && !peerDrained && process.env.OFFICE_TRANSPORT_SUBSTITUTE === '1') {
         const reason =
             `The Internet pull could not run (screen: "${outcome.headingText}"; ` +
             `server: "${outcome.api.message || 'no message'}").`;
         return { transport: 'office-api', references: await substituteTransport(input, reason) };
     }
     expect(
-        pulled,
+        pulled || peerDrained,
         `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
             `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
             `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
@@ -227,9 +234,20 @@ async function importViaInternetUi(
             'OFFICE_TRANSPORT_SUBSTITUTE=1 verifies only the office screens, never the import.',
     ).toBe(true);
 
-    // The mailbox can hold envelopes from earlier runs too — wait for every
-    // pulled file to finish importing, then rely on reference matching below.
-    await pages.importInternet.waitForTerminalFiles(outcome.api.filesPulled);
+    if (pulled) {
+        // The mailbox can hold envelopes from earlier runs too — wait for every
+        // pulled file to finish importing, then rely on reference matching below.
+        await pages.importInternet.waitForTerminalFiles(outcome.api.filesPulled);
+    } else {
+        // A parallel worker's trigger got there first and is importing our
+        // envelope in its own run; the reference poll below waits it out.
+        testInfo.annotations.push({
+            type: 'peer-drained-mailbox',
+            description:
+                `Trigger Import found the mailbox empty ("${outcome.headingText}") — a concurrent ` +
+                'spec drained our envelope into its run. Falling through to reference polling.',
+        });
+    }
     return { transport: 'device-import', references: referencesInExport(input.xml) };
 }
 
@@ -265,10 +283,14 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
 
+    // Must outlast the import worker's per-client cadence (1 minute on dev):
+    // after a peer-drained trigger, our rows only appear once the worker
+    // processes the PEER's run, so the default 30s poll is too short.
     const cards = await findByReferences(sessionApi, references, {
         from: punchDay,
         to: punchDay,
         cardType: CARD_TYPE.timeIn,
+        timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
     });
 
     // Everything from here is wrapped so the punches are deleted even when an
