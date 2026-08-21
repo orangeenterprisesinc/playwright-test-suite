@@ -84,6 +84,10 @@ on:
         description: 'webpet only. Defaults to 2. Set 1 for a baseline-comparable run — the committed dev baseline only holds serially.'
         required: false
         default: '2'
+      run_label:
+        description: 'Overrides the Slack "how was this run started" label — a cross-repo dispatcher names its origin here (e.g. web-pet PR #566). Blank = derived from the trigger.'
+        required: false
+        default: ''
   # Reusable, so an orchestrator could drive this once per suite. Nothing calls it
   # today — the cron above runs both suites itself. Kept because a caller inherits
   # this workflow's triggering event, which is what would keep the Slack gate in
@@ -113,6 +117,11 @@ on:
         default: '1'
       suite_name:
         description: 'Overrides the Slack report header. Blank = derived from `suite`.'
+        type: string
+        required: false
+        default: ''
+      run_label:
+        description: 'Overrides the Slack execution label — see the workflow_dispatch input of the same name.'
         type: string
         required: false
         default: ''
@@ -281,9 +290,12 @@ jobs:
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
       # One report per suite, never merged — the header has to say which.
       SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || 'User Journey') }}
-      # Normally derived from the trigger ('Scheduled Dry Run' on a cron). Set the
-      # variable to keep that wording on a dispatch run used to review the format.
-      SLACK_EXECUTION_LABEL: ${{ vars.SLACK_EXECUTION_LABEL }}
+      # Normally derived from the trigger ('Scheduled Dry Run' on a cron, 'Manual'
+      # on a dispatch). A cross-repo dispatcher carries no caller context of its
+      # own, so run_label lets it name its origin — web-pet's e2e-dev job passes
+      # 'web-pet PR #<n>'. Null inputs (cron, push, repository_dispatch) fall
+      # through to the variable, which keeps the old format-review override.
+      SLACK_EXECUTION_LABEL: ${{ inputs.run_label || vars.SLACK_EXECUTION_LABEL }}
       # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
       #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
       #     With SEND_S3 unset, every AWS step below is skipped and the Slack
