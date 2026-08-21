@@ -206,24 +206,21 @@ jobs:
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
       # --- Journey B device→office import (B1-001, B2-001) ----------------------
-      # Which route carries the device export into the office. The DEFAULT is
-      # `internet` — Connectivity ▸ Import ▸ Internet, the relay pull Amy's
-      # recordings show — and it CANNOT pass here: dev still lacks
-      # WEBMAIL_LIVE_SEND_ENABLED on the API task plus a ClientRelayRegistration
-      # row, so the pull is refused before the importer is ever reached.
+      # Which route carries the device export into the office. `internet` is
+      # Connectivity ▸ Import ▸ Internet — the relay pull Amy's recordings show,
+      # and the code default. The relay gates that used to block it on dev are
+      # open (WEBPET-2222: WEBMAIL_LIVE_SEND_ENABLED set per PET-12482, and the
+      # ClientRelayRegistration row exists with LiveSendEnabled=1); the relay
+      # round-trip spec (B1-002) passes against the v6 endpoint.
       #
-      # `single-folder` posts the same envelope straight to the importer, which
-      # needs only the import worker (enabled by PET-12482). It exercises the
-      # identical office-side assertions — rows matched by reference and linked
-      # by id, programCreated=true, GPS preserved, Transfer to Job Cards — so a
-      # green run here means the device→office import genuinely works.
-      #
-      # The trade: this is not literally Amy's screen path. That fidelity is
-      # covered by a headed demo run; a nightly that is permanently red on a
-      # known ticketed env gap teaches people to ignore red, and gives us no
-      # regression protection on the path that DOES work. Delete this line once
-      # the two relay gates open and CI covers her exact route unchanged.
-      IMPORT_TRANSPORT: 'single-folder'
+      # Known dependency: the office mailbox (DEVICE_RELAY_SERVER) must not be
+      # shared with any other importer. A second consumer on the same mailbox
+      # steals fresh envelopes before Trigger Import can pull them and the specs
+      # fail with "No new files were waiting on the relay" — seen on dev
+      # 2026-08-21, tracked on WEBPET-2222. If that recurs, the fallback is to
+      # set this back to 'single-folder', which posts the same envelope straight
+      # to the importer and exercises identical office-side assertions.
+      IMPORT_TRANSPORT: 'internet'
       # The worker claims queued files on the client's SrvcRealTimeImportInterval
       # cadence (minutes — GET /api/preferences → serviceImportInterval), NOT on
       # arrival. Dev was 15 min and is now 1, so the 60s default is too tight to

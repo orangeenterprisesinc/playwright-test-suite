@@ -231,7 +231,11 @@ export class TransferToJobCardsPage extends BasePage {
      */
     async openRow(timeCardCounter: number): Promise<void> {
         await this.rowFor(timeCardCounter).click();
-        await this.timeInPanel.waitFor({ state: 'visible', timeout: 15_000 });
+        // 45s, not 15s: the panel shell opens instantly but its body sits on
+        // "Loading…" until the Time In detail fetch returns, and that fetch has
+        // been observed taking >15s on dev staging (2026-08-21). The locator
+        // requires the panel's Cancel button, which only renders after the load.
+        await this.timeInPanel.waitFor({ state: 'visible', timeout: 45_000 });
     }
 
     /** Close the panel without saving or deleting — the only exit this suite uses. */
