@@ -21,6 +21,7 @@
  * `Parameters<typeof test>[1]['page']` resolved to a different overload.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
+import { deleteBillingCenter, ensureBillingCenter, type EnsuredBillingCenter } from './data-factory';
 
 // Unique per-run token: Customer_Name_Unique (and the Code/ExportIdentifier
 // unique constraints) are NOT filtered by Deleted, so a soft-deleted ghost
@@ -98,39 +99,34 @@ test.describe('Setup > Billing Center — new form', { tag: ['@WebPet', '@wp-set
 
 test.describe('Setup > Billing Center — edit form', { tag: ['@WebPet', '@wp-setup', '@wp-billing-center', '@WPBatch04'] }, () => {
 
+    // Own record via the API instead of re-finding WP-0004's UI-created one: with
+    // fullyParallel these tests can run before the create test on another worker,
+    // and the old find-by-name guard then skipped them silently.
+    let bc: EnsuredBillingCenter;
+
+    test.beforeAll(async ({ request }) => {
+        bc = await ensureBillingCenter(request);
+    });
+
+    test.afterAll(async ({ request }) => {
+        if (bc) await deleteBillingCenter(request, bc.id);
+    });
+
     test('[Billing Center] Verify that the name is read-only on an existing record.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0005' },
-    }, async ({ pages, request }) => {
+    }, async ({ pages }) => {
         const form = pages.billingCenterForm;
-        const listResp = await request.get('/api/billing-centers');
-        if (!listResp.ok()) return;
-        const items = (await listResp.json()) as { billingCenterCounter: number; name: string }[];
-        const rec = items.find((bc) => bc.name === TEST_NAME);
-        if (!rec) {
-            test.skip();
-            return;
-        }
-
-        if (!(await form.gotoEditOrForbidden(rec.billingCenterCounter))) return;
+        if (!(await form.gotoEditOrForbidden(bc.id))) return;
         await expect(form.nameInput).toHaveAttribute('readonly', '');
     });
 
     test('[Billing Center] Verify that the active toggle can be flipped and saved.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0006' },
-    }, async ({ page, pages, request }) => {
+    }, async ({ page, pages }) => {
         const form = pages.billingCenterForm;
-        const listResp = await request.get('/api/billing-centers');
-        if (!listResp.ok()) return;
-        const items = (await listResp.json()) as { billingCenterCounter: number; name: string }[];
-        const rec = items.find((bc) => bc.name === TEST_NAME);
-        if (!rec) {
-            test.skip();
-            return;
-        }
-
-        if (!(await form.gotoEditOrForbidden(rec.billingCenterCounter))) return;
+        if (!(await form.gotoEditOrForbidden(bc.id))) return;
 
         // The active toggle is in the page header extras. Click it to deactivate.
         // ActiveField uses a Switch — its role is 'switch'.

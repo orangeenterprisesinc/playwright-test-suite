@@ -48,6 +48,11 @@ export class ScanScreenPage extends BasePage {
     /** Carry-over: an on-by-default **local** UI toggle (the ScanModePrefs wiring is deferred). */
     readonly carryOverToggle: Locator;
     /**
+     * Assign Employee Crew only: the `role="status"` notice reporting the
+     * on-mount HandPunch sync-folder import result (WEBPET-906).
+     */
+    readonly aecImportNotice: Locator;
+    /**
      * The shared shell's page-header `<h1>`.
      *
      * The gating spec's "module on" branch asserts this rather than a scan input,
@@ -66,6 +71,7 @@ export class ScanScreenPage extends BasePage {
         this.saveButton = page.locator('[data-testid="scan-save-button"]');
         this.status = page.locator('[data-testid="scan-status"]');
         this.carryOverToggle = page.locator('[data-testid="scan-carry-over"]');
+        this.aecImportNotice = page.locator('[data-testid="aec-import-notice"]');
         this.pageHeading = page.getByRole('heading', { level: 1 });
     }
 

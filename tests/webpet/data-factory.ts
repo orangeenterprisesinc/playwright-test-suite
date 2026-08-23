@@ -484,6 +484,83 @@ export async function deleteCustomer(request: APIRequestContext, id: number): Pr
   await deleteByRowversion(request, '/api/customers', id)
 }
 
+// ── Billing Center ────────────────────────────────────────────────────────────
+
+export interface EnsuredBillingCenter {
+  id: number
+  name: string
+  code: string
+  exportIdentifier: string
+}
+
+/**
+ * Creates a fresh active Billing Center. Name, code and exportIdentifier all
+ * carry UNFILTERED unique constraints (a soft-deleted ghost owns them forever —
+ * see billing-center.spec.ts), so all three derive from the run-unique name.
+ */
+export async function ensureBillingCenter(
+  request: APIRequestContext,
+  opts: { namePrefix?: string } = {}
+): Promise<EnsuredBillingCenter> {
+  const name = uniqueName(opts.namePrefix ?? 'E2EBillCtr')
+  const token = name.slice(name.indexOf('_') + 1).replace(/_/g, '')
+  const code = `BC${token}`
+  const exportIdentifier = `EX${token}`
+  const res = await request.post('/api/billing-centers', {
+    data: { name, code, exportIdentifier, active: true },
+  })
+  if (!res.ok()) {
+    throw new Error(
+      `ensureBillingCenter: POST /api/billing-centers failed (${res.status()}): ${await bodyText(res)}`
+    )
+  }
+  const { billingCenterCounter } = (await res.json()) as { billingCenterCounter: number }
+  if (!billingCenterCounter) {
+    throw new Error('ensureBillingCenter: response missing billingCenterCounter')
+  }
+  return { id: billingCenterCounter, name, code, exportIdentifier }
+}
+
+export async function deleteBillingCenter(request: APIRequestContext, id: number): Promise<void> {
+  await deleteByRowversion(request, '/api/billing-centers', id)
+}
+
+// ── Document Type ─────────────────────────────────────────────────────────────
+
+export interface EnsuredDocumentType {
+  id: number
+  name: string
+}
+
+/**
+ * Creates a fresh ACTIVE Document Type. Dev's seeded types (Form I9, Form W4)
+ * are all active:false and the employee-documents type picker filters to
+ * active, so without one of these the picker renders an empty listbox.
+ */
+export async function ensureDocumentType(
+  request: APIRequestContext,
+  opts: { namePrefix?: string } = {}
+): Promise<EnsuredDocumentType> {
+  const name = uniqueName(opts.namePrefix ?? 'E2EDocType')
+  const res = await request.post('/api/document-types', {
+    data: { name, comment: name, active: true },
+  })
+  if (!res.ok()) {
+    throw new Error(
+      `ensureDocumentType: POST /api/document-types failed (${res.status()}): ${await bodyText(res)}`
+    )
+  }
+  const { documentTypeCounter } = (await res.json()) as { documentTypeCounter: number }
+  if (!documentTypeCounter) {
+    throw new Error('ensureDocumentType: response missing documentTypeCounter')
+  }
+  return { id: documentTypeCounter, name }
+}
+
+export async function deleteDocumentType(request: APIRequestContext, id: number): Promise<void> {
+  await deleteByRowversion(request, '/api/document-types', id)
+}
+
 // ── Job (needs an OvertimeRule / JobType FK) ──────────────────────────────────
 
 export interface EnsuredJob {

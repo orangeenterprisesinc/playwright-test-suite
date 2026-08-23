@@ -24,16 +24,6 @@
       "ticket": "WORK-ITEM: scan-time-in equivalence setup"
     },
     {
-      "match": "report-editor-wysiwyg.spec.ts",
-      "reason": "Editor rebuilt in web-pet: iframe preview replaced by inline React ReportCanvas (bfe869b10), numbered markers + right inspector rail replaced by popover editors + anchor menu (bb9065e1e). data-marker-area / data-active-area / data-inspector-area exist in neither source nor the deployed bundle, so 11 of 13 tests assert removed surfaces. WP-0315 (zoom) still runs and passes, which is what proves the route/report/preview are fine. Rewrite the spec + ReportEditorPage against ReportCanvas to bring these back.",
-      "ticket": "WORK-ITEM: rewrite report-editor spec vs ReportCanvas"
-    },
-    {
-      "match": "WP-0320",
-      "reason": "Full WYSIWYG acceptance journey, fixme since authoring — the sign-off gate for WEBPET-731..740, never enabled.",
-      "ticket": "WEBPET-740"
-    },
-    {
       "match": "IncludeReconcileJCs preference is off",
       "reason": "Reconcile Job Cards tests self-gate on a per-client preference. Dev has it off, so the populated-grid branch cannot be exercised. Complementary tests cover the off-branch, so this is conditional coverage rather than lost coverage — but the gating question itself is open (see the reconcile ticket draft: accounting.export is granted yet the sidebar link is absent).",
       "ticket": "DRAFT: reconcile-gating question"
@@ -65,18 +55,8 @@
     },
     {
       "match": "deferred (WEBPET-905",
-      "reason": "Fingerprint capture not built yet — acceptance-first.",
+      "reason": "WEBPET-905 closed Done, but what shipped is device/server-side verification — reconfirmed 2026-08-23: the deployed web bundle has no capture/verify surface (every \"fingerprint\" hit is the Sentry SDK) and scanRoutes.ts records no scan-entry card. Stays deferred until a web-reachable surface exists.",
       "ticket": "WEBPET-905"
-    },
-    {
-      "match": "deferred (WEBPET-906",
-      "reason": "HandPunch import provenance not built yet — acceptance-first.",
-      "ticket": "WEBPET-906"
-    },
-    {
-      "match": "Boundary polygon-save flaky in serial suite",
-      "reason": "Passes in isolation, flaky inside the serial ranch file. Needs the boundary tests split into their own file rather than a skip.",
-      "ticket": "WORK-ITEM: split ranch boundary tests into own file"
     },
     {
       "match": "three Time In records and one Time Out record",
@@ -89,29 +69,14 @@
       "ticket": "WORK-ITEM: ensureTimeIn data factory"
     },
     {
-      "match": "data-scoping",
-      "reason": "RestrictedTest user is not provisioned on dev, so row-level scoping cannot be asserted. Provisioning is best-effort in webpet.setup.ts and silently unavailable here.",
-      "ticket": "WORK-ITEM: provision RestrictedTest on dev"
-    },
-    {
-      "match": "profile-avatar",
-      "reason": "Avatar upload needs the same object storage as employee-documents.",
-      "ticket": "DRAFT: provision S3/MinIO for dev staging"
-    },
-    {
-      "match": "billing-center.spec.ts",
-      "reason": "WP-0005/WP-0006 look up the record WP-0004 creates in the same NON-serial file, keyed by a module-level RUN_TOKEN that is computed per worker. With fullyParallel + 2 workers the edit tests often land on a different worker (different token) and self-skip via a bare test.skip() — which carries no reason string, so only this file match can account for them. All 7 tests pass at --workers=1 (verified 2026-08-23 vs dev). Real fix is a spec change: serial describe or self-provisioned data.",
-      "ticket": "WEBPET-1797"
-    },
-    {
       "match": "Seeded user has accounting.export",
       "reason": "WP-0302 exercises the no-permission redirect branch, but the seeded su account always holds accounting.export on dev, so the negative branch is unreachable every run. Runs once a non-SU login exists for the suite (same account the WEBPET_NONSU entry below waits on).",
       "ticket": "WEBPET-1797"
     },
     {
-      "match": "WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD not set",
-      "reason": "Temporary-badge escape-hatch test (WEBPET-2006 third gate term) needs a real non-SU dev-staging login to falsify the first two gate terms without route-rewriting isSU. The account is not provisioned on dev yet, so this skips cleanly until it exists.",
-      "ticket": "PET-12468"
+      "match": "widgets removed from the editor flow",
+      "reason": "WP-0319 only: web-pet 219d5ac83 deliberately removed widgets from the editor flow (reconfirmed live 2026-08-23 — no Widgets entry anywhere); the filter-summary half of the old assertion moved into WP-0310. The other 12 report-editor tests were realigned to the rebuilt ReportCanvas UI and run green.",
+      "ticket": "WEBPET-1797"
     }
   ]
 }
