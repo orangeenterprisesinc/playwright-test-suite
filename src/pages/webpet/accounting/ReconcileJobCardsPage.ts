@@ -135,6 +135,21 @@ export class ReconcileJobCardsPage extends BasePage {
         return true;
     }
 
+    /**
+     * After a range is applied: resolves once the dry-run outcome is knowable —
+     * either the zero-match empty state rendered or the Reconcile CTA enabled.
+     * An instant `noMatchMessage.isVisible()` read races the fetch the same way
+     * the old {@link isDisabled} read raced the preference banner.
+     */
+    async previewOutcome(): Promise<'no-match' | 'ready'> {
+        const readySubmit = this.page.locator('[data-testid="reconcile-submit"]:enabled');
+        await this.noMatchMessage
+            .or(readySubmit)
+            .first()
+            .waitFor({ state: 'visible', timeout: 30_000 });
+        return (await this.noMatchMessage.isVisible()) ? 'no-match' : 'ready';
+    }
+
     /** The matched count as a number, parsed from the preview label. */
     async matchedCount(): Promise<number> {
         const text = (await this.previewCount.textContent()) ?? '';

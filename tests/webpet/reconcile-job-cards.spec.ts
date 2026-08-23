@@ -28,6 +28,17 @@ import type { Page } from '@playwright/test';
 import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { ReconcileJobCardsPage } from '@pages/webpet/accounting/ReconcileJobCardsPage';
+import {
+    deleteEmployee,
+    deleteJob,
+    deleteJobCard,
+    ensureEmployee,
+    ensureJob,
+    ensureJobCard,
+    type EnsuredEmployee,
+    type EnsuredJob,
+    type EnsuredJobCard,
+} from './data-factory';
 
 type MockReconcileResponse = {
     summary: {
@@ -83,7 +94,11 @@ const submitReconcile = async (reconcile: ReconcileJobCardsPage) => {
         test.skip(true, 'IncludeReconcileJCs preference is off');
     }
     await expect(reconcile.previewCount).not.toHaveText('');
-    if (await reconcile.noMatchMessage.isVisible()) {
+    // previewOutcome settles on the dry-run result — an instant isVisible read
+    // here raced the fetch and drove tests into the disabled CTA instead of a
+    // clean skip. The suite provisions its own JobCards (beforeAll), so the
+    // no-match branch fires only on environments where that provisioning failed.
+    if ((await reconcile.previewOutcome()) === 'no-match') {
         test.skip(
             true,
             'No JobCards in the last 30 days; cannot exercise the submit + mocked-response flow.',
@@ -140,6 +155,30 @@ const hasExportPermission = async (page: Page): Promise<boolean> => {
 
 test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBatch12'] }, () => {
 
+    // Own JobCard data (WEBPET-1797 work-item): dev often has no JobCards inside
+    // the Last-30-days scope, which starved every populated-grid branch. Two
+    // cards on an own employee+job keep the dry-run count ≥1 without touching
+    // anyone else's records; WP-0300's real reconcile then recomputes only data
+    // this file owns (plus whatever else legitimately matches).
+    let emp: EnsuredEmployee;
+    let job: EnsuredJob;
+    let cards: EnsuredJobCard[] = [];
+
+    test.beforeAll(async ({ request }) => {
+        emp = await ensureEmployee(request, { namePrefix: 'E2EReconEmp' });
+        job = await ensureJob(request, { namePrefix: 'E2EReconJob' });
+        cards = [
+            await ensureJobCard(request, { employeeId: emp.id, jobId: job.id, daysAgo: 3 }),
+            await ensureJobCard(request, { employeeId: emp.id, jobId: job.id, daysAgo: 5 }),
+        ];
+    });
+
+    test.afterAll(async ({ request }) => {
+        for (const c of cards) await deleteJobCard(request, c.id);
+        if (job) await deleteJob(request, job.id);
+        if (emp) await deleteEmployee(request, emp.id);
+    });
+
     test('[Reconcile] Verify that the page header renders and the preference gate is respected.', {
         tag: ['@wp-ui', '@wp-smoke'],
         annotation: { type: 'testCaseId', description: 'WP-0298' },
@@ -190,10 +229,11 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
             test.skip(true, 'IncludeReconcileJCs preference is off');
         }
 
-        // Wait for the preview count to populate.
+        // Wait for the preview count to populate, then for the dry-run outcome
+        // to settle (an instant no-match read here races the fetch).
         await expect(reconcile.previewCount).not.toHaveText('');
 
-        if (await reconcile.noMatchMessage.isVisible()) {
+        if ((await reconcile.previewOutcome()) === 'no-match') {
             test.skip(true, 'No JobCards in the last 30 days; cannot exercise the populated-grid branch.');
         }
 

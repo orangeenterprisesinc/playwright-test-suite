@@ -211,6 +211,12 @@ jobs:
       # employee.spec.ts). Unset secrets are fine: the test self-skips.
       WEBPET_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
       WEBPET_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
+      # Scan-time-in equivalence (WP-0178, equiv/scan-time-in-equivalence.spec.ts):
+      # deliberately env-gated so no employee barcode lives in the repo. Unset
+      # vars are fine: the test self-skips. Set SCAN_EMPLOYEE_BARCODE to an
+      # active employee code that POST /scan/decode resolves on dev.
+      SCAN_TIME_IN_EQUIV: ${{ vars.SCAN_TIME_IN_EQUIV }}
+      SCAN_EMPLOYEE_BARCODE: ${{ vars.SCAN_EMPLOYEE_BARCODE }}
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}

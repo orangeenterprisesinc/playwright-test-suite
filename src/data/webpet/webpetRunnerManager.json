@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-23T18:07:48.498Z",
+    "generatedAt": "2026-08-23T18:57:03.368Z",
     "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2852,7 +2852,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Verified green 2026-08-24 with SCAN_TIME_IN_EQUIV=1 + SCAN_EMPLOYEE_BARCODE=<active employee code that POST /scan/decode resolves; dev: 6004>. e2e.yml plumbs both as repo vars — set them to run it in CI; unset, it self-skips (allowlisted)."
     },
     {
       "id": "WP-0179",
@@ -4804,7 +4804,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Unblocked 2026-08-24: IncludeReconcileJCs flipped ON on dev (su preferences API, backup in artifacts/bug-evidence/pref-backup-2026-08-24) and the spec now owns its JobCard data via ensureJobCard, so the Last-30-days scope always matches. Real (dryRun:false) reconcile recomputes the file-owned cards."
     },
     {
       "id": "WP-0301",
@@ -4819,8 +4819,8 @@
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): sidebar link still absent while accounting.export is granted. Open product question (permission-only vs permission+IncludeReconcileJCs-preference gating), see BUG-14."
+      "enabled": true,
+      "notes": "Re-enabled 2026-08-24 and passing: BUG-14 answered empirically — the sidebar entry is gated on permission AND the IncludeReconcileJCs preference; with the preference flipped ON via su (backup: artifacts/bug-evidence/pref-backup-2026-08-24) the link renders and the assertion holds."
     },
     {
       "id": "WP-0302",
