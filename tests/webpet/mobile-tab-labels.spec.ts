@@ -42,7 +42,7 @@ test.describe('CropFormPage mobile tabs', { tag: ['@WebPet', '@wp-mobiletabs', '
         await mobileTrigger.click();
         await page.waitForTimeout(400);
 
-        await page.screenshot({ path: 'e2e/.screenshots/mobile-tab-dropdown.png', fullPage: true });
+        await page.screenshot({ path: 'artifacts/results/screenshots/mobile-tab-dropdown.png', fullPage: true });
 
         const items = form.visibleSelectItems;
         const count = await items.count();

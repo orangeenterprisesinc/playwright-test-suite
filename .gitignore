@@ -1,19 +1,26 @@
 # Dependencies
 node_modules/
 
-# All run output — Playwright results/HTML report, Allure results/report, and
-# the framework logs — lives under one tree (see docs/STRUCTURE.md).
+# All run output — Playwright results/HTML report, Allure results/report,
+# debug screenshots, and the framework logs — lives under one tree
+# (see docs/STRUCTURE.md).
 /artifacts/
 /blob-report/
 /playwright/.cache/
 
-# Debug screenshots from the migrated web-pet specs (select-smoke.spec.ts,
-# mobile-tab-labels.spec.ts). They hardcode a relative 'e2e/.screenshots/...'
-# path, which resolved under apps/web/ in the source repo but resolves to this
-# repo's root here — so the specs create a stray top-level e2e/ folder. Nothing
-# asserts on these; they are eyeball aids. The source repo ignores the same
-# output (its .gitignore: apps/web/e2e/.screenshots/).
-/e2e/
+# Playwright/Allure DEFAULT output dirs. Nothing writes here when the
+# configured chain runs, but a CLI `--reporter=html` override or an Allure
+# option typo falls back to these defaults — keep them un-committable.
+/test-results/
+/playwright-report/
+/allure-results/
+/allure-report/
+
+# Local-only tooling and its generated output — never commit
+# (see .claude/GITHUB_WORKFLOW.md "never commit local noise").
+/tools/
+/.video-annotations/
+/inviestgate/
 
 # Auth storage state (contains session cookies — never commit)
 /playwright/.auth/

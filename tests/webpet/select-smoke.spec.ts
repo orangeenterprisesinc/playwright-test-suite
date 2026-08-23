@@ -2,7 +2,7 @@
  * Visual smoke coverage for the Select→base-ui migration.
  *
  * Unusual by design: most of what this file produces are **screenshots** under
- * `e2e/.screenshots/`, not assertions — WP-0369 has no assertion at all. It
+ * `artifacts/results/screenshots/`, not assertions — WP-0369 has no assertion at all. It
  * exists to capture the migrated controls for eyeball review, so the captures
  * are the deliverable and the few assertions are guard rails around them.
  *
@@ -11,8 +11,8 @@
  *   - `page.waitForTimeout(...)` is kept. The framework forbids it, but these
  *     waits exist to let popovers and scroll animations settle before a capture;
  *     replacing them with web-first waits would change what the screenshots show.
- *   - The screenshot paths are CWD-relative and create a stray `e2e/` directory
- *     at the repo root. Already gitignored (`.gitignore` names this file).
+ *   - The screenshot paths are CWD-relative; they land under the gitignored
+ *     `artifacts/results/screenshots/` (pre-created by global-setup).
  *
  * Framework-aligned (Batch 05): every locator moved onto CrewFormPage /
  * JobFormPage / CrewListPage. The screenshot and keyboard calls stay in the
@@ -58,7 +58,7 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await form.waitForFormRoot();
         await page.waitForTimeout(500);
 
-        await page.screenshot({ path: 'e2e/.screenshots/crew-form-closed.png', fullPage: true });
+        await page.screenshot({ path: 'artifacts/results/screenshots/crew-form-closed.png', fullPage: true });
 
         // Smoke signal for the Select→Switch (shadcn→base-ui) migration: the crew form's
         // Yes/No fields render as switches. The General view shows 5 — ActiveField plus
@@ -86,7 +86,7 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         // Capture-only: this test intentionally asserts nothing. Its output is the
         // screenshot below, reviewed by eye against the migration.
         await page.screenshot({
-            path: 'e2e/.screenshots/crew-parent-pickers.png',
+            path: 'artifacts/results/screenshots/crew-parent-pickers.png',
             clip: { x: 0, y: 150, width: 1200, height: 400 },
         });
     });
@@ -104,7 +104,7 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await form.paymentTypeTrigger.scrollIntoViewIfNeeded();
         await form.paymentTypeTrigger.click();
         await page.waitForTimeout(300);
-        await page.screenshot({ path: 'e2e/.screenshots/job-paymenttype-open.png', fullPage: false });
+        await page.screenshot({ path: 'artifacts/results/screenshots/job-paymenttype-open.png', fullPage: false });
         await page.keyboard.press('Escape');
         await page.waitForTimeout(200);
 
@@ -122,7 +122,7 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await page.waitForTimeout(300);
         await form.firstSelectTrigger.click();
         await page.waitForTimeout(300);
-        await page.screenshot({ path: 'e2e/.screenshots/job-crops-add-open.png', fullPage: false });
+        await page.screenshot({ path: 'artifacts/results/screenshots/job-crops-add-open.png', fullPage: false });
         await page.keyboard.press('Escape');
     });
 
@@ -135,14 +135,14 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await page.waitForTimeout(300);
 
         await page.screenshot({
-            path: 'e2e/.screenshots/crew-list-filter-row.png',
+            path: 'artifacts/results/screenshots/crew-list-filter-row.png',
             clip: { x: 0, y: 0, width: 1200, height: 300 },
         });
 
         await expect(list.grid.filterSelectTrigger()).toBeVisible();
         await list.grid.filterSelectTrigger().click();
         await page.waitForTimeout(300);
-        await page.screenshot({ path: 'e2e/.screenshots/crew-list-filter-open.png', fullPage: false });
+        await page.screenshot({ path: 'artifacts/results/screenshots/crew-list-filter-open.png', fullPage: false });
         await page.keyboard.press('Escape');
         await page.waitForTimeout(200);
 
@@ -153,7 +153,7 @@ test.describe('Select migration smoke', { tag: ['@WebPet', '@wp-selectmigration'
         await list.grid.toggleMultiUpdate();
         await page.waitForTimeout(300);
         await page.screenshot({
-            path: 'e2e/.screenshots/crew-list-mu-active.png',
+            path: 'artifacts/results/screenshots/crew-list-mu-active.png',
             clip: { x: 0, y: 0, width: 1400, height: 250 },
         });
     });

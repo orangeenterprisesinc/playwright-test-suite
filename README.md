@@ -462,7 +462,9 @@ Every page in the application extends `BasePage`, which deliberately does **not*
 
 **BasePage provides:**
 - **Navigation**: `navigate()` (goes to the page object's own `pageUrl`), `navigateTo(url)`
-- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent), `takeScreenshot()` / `takeElementScreenshot()` (enforce the repo's `artifacts/results/screenshots/<name>.png` path convention)
+- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent)
+
+Debug/visual captures are plain `page.screenshot()` calls in the spec; the convention is the path they pass: `artifacts/results/screenshots/<name>.png` (pre-created by global-setup).
 
 Everything else — clicking, typing, checkboxes, getters, visibility/state checks, assertions — use the native `Locator` API and `expect()` directly in your page object, the same way `LoginPage` already does:
 
