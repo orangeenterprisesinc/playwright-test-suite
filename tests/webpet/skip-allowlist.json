@@ -99,6 +99,16 @@
       "ticket": "DRAFT: provision S3/MinIO for dev staging"
     },
     {
+      "match": "billing-center.spec.ts",
+      "reason": "WP-0005/WP-0006 look up the record WP-0004 creates in the same NON-serial file, keyed by a module-level RUN_TOKEN that is computed per worker. With fullyParallel + 2 workers the edit tests often land on a different worker (different token) and self-skip via a bare test.skip() — which carries no reason string, so only this file match can account for them. All 7 tests pass at --workers=1 (verified 2026-08-23 vs dev). Real fix is a spec change: serial describe or self-provisioned data.",
+      "ticket": "WEBPET-1797"
+    },
+    {
+      "match": "Seeded user has accounting.export",
+      "reason": "WP-0302 exercises the no-permission redirect branch, but the seeded su account always holds accounting.export on dev, so the negative branch is unreachable every run. Runs once a non-SU login exists for the suite (same account the WEBPET_NONSU entry below waits on).",
+      "ticket": "WEBPET-1797"
+    },
+    {
       "match": "WEBPET_NONSU_USER / WEBPET_NONSU_PASSWORD not set",
       "reason": "Temporary-badge escape-hatch test (WEBPET-2006 third gate term) needs a real non-SU dev-staging login to falsify the first two gate terms without route-rewriting isSU. The account is not provisioned on dev yet, so this skips cleanly until it exists.",
       "ticket": "PET-12468"
