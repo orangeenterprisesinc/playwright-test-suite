@@ -61,10 +61,14 @@ playwright-test-suite/
 │
 ├── artifacts/            ALL run output — one .gitignore line
 │   ├── results/          results.json, traces, videos, screenshots
+│   │   └── screenshots/  debug captures from the visual webpet specs
 │   ├── html/             Playwright HTML report
 │   ├── allure/results/   raw Allure results (wiped per run)
 │   ├── allure/report/     generated report; report/history/ carries the trends
-│   └── logs/             app-<date>.log
+│   ├── logs/             app-<date>.log
+│   ├── bug-evidence/     hand-curated repro evidence (traces, Postman, XML) —
+│   │                     written by people, not runs; never wiped
+│   └── video-frames/     frames extracted from run videos during triage
 │
 ├── test-plans/           markdown plan per workflow, written before the spec
 ├── docs/                 STRUCTURE.md (this file), ENVIRONMENTS.md,

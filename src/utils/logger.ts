@@ -3,7 +3,8 @@
  *
  * The {@link Logger} class wraps `console.*` methods with a structured format
  * that includes timestamp, level, and context. All entries are simultaneously
- * written to daily-rotated JSON-lines log files under `logs/`.
+ * written to daily-rotated JSON-lines log files under `artifacts/logs/`
+ * (overridable via `LOG_DIR`).
  */
 import fs from 'fs';
 import path from 'path';

@@ -94,21 +94,19 @@ test.describe('Data scoping — SU visibility regression', { tag: ['@WebPet', '@
 });
 
 test.describe('Data scoping — restricted user leakage (PET-441)', { tag: ['@WebPet', '@wp-scoping', '@WPBatch08'] }, () => {
-    // The restricted-user fixture is provisioned by the setup project only when
-    // POST /api/users + GET /api/crews are both available against the dev DB.
-    // When unavailable (CI without DB, missing seed crew, etc.), skip the whole
-    // describe block instead of failing — mirrors the MSSQL_USER-gated Go
-    // integration test pattern.
-    test.skip(
-        !restrictedAuthAvailable,
-        'RestrictedTest user not provisioned — see support/provision.ts. ' +
-            'Skipping data-scoping leakage assertions.',
-    );
 
     test('[Scoping] Verify that a restricted user sees only employees in their allowed crew.', {
         tag: ['@wp-api', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0133' },
     }, async ({ request: adminRequest }) => {
+        // Runtime check, not a describe-level gate: the setup project writes the
+        // restricted storage state during this same run, and a collection-time
+        // read predates it on a fresh checkout (skipped every CI run).
+        test.skip(
+            !restrictedAuthAvailable(),
+            'RestrictedTest user not provisioned — see support/provision.ts. ' +
+                'Skipping data-scoping leakage assertions.',
+        );
         const meta = readRestrictedMeta();
         expect(
             meta,

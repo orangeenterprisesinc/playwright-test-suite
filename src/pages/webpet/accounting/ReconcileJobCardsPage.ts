@@ -104,8 +104,21 @@ export class ReconcileJobCardsPage extends BasePage {
         await this.page.goto(this.pageUrl);
     }
 
-    /** Whether the preference gate is off. An immediate read, not a wait. */
+    /**
+     * Whether the preference gate is off.
+     *
+     * Waits for the page to settle into one of its two render states first: after
+     * a bare `goto` the SPA has not yet fetched the preference, so an instant
+     * `isVisible()` read reports the gate open and the caller then drives an
+     * inert page to a timeout instead of skipping. The settle-wait lives here and
+     * not in {@link gotoReconcile} because the no-permission branch redirects to
+     * `/`, where neither element ever renders.
+     */
     async isDisabled(): Promise<boolean> {
+        await this.disabledBanner
+            .or(this.submitButton)
+            .first()
+            .waitFor({ state: 'visible', timeout: 15_000 });
         return this.disabledBanner.isVisible();
     }
 
@@ -120,6 +133,21 @@ export class ReconcileJobCardsPage extends BasePage {
         if (await this.isDisabled()) return false;
         await this.dateRange.applyPreset('Last 30 days');
         return true;
+    }
+
+    /**
+     * After a range is applied: resolves once the dry-run outcome is knowable —
+     * either the zero-match empty state rendered or the Reconcile CTA enabled.
+     * An instant `noMatchMessage.isVisible()` read races the fetch the same way
+     * the old {@link isDisabled} read raced the preference banner.
+     */
+    async previewOutcome(): Promise<'no-match' | 'ready'> {
+        const readySubmit = this.page.locator('[data-testid="reconcile-submit"]:enabled');
+        await this.noMatchMessage
+            .or(readySubmit)
+            .first()
+            .waitFor({ state: 'visible', timeout: 30_000 });
+        return (await this.noMatchMessage.isVisible()) ? 'no-match' : 'ready';
     }
 
     /** The matched count as a number, parsed from the preview label. */

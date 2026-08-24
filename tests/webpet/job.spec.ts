@@ -245,8 +245,27 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
 
             await form.gotoEdit(jobId);
             await form.waitForForm();
+            // waitForForm only proves the first field rendered; the edit form
+            // fills asynchronously from GET /jobs/{id} and a click landing in
+            // that window is wiped by the form reset. The name landing proves
+            // the defaults did.
+            await expect(form.nameInput).toHaveValue(String(before.name));
             await expect(control).toBeVisible();
+            // The piece/non-labor Payment Types render a REQUIRED rate input
+            // (#pieceRate, labeled "Hourly Rate") that the factory cannot seed —
+            // POST /api/jobs rejects rate fields the way it rejects
+            // lookBackPeriod. Empty, it keeps the form invalid and Save disabled
+            // forever. Its value is irrelevant to the boolean round-trip.
+            if (
+                (await form.pieceRateInput.count()) > 0 &&
+                (await form.pieceRateInput.inputValue()) === ''
+            ) {
+                await form.pieceRateInput.fill('1');
+            }
             await control.click();
+            // Prove the toggle actually registered before saving — otherwise a
+            // swallowed click surfaces as an opaque disabled-Save timeout.
+            await expect(control).toHaveAttribute('aria-checked', String(!original));
             await form.footer.submitButton.click();
             await page.waitForURL('**/setup/jobs');
 

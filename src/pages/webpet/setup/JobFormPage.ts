@@ -49,6 +49,12 @@ export class JobFormPage extends WebpetFormPage {
      */
     readonly hourlyRateInput: Locator;
     /**
+     * The rate input the piece/non-labor Payment Types render instead of
+     * `#hourlyRate` — same "Hourly Rate" label, but `id="pieceRate"`, and
+     * required on those types (empty ⇒ the form never validates).
+     */
+    readonly pieceRateInput: Locator;
+    /**
      * PET-60 boolean — the element carrying `id="includeIdleTime"`.
      *
      * base-ui splits the checkbox: this id lands on a **hidden `<input>`**,
@@ -79,6 +85,7 @@ export class JobFormPage extends WebpetFormPage {
         this.paymentTypeTrigger = page.locator('[data-slot="select-trigger"]#paymentType');
         this.overtimeRulesPicker = new ParentPickerComponent(page, 'Overtime Rules');
         this.hourlyRateInput = page.locator('input#hourlyRate');
+        this.pieceRateInput = page.locator('input#pieceRate');
         this.includeIdleTimeCheckbox = page.locator('#includeIdleTime');
         this.includeIdleTimeControl = this.checkboxFor('includeIdleTime');
         this.actAsDeterminedByJobEndCheckbox = page.locator('#actAsDeterminedByJobEnd');

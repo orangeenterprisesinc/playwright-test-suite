@@ -68,11 +68,15 @@ let lastSessionOkAt = 0;
 /**
  * Whether the crew-scoped `RestrictedTest_*` user was provisioned.
  *
- * Evaluated at **module load**, exactly as before. Do not make this lazy during
- * the conversion batches: it decides a skip, and moving when it is evaluated
- * could flip one, which would read as a regression in the baseline diff.
+ * A function, not a module-load const: the webpet-setup project writes
+ * storage-restricted.json during THIS run, and a load-time read predates it on
+ * any fresh checkout (CI skipped WP-0133 on every run while local runs passed
+ * off the previous run's file). The old "evaluate at module load" guard was a
+ * conversion-batch baseline concern; the conversion is complete.
  */
-export const restrictedAuthAvailable: boolean = existsSync(WEBPET_RESTRICTED_STORAGE);
+export function restrictedAuthAvailable(): boolean {
+    return existsSync(WEBPET_RESTRICTED_STORAGE);
+}
 
 /**
  * Reads the CSRF token cookie out of a persisted storageState file so it can be

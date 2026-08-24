@@ -318,57 +318,46 @@ test.describe('Ranch form — boundary section', { tag: ['@WebPet', '@wp-setup',
     test('[Ranch] Verify that a polygon saved via the Advanced text fallback round-trips on reload.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0295' },
-    }, async ({ page, pages }) => {
-        // SKIP — unstable in the full serial suite (passes reliably in isolation,
-        // e.g. `-g "polygon"`). After the preceding mutating boundary/list
-        // tests run, the Advanced polygon/point fills intermittently fail to mark
-        // the ranch form dirty, so Save stays disabled. This is a test-design issue
-        // (shared map-editor/form state across serial tests), not app behavior — the
-        // boundary save itself works. Re-enable by isolating the boundary tests into
-        // their own non-serial file. Tracked in seed/TRIAGE-DELLLANO.md (WEBPET-831).
-        test.skip(true, 'Boundary polygon-save flaky in serial suite (passes in isolation) — needs boundary tests split into own file');
-        const form = pages.ranchForm;
-        await clearRanchBoundary(page, ranchC.id);
-        await form.gotoEdit(ranchC.id);
-        await form.waitForMap();
+    }, async ({ page, pages, request }) => {
+        // Own ranch, created here and deleted in the finally: the old shared
+        // `ranchC` accumulated map-editor/record state from the preceding serial
+        // tests (WP-0294 opens the boundary editor on it), which intermittently
+        // left the Advanced fills registering as a no-op so Save never enabled.
+        // A record no earlier test has touched removes that coupling (WEBPET-831).
+        const own = await ensureRanch(request);
+        try {
+            const form = pages.ranchForm;
+            await clearRanchBoundary(page, own.id);
+            await form.gotoEdit(own.id);
+            await form.waitForMap();
 
-        // Open Advanced.
-        await form.openAdvanced();
+            // Open Advanced.
+            await form.openAdvanced();
 
-        // A tiny three-vertex polygon around the legacy default center
-        // (geographic center of US). Using the legacy `(lat, lng),...` format
-        // matches what the boundary editor itself emits.
-        const polygonText = '(38.51, -96.80),(38.52, -96.80),(38.51, -96.79)';
-        await form.polygonInput.fill(polygonText);
-        await form.pointInput.fill('(38.515, -96.795)');
+            // A tiny three-vertex polygon around the legacy default center
+            // (geographic center of US). Using the legacy `(lat, lng),...` format
+            // matches what the boundary editor itself emits.
+            const polygonText = '(38.51, -96.80),(38.52, -96.80),(38.51, -96.79)';
+            await form.polygonInput.fill(polygonText);
+            await form.pointInput.fill('(38.515, -96.795)');
 
-        // Save (the FormFooter's primary action) — wait for it to enable once the
-        // form registers the polygon/point edits as dirty+valid.
-        await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
-        await form.saveButton.click();
+            // Save (the FormFooter's primary action) — wait for it to enable once the
+            // form registers the polygon/point edits as dirty+valid.
+            await expect(form.saveButton).toBeEnabled({ timeout: 10000 });
+            await form.saveButton.click();
 
-        // The page navigates back to /setup/ranches on save success.
-        await page.waitForURL(/\/setup\/ranches(\?|$)/, { timeout: 10000 });
+            // The page navigates back to /setup/ranches on save success.
+            await page.waitForURL(/\/setup\/ranches(\?|$)/, { timeout: 10000 });
 
-        // Round-trip: read back via the API and assert the polygon stuck.
-        const after = await page.request.get(apiUrl(`/api/ranches/${ranchC.id}`));
-        expect(after.ok()).toBe(true);
-        const ranch = await after.json();
-        expect(ranch.polygon).toBe(polygonText);
-        expect(ranch.point).toBe('(38.515, -96.795)');
-
-        // Cleanup: reset polygon back to null so subsequent runs start clean.
-        await page.request.put(apiUrl(`/api/ranches/${ranchC.id}`), {
-            data: {
-                active: true,
-                departmentCounter: ranch.departmentCounter ?? null,
-                workerCompCode: ranch.workerCompCode ?? null,
-                customerCounter: ranch.customerCounter ?? null,
-                point: null,
-                polygon: null,
-                version: ranch.version,
-            },
-        });
+            // Round-trip: read back via the API and assert the polygon stuck.
+            const after = await page.request.get(apiUrl(`/api/ranches/${own.id}`));
+            expect(after.ok()).toBe(true);
+            const ranch = await after.json();
+            expect(ranch.polygon).toBe(polygonText);
+            expect(ranch.point).toBe('(38.515, -96.795)');
+        } finally {
+            await deleteRanch(request, own.id);
+        }
     });
 
 });

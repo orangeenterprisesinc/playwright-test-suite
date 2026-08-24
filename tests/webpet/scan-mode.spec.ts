@@ -290,18 +290,45 @@ test.describe('Scan Mode — deferred surfaces (WEBPET-908)', { tag: ['@WebPet',
         annotation: { type: 'testCaseId', description: 'WP-0365' },
     }, () => {});
 
-    // Fingerprint capture (WEBPET-905) is a BioIdentification device-integration item, not a
-    // navigable scan-entry screen. Verify when the bio-capture surface lands.
+    // Fingerprint capture (WEBPET-905) closed as Done 2026-08, but what shipped is the
+    // device/server-side verification — checked 2026-08-23: the deployed web bundle carries
+    // no capture/verify surface (every "fingerprint" hit is the Sentry SDK), and
+    // scanRoutes.ts records it has no scan-entry card. Stays deferred until a web-reachable
+    // surface exists.
     test.skip('[Scan] Verify fingerprint capture — deferred (WEBPET-905).', {
         tag: ['@wp-ui', '@wp-deferred'],
         annotation: { type: 'testCaseId', description: 'WP-0366' },
     }, () => {});
 
-    // HandPunch import (WEBPET-906) is a batch device-import write path, not an interactive
-    // scan screen. Verify when the HandPunch sync-folder import lands.
-    test.skip('[Scan] Verify HandPunch import provenance — deferred (WEBPET-906).', {
-        tag: ['@wp-ui', '@wp-deferred'],
+});
+
+test.describe('Scan Mode — HandPunch sync-folder import (WEBPET-906)', { tag: ['@WebPet', '@wp-scan', '@WPBatch13'] }, () => {
+
+    // WEBPET-906 shipped: the Assign Employee Crew screen fires the sync-folder import
+    // once on mount (legacy ImportFromAllSyncFolders — cf. the "Import from Hand Punch
+    // before Assign Crew" preference) and surfaces the imported-file count. The POST is
+    // intercepted so the assertion needs no device folders; provenance = the screen
+    // fires the import and reports the count the endpoint returns.
+    test('[Scan] Verify HandPunch import provenance on the Assign Employee Crew screen.', {
+        tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0367' },
-    }, () => {});
+    }, async ({ page, pages }) => {
+        const screen = pages.scanScreen;
+        let importPosted = false;
+        await page.route('**/scan/assign-employee-crew/handpunch-import', async (route) => {
+            importPosted = true;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ imported: true, filesImported: 3 }),
+            });
+        });
+
+        await screen.gotoSegment('assign-employee-crew');
+        await expect(screen.anyScanInput).toBeVisible();
+
+        await expect(screen.aecImportNotice).toHaveText(/Imported 3 file\(s\) from Hand Punch Devices\./);
+        expect(importPosted, 'the screen must fire the on-mount HandPunch import').toBe(true);
+    });
 
 });

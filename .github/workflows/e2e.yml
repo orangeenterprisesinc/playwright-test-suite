@@ -211,6 +211,12 @@ jobs:
       # employee.spec.ts). Unset secrets are fine: the test self-skips.
       WEBPET_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
       WEBPET_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
+      # Scan-time-in equivalence (WP-0178, equiv/scan-time-in-equivalence.spec.ts):
+      # deliberately env-gated so no employee barcode lives in the repo. Unset
+      # vars are fine: the test self-skips. Set SCAN_EMPLOYEE_BARCODE to an
+      # active employee code that POST /scan/decode resolves on dev.
+      SCAN_TIME_IN_EQUIV: ${{ vars.SCAN_TIME_IN_EQUIV }}
+      SCAN_EMPLOYEE_BARCODE: ${{ vars.SCAN_EMPLOYEE_BARCODE }}
       # Materializes the webpet projects in every process (runner + workers).
       # Empty for the journey suite, which is what keeps tests/webpet out of it.
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
@@ -318,7 +324,7 @@ jobs:
       # `dry-run` existed only because the code under test lived there while cron
       # could only fire from main; the two branches now hold the same code.
       - name: Checkout test suite
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Full history + tags for webpet (0) — the relocation audit reads each
           # spec's pre-conversion form out of the webpet-lift-v1 tag, which a
@@ -331,12 +337,13 @@ jobs:
           # whatever its truthiness, so 0 has to sit last.
           fetch-depth: ${{ matrix.suite != 'webpet' && 1 || 0 }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Keep in step with .nvmrc.
+          node-version: 24
 
       - name: Set up Java (for Allure report generation)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -495,7 +502,7 @@ jobs:
       # suite on that branch, and the two suites never share history).
       - name: Restore Allure history
         if: always()
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/allure/report/history
           key: allure-history-${{ matrix.suite || 'journey' }}-${{ github.ref_name }}-${{ github.run_id }}
@@ -514,14 +521,14 @@ jobs:
       # orchestrated run collide.
       - name: Upload report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.suite == 'webpet' && 'webpet-playwright-report' || 'playwright-report' }}
           path: artifacts/html
 
       - name: Upload Allure report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
           path: artifacts/allure/report
@@ -532,7 +539,7 @@ jobs:
       # allow public read on automation-reports/* (bucket policy, not ACLs).
       - name: Configure AWS credentials
         if: always() && env.SEND_S3 == 'yes'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

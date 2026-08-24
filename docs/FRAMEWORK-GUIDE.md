@@ -318,7 +318,7 @@ are manual-dispatch only and never triggered by a push.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
   at a `localhost:3000` that doesn't exist on the runner.
-- Steps: guard that the password secret exists → checkout → Node 22 → Java 21 (Allure) →
+- Steps: guard that the password secret exists → checkout → Node 24 → Java 21 (Allure) →
   `npm ci` → `npx playwright install --with-deps` → compute deterministic `REPORT_S3_URL` →
   `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
 - Credentials: the `DEV_PASSWORD` **secret** is required and has no fallback — a generic

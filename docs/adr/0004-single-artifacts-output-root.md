@@ -49,3 +49,18 @@ appears in Slack messages and bookmarks; only the local source path changed.
 Nothing foreseeable. If a tool is added whose output directory cannot be
 configured, it gets an entry in `.gitignore` and a line in `docs/STRUCTURE.md`
 explaining why it sits outside the tree.
+
+## Addendum — 2026-08-23
+
+- The migrated webpet visual specs (`select-smoke`, `mobile-tab-labels`) used to
+  write debug screenshots to a stray root `e2e/.screenshots/` (a source-repo
+  path, patched over with a `/e2e/` gitignore entry). They now write to
+  `artifacts/results/screenshots/`, which global-setup already pre-created, and
+  the `/e2e/` entry is gone.
+- Two hand-managed subtrees live under the root and are now documented in
+  `docs/STRUCTURE.md`: `artifacts/bug-evidence/` (curated repro evidence, never
+  wiped) and `artifacts/video-frames/` (triage frame extractions).
+- `.gitignore` additionally lists the tools' *default* output dirs
+  (`test-results/`, `playwright-report/`, `allure-results/`, `allure-report/`)
+  as a safety net: a CLI `--reporter` override or an Allure option typo falls
+  back to those defaults, not to `artifacts/`.

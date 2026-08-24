@@ -462,7 +462,9 @@ Every page in the application extends `BasePage`, which deliberately does **not*
 
 **BasePage provides:**
 - **Navigation**: `navigate()` (goes to the page object's own `pageUrl`), `navigateTo(url)`
-- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent), `takeScreenshot()` / `takeElementScreenshot()` (enforce the repo's `artifacts/results/screenshots/<name>.png` path convention)
+- **Non-trivial helpers**: `waitForCondition()` (custom async-predicate polling — no native equivalent)
+
+Debug/visual captures are plain `page.screenshot()` calls in the spec; the convention is the path they pass: `artifacts/results/screenshots/<name>.png` (pre-created by global-setup).
 
 Everything else — clicking, typing, checkboxes, getters, visibility/state checks, assertions — use the native `Locator` API and `expect()` directly in your page object, the same way `LoginPage` already does:
 
@@ -958,20 +960,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - uses: actions/setup-java@v4        # required by allure-commandline
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - uses: actions/setup-java@v5        # required by allure-commandline
         with: { distribution: temurin, java-version: '21' }
       - run: npm ci
       - run: npx playwright install --with-deps
       - run: npx playwright test
-      - uses: actions/cache@v4              # Allure trend history (keeps graphs across runs)
+      - uses: actions/cache@v6              # Allure trend history (keeps graphs across runs)
         if: always()
         with: { path: artifacts/allure/report/history, key: allure-history-${{ github.ref_name }}-${{ github.run_id }} }
       - run: node scripts/report/allure-generate.js
         if: always()
-      - uses: actions/upload-artifact@v4    # artifacts/html/ and artifacts/allure/report/
+      - uses: actions/upload-artifact@v7    # artifacts/html/ and artifacts/allure/report/
         if: always()
       # Opt-in (SEND_S3=yes): sync artifacts/results/ (traces, videos, results.json) to S3
       - run: aws s3 sync artifacts/results "s3://.../test-results" --no-progress
