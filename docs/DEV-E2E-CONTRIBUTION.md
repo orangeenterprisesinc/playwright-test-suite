@@ -22,6 +22,20 @@ never localhost and never the PR's local build. `npm run test:dev` is the only
 correct way to run them — a bare `npx playwright test` targets localhost and
 reports every test as "did not run".
 
+A merged spec **automatically joins the daily scheduled regression run** on
+`main` — there is no extra registration step beyond the runner row the spec
+already carries.
+
+### Per-feature coverage decisions
+
+Three questions are answered for every feature ticket:
+
+| Question | Answered by |
+|---|---|
+| Does it need e2e coverage? | Decided at ticket triage; default **yes** for any user-facing feature, recorded on the ticket. Internal-only or non-UI changes may opt out with a reason. |
+| Does it have coverage? | The companion spec PR plus the `testCaseId` annotation joining the spec back to the ticket — a feature without a merged spec is visibly uncovered. |
+| Is it good enough? | The QA review gate (§5): faithful assertions, conventions, green re-run on dev staging. |
+
 ## 2. One-time setup (per developer, ~30 minutes)
 
 1. Get access to this repository from the org admin. `main` is protected —

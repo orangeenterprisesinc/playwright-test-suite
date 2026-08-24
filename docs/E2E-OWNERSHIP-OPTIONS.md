@@ -118,10 +118,27 @@ So Option B saves the developer one clone and one PR, and nothing else.
    rules that devs must maintain; today it is simply a protected branch QA
    owns.
 
-Realistic effort: **1–2+ weeks of QA time with regression risk across both
-suites**, to buy the developer one saved `git clone`. It also recreates the
-exact conditions under which the original in-repo scripts rotted: tests living
-where nobody owned them.
+Realistic effort — stated precisely, because "AI makes it fast" covers only
+part of it: the hands-on work with AI assistance is **~3–4 days**; the
+calendar time is **1–2 weeks**, because three things do not compress:
+
+- **Verification is wall-clock, not intelligence.** Proving the moved suite
+  still works means running ~406 webpet tests plus the journeys against dev
+  staging. A full run takes hours, a relocation never passes on the first
+  try, and dev staging adds its own friction (build lag, 15-minute import
+  polls, flaky screens). Realistically 3–5 full fix→re-run cycles; AI makes
+  each fix fast, it cannot make the runs fast.
+- **Cross-team dependencies run at human speed.** Secrets re-created in
+  web-pet's dev-owned CI, the self-hosted runner re-registered, scheduled
+  runs and Slack reporting re-wired — each step needs an admin or a dev to
+  act and approve PRs into their repo. One slow reply costs a day.
+- **The framework split is a design problem, not a code move** (item 2
+  above), and that decision plus its review is not a 2-day item at any speed.
+
+The decisive point survives even the optimistic number: whether it costs
+2 days or 2 weeks, what it buys is the same — each developer saves one
+`git clone` and one PR — and it recreates the exact conditions under which
+the original in-repo scripts rotted: tests living where nobody owned them.
 
 ## Comparison
 
@@ -130,7 +147,7 @@ where nobody owned them.
 | Dev effort per feature | 1 command + review (~15–30 min) | Same test-writing work, one repo/PR fewer |
 | Dev one-time setup | ~30 min (scripted) | Browsers/env/creds still needed |
 | App PR gated by e2e | No (env-based testing) | Still no — same env limitation |
-| Migration work | None | 1–2+ weeks QA, full re-verification |
+| Migration work | None | ~3–4 days effort with AI; 1–2 weeks calendar incl. full re-verification |
 | Framework ownership | QA, one protected repo | Shared repo, CODEOWNERS gymnastics |
 | PET-Tiger journey suite | Same framework, same repo | Framework split or nonsensical co-location |
 | Precedent | Standard "QA owns framework, devs author tests" model | The setup whose scripts already rotted once |
