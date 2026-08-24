@@ -51,9 +51,10 @@ test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-s
 
         // The dashboard header was redesigned from a today's-date label to a
         // time-of-day greeting rendered as an <h2> ("Good morning/afternoon/
-        // evening, <name>"). Assert the greeting shape (loose regex, name-agnostic)
-        // so it survives time-of-day and user drift.
-        await expect(dashboard.greeting).toContainText(/Good (morning|afternoon|evening),/);
+        // evening/night, <name>"). Assert the greeting shape (loose regex,
+        // name-agnostic) so it survives time-of-day and user drift. "night" is
+        // real app behaviour — first seen on a run at ~2 AM IST (2026-08-25).
+        await expect(dashboard.greeting).toContainText(/Good (morning|afternoon|evening|night),/);
         await expect(dashboard.editWidgetsButton).toBeVisible();
     });
 
