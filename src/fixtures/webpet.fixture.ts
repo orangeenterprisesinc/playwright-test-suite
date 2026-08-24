@@ -262,8 +262,8 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
     request: async ({ playwright, baseURL }, use) => {
         const csrfToken = csrfTokenFromStorageFile(WEBPET_ADMIN_STORAGE);
         const ctx = await playwright.request.newContext({
-            // API_BASE_URL === the web origin on localhost (Vite proxy,
-            // byte-identical to the source repo); on dev staging it is the
+            // API_BASE_URL === the web origin on the containerized stack
+            // (Caddy's /api proxy); on dev staging it is the
             // separate API host — the SPA host serves index.html for every /api/*
             // path. Origin stays the web origin either way.
             baseURL: API_BASE_URL,

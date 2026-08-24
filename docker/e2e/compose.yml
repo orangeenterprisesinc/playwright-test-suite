@@ -167,7 +167,6 @@ services:
       TEST_ENV: local
       BASE_URL: http://web
       API_URL: http://web/api
-      WEBPET_API_ORIGIN: http://web
       USER_NAME: su
       PASSWORD: "${PT_TESTDB_E2E_PASSWORD:-PetTigerE2E1!}"
       E2E_ADMIN_USER: su

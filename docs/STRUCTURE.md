@@ -56,7 +56,7 @@ playwright-test-suite/
 │   └── e2e/              containerized app stack (compose.yml, repoint.sh, README.md)
 │
 ├── .vscode/              editor: lint config paths, debug configs, recommendations
-├── .github/workflows/    4 pipelines: journey + webpet, each dev + local
+├── .github/workflows/    e2e.yml — both suites against dev staging
 │
 ├── artifacts/            ALL run output — one .gitignore line
 │   ├── results/          results.json, traces, videos, screenshots
@@ -217,9 +217,6 @@ row files, id maps and acceptance baseline were untouched by the reorganization.
   Running them through `tsx` would collapse each pair to one implementation.
 - `src/reporting/deliver/dashboard.ts` (ELK) is wired but `SEND_RESULT_ELK` is set
   in no workflow, so it has never actually run.
-- `e2e-local.yml` and `webpet-e2e-local.yml` generate an Allure report but never
-  restore `allure/report/history`, so their trend graphs reset every run. The two
-  dev workflows do restore it.
-- `src/data/webpet/baselines/` is referenced by both webpet workflows and by
+- `src/data/webpet/baselines/` is referenced by
   `playwright.config.ts` but does not exist — the per-test baseline manifest was
   never captured. Both uses fail soft with a warning.

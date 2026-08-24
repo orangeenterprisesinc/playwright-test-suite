@@ -60,7 +60,7 @@ export const NO_STORAGE_REASON =
     'environment could not store it. This was WEBPET-1830 (fixed on dev 2026-08-12 by ' +
     'granting the tigerden task role kms:GenerateDataKey on the app-storage CMK); seeing it ' +
     'again means that console-only policy was reverted — check for a terraform apply on ' +
-    'IaC-PetTiger-Web. The localhost stack boots MinIO and is unaffected.';
+    'IaC-PetTiger-Web. The containerized stack boots MinIO and is unaffected.';
 
 /**
  * Why a stored file can sit at `received`. Two causes, indistinguishable at the

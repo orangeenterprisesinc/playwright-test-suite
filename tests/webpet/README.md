@@ -77,10 +77,7 @@ Direct CLI use needs the projects materialized: `npx playwright test
 --project=webpet` works (the config detects the flag and exports `WEBPET=1` for
 its workers); for anything fancier set `WEBPET=1` yourself.
 
-CI: [.github/workflows/webpet-e2e-local.yml](../../.github/workflows/webpet-e2e-local.yml)
-(self-hosted, boots the stack, applies the seed, **manual dispatch only** — it has no
-`schedule:` block, despite what earlier revisions of this file claimed) and
-[e2e.yml](../../.github/workflows/e2e.yml) with `suite: webpet` (ubuntu →
+CI: [e2e.yml](../../.github/workflows/e2e.yml) with `suite: webpet` (ubuntu →
 app.ptdev.xyz, called as the second half of the daily dry run + manual — it has no `schedule:`
 block either). Neither runs on push.
 
@@ -88,9 +85,9 @@ block either). Neither runs on push.
 
 | Var | Purpose | Where set |
 |---|---|---|
-| `E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD` | admin (`su`) API login in [support/provision.ts](support/provision.ts) + notifications.spec.ts; falls back to `USER_NAME`/`PASSWORD` (see [src/config/webpetEnv.ts](../../src/config/webpetEnv.ts)) so a local `test:webpet:dev` reuses the framework's dev credentials | `.env.local` (committed throwaway) / CI secrets (`LOCAL_PASSWORD`, `DEV_PASSWORD`) / fallback: `.env.dev` + `.env` |
-| `WEBPET_API_ORIGIN` | base for DIRECT API request contexts; **unset on local** (calls go through the Vite proxy, byte-identical to the source repo), `https://api.ptdev.xyz` on dev | `.env.dev` only |
-| `S3_ENDPOINT` | non-empty ⇒ employee-documents.spec.ts runs (needs MinIO) | `.env.local`; deliberately absent on dev |
+| `E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD` | admin (`su`) API login in [support/provision.ts](support/provision.ts) + notifications.spec.ts; falls back to `USER_NAME`/`PASSWORD` (see [src/config/webpetEnv.ts](../../src/config/webpetEnv.ts)) so a local `test:webpet:dev` reuses the framework's dev credentials | `.env.local` (baked into the pulled DB image) / CI secret `DEV_PASSWORD` / fallback: `.env.dev` + `.env` |
+| `WEBPET_API_ORIGIN` | base for DIRECT API request contexts; **unset on local** (calls go same-origin through the stack's `/api` proxy), `https://api.ptdev.xyz` on dev | `.env.dev` only |
+| `S3_ENDPOINT` | non-empty ⇒ employee-documents.spec.ts runs (needs MinIO) | `.env.local` (the stack publishes MinIO on :9000); deliberately absent on dev |
 | `WEBPET=1` | materializes the webpet projects (auto-set by the npm scripts / `--project=webpet`) | scripts/CI |
 | `PET_EXPORT_EQUIV`, `PET_DEVICE_CMD_EQUIV`, `SCAN_TIME_IN_EQUIV` (+ `PET_LEGACY_*`, `SCAN_EMPLOYEE_BARCODE`) | opt-in equiv parity specs — set nowhere, skip by default (needs a Windows host with legacy baselines) | — |
 
