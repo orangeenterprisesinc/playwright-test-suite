@@ -46,23 +46,27 @@ services:
     # brand new — an existing pet-tiger-e2e_mssql_data would MASK them and leave
     # you with an empty server that still reports healthy.
     healthcheck:
-      # TCP probe rather than sqlcmd: the SQL Server 2022 image ships no tools.
-      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/1433' || exit 1"]
+      # A QUERY, not a port probe. SQL Server accepts TCP several seconds before
+      # it has finished recovering the databases, so "port open" would hand the
+      # suite a server it cannot yet use — flaky in a way that reads like a test
+      # bug. The image ships sqlcmd, so this needs nothing on the host.
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost",
+             "-U", "pt_test", "-P", "PetTigerTest1!", "-C", "-Q", "SELECT 1"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 30
       start_period: 20s
 
   # ── One-shot: fixups the standalone-built image cannot carry ────────────────
   db-repoint:
-    # The one image we know ships /opt/mssql-tools18/bin/sqlcmd. There is no
-    # sqlcmd-only image on MCR — mssql-tools, mssql-tools18 and mssql/tools 404.
-    image: mcr.microsoft.com/mssql/server:2025-latest
+    # Same image as the server: it ships /opt/mssql-tools18/bin/sqlcmd, so this
+    # pulls nothing extra.
+    image: ${PT_TESTDB_IMAGE}
     depends_on:
       sqlserver:
         condition: service_healthy
     environment:
-      SA_PASSWORD: "${PT_TESTDB_SA_PASSWORD:-Pet-Tiger-Test-1x}"
+      PT_PASSWORD: "${PT_TESTDB_APP_PASSWORD:-PetTigerTest1!}"
     volumes:
       - ./repoint.sh:/repoint.sh:ro
     entrypoint: ["/usr/bin/env", "bash", "/repoint.sh"]

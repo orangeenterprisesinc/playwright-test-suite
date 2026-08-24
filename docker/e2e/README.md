@@ -18,14 +18,23 @@ reproducible on a machine that is not this one.
 gh auth refresh -h github.com -s read:packages    # the default token lacks it
 gh auth token | docker login ghcr.io -u <your-github-user> --password-stdin
 cp docker/e2e/.env.example docker/e2e/.env        # then set WEBPET_DIR
+docker pull ghcr.io/orangeenterprisesinc/pet-tiger-testdb:677f4a10773f-1
 ```
 
-Find the tag to pin in `.env` — nothing in Jira records a concrete one:
+You need **both** a `read:packages` token and read access to the *package*. Being a
+`web-pet` collaborator is not sufficient on its own: a GHCR package inherits
+repository access only once it has been **linked** to that repository. An unlinked
+package is readable by whoever pushed it and nobody else, and it fails with
+`403 Forbidden` or `manifest unknown` — which misleadingly reads like a typo in the
+image name.
 
-```bash
-gh api "/orgs/orangeenterprisesinc/packages/container/pet-tiger-testdb/versions" \
-  --jq '.[] | "\(.updated_at)  \(.metadata.container.tags | join(","))"'
-```
+The authoritative tag lives in `web-pet` at `db/test-stack/manifest.json` under
+`testImage`. **Pin it.** On `:latest` the dataset can change underneath the suite
+with nothing changing in this repo, and that failure is very hard to diagnose.
+
+**Git Bash:** prefix any command passing a container path with `MSYS_NO_PATHCONV=1`,
+or `/opt/mssql-tools18/...` is rewritten to `C:/Program Files/Git/opt/...` and you
+get a confusing "No such file or directory".
 
 Prerequisites: Docker Desktop running, a `web-pet` checkout for `WEBPET_DIR`, a Go
 toolchain on `PATH` (for the migrate step), and port 14333 / 8090 / 9000 free.
@@ -36,16 +45,18 @@ toolchain on `PATH` (for the migrate step), and port 14333 / 8090 / 9000 free.
 
 ```bash
 npm run e2e:stack:db                 # 1. pull + start the DB image
-                                     # 2. migrate — see below
-npm run e2e:stack:repoint            # 3. ClientMaster -> sqlserver, extend licence
+                                     # 2. migrate + REPAIR — see below
+npm run e2e:stack:repoint            # 3. ClientMaster -> sqlserver
 npm run e2e:stack:app                # 4. minio, gotenberg, api, web
 npm run e2e:stack:webpet             # 5. or e2e:stack:test for the journey suites
 ```
 
 ### Step 2 — migrations, from the host, *before* the repoint
 
-The image is built from a `.bak`; migrations are **not** baked in. Run them from
-`$WEBPET_DIR/apps/api`:
+**Do not skip this, and do not skip the `repair`.** The image holds the *legacy*
+schema only — the ~155 tables the WinForms app uses. The 79 migrations the web app
+needs are deliberately not baked in, so a merged migration cannot make the image
+stale. Run them from `$WEBPET_DIR/apps/api`:
 
 ```bash
 MSSQL_SERVER=localhost MSSQL_PORT=14333 MSSQL_DB=PetData \
@@ -53,7 +64,22 @@ MSSQL_USER=pt_test MSSQL_PASSWORD='PetTigerTest1!' \
 MSSQL_ENCRYPT=false MSSQL_TRUST_SERVER_CERTIFICATE=true \
 go run ./cmd/migrate status --target all     # inspect first
 go run ./cmd/migrate up --target all
+go run ./cmd/migrate repair                  # NOT optional — see below
 ```
+
+**Why `repair` is not optional.** The restored backup carries its own migration
+ledger, and that ledger lies: it records TigerMaster `00001` and `00002` as applied
+while neither unique index they create actually exists — someone dropped them on the
+source server. `up` permanently skips whatever the ledger calls applied, so without
+`repair` you are silently missing two uniqueness constraints. That fails *backwards*:
+a test expecting a duplicate to be rejected watches it succeed, and you go hunting an
+application bug that is not there. `repair` re-runs the SQL of every applied
+migration without touching the ledger.
+
+**What skipping the migrations looks like.** Not one clean error. The employee list
+loads fine — it came from the backup — while login fails, configurable-column list
+pages break, dashboards render empty and background jobs fail. The partial success is
+the trap: it reads like a data problem.
 
 **Why before the repoint.** `migrate --target all` does `TigerMaster`, then loops
 `ClientMaster` and connects to each client with `ConnectWithOverride(cfg,
@@ -88,6 +114,8 @@ container is disposable, bound to localhost, and holds only test data.
 | 1 | `docker compose -f docker/e2e/compose.yml ps` | `sqlserver` healthy |
 | 1 | `docker exec pet-tiger-e2e-sqlserver-1 ls /var/opt/mssql/data` | `TigerMaster.mdf`, `PetData.mdf` |
 | 2 | `go run ./cmd/migrate version --target all` | a version per database |
+| 2 | `sqlcmd -d PetData -Q "SELECT OBJECT_ID('dbo.ListFieldMetadata')"` | non-NULL — that table exists only if the client migrations ran |
+| 2 | `sqlcmd … -d PetData -Q "SELECT CASE WHEN OBJECT_ID('dbo.ListFieldMetadata') IS NULL THEN 'MIGRATIONS MISSING' ELSE 'migrations applied' END"` | `migrations applied` — `ListFieldMetadata` exists only if the client migrations ran |
 | 3 | repoint output | `1 \| DelLlano \| sqlserver \| PetData \| 1 \| <future date>` |
 | 4 | `curl -i http://localhost:8090/api/health` | 200 |
 | 4 | login probe (below) | 200 + session cookie |
@@ -155,7 +183,13 @@ Desktop → Settings → Resources → Advanced if C: gets tight.
 
 ---
 
-## 7. When Raghu's tooling lands
+## 7. Upstream reference
+
+Raghu's own guide — `db/test-stack/USING_THE_IMAGE.md` in `web-pet`, reference copy at
+`test-plans/raghu's doc/using_test_db_docker_image.pdf` — is authoritative for the
+image itself. `db/test-stack/README.md` there lists exactly what data it holds.
+
+## 8. When Raghu's tooling lands
 
 `compose.test.yml`, `scripts/testdb.mjs` and `db/test-stack/**` (PET-12460) are not
 pushed to `web-pet` yet, which is why this stack consumes the raw image and does the
