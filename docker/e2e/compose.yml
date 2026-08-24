@@ -1,55 +1,71 @@
-# Fully-containerized PET Tiger E2E stack (Option B).
+# Containerized PET Tiger E2E stack.
 #
-# Everything runs in Linux/Ubuntu containers — SQL Server 2025, the app
-# (API + web), MinIO, Gotenberg, and the Playwright test suite. Built to run on
-# the self-hosted runner (the 12GB client-data backup must stay local, so this
-# cannot run on GitHub-hosted runners).
+# The database is PULLED, not restored: ghcr.io/orangeenterprisesinc/pet-tiger-testdb
+# ships TigerMaster + PetData already inside the image layer (PET-12460). That is
+# what replaced the old host SQL Server Express rig and the 12.9GB DelLlano.bak —
+# this stack now reproduces on any machine with Docker and a GHCR login.
 #
-# Bring up incrementally while developing:
-#   docker compose -f docker/e2e/compose.yml up -d sqlserver
-#   docker compose -f docker/e2e/compose.yml run --rm db-restore
-#   ... then api, web, tests
+# Bring-up order matters; see docker/e2e/README.md. Short version:
+#   npm run e2e:stack:db        # pull + start the DB
+#   (host) go run ./cmd/migrate up --target all
+#   npm run e2e:stack:repoint   # ClientMaster -> sqlserver, extend licence
+#   npm run e2e:stack:app
+#   npm run e2e:stack:webpet
 #
-# WEBPET_DIR (in docker/e2e/.env) points at the web-pet checkout used to build
-# the api/web images. Backups are read from ../db-backup (mounted into the
-# sqlserver container, which is what actually reads them during RESTORE).
+# WEBPET_DIR (docker/e2e/.env) points at the web-pet checkout used to build the
+# api/web images. Copy .env.example to .env and fill it in.
 
 name: pet-tiger-e2e
 
 services:
-  # ── SQL Server 2025 (matches the backup's source version) ───────────────────
+  # ── SQL Server, pre-baked with TigerMaster + PetData ────────────────────────
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2025-latest
+    image: ${PT_TESTDB_IMAGE}
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
-    volumes:
-      - mssql_data:/var/opt/mssql
-      # RESTORE reads these from sqlserver's own fs. BACKUP_DIR is an absolute
-      # host path (set in .env) so it works regardless of where the repo is
-      # checked out — critical in CI, where the runner's checkout dir differs
-      # from where the 12GB backups live. The mssql_data named volume persists
-      # the restored DBs across runs, so restore.sh only does the slow 12GB
-      # restore once (it skips when both DBs already exist).
-      - "${BACKUP_DIR}:/backup:ro"
+      # The three PT_TESTDB_* passwords below are committed literals on purpose
+      # (PET-12460): the image's repair scripts create the logins and write the
+      # app password INTO the databases before the image is baked, so a
+      # per-machine secret could never match a pulled image. The container is
+      # disposable, bound to localhost, and holds only test data. The ${VAR:-}
+      # form is an override hook for when a future image changes them.
+      #
+      # Must equal the password baked into the image's master DB. This variable
+      # only takes effect on first init of an EMPTY data dir; here the databases
+      # already exist, so a different value is ignored and every subsequent
+      # login fails with "Login failed for user 'sa'".
+      MSSQL_SA_PASSWORD: "${PT_TESTDB_SA_PASSWORD:-Pet-Tiger-Test-1x}"
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: "${PT_TESTDB_MEMORY_MB:-3072}"
+    ports:
+      # Host-side access for cmd/migrate and GUI clients: localhost,14333.
+      # Deliberately not 1433 — a stale MSSQL_PORT then cannot reach a real instance.
+      - "${PT_TESTDB_PORT:-14333}:1433"
+    # No named volume on /var/opt/mssql. The databases live in the image layer,
+    # and Docker seeds a named volume from image content only when the volume is
+    # brand new — an existing pet-tiger-e2e_mssql_data would MASK them and leave
+    # you with an empty server that still reports healthy.
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${SA_PASSWORD}", "-C", "-Q", "SELECT 1"]
-      interval: 10s
-      timeout: 5s
+      # TCP probe rather than sqlcmd: the SQL Server 2022 image ships no tools.
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/1433' || exit 1"]
+      interval: 5s
+      timeout: 3s
       retries: 30
-      start_period: 90s
+      start_period: 20s
 
-  # ── One-shot: restore TigerMaster + DelLlano, repoint ClientMaster ──────────
-  db-restore:
+  # ── One-shot: fixups the standalone-built image cannot carry ────────────────
+  db-repoint:
+    # The one image we know ships /opt/mssql-tools18/bin/sqlcmd. There is no
+    # sqlcmd-only image on MCR — mssql-tools, mssql-tools18 and mssql/tools 404.
     image: mcr.microsoft.com/mssql/server:2025-latest
     depends_on:
       sqlserver:
         condition: service_healthy
     environment:
-      SA_PASSWORD: "${SA_PASSWORD}"
+      SA_PASSWORD: "${PT_TESTDB_SA_PASSWORD:-Pet-Tiger-Test-1x}"
     volumes:
-      - ./restore.sh:/restore.sh:ro
-    entrypoint: ["/usr/bin/env", "bash", "/restore.sh"]
+      - ./repoint.sh:/repoint.sh:ro
+    entrypoint: ["/usr/bin/env", "bash", "/repoint.sh"]
     restart: "no"
 
   # ── MinIO (S3) + bucket init + Gotenberg (PDF) ──────────────────────────────
@@ -61,6 +77,11 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio_data:/data
+    ports:
+      # Published so a host-side `npm test` can reach S3 too, not just the
+      # in-network tests service (employee-documents.spec.ts gates on S3_ENDPOINT).
+      - "9000:9000"
+      - "9001:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -97,12 +118,11 @@ services:
       API_PORT: "8080"
       MSSQL_SERVER: sqlserver
       MSSQL_PORT: "1433"
-      MSSQL_DB: DelLlano            # the only client in ClientMaster
-      MSSQL_USER: sa
-      MSSQL_PASSWORD: "${SA_PASSWORD}"
+      MSSQL_DB: PetData             # ClientMaster.DatabaseName in the pulled image
+      MSSQL_USER: pt_test           # the image's app login; sa is bootstrap-only
+      MSSQL_PASSWORD: "${PT_TESTDB_APP_PASSWORD:-PetTigerTest1!}"
       MSSQL_ENCRYPT: "false"
       MSSQL_TRUST_SERVER_CERTIFICATE: "true"
-      PT_SU_PASSWORD: dev-local-su-password
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
       S3_BUCKET: pet-tiger-dev
@@ -110,14 +130,14 @@ services:
       S3_SECRET: minioadmin
       S3_USE_PATH_STYLE: "true"
       GOTENBERG_URL: http://gotenberg:3000
-      PT_ALLOWED_ORIGINS: "http://localhost,http://web"
+      PT_ALLOWED_ORIGINS: "http://localhost:8090,http://web"
       # Quieten the import/export workers (they spewed S3 404s in earlier runs)
       PT_IMPORT_WORKER_DISABLED: "true"
       PT_EXPORT_WORKER_DISABLED: "true"
       PT_EXPORT_SCHEDULER_DISABLED: "true"
     depends_on:
-      db-restore:
-        condition: service_completed_successfully
+      sqlserver:
+        condition: service_healthy
       minio:
         condition: service_healthy
       gotenberg:
@@ -139,13 +159,24 @@ services:
     build:
       context: ../..
       dockerfile: docker/Dockerfile
+    # run-playwright.js, not bare `npx playwright test`: it is what exports
+    # WEBPET=1 when --project=webpet is passed, and workers re-read the config
+    # with a different argv, so the flag alone is not enough.
+    entrypoint: ["node", "scripts/run-playwright.js", "local"]
     environment:
       TEST_ENV: local
       BASE_URL: http://web
       API_URL: http://web/api
+      WEBPET_API_ORIGIN: http://web
       USER_NAME: su
-      PASSWORD: dev-local-su-password
+      PASSWORD: "${PT_TESTDB_E2E_PASSWORD:-PetTigerE2E1!}"
+      E2E_ADMIN_USER: su
+      E2E_ADMIN_PASSWORD: "${PT_TESTDB_E2E_PASSWORD:-PetTigerE2E1!}"
+      S3_ENDPOINT: http://minio:9000
+      TEST_DATA_SOURCE: json
       CI: "true"
+      # WEBPET_NONSU_* intentionally unset: PetData.dbo.Users holds only
+      # aa/Su/ab/ac, so the non-SU specs should skip, not fail on a bad login.
     volumes:
       # One mount for the whole output tree (html/, results/, allure/, logs/).
       - ../../artifacts:/app/artifacts
@@ -154,5 +185,4 @@ services:
         condition: service_started
 
 volumes:
-  mssql_data:
   minio_data:

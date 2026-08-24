@@ -100,8 +100,7 @@ playwright-test-suite/
 ├── docker/                           # ALL Docker
 │   ├── Dockerfile                    #   the test image
 │   ├── Dockerfile.dockerignore       #   BuildKit per-Dockerfile ignore
-│   ├── e2e/                          #   containerized app stack (compose + DB restore)
-│   └── db-backup/                    #   local SQL backups (gitignored, never committed)
+│   └── e2e/                          #   containerized app stack — DB image is PULLED
 │
 ├── .vscode/                          # Editor: points at config/lint, debug configs
 ├── .github/workflows/                # 4 pipelines (journey + webpet, dev + local)

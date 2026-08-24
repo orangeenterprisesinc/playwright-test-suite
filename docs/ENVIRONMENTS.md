@@ -8,7 +8,7 @@ just settings — this is where the reasoning lives.
 | File | Tracked | Purpose |
 |---|---|---|
 | `.env` | **no** | Personal overrides + `SECRET_KEY`. Real secrets go here. |
-| `.env.local` | yes | Full PET Tiger stack on this machine (`npm test`) |
+| `.env.local` | yes | The containerized stack in [docker/e2e/](../docker/e2e/README.md) (`npm test`) |
 | `.env.dev` | yes | Dev staging, app.ptdev.xyz (`npm run test:dev`) |
 | `.env.qa` | yes | Placeholder — fill in when a QA deployment exists |
 | `.env.example` | yes | Template listing every supported key |
@@ -41,8 +41,8 @@ baffling assertion mismatch rather than as a configuration problem.
 
 If API calls start returning HTML, check `API_URL` first.
 
-Locally both live on one machine (`localhost:3000` + `localhost:8080/api`), so the
-distinction is invisible until you point at dev.
+Locally both are served by the same container — Caddy on `localhost:8090` serves
+the SPA and proxies `/api` — so the distinction is invisible until you point at dev.
 
 ## Test-data cleanup
 
@@ -100,9 +100,9 @@ Only relevant to the opt-in `webpet` project (see
 
 **WEBPET-1463 (2026-07-25)** retired the shared `PT_SU_PASSWORD` login secret —
 `su` now authenticates against its own persisted `TigerMaster.dbo.Users` row like
-every other user. The CI workflows (`e2e-local.yml`, `webpet-e2e-local.yml`) reset
-that row directly to `LOCAL_PASSWORD` before tests run, so there is no API env var
-to keep in sync any more. Do **not** reintroduce an env-secret login path.
+every other user. On the containerized stack that row ships inside the pulled DB
+image (`su` / `PetTigerE2E1!`), so there is no API env var to keep in sync any
+more. Do **not** reintroduce an env-secret login path.
 
 ## Optional keys worth knowing
 

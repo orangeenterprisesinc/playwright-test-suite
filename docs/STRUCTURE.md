@@ -53,8 +53,7 @@ playwright-test-suite/
 │
 ├── docker/               ALL Docker
 │   ├── Dockerfile  Dockerfile.dockerignore
-│   ├── e2e/              containerized app stack (compose.yml, restore.sh, .env)
-│   └── db-backup/        local SQL backups — gitignored, never committed
+│   └── e2e/              containerized app stack (compose.yml, repoint.sh, README.md)
 │
 ├── .vscode/              editor: lint config paths, debug configs, recommendations
 ├── .github/workflows/    4 pipelines: journey + webpet, each dev + local
