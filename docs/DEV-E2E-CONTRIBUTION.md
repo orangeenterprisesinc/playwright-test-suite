@@ -49,9 +49,26 @@ Three questions are answered for every feature ticket:
    npx playwright install
    ```
 
-3. Ask QA for the `.env` file and `SECRET_KEY` (dev-staging credentials are
-   stored encrypted — see `docs/adr/0006-encrypted-env-values.md`). Place
-   `.env` in the repo root; set `SECRET_KEY` in your environment.
+3. Ask QA for your `.env` file and place it in the repo root. That one file
+   is the whole credential setup:
+
+   - Sensitive values inside it (dev-staging password, webhooks) are stored
+     as `ENC(v1:...)` tokens — AES-256-GCM ciphertext, per
+     `docs/adr/0006-encrypted-env-values.md`. The framework's config reader
+     decrypts them transparently at runtime; test code never sees the
+     crypto.
+   - The decryption key is the `SECRET_KEY=` line **inside the same `.env`**
+     — the tooling loads it from there, so you do not set any Windows
+     environment variable and there is nothing separate to remember.
+   - Because the file carries both the tokens and the key, treat the `.env`
+     itself as the credential: receive it over a private channel, never
+     commit it (it is gitignored), never paste it into a ticket or log.
+   - A missing or corrupted key fails loudly at config-read time with a
+     decryption error — it never silently types ciphertext into the login
+     form. If you see that error, re-request the `.env` from QA.
+   - Reference CLI (rarely needed by contributors):
+     `npm run secret:encrypt -- "<value>"` to produce a token,
+     `npm run secret:decrypt -- "ENC(v1:...)"` to verify one.
 4. Open the repo in Claude Code and authenticate the Jira MCP when prompted
    (the server entry ships in the repo config).
 5. Smoke-check the setup:
