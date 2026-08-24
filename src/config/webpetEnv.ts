@@ -18,22 +18,30 @@ import { decryptIfNeeded } from './secrets';
  * Web (SPA) origin — what the browser navigates to and what the `Origin` header
  * carries on direct API calls. `PLAYWRIGHT_BASE_URL` is honoured first for parity
  * with the source repo's config; `BASE_URL`/`APP_URL` are this repo's canonical
- * vars (.env.local / .env.dev / CI).
+ * vars (.env.dev / CI). There is no default host — dev staging always supplies
+ * BASE_URL, and a missing one should fail loudly rather than aim somewhere.
  */
-export const WEB_BASE_URL: string =
-    process.env.PLAYWRIGHT_BASE_URL ??
-    process.env.BASE_URL ??
-    process.env.APP_URL ??
-    'http://localhost:3000';
+export const WEB_BASE_URL: string = (() => {
+    const url = process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL ?? process.env.APP_URL;
+    if (!url) {
+        throw new Error(
+            'webpet: no BASE_URL. .env.dev supplies it — check TEST_ENV (defaults to dev) ' +
+                'and that the env files loaded. There is no fallback host on purpose: a ' +
+                'default would silently point the suite somewhere nobody asked for.',
+        );
+    }
+    return url;
+})();
 
 /**
  * Base URL for DIRECT API request contexts (the authed `request` fixture, the
  * admin/restricted login in `provision.ts`, and the side request contexts in
  * `data-scoping` / `equiv` specs).
  *
- * - **localhost**: `WEBPET_API_ORIGIN` is unset → falls back to `WEB_BASE_URL` so
- *   calls go through the Vite proxy exactly as in the source repo (parity is
- *   load-bearing — same-origin cookies + Origin checks).
+ * - **containerized stack**: `WEBPET_API_ORIGIN` is unset → falls back to
+ *   `WEB_BASE_URL` so calls go same-origin through Caddy's `/api` proxy, exactly
+ *   as they went through Vite's in the source repo (parity is load-bearing —
+ *   same-origin cookies + Origin checks).
  * - **dev staging**: `.env.dev` sets `WEBPET_API_ORIGIN=https://api.ptdev.xyz`.
  *   Logging in against the API host means its host-only (`__Host-` prefixed)
  *   session + CSRF cookies are captured for `api.ptdev.xyz` — the host the
@@ -51,8 +59,8 @@ export const API_BASE_URL: string = (process.env.WEBPET_API_ORIGIN ?? WEB_BASE_U
  * A relative `/api/…` resolves against the **web** origin. On dev that host is an
  * SPA fallback which answers every path — `/api/*` included — with `index.html`,
  * so the call returns HTML and the first `.json()` throws
- * `Unexpected token '<', "<!doctype "…`. On localhost `API_BASE_URL` is the web
- * origin, so this is a no-op there and the Vite-proxy parity is preserved.
+ * `Unexpected token '<', "<!doctype "…`. On the containerized stack `API_BASE_URL`
+ * is the web origin, so this is a no-op there and same-origin parity is preserved.
  */
 export const apiUrl = (path: string): string =>
     `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -60,7 +68,7 @@ export const apiUrl = (path: string): string =>
 /**
  * Admin login used by `provision.ts` and `notifications.spec.ts`.
  *
- * `E2E_ADMIN_*` are the source repo's variables and always win (.env.local and
+ * `E2E_ADMIN_*` are the source repo's variables and always win (.env.dev and
  * both web-pet CI workflows set them explicitly). When absent — e.g. a local
  * `npm run test:webpet:dev`, where .env.dev deliberately carries no password —
  * fall back to the framework's own `USER_NAME`/`PASSWORD` (.env.dev supplies

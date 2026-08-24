@@ -278,11 +278,11 @@ The mechanism spans four pieces:
    top of [`playwright.config.ts`](../playwright.config.ts) with precedence:
    ```
    1. OS / CI environment variables   ← never overridden (CI secrets always win)
-   2. env.<name>  (.env.local / .env.dev / .env.qa)
+   2. env.<name>  (.env.dev / .env.qa)
    3. .env        (optional shared base)
    ```
-3. **Per-env URLs** live in the env files: `.env.local` → `http://localhost:3000` +
-   `http://localhost:8080/api`; `.env.dev` / `.env.qa` → the dev/qa hosts (+`/api`). The env
+3. **Per-env URLs** live in the env files: `.env.dev` / `.env.qa` → the dev/qa
+   hosts (+`/api`). The env
    files are the only source — a second typed map and a programmatic `EnvironmentManager`
    used to exist alongside them, reading `DEV_APP_URL`/`QA_APP_URL` variables that nothing
    ever set; both were removed so there is exactly one place to look.
@@ -295,19 +295,22 @@ The mechanism spans four pieces:
 
 | Where | How env is selected |
 |---|---|
-| **Local** | `npm test` → local · `npm run test:dev` → dev · `npm run test:qa` → qa. The launcher pins `TEST_ENV`; envLoader loads `env.<name>`. |
+| **Developer machine** | `npm test` and `npm run test:dev` → dev · `npm run test:qa` → qa. The launcher pins `TEST_ENV`; envLoader loads `env.<name>` and defaults to `dev`. |
 | **CI — [`e2e.yml`](../.github/workflows/e2e.yml)** (GitHub-hosted, dev staging) | Pins `TEST_ENV=dev` as job env → `.env.dev` supplies `BASE_URL=https://app.ptdev.xyz` and `API_URL=https://api.ptdev.xyz/api`; `PASSWORD` comes from a secret. Report tags the env `[ci]`. |
-| **CI — [`e2e-local.yml`](../.github/workflows/e2e-local.yml)** (self-hosted, localhost) | Hard-sets `TEST_ENV=local`, `BASE_URL=http://localhost:3000`, `API_URL=...:8080/api` as job env — OS-env precedence makes these win over env files. |
 
 ---
 
 ## 8. GitHub CI
 
-Three workflows: `e2e.yml` against dev staging (both suites), plus `e2e-local.yml` and
-`webpet-e2e-local.yml` against a self-hosted localhost stack. `e2e.yml` owns the repo's **only
-cron** and runs both suites from it; there is no separate orchestrator. It also listens for the external
-`repository_dispatch` (`run-playwright`), so an app-side build reaches dev staging; the local pair
-are manual-dispatch only and never triggered by a push.
+One workflow: `e2e.yml`, against dev staging, serving both suites. It owns the repo's **only
+cron**; there is no separate orchestrator. It also listens for the external
+`repository_dispatch` (`run-playwright`), so an app-side build reaches dev staging.
+
+The self-hosted `e2e-local.yml` / `webpet-e2e-local.yml` pair was **removed**, along with all
+local-execution support. They booted the app natively on one QA machine (SQL Server Express over
+Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run anywhere else.
+**Dev staging is now the only target** — there is no local stack, no `.env.local`, and
+`TEST_ENV` defaults to `dev`.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
 - Triggers: **`schedule` (`28 10 * * *`, ~4:00 PM IST — the daily dry run)**, push to `main`, manual
@@ -317,7 +320,7 @@ are manual-dispatch only and never triggered by a push.
 - Runner: `ubuntu-latest` (GitHub-hosted); 15-min timeout for journey, 90 for webpet.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
-  at a `localhost:3000` that doesn't exist on the runner.
+  at a containerized stack that isn't running on the runner.
 - Steps: guard that the password secret exists → checkout → Node 24 → Java 21 (Allure) →
   `npm ci` → `npx playwright install --with-deps` → compute deterministic `REPORT_S3_URL` →
   `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
@@ -333,21 +336,10 @@ are manual-dispatch only and never triggered by a push.
   `DB_CLIENT` variable may still exist in the repo settings — dev staging's SQL Server is
   VPC-private and stays that way.
 
-**[`e2e-local.yml`](../.github/workflows/e2e-local.yml) — "E2E (localhost, self-hosted)"**
-- Runner: `[self-hosted, Windows, X64]`, 30-min timeout. Self-hosted because the Go API uses
-  Windows Integrated Auth (SSPI) to a local SQL Server Express.
-- **Boots the full app** from the private `web-pet` monorepo: `docker compose up` (MinIO +
-  Gotenberg) → `go build` + start API → start web on port 3000 → wait on `/api/health` and
-  `/` → `npx playwright test` → dump logs, kill ports, `docker compose down -v`, generate +
-  upload Allure report.
-
-**[`webpet-e2e-local.yml`](../.github/workflows/webpet-e2e-local.yml) and
-[`e2e.yml`](../.github/workflows/e2e.yml) with `suite: webpet`** — the migrated web-pet
-suite (see §9). The local one is the same self-hosted Windows stack boot as `e2e-local.yml`
-plus the DelLlano seed, and is **manual dispatch only**; the dev one is `e2e.yml`'s webpet mode,
-running against app.ptdev.xyz as the second half of the daily dry run (below) and report-only.
-Both export `WEBPET=1` job-wide to materialize
-the opt-in projects, and both gate the run behind `typecheck`, `webpet:ids:check` and
+**[`e2e.yml`](../.github/workflows/e2e.yml) with `suite: webpet`** — the migrated web-pet
+suite (see §9), running against app.ptdev.xyz as the second half of the daily dry run (below)
+and report-only. It exports `WEBPET=1` job-wide to materialize
+the opt-in projects, and gates the run behind `typecheck`, `webpet:ids:check` and
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
@@ -410,7 +402,7 @@ separate CI send step. All three channels are self-gating (do nothing unless the
 **npm scripts** ([`package.json`](../package.json)) all go through `run-playwright.js <env>`:
 `test` / `test:dev` / `test:qa`, plus `test:headed`, `test:ui`, `test:debug`, `test:smoke`
 (`--grep=@Smoke`), `test:api` (`--project=api`), `test:workflow`, `test:last-failed`,
-`report:allure`, `docker:build`/`docker:run`. The web-pet suite has its own set —
+`report:allure`. The web-pet suite has its own set —
 `test:webpet`, `test:webpet:dev`, `test:webpet:list`, and the `webpet:*` data/verification
 scripts (§9).
 

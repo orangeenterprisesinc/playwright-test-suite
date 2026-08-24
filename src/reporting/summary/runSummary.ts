@@ -199,7 +199,7 @@ export class RunSummaryCollector {
         const passRate = executed > 0 ? Math.round(((passed + flaky) / executed) * 100) : 0;
 
         const ctx = ExecutionContext.snapshot();
-        const env = getConfigValue(ConfigProperties.TEST_ENV, 'local');
+        const env = getConfigValue(ConfigProperties.TEST_ENV, 'dev');
         const isCI = !!process.env.CI;
         const durationMs = Date.now() - this.startTime;
 

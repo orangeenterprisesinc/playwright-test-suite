@@ -51,7 +51,9 @@ Reference project/
 # which requires it.
 
 
-# Local SQL Server backup (12.9GB real client data — never commit)
+# Local SQL Server backups (12.9GB real client data — never commit). No longer
+# part of the stack: docker/e2e/ pulls a pre-baked DB image instead. Kept on disk
+# only as a fallback while the image's thinner PetData is being evaluated.
 docker/db-backup/
 *.bak
 docker/e2e/.env

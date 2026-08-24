@@ -18,7 +18,7 @@ import { apiUrl } from '@config/webpetEnv';
  * ── ENV-GUARDED (skip, never fail) ───────────────────────────────────────────
  * The legacy-vs-web file diff and the round-trip DB diff are host-bound harness
  * steps (per the WEBPET-845 plan's "Integration tests" note): they require a
- * running web stack (http://localhost:3000), a reachable DB, AND a legacy
+ * running web stack (baseURL), a reachable DB, AND a legacy
  * baseline file produced on the Windows-automation host via
  * `C:\Scripts\export-pet-setup.yaml` (Connectivity → Export → Scan Devices in
  * the legacy app). On CI (no Windows host, no legacy file) the spec SKIPS rather
