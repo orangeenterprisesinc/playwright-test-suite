@@ -8,7 +8,7 @@ name: E2E
 # fallback to a generic PASSWORD secret).
 #
 # Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
-# and loads .env.local, pointing the suite at http://localhost:3000 on a
+# and loads .env.local, pointing the suite at the containerized stack on a
 # GitHub-hosted runner where nothing is listening.
 #
 # ── ONE WORKFLOW, TWO SUITES ────────────────────────────────────────────────
@@ -38,9 +38,9 @@ name: E2E
 # documents skip on unset S3_ENDPOINT; data-scoping needs RestrictedTest
 # provisioning). Full list and the baseline procedure: tests/webpet/README.md.
 #
-# Need to run against a real localhost instead? See e2e-local.yml (journey) and
-# webpet-e2e-local.yml (webpet), which build the app from a web-pet source
-# checkout on a self-hosted Windows runner.
+# Need to run against a locally-booted app instead? See docker/e2e/README.md —
+# the containerized stack, which pulls the PET Tiger DB image and builds the app
+# from a web-pet checkout. It has no workflow; it is run by hand.
 #
 # This file must live on `main`: GitHub only fires `schedule:` from the default
 # branch, so a cron block on any other branch is accepted and then never triggers.
@@ -176,8 +176,8 @@ jobs:
       # static SPA — plus WEBPET_API_ORIGIN for the webpet suite's direct API
       # calls, since the SPA host serves index.html for every path including
       # /api/*). Applies to every trigger above, so the repository_dispatch the
-      # app repo fires also targets dev staging; localhost coverage lives in
-      # e2e-local.yml.
+      # app repo fires also targets dev staging; locally-booted coverage lives
+      # in docker/e2e/.
       TEST_ENV: dev
       # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
       # secret. A login name is not a credential, and Actions masks every literal
@@ -194,10 +194,10 @@ jobs:
       # default in sync with .env.dev.
       USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
       #
-      # DEV_PASSWORD is dev-staging only, with NO fallback — mirroring
-      # LOCAL_PASSWORD in e2e-local.yml so the two environments stay visibly
-      # separate. The previous `PW_PASSWORD || PASSWORD` chain silently picked up
-      # a stale localhost PASSWORD secret and authenticated against the wrong
+      # DEV_PASSWORD is dev-staging only, with NO fallback, so the environments
+      # stay visibly separate. The previous `PW_PASSWORD || PASSWORD` chain
+      # silently picked up a stale local PASSWORD secret and authenticated
+      # against the wrong
       # environment, which surfaced only as an opaque 20s waitForURL timeout in
       # auth-setup. An unset secret must fail loudly (see the guard step below)
       # rather than log in as somewhere else.
@@ -386,7 +386,7 @@ jobs:
           npm run lint
           npm run webpet:ids:check
 
-      # Relocation gate — see webpet-e2e-local.yml for the rationale. Skipped
+      # Relocation gate — rationale in tests/webpet/README.md. Skipped
       # rather than failed when the tag is absent (shallow clone).
       - name: Validate webpet locator relocation
         if: matrix.suite == 'webpet'
@@ -397,7 +397,7 @@ jobs:
             echo "::warning::webpet-lift-v1 tag not fetched — relocation audit skipped."
           fi
 
-      # Blocking since Batch 15 (see webpet-e2e-local.yml for the full rationale):
+      # Blocking since Batch 15 (full rationale in tests/webpet/README.md):
       # the gate is fail-open, so a test with no runner row skips silently while
       # the run still reports green. With all 406 annotated and 0 rows structural,
       # any drift here is a real defect, not conversion churn.
