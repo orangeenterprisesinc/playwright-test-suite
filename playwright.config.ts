@@ -27,8 +27,8 @@ const IS_CI = !!process.env.CI;
 /**
  * The migrated web-pet suite (tests/webpet) is opt-in: its projects are only
  * materialized when explicitly requested, so a bare `npx playwright test`
- * (developer machines, e2e.yml, e2e-local.yml) never picks up its ~406 tests
- * (~48 min, requires the full local web-pet stack). Activated by WEBPET=1 or
+ * (developer machines, e2e.yml) never picks up its ~406 tests
+ * (~48 min, requires a full web-pet stack). Activated by WEBPET=1 or
  * by asking for the project on the CLI (`--project=webpet`); the npm scripts
  * and scripts/run-playwright.js set the env var for worker processes too.
  */

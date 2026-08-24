@@ -20,7 +20,7 @@ const ALLURE_RESULTS_DIR = path.join('artifacts', 'allure', 'results');
 function writeAllureEnvironmentInfo(config: FullConfig): void {
     const projectNames = config.projects.map((p) => p.name).join(', ') || 'n/a';
     const lines: [string, string][] = [
-        ['Environment', getConfigValue(ConfigProperties.TEST_ENV, 'local')],
+        ['Environment', getConfigValue(ConfigProperties.TEST_ENV, 'dev')],
         ['Base URL', getConfigValue(ConfigProperties.APP_URL, 'n/a')],
         ['Browsers', projectNames],
         ['Node', process.version],
@@ -61,7 +61,7 @@ function writeAllureExecutorInfo(): void {
         executorInfo = {
             name: `Local (${os.hostname()})`,
             type: 'local',
-            buildName: `Local run — ${getConfigValue(ConfigProperties.TEST_ENV, 'local')}`,
+            buildName: `Local run — ${getConfigValue(ConfigProperties.TEST_ENV, 'dev')}`,
             reportName: 'Allure Report',
         };
     }

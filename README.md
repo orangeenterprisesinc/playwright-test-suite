@@ -86,7 +86,7 @@ playwright-test-suite/
 ├── package.json                      # Dependencies and scripts
 ├── .mcp.json                         # MCP servers (Claude Code reads root only)
 │
-├── .env.local  .env.dev  .env.qa     # committed per-environment config; any
+├── .env.dev  .env.qa                 # committed per-environment config; any
 │                                     #   sensitive value stored as ENC(...)
 ├── .env.example                      # documented template
 ├── .env                              # personal overrides + SECRET_KEY (gitignored)
@@ -97,14 +97,8 @@ playwright-test-suite/
 │   ├── notifications/recipients.csv  #   per-branch/trigger email routing
 │   └── scopes/anthony-vineyards.json #   per-customer segments + modules (TEST_SCOPE)
 │
-├── docker/                           # ALL Docker
-│   ├── Dockerfile                    #   the test image
-│   ├── Dockerfile.dockerignore       #   BuildKit per-Dockerfile ignore
-│   ├── e2e/                          #   containerized app stack (compose + DB restore)
-│   └── db-backup/                    #   local SQL backups (gitignored, never committed)
-│
 ├── .vscode/                          # Editor: points at config/lint, debug configs
-├── .github/workflows/                # 4 pipelines (journey + webpet, dev + local)
+├── .github/workflows/                # e2e.yml — both suites against dev staging
 │
 ├── artifacts/                        # ALL run output — one .gitignore line
 │   ├── results/                      #   results.json, traces, videos, screenshots
@@ -126,7 +120,7 @@ playwright-test-suite/
 │   │   └── DataGridComponent.ts      #   The PET Tiger list grid (filters, rows, totals)
 │   │
 │   ├── config/                       # Configuration management
-│   │   ├── envLoader.ts              #   Loads .env.local/dev/qa files
+│   │   ├── envLoader.ts              #   Loads .env.dev/qa files
 │   │   ├── dataSource.config.ts      #   Runner directory / JSON+CSV path resolution
 │   │   └── scope.ts                   #   TEST_SCOPE segment + module filtering
 │   │
@@ -280,11 +274,11 @@ suites:
 | runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
 | ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
-| CI | `e2e.yml` (`suite: journey`), `e2e-local.yml` | `e2e.yml` (`suite: webpet`), `webpet-e2e-local.yml` |
+| CI | `e2e.yml` (`suite: journey`) | `e2e.yml` (`suite: webpet`) |
 | dev-staging run | `e2e.yml -f suite=journey` | `e2e.yml -f suite=webpet` |
 
 ```bash
-npm run test:webpet                        # whole suite against localhost
+npm run test:webpet                        # whole suite against the container stack
 npm run test:webpet:dev                    # against dev staging
 npm run test:webpet:list                   # collection check — prints 407 tests / 57 files
 npm run test:webpet -- --grep @wp-crop     # one module
@@ -335,7 +329,7 @@ The framework uses environment-specific configuration files in the project root:
 
 | File | Purpose |
 |------|---------|
-| `.env.local` | Local environment (default) |
+| `.env.dev` | Dev staging — the only target (default) |
 | `.env.dev` | Development environment |
 | `.env.qa` | QA environment |
 
@@ -909,7 +903,7 @@ Two things that look like bugs but aren't:
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app: dev staging is already deployed.
 
 `e2e.yml` serves **both** suites. Its `suite` input (`journey` | `webpet`) switches the timeout, the `WEBPET`/`DB_*` env, the checkout depth, the validation gates, the test command, the S3 prefix and the artifact names — so the two never share artifacts or overwrite each other's reports:
 
@@ -938,7 +932,7 @@ Each suite keeps its own tests, artifacts, Allure report and Slack message — n
 
 The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
-Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names: `e2e-local.yml` uses its own `LOCAL_USER_NAME`/`LOCAL_PASSWORD`, and an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with localhost credentials.
+Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names — an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with local credentials.
 
 ```yaml
 on:

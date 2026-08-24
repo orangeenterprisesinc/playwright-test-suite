@@ -8,8 +8,8 @@ name: E2E
 # fallback to a generic PASSWORD secret).
 #
 # Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
-# and loads .env.local, pointing the suite at the containerized stack on a
-# GitHub-hosted runner where nothing is listening.
+# and loads a .env.local that no longer exists, leaving every spec with an
+# undefined baseURL. The loader now defaults to dev for the same reason.
 #
 # ── ONE WORKFLOW, TWO SUITES ────────────────────────────────────────────────
 # The `suite` input selects which:
@@ -38,9 +38,7 @@ name: E2E
 # documents skip on unset S3_ENDPOINT; data-scoping needs RestrictedTest
 # provisioning). Full list and the baseline procedure: tests/webpet/README.md.
 #
-# Need to run against a locally-booted app instead? See docker/e2e/README.md —
-# the containerized stack, which pulls the PET Tiger DB image and builds the app
-# from a web-pet checkout. It has no workflow; it is run by hand.
+# There is no local-execution path any more: dev staging is the only target.
 #
 # This file must live on `main`: GitHub only fires `schedule:` from the default
 # branch, so a cron block on any other branch is accepted and then never triggers.
@@ -176,8 +174,7 @@ jobs:
       # static SPA — plus WEBPET_API_ORIGIN for the webpet suite's direct API
       # calls, since the SPA host serves index.html for every path including
       # /api/*). Applies to every trigger above, so the repository_dispatch the
-      # app repo fires also targets dev staging; locally-booted coverage lives
-      # in docker/e2e/.
+      # app repo fires also targets dev staging.
       TEST_ENV: dev
       # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
       # secret. A login name is not a credential, and Actions masks every literal

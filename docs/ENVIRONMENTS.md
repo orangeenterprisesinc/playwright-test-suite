@@ -8,8 +8,7 @@ just settings — this is where the reasoning lives.
 | File | Tracked | Purpose |
 |---|---|---|
 | `.env` | **no** | Personal overrides + `SECRET_KEY`. Real secrets go here. |
-| `.env.local` | yes | Full PET Tiger stack on this machine (`npm test`) |
-| `.env.dev` | yes | Dev staging, app.ptdev.xyz (`npm run test:dev`) |
+| `.env.dev` | yes | Dev staging, app.ptdev.xyz — the only target (`npm test`) |
 | `.env.qa` | yes | Placeholder — fill in when a QA deployment exists |
 | `.env.example` | yes | Template listing every supported key |
 
@@ -41,8 +40,8 @@ baffling assertion mismatch rather than as a configuration problem.
 
 If API calls start returning HTML, check `API_URL` first.
 
-Locally both live on one machine (`localhost:3000` + `localhost:8080/api`), so the
-distinction is invisible until you point at dev.
+On dev staging the SPA and the API are separate hosts, which is why `API_URL`
+is not simply `BASE_URL` + `/api`.
 
 ## Test-data cleanup
 
@@ -85,7 +84,7 @@ Only relevant to the opt-in `webpet` project (see
   data factory). Set to `https://api.ptdev.xyz` on dev, because the SPA host serves
   `index.html` for every path including `/api/*`. **Leave it unset on local** so
   those calls go through the Vite proxy exactly as they do in the source repo —
-  adding it to `.env.local` breaks parity with the frozen 362-pass baseline.
+  adding it breaks parity with the frozen 362-pass baseline.
 - **`E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD`** — the source repo's own variables,
   read by `tests/webpet/support/provision.ts` and `notifications.spec.ts`. They win
   over `USER_NAME`/`PASSWORD` when set; see
@@ -100,9 +99,9 @@ Only relevant to the opt-in `webpet` project (see
 
 **WEBPET-1463 (2026-07-25)** retired the shared `PT_SU_PASSWORD` login secret —
 `su` now authenticates against its own persisted `TigerMaster.dbo.Users` row like
-every other user. The CI workflows (`e2e-local.yml`, `webpet-e2e-local.yml`) reset
-that row directly to `LOCAL_PASSWORD` before tests run, so there is no API env var
-to keep in sync any more. Do **not** reintroduce an env-secret login path.
+every other user. On the containerized stack that row ships inside the pulled DB
+image (`su` / `PetTigerE2E1!`), so there is no API env var to keep in sync any
+more. Do **not** reintroduce an env-secret login path.
 
 ## Optional keys worth knowing
 

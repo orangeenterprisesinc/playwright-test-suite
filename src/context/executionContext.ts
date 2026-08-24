@@ -66,7 +66,7 @@ class ExecutionContextManager {
             triggeredBy: this.triggeredBy,
             branch: this.branch,
             commit: this.commit,
-            environment: getConfigValue(ConfigProperties.TEST_ENV, 'local'),
+            environment: getConfigValue(ConfigProperties.TEST_ENV, 'dev'),
         };
     }
 }
