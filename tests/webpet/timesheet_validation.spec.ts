@@ -273,7 +273,8 @@ test.describe('Setup > TimeSheet Validation — soft delete and restore', { tag:
             // virtualization threshold, so the newest row is not in the DOM.
             if (!(await list.gotoDeletedOrForbidden())) return;
             await list.grid.waitForGrid();
-            await list.grid.expectRowWithText(TEST_NAME_2);
+            await list.grid.revealRowWithText(TEST_NAME_2);
+            await expect(list.grid.cellByText(TEST_NAME_2)).toBeVisible();
 
             // Restore.
             const deletedResp = await request.get('/api/validations/deleted');
@@ -291,7 +292,8 @@ test.describe('Setup > TimeSheet Validation — soft delete and restore', { tag:
             // After restore the record leaves the deleted list.
             await page.reload();
             await list.grid.waitForGrid();
-            await list.grid.expectNoRowWithText(TEST_NAME_2);
+            await list.grid.revealRowWithText(TEST_NAME_2);
+            await expect(list.grid.cellByText(TEST_NAME_2)).toHaveCount(0);
         } finally {
             // No purge endpoint for Validation (WEBPET-1798): a record left
             // soft-deleted by a failed assert would occupy its name forever.

@@ -17,7 +17,7 @@
  * Most row-level helpers take the row `Locator` rather than reading state, so a
  * spec can hold a row and interrogate it repeatedly without re-querying.
  */
-import { expect, Locator, Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /** Escapes a value for safe interpolation into a `RegExp`. */
@@ -242,23 +242,14 @@ export class WebpetDataGridComponent extends BaseComponent {
         return (await cell.count()) > 0;
     }
 
-    // Row-count independent presence/absence: narrow by the text filter when the
-    // screen renders one (not every list does — deleted lists have none), else scroll.
-    async expectRowWithText(text: string): Promise<void> {
+    // Row-count independent reveal, for the spec to assert on cellByText after:
+    // narrow by the text filter when the screen renders one (deleted lists have
+    // none), else scroll the row into the rendered window.
+    async revealRowWithText(text: string): Promise<void> {
         if ((await this.textFilter().count()) > 0) {
             await this.filterTo(text);
         } else {
-            expect(await this.findRowWithText(text)).toBe(true);
-        }
-        await expect(this.cellByText(text)).toBeVisible();
-    }
-
-    async expectNoRowWithText(text: string): Promise<void> {
-        if ((await this.textFilter().count()) > 0) {
-            await this.filterTo(text);
-            await expect(this.cellByText(text)).toHaveCount(0);
-        } else {
-            expect(await this.findRowWithText(text)).toBe(false);
+            await this.findRowWithText(text);
         }
     }
 
