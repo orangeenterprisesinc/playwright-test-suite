@@ -45,7 +45,8 @@ QA (Gukan) reviews, re-runs, merges
 ```
 
 **One-time setup per developer (~30 min, self-service):** repo access, clone,
-`npm ci`, `npx playwright install`, a two-line `.env` from the 1Password item,
+`npm ci`, `npx playwright install`, 1Password CLI integration switched on (the
+framework fetches credentials from the vault itself — no `.env` to create),
 Jira MCP auth. Nothing is handed over by QA. The skill's preflight names any
 missing step.
 

@@ -49,17 +49,18 @@ Three questions are answered for every feature ticket:
    npx playwright install
    ```
 
-3. Create a `.env` file in the repo root with two lines, taking the values
-   from the **1Password** item *"PET Tiger — dev staging test logins"*:
+3. Credentials: nothing to copy or type. The committed `.env.dev` holds
+   1Password references and the framework fetches the passwords itself at run
+   time. Make sure 1Password can answer:
 
-   ```text
-   PASSWORD=<su password from 1Password>
-   WEBPET_NONSU_PASSWORD=<non-su password from 1Password>
+   ```powershell
+   winget install AgileBits.1Password.CLI
    ```
 
-   That is the whole credential setup — nothing is handed over by QA. Every
-   other setting already lives in the committed `.env.dev`. The `.env` is
-   gitignored; never commit it or paste it into a ticket or log.
+   then in the 1Password app turn on *Settings → Developer → Integrate with
+   1Password CLI*. You need read access to the `Shared` vault (item *"PET
+   Tiger dev staging test logins"*). The first run each session asks you to
+   unlock 1Password, the same way the app does. No `.env` file is needed.
 4. Open the repo in Claude Code and authenticate the Jira MCP when prompted
    (the server entry ships in the repo config).
 5. Smoke-check the setup:
