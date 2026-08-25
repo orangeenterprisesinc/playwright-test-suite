@@ -18,8 +18,8 @@ History that shapes the decision:
   ~406-test webpet suite.
 - `playwright-test-suite` is not a webpet-only repo. The same framework also
   runs the PET-Tiger workflow-catalog (User Journey) automation — one set of
-  fixtures, page-object registries, runner CSV/JSON sync, encrypted env
-  handling, Slack reporting, and CI wiring serving both domains.
+  fixtures, page-object registries, runner CSV/JSON sync, env handling,
+  Slack reporting, and CI wiring serving both domains.
 - E2E tests execute against the **deployed dev-staging environment**
   (app.ptdev.xyz), not against a locally built app. Web-pet's CI already has an
   advisory e2e job that calls this suite; it cannot gate app PRs, because the

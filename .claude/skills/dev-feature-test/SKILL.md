@@ -20,8 +20,8 @@ Check in order; on failure, cite the matching section of
 `docs/DEV-E2E-CONTRIBUTION.md` §2 and stop:
 
 1. `node_modules/` present (`npm ci` done) and Node ≥ 20.
-2. `.env` exists at the repo root and, if any value is `ENC(...)`, carries its
-   own `SECRET_KEY=` line (the tooling loads the key from the `.env` itself).
+2. `.env` exists at the repo root (QA supplies it; it carries the dev-staging
+   credentials).
 3. Jira MCP reachable if the input is a ticket id. If not, ask the developer
    to paste the ticket's summary + acceptance criteria and continue.
 4. Working tree clean and on an up-to-date `main` (fetch first). Never start
