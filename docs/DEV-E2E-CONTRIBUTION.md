@@ -49,11 +49,17 @@ Three questions are answered for every feature ticket:
    npx playwright install
    ```
 
-3. Ask QA for your `.env` file and place it in the repo root. That one file
-   is the whole credential setup: it holds the dev-staging login and any
-   webhooks in plain text, it is gitignored, and nothing else needs to be
-   set. Treat the file itself as the credential — receive it over a private
-   channel, never commit it, never paste it into a ticket or log.
+3. Create a `.env` file in the repo root with two lines, taking the values
+   from the **1Password** item *"PET Tiger — dev staging test logins"*:
+
+   ```text
+   PASSWORD=<su password from 1Password>
+   WEBPET_NONSU_PASSWORD=<non-su password from 1Password>
+   ```
+
+   That is the whole credential setup — nothing is handed over by QA. Every
+   other setting already lives in the committed `.env.dev`. The `.env` is
+   gitignored; never commit it or paste it into a ticket or log.
 4. Open the repo in Claude Code and authenticate the Jira MCP when prompted
    (the server entry ships in the repo config).
 5. Smoke-check the setup:

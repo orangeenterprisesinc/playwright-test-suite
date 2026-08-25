@@ -44,9 +44,10 @@ QA (Gukan) reviews, re-runs, merges
         → feature ticket closes
 ```
 
-**One-time setup per developer (~30 min, scripted):** repo access, clone,
-`npm ci`, `npx playwright install`, `.env` + `SECRET_KEY` handoff, Jira MCP
-auth. The skill's preflight names any missing step.
+**One-time setup per developer (~30 min, self-service):** repo access, clone,
+`npm ci`, `npx playwright install`, a two-line `.env` from the 1Password item,
+Jira MCP auth. Nothing is handed over by QA. The skill's preflight names any
+missing step.
 
 **Per-feature developer effort:** run one command, review the generated spec,
 confirm the green run, approve. Roughly 15–30 minutes, mostly reading.
