@@ -7,7 +7,7 @@ just settings — this is where the reasoning lives.
 
 | File | Tracked | Purpose |
 |---|---|---|
-| `.env` | **no** | Optional personal overrides. Not needed to run: credentials resolve from 1Password (below). A literal here overrides a reference. |
+| `.env` | **no** | Personal overrides + the two dev-staging passwords (`PASSWORD`, `WEBPET_NONSU_PASSWORD`), taken from the 1Password item "PET Tiger — dev staging test logins". Nothing is handed over by QA. |
 | `.env.dev` | yes | Dev staging, app.ptdev.xyz — the only target (`npm test`) |
 | `.env.qa` | yes | Placeholder — fill in when a QA deployment exists |
 | `.env.example` | yes | Template listing every supported key |
@@ -25,36 +25,6 @@ a file value when the OS variable is **undefined**, not when it is `''` — GitH
 Actions exports a job-level `env:` key even when its expression resolves empty,
 which is why `e2e.yml` sets `USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}` with a
 literal default rather than relying on `.env.dev`.
-
-## Credentials come from 1Password, not from a file
-
-`.env.dev` holds **secret references**, not secrets:
-
-```properties
-PASSWORD=op://Shared/PET Tiger dev staging test logins/su_password
-WEBPET_NONSU_PASSWORD=op://Shared/PET Tiger dev staging test logins/nonsu_password
-```
-
-`envLoader` resolves any `op://` value through the 1Password CLI (`op read`) when
-the files load, once per process — Playwright workers inherit the runner's
-resolved environment and never call `op`. So a fresh clone runs with **no
-credential file and nothing handed over**. The one prerequisite is 1Password
-itself: install the CLI (`winget install AgileBits.1Password.CLI`) and turn on
-*Settings → Developer → Integrate with 1Password CLI* in the desktop app. The
-first run per session prompts to unlock, the same way the app does.
-
-**CI is unchanged.** `e2e.yml` injects `PASSWORD` from the `DEV_PASSWORD` secret
-as job env, and an OS variable always wins over a file value, so the reference is
-never resolved there and the runner needs no 1Password CLI.
-
-An unresolvable reference **throws at load time** with the fix in the message — it
-never reaches the login form as a literal `op://…` string. A literal for the same
-key in the gitignored `.env` (or an OS variable) overrides the reference; that is
-the offline escape hatch, not the normal path.
-
-Committing the passwords instead was considered and rejected: credentials in git,
-even in a private repo, are a recognised anti-pattern, and a vault reference is the
-standard way to get "clone and run".
 
 ## BASE_URL and API_URL are not always the same host
 
