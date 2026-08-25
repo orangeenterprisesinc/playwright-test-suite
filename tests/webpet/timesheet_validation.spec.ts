@@ -268,28 +268,47 @@ test.describe('Setup > TimeSheet Validation — soft delete and restore', { tag:
         });
         expect(deleteResp.status()).toBe(204);
 
-        // Deleted list should show the record.
-        if (!(await list.gotoDeletedOrForbidden())) return;
-        await list.grid.waitForGrid();
-        await expect(list.grid.cellByText(TEST_NAME_2)).toBeVisible();
+        try {
+            // Filtered lookup: the deleted list is past the grid's 100-row
+            // virtualization threshold, so the newest row is not in the DOM.
+            if (!(await list.gotoDeletedOrForbidden())) return;
+            await list.grid.waitForGrid();
+            await list.grid.revealRowWithText(TEST_NAME_2);
+            await expect(list.grid.cellByText(TEST_NAME_2)).toBeVisible();
 
-        // Restore.
-        const deletedResp = await request.get('/api/validations/deleted');
-        if (!deletedResp.ok()) return;
-        const deletedItems = (await deletedResp.json()) as ValidationRow[];
-        const deletedRec = deletedItems.find((v) => v.name === TEST_NAME_2);
-        if (!deletedRec) return;
+            // Restore.
+            const deletedResp = await request.get('/api/validations/deleted');
+            if (!deletedResp.ok()) return;
+            const deletedItems = (await deletedResp.json()) as ValidationRow[];
+            const deletedRec = deletedItems.find((v) => v.name === TEST_NAME_2);
+            if (!deletedRec) return;
 
-        const restoreResp = await request.post(
-            `/api/validations/${String(deletedRec.validationCounter)}/restore`,
-            { data: { rowversion: deletedRec.version } },
-        );
-        expect(restoreResp.status()).toBe(204);
+            const restoreResp = await request.post(
+                `/api/validations/${String(deletedRec.validationCounter)}/restore`,
+                { data: { rowversion: deletedRec.version } },
+            );
+            expect(restoreResp.status()).toBe(204);
 
-        // After restore the record leaves the deleted list.
-        await page.reload();
-        await list.grid.waitForGrid();
-        await expect(list.grid.cellByText(TEST_NAME_2)).toHaveCount(0);
+            // After restore the record leaves the deleted list.
+            await page.reload();
+            await list.grid.waitForGrid();
+            await list.grid.revealRowWithText(TEST_NAME_2);
+            await expect(list.grid.cellByText(TEST_NAME_2)).toHaveCount(0);
+        } finally {
+            // No purge endpoint for Validation (WEBPET-1798): a record left
+            // soft-deleted by a failed assert would occupy its name forever.
+            const stillDeletedResp = await request.get('/api/validations/deleted');
+            if (stillDeletedResp.ok()) {
+                const stillDeleted = (await stillDeletedResp.json()) as ValidationRow[];
+                const stuck = stillDeleted.find((v) => v.name === TEST_NAME_2);
+                if (stuck) {
+                    await request.post(
+                        `/api/validations/${String(stuck.validationCounter)}/restore`,
+                        { data: { rowversion: stuck.version } },
+                    );
+                }
+            }
+        }
 
         // Cleanup — soft-delete both test records again.
         for (const name of [TEST_NAME_2, TEST_NAME]) {

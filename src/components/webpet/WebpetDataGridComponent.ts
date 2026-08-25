@@ -212,6 +212,47 @@ export class WebpetDataGridComponent extends BaseComponent {
         return this.page.getByPlaceholder('Filter…').nth(index);
     }
 
+    async filterTo(text: string, index = 0): Promise<void> {
+        await this.textFilter(index).fill(text);
+    }
+
+    /** The scrolling body rowgroup — the virtualizer's scroll element. */
+    get bodyScroller(): Locator {
+        return this.root.locator('[role="rowgroup"]').last();
+    }
+
+    // Lists past the 100-row virtualization threshold render only the rows in
+    // view, so a bare cellByText misses rows that exist. Walk the body one
+    // viewport at a time until the cell renders or the scroller bottoms out.
+    async findRowWithText(text: string): Promise<boolean> {
+        const cell = this.cellByText(text);
+        const body = this.bodyScroller;
+        await body.evaluate((el) => { el.scrollTop = 0; });
+        for (let i = 0; i < 100; i++) {
+            if ((await cell.count()) > 0) return true;
+            const atEnd = await body.evaluate((el) => {
+                const before = el.scrollTop;
+                el.scrollTop = before + el.clientHeight;
+                return el.scrollTop === before;
+            });
+            // Two frames so the virtualizer commits the newly scrolled rows.
+            await body.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+            if (atEnd) break;
+        }
+        return (await cell.count()) > 0;
+    }
+
+    // Row-count independent reveal, for the spec to assert on cellByText after:
+    // narrow by the text filter when the screen renders one (deleted lists have
+    // none), else scroll the row into the rendered window.
+    async revealRowWithText(text: string): Promise<void> {
+        if ((await this.textFilter().count()) > 0) {
+            await this.filterTo(text);
+        } else {
+            await this.findRowWithText(text);
+        }
+    }
+
     // ── Row-level controls ──────────────────────────────────────────
 
     /** The row's multi-select checkbox (the first checkbox in the row). */

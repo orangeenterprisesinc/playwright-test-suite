@@ -24,11 +24,6 @@ import { expect, test } from '@fixtures/webpet.fixture';
 import type { Page } from '@playwright/test';
 import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory';
 
-// Tests in this file mutate DB state on their own ranches and cannot run in
-// parallel without racing each other. Serialize — even though
-// playwright.config has `fullyParallel: true` globally.
-test.describe.configure({ mode: 'serial' });
-
 // This file owns three ranches, created fresh via the API (no dependency on a
 // seeded "Smith" / "BLAIR" or on there being ≥N active uniquely-named ranches).
 // `ranchA`/`ranchB` are mutated by the list/multi-edit tests (toggle Active,

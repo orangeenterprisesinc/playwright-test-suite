@@ -2,12 +2,10 @@
  * @fileoverview The global notification surface — sonner toasts driven by the
  * TanStack Query MutationCache.
  *
- * Toast **messages** are matched page-wide rather than inside the toast
- * container, because that is what the lifted specs do and because the message
- * text is the assertion: a success string appearing anywhere proves the mutation
- * reported success. Toast **absence**, by contrast, is asserted against the
- * container's own attributes — `[data-sonner-toast][data-type="error"]` — since
- * "no error text anywhere on the page" would be far too broad a claim.
+ * Toast **messages** are matched inside the toast container — a page-wide match
+ * also catches unrelated copy (the PWA's "Ready to work offline." toast collided
+ * with a `/offline/i` assertion). Toast **absence** is asserted against the
+ * container's own attributes — `[data-sonner-toast][data-type="error"]`.
  */
 import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
@@ -31,9 +29,9 @@ export class ToastComponent extends BaseComponent {
         this.errorToasts = page.locator('[data-sonner-toast][data-type="error"]');
     }
 
-    /** A toast by its message text. Page-scoped — see the class note. */
+    /** A toast by its message text, scoped to the toast container. */
     message(text: string | RegExp): Locator {
-        return this.page.getByText(text);
+        return this.root.getByText(text);
     }
 }
 
