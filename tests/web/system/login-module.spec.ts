@@ -19,10 +19,7 @@ import type { LoginPage } from '@pages/shell/LoginPage';
  * The valid credentials, read through the config layer rather than `process.env`.
  *
  * `loginModuleData` deliberately holds only the INVALID inputs — the valid pair is
- * per-environment and comes from the env files / CI secrets. Going through
- * `getConfigValue` also decrypts an `ENC(...)` credential
- * (src/config/secrets.ts); a raw `process.env` read would type the ciphertext
- * into the login form and fail as an indistinguishable "invalid credentials".
+ * per-environment and comes from the env files / CI secrets.
  *
  * Read per test rather than at module scope so a `test.use` env override still
  * applies.

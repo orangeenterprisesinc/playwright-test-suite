@@ -28,10 +28,8 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
     // produce is thrown away and replaced by a bare "test timeout exceeded".
     setup.setTimeout(180_000);
 
-    // Read through getConfigValue, NOT process.env, so an `ENC(...)` credential is
-    // decrypted (src/config/secrets.ts). A direct process.env read would hand the
-    // ciphertext to loginPage and fail as a mystifying 401. `|| undefined` keeps
-    // the fail-loud check below working: getConfigValue returns '' when unset.
+    // `|| undefined` keeps the fail-loud check below working: getConfigValue
+    // returns '' when unset.
     const userName = getConfigValue(ConfigProperties.USER_NAME) || undefined;
     const password = getConfigValue(ConfigProperties.PASSWORD) || undefined;
 

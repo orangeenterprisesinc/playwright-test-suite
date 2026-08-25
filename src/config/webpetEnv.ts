@@ -12,7 +12,6 @@
  * constants are read. Adding a second load here would change the precedence
  * order for a suite whose whole acceptance criterion is "nothing changed".
  */
-import { decryptIfNeeded } from './secrets';
 
 /**
  * Web (SPA) origin — what the browser navigates to and what the `Origin` header
@@ -77,17 +76,12 @@ export const apiUrl = (path: string): string =>
  * source repo and is dead in every real environment (login goes through
  * TigerMaster) — it only produces a clear 401 instead of an undefined crash.
  */
-// decryptIfNeeded, not getConfigValue: this module deliberately keeps the source
+// process.env, not getConfigValue: this module deliberately keeps the source
 // repo's own resolution chain (see the file header) rather than routing through
-// the framework's config layer. Wrapping preserves that chain exactly while still
-// decrypting an `ENC(...)` credential — without it, an encrypted PASSWORD would
-// reach the admin API login as ciphertext and surface as an opaque 401.
-export const ADMIN_USER: string = decryptIfNeeded(
-    process.env.E2E_ADMIN_USER ?? process.env.USER_NAME ?? 'Admin',
-);
-export const ADMIN_PASSWORD: string = decryptIfNeeded(
-    process.env.E2E_ADMIN_PASSWORD ?? process.env.PASSWORD ?? 'Admin',
-);
+// the framework's config layer.
+export const ADMIN_USER: string = process.env.E2E_ADMIN_USER ?? process.env.USER_NAME ?? 'Admin';
+export const ADMIN_PASSWORD: string =
+    process.env.E2E_ADMIN_PASSWORD ?? process.env.PASSWORD ?? 'Admin';
 
 /**
  * Non-empty ⇒ `employee-documents.spec.ts` runs (it needs MinIO). Read at module
