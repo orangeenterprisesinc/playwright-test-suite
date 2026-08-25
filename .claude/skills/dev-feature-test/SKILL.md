@@ -20,9 +20,8 @@ Check in order; on failure, cite the matching section of
 `docs/DEV-E2E-CONTRIBUTION.md` §2 and stop:
 
 1. `node_modules/` present (`npm ci` done) and Node ≥ 20.
-2. Credentials resolvable: either the 1Password CLI answers (`op --version`
-   works and the desktop-app integration is on — the normal path, no file
-   needed) or a gitignored `.env` sets `PASSWORD` literally (escape hatch).
+2. `.env` exists at the repo root with `PASSWORD` and `WEBPET_NONSU_PASSWORD`
+   set (the developer creates it from the 1Password item — no QA handoff).
 3. Jira MCP reachable if the input is a ticket id. If not, ask the developer
    to paste the ticket's summary + acceptance criteria and continue.
 4. Working tree clean and on an up-to-date `main` (fetch first). Never start
