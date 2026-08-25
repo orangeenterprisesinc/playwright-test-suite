@@ -7,7 +7,7 @@ just settings — this is where the reasoning lives.
 
 | File | Tracked | Purpose |
 |---|---|---|
-| `.env` | **no** | Personal overrides + `SECRET_KEY`. Real secrets go here. |
+| `.env` | **no** | Personal overrides + the two dev-staging passwords (`PASSWORD`, `WEBPET_NONSU_PASSWORD`), taken from the 1Password item "PET Tiger — dev staging test logins". Nothing is handed over by QA. |
 | `.env.dev` | yes | Dev staging, app.ptdev.xyz — the only target (`npm test`) |
 | `.env.qa` | yes | Placeholder — fill in when a QA deployment exists |
 | `.env.example` | yes | Template listing every supported key |
@@ -25,10 +25,6 @@ a file value when the OS variable is **undefined**, not when it is `''` — GitH
 Actions exports a job-level `env:` key even when its expression resolves empty,
 which is why `e2e.yml` sets `USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}` with a
 literal default rather than relying on `.env.dev`.
-
-Sensitive values may be stored as `ENC(...)` ciphertext in any of these files; see
-[STRUCTURE.md § Secrets](STRUCTURE.md#secrets) and
-[ADR 0006](adr/0006-encrypted-env-values.md).
 
 ## BASE_URL and API_URL are not always the same host
 

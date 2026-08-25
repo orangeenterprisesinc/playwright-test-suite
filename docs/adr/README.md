@@ -18,4 +18,4 @@ which it should be revisited.
 | [0003](0003-csv-authored-json-mirrored.md) | Runner rows are authored in CSV with a generated JSON mirror |
 | [0004](0004-single-artifacts-output-root.md) | All run output lives under a single `artifacts/` root |
 | [0005](0005-folder-structure-by-responsibility.md) | Folders are grouped by responsibility, not by file type |
-| [0006](0006-encrypted-env-values.md) | Sensitive env values are stored encrypted as `ENC(...)` |
+| [0006](0006-encrypted-env-values.md) | ~~Sensitive env values are stored encrypted as `ENC(...)`~~ — superseded 2026-08-25, feature removed |
