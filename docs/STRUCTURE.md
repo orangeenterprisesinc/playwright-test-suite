@@ -41,9 +41,10 @@ playwright-test-suite/
 ├── playwright.config.ts  tsconfig.json  package.json  .mcp.json
 ├── .gitattributes  .gitignore  .nvmrc  README.md
 │
-├── .env.dev  .env.qa              committed per-environment config, no secrets
+├── .env.dev  .env.qa              committed per-environment config; credentials
+│                                    are 1Password op:// references, not secrets
 ├── .env.example                     the documented template
-├── .env                             personal overrides + real credentials (gitignored)
+├── .env                             optional personal overrides (gitignored)
 │
 ├── config/               ALL configuration
 │   ├── lint/             .eslintrc.json + .prettierrc.json
