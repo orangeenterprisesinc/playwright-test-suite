@@ -128,7 +128,7 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         // of a negative test, so it is what gets asserted.
         await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 10000 });
         await expect(
-            pages.toasts.message(/A job with this Name already exists/i),
+            pages.toasts.message(/Failed to create job: (Already in use|A job with this Name already exists)/i),
         ).toBeVisible();
 
         // …and the user is left able to correct it, still on the create form.

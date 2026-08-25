@@ -285,6 +285,9 @@ export default defineConfig({
                   {
                       name: 'webpet',
                       testDir: './tests/webpet',
+                      // File-level parallelism only: the global fullyParallel (line 138)
+                      // splits one file across workers and runs its beforeAll twice.
+                      fullyParallel: false,
                       dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
                       // Host-bound parity specs, excluded from COLLECTION rather than
                       // skipped — a skipped test still shows up in the report. See

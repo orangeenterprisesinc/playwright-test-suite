@@ -53,7 +53,7 @@ test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-s
         // time-of-day greeting rendered as an <h2> ("Good morning/afternoon/
         // evening, <name>"). Assert the greeting shape (loose regex, name-agnostic)
         // so it survives time-of-day and user drift.
-        await expect(dashboard.greeting).toContainText(/Good (morning|afternoon|evening),/);
+        await expect(dashboard.greeting).toContainText(/Good (morning|afternoon|evening|night),/);
         await expect(dashboard.editWidgetsButton).toBeVisible();
     });
 

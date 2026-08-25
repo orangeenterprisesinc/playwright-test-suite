@@ -428,7 +428,7 @@ test.describe('Offline/online toasts', { tag: ['@WebPet', '@wp-notifications', '
         await pages.departmentList.gotoList();
 
         await context.setOffline(true);
-        await expect(pages.toasts.message(/offline/i)).toBeVisible({ timeout: 5000 });
+        await expect(pages.toasts.message(/You're offline/i)).toBeVisible({ timeout: 5000 });
 
         await context.setOffline(false);
         await expect(pages.toasts.message('Back online')).toBeVisible({ timeout: 5000 });
