@@ -7,7 +7,7 @@ just settings — this is where the reasoning lives.
 
 | File | Tracked | Purpose |
 |---|---|---|
-| `.env` | **no** | Personal overrides. Real credentials go here, in plain text. |
+| `.env` | **no** | Personal overrides + the two dev-staging passwords (`PASSWORD`, `WEBPET_NONSU_PASSWORD`), taken from the 1Password item "PET Tiger — dev staging test logins". Nothing is handed over by QA. |
 | `.env.dev` | yes | Dev staging, app.ptdev.xyz — the only target (`npm test`) |
 | `.env.qa` | yes | Placeholder — fill in when a QA deployment exists |
 | `.env.example` | yes | Template listing every supported key |
