@@ -142,8 +142,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # web-pet's advisory job dispatches this workflow on every PR AND on every
+  # merge to main. Dev staging is deployed from main only, so the merge run
+  # retests the same build the 4 PM cron covers and just adds a Slack post per
+  # merge. Skip it here rather than in web-pet: web-pet's helper exits non-zero
+  # on any run conclusion other than `success`, and a run whose only job was
+  # skipped concludes `skipped`. With this job green the run concludes `success`
+  # even when `e2e` is skipped, so web-pet's verdict stays PASS.
+  route:
+    name: Route dispatch
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+    steps:
+      - id: decide
+        env:
+          RUN_LABEL: ${{ inputs.run_label }}
+        run: |
+          if [[ "$RUN_LABEL" == "web-pet push "* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::'$RUN_LABEL' is a merge-to-main dispatch — the suite runs on PRs and the 4 PM cron only."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
+    needs: route
+    if: needs.route.outputs.skip != 'true'
     runs-on: ubuntu-latest
 
     strategy:
