@@ -12,7 +12,6 @@
     "test:smoke": "node scripts/run-playwright.js dev --grep=@Smoke",
     "test:high-level": "node scripts/run-playwright.js dev --grep=@HighLevel",
     "test:regression": "node scripts/run-playwright.js dev --grep=@Regression",
-    "test:api": "node scripts/run-playwright.js dev --project=api",
     "test:workflow": "node scripts/run-playwright.js dev --grep=@Workflow",
     "test:last-failed": "node scripts/run-playwright.js dev --last-failed",
     "test:webpet": "node scripts/run-playwright.js dev --project=webpet",

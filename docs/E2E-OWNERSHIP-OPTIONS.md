@@ -104,7 +104,7 @@ So Option B saves the developer one clone and one PR, and nothing else.
    secret CLI, reporters, run wrapper) into web-pet without colliding with the
    app's own toolchain and package.json.
 2. Split or duplicate the framework: the PET-Tiger journey suite
-   (`tests/web/`, `tests/api/`, catalog, runner data) does **not** belong in
+   (`tests/web/`, catalog, runner data) does **not** belong in
    web-pet. It needs the same framework, so either it stays behind in a
    stripped copy of this repo (two frameworks to keep in sync — the exact
    drift this repo was created to end) or PET-Tiger automation moves into the

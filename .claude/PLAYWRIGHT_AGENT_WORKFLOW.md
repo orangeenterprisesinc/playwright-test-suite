@@ -4,7 +4,7 @@ One orchestration layer serves two automation domains:
 
 * **Web-PET** — maintaining the existing E2E suite (`tests/webpet/`, ~406 tests)
 * **User Journey** — creating and maintaining automation from the PET-Tiger
-  workflow catalog (`tests/web/`, `tests/api/`, `test-plans/`)
+  workflow catalog (`tests/web/`, `test-plans/`)
 
 For every Playwright-related task — bug, test failure, test-generation request,
 framework change, or automation maintenance — follow this workflow unless the task
@@ -72,7 +72,7 @@ by default, never in non-Playwright sessions:
 | Task touches | Profile |
 |---|---|
 | `tests/webpet/`, `src/pages/webpet/`, `src/components/webpet/`, `src/data/webpet/` | [profiles/WEBPET.md](profiles/WEBPET.md) |
-| `tests/web/`, `tests/api/`, `src/data/runner/`, `src/data/catalog/`, `test-plans/` | [profiles/JOURNEY.md](profiles/JOURNEY.md) |
+| `tests/web/`, `src/data/runner/`, `src/data/catalog/`, `test-plans/` | [profiles/JOURNEY.md](profiles/JOURNEY.md) |
 | Shared core (`src/fixtures/`, `src/config/`, `src/utils/`, `src/components/` root, `src/data/readers/`) | profile per affected suite; **both** suites' validation gates |
 
 An agent invocation prompt names exactly: its stage contract (§4, summarized

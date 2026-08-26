@@ -211,12 +211,8 @@ playwright-test-suite/
 ├── tests/                             # Specs — TWO folders (browser vs no browser), journey inside
 │   ├── auth.setup.ts                  #   Keycloak login → storageState (auth-setup project)
 │   ├── seed.spec.ts
-│   ├── api/                           #   API-only (api.fixture) — browserless `api` project
-│   │   ├── journey-a-setup/           #     A6 biometric enrollment
-│   │   ├── journey-b-field/           #     B1-B15 device capture — reserved
-│   │   └── journey-c-packhouse/       #     C1-C10 kiosk capture — reserved
-│   ├── web/                           #   Browser-driven (base.fixture + POM): UI-only AND
-│   │   │                              #     UI+API(+DB) hybrids, the latter tagged @Workflow
+│   ├── web/                           #   Journey suite (base.fixture / api.fixture): UI-only,
+│   │   │                              #     API-only, and UI+API hybrids (tagged @Workflow)
 │   │   ├── system/login-module.spec.ts#     logged-out login module
 │   │   ├── journey-a-setup/           #     A1-A14 — a01-user-setup.spec.ts is the reference
 │   │   ├── journey-b-field/           #     B14 real-time field dashboard
@@ -567,7 +563,7 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 | Field | Description |
 |-------|-------------|
 | `id` | Unique test case ID (e.g., `UI-001`, `USR-001`) |
-| `category` | Test category — `ui` \| `api` \| `workflow`. Three values, two folders: `ui`/`workflow` → `tests/web/`, `api` → `tests/api/` (enforced by `runner:check`) |
+| `category` | Test category — `ui` \| `api` \| `workflow`. Three values, one folder: every category lives in `tests/web/` (enforced by `runner:check`) |
 | `testName` | Programmatic test name |
 | `testTitle` | Human-readable test title |
 | `testDescription` | Detailed description |
@@ -770,7 +766,7 @@ test.describe('Login Tests', { tag: '@login' }, () => {
 ### Example 2: Pure API Test
 
 ```typescript
-// tests/api/user-api.spec.ts
+// tests/web/journey-a-setup/user-api.spec.ts  (API-only specs share the web folder)
 import { test, expect } from '../../src/fixtures/api.fixture';
 
 test.describe('User API Tests', { tag: '@API' }, () => {
@@ -824,7 +820,7 @@ test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
 ```
 
 > Prefer `/api-script-generator` and `/workflow-script-generator` (repo skills) to
-> generate `tests/api/` and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
+> generate API-only and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
 
 ---
 
@@ -848,9 +844,6 @@ npm run test:debug
 # Smoke tests only
 npm run test:smoke
 
-# API-only specs (browserless `api` project — no auth-setup, no browser)
-npm run test:api
-
 # Workflow (UI + API hybrid) specs
 npm run test:workflow
 
@@ -860,7 +853,6 @@ npm run test:last-failed
 # Raw Playwright CLI (any flag)
 npx playwright test --grep "@Smoke"
 npx playwright test --project=chromium
-npx playwright test --project=api          # API-only specs, no browser
 npx playwright test --grep "@Workflow"
 npx playwright test --workers=4
 npx playwright test --retries=2
@@ -888,8 +880,8 @@ npm run report:allure:open
 Two things that look like bugs but aren't:
 
 - **The HTML report only ever shows the most recent run.** Every run rewrites
-  `artifacts/html` and clears `artifacts/results`, so a browserless run
-  (`--project=api`) legitimately leaves a report with no screenshots or videos,
+  `artifacts/html` and clears `artifacts/results`, so a run of browserless
+  API-only specs legitimately leaves a report with no screenshots or videos,
   and replaces whatever evidence was there. Re-run the specs you want evidence
   from, or copy `artifacts/` aside first.
 - **Open `http://localhost:9323`, not `127.0.0.1:9323`.** `show-report` binds

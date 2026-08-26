@@ -401,7 +401,7 @@ separate CI send step. All three channels are self-gating (do nothing unless the
 
 **npm scripts** ([`package.json`](../package.json)) all go through `run-playwright.js <env>`:
 `test` / `test:dev` / `test:qa`, plus `test:headed`, `test:ui`, `test:debug`, `test:smoke`
-(`--grep=@Smoke`), `test:api` (`--project=api`), `test:workflow`, `test:last-failed`,
+(`--grep=@Smoke`), `test:workflow`, `test:last-failed`,
 `report:allure`. The web-pet suite has its own set —
 `test:webpet`, `test:webpet:dev`, `test:webpet:list`, and the `webpet:*` data/verification
 scripts (§9).

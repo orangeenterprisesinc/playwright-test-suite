@@ -27,14 +27,13 @@ const OUT = path.join(__dirname, '..', '..', 'src', 'data', 'catalog', 'workflow
  * Which surface a workflow is exercised through — this is our addition, not a
  * catalog field, and it decides where the spec lives:
  *
- * Two folders, split on whether a browser is needed (that is what picks the
- * Playwright project); three surfaces map onto them:
+ * One folder, tests/web/journey-*; the surface sets the runner `category`:
  *
- * - `ui`     → tests/web/journey-*  (a browser screen drives it)
- * - `calc`   → tests/web/journey-*  (a calculation verified against data — acts in
- *                                    the UI, verifies via API/DB; tagged @Workflow)
- * - `device` → tests/api/journey-*  (handheld/kiosk capture; no web screen, so it
- *                                    is driven through the sync API — browserless)
+ * - `ui`     → category ui       (a browser screen drives it)
+ * - `calc`   → category workflow (a calculation verified against data — acts in
+ *                                 the UI, verifies via API; tagged @Workflow)
+ * - `device` → category api      (handheld/kiosk capture driven through the
+ *                                 device export/import API, verified via API + UI)
  */
 const SURFACE = {
     A1: 'ui', A2: 'ui', A3: 'ui', A4: 'ui', A5: 'ui', A6: 'device', A7: 'ui',
