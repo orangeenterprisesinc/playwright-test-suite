@@ -91,6 +91,7 @@ says agent, invoke the agent.
 |---|---|
 | Automate a catalog workflow ("automate B3") | `journey-from-catalog` skill → Planner → Generator (→ Healer), JOURNEY profile |
 | Automate a Jira story | `jira-to-script` skill (agent-orchestrated) |
+| Automate from a screen recording | `annotate-video` → `annotations-to-script` skills → Planner → Generator (→ Healer), JOURNEY profile |
 | New webpet spec / extend coverage | Planner → Generator (→ Healer), WEBPET profile |
 | Failure, cause unknown | main session: `pw-failure-triage` Step 1 (gate-skip?) → if real, Healer with classification + artifact paths |
 | Failure, cause known, single file | main session + `pw-locator-hardening` / `pw-spec-author` — no agents |

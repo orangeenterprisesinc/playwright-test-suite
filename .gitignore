@@ -18,7 +18,12 @@ node_modules/
 
 # Local-only tooling and its generated output — never commit
 # (see .claude/GITHUB_WORKFLOW.md "never commit local noise").
-/tools/
+# tools/video-annotator/ is the one tracked tool; its venv, generated cursor
+# templates and output stay local (see tools/video-annotator/README.md).
+/tools/*
+!/tools/video-annotator/
+/tools/video-annotator/.venv/
+/tools/video-annotator/cursors/
 /.video-annotations/
 /inviestgate/
 
