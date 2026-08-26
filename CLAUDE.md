@@ -2,7 +2,7 @@
 
 Two automation domains, one orchestration layer: the **Web-PET** E2E suite
 (`tests/webpet/`) and **User Journey** automation from the PET-Tiger workflow
-catalog (`tests/web/`, `tests/api/`, `test-plans/`).
+catalog (`tests/web/`, `test-plans/`).
 
 All Playwright-related tasks follow the multi-agent orchestration workflow
 (routing → Planner → Generator → execution → Healer → PR → CI):

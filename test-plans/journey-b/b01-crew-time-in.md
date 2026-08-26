@@ -6,7 +6,7 @@
 > office half runs on the production path. Device-side requirements (`B1-R1`–`B1-R4`, `B1-R6`) are
 > **deferred with the mobile automation** (branch `feature/appium-journey-video-wip`); the row now
 > claims `B1-R5|B1-R7|B1-R8`. New `B1-002` proves the relay leg on its own
-> (`tests/api/relay-roundtrip.spec.ts`) and is green today. Everything below about the device's
+> (`tests/web/journey-b-field/b01-relay-roundtrip.spec.ts`) and is green today. Everything below about the device's
 > screens describes the deferred manual/mobile scope.
 >
 > **Office half drives the UI (2026-08-12, later the same day):** mirroring the recording, the spec
@@ -42,7 +42,7 @@
 
 ### Deviation from the five-artifact convention
 
-The catalog surface is `device`, which maps to category `api` → `tests/api/`. This spec is instead a
+The catalog surface is `device`, which maps to category `api` (since 2026-08-26 every category lives in `tests/web/`). This spec is instead a
 **hybrid**: it drives the native Android app through Appium *and* verifies the office side in the
 browser, so it is registered as category `workflow` and lives in `tests/web/journey-b-field/`, which
 is what `scripts/runner/check.js` requires for that category. It runs under its own opt-in `device`

@@ -63,18 +63,18 @@ the licence modules.
 | Spec | `tests/web/journey-a-setup/a01-user-setup.spec.ts` |
 | Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
 
-**Folder** — there are only **two**, and the split is whether a browser is needed
-(that is what picks the Playwright project). Category comes from the catalog entry's
-`surface`; three categories map onto the two folders:
+**Folder** — there is only **one**, `tests/web/` (a spec that never destructures `page`
+opens no browser). Category comes from the catalog entry's `surface`; three categories
+share the one folder:
 
 | `surface` | Category | Folder |
 |---|---|---|
 | `ui` | `ui` | `tests/web/journey-<x>-<area>/` |
-| `device` | `api` | `tests/api/journey-<x>-<area>/` (handheld/kiosk — no web screen, driven through the sync API) |
+| `device` | `api` | `tests/web/journey-<x>-<area>/` (handheld/kiosk capture driven through the device export/import API, verified via API + UI) |
 | `calc` | `workflow` | `tests/web/journey-<x>-<area>/` — needs the browser, so it goes with the UI specs and is tagged `@Workflow` |
 
 Existing folders: `tests/web/{system,journey-a-setup,journey-b-field,journey-d-office,journey-e-payroll,journey-f-analysis}`,
-`tests/api/{journey-a-setup,journey-b-field,journey-c-packhouse}`.
+(no `tests/api/` — retired 2026-08-26; API-only specs share these folders).
 
 `npm run runner:check` enforces this mapping (`CATEGORY_FOLDER` in
 `scripts/runner/check.js`), so a spec in the wrong folder fails immediately.

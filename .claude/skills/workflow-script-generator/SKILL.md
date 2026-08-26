@@ -22,7 +22,7 @@ When the user pastes a scenario into chat, make the **smallest runnable change s
 
 ### What makes a spec a "workflow"
 
-Tag a spec `@Workflow` and give its runner row `category: workflow` only when it **does something in the UI and then verifies it through the API** (or vice-versa) in one test. If it is browser-only it is a plain UI spec (`/ui-script-generator`) — same `tests/web/` folder, `category: ui`, no `@Workflow`. If it never opens a browser it belongs in `tests/api/` (`/api-script-generator`).
+Tag a spec `@Workflow` and give its runner row `category: workflow` only when it **does something in the UI and then verifies it through the API** (or vice-versa) in one test. If it is browser-only it is a plain UI spec (`/ui-script-generator`) — same `tests/web/` folder, `category: ui`, no `@Workflow`. If it never opens a browser it is an API spec (`/api-script-generator`) — same `tests/web/` folder, `category: api`.
 
 ### Start by inspecting the repo before generating code
 
@@ -40,10 +40,9 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
-  on whether a browser is needed. The category comes from the catalog entry's `surface`:
-  `ui` → `tests/web/`, `calc` → `tests/web/` (this skill's case — tag it `@Workflow`),
-  `device` → `tests/api/`.
+- **Folder**: `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` — one folder for every
+  category. The category comes from the catalog entry's `surface`:
+  `ui` → `ui`, `calc` → `workflow` (this skill's case — tag it `@Workflow`), `device` → `api`.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.

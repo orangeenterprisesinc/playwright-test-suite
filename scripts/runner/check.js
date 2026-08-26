@@ -9,8 +9,8 @@
  *   - duplicate row id (two rows, one id — the later wins at random)
  *   - a spec claiming a `testCaseId` with no row (base.fixture skips it)
  *   - an ENABLED row no spec claims (it can never run)
- *   - `category` in the wrong folder under tests/ (`ui`/`workflow` → `tests/web/`,
- *     `api` → `tests/api/`; see CATEGORY_FOLDER)
+ *   - `category` in the wrong folder under tests/ (every journey category →
+ *     `tests/web/`; see CATEGORY_FOLDER)
  *   - `workflow`/`journey` that disagrees with the row id, or a workflow that is
  *     not in the catalog
  *   - a segment or module name the catalog does not define (never matches a scope)
@@ -48,17 +48,14 @@ const CATEGORIES = ['ui', 'api', 'workflow'];
 /**
  * Which folder under `tests/` each category's specs must live in.
  *
- * Three categories, two folders — deliberately. The folder boundary is a RUNTIME
- * one (it selects the Playwright project): `tests/api/` is browserless with its own
- * request context, while `tests/web/` drives a browser and depends on `auth-setup`.
- * A `workflow` spec acts in the UI and verifies through the API, so it needs the
- * browser and belongs with `ui` — same project, same auth, same folder.
- *
- * The category itself stays three-valued because it mirrors the catalog's `surface`
- * field (`ui` → ui, `device` → api, `calc` → workflow); collapsing it would throw
- * away the distinction between a screen flow and a calculation verified against data.
+ * Three categories, ONE folder. The journey suite keeps API and browser specs
+ * together in `tests/web/<journey>/` (decided 2026-08-26 — the old `tests/api/`
+ * split forced device workflows that need both API and UI verification into two
+ * places). The category stays three-valued because it mirrors the catalog's
+ * `surface` field (`ui` → ui, `device` → api, `calc` → workflow) and Allure's
+ * `epic` label is derived from it.
  */
-const CATEGORY_FOLDER = { ui: 'web', workflow: 'web', api: 'api' };
+const CATEGORY_FOLDER = { ui: 'web', workflow: 'web', api: 'web' };
 const STATUSES = ['draft', 'specced', 'ticketed', 'automated'];
 
 /** CSV tier value → the tag Playwright greps for it. Widest tier first. */

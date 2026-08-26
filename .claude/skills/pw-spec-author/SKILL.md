@@ -18,7 +18,7 @@ script enforces or some gate silently applies.
 | Spec location | Import from | Why |
 |---|---|---|
 | `tests/web/**` | `@fixtures/base.fixture` | browser + `pages` (PageObjects) + `cleanup` + runner gate over `src/data/runner/` |
-| `tests/api/**` | `@fixtures/api.fixture` | no browser; `api` / `apiContext` / `authenticatedApi` |
+| `tests/web/**` browserless, no office session needed | `@fixtures/api.fixture` | no browser; `api` / `apiContext` / `authenticatedApi` — same folder as UI specs, never destructure `page` |
 | `tests/webpet/**` | `@fixtures/webpet.fixture` | SPA context, `pages` (WebpetPages), CSRF-seeded `request`, gate over `src/data/webpet/` |
 | `tests/webpet/**` needing a logged-OUT context | `@fixtures/webpetAnonymous.fixture` | aliased: `import { test as cleanTest, expect as cleanExpect }` |
 
@@ -43,7 +43,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 ### 3. Tags — two vocabularies, and the journey one is enforced
 
-**Journey suites (`tests/web`, `tests/api`)** — [scripts/runner/check.js](scripts/runner/check.js)
+**Journey suites (`tests/web`)** — [scripts/runner/check.js](scripts/runner/check.js)
 fails the build on any violation:
 
 - **describe** carries the journey/workflow pair: `{ tag: ['@JourneyA', '@A1'] }`

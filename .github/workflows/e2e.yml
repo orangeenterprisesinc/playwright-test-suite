@@ -14,7 +14,7 @@ name: E2E
 # ── ONE WORKFLOW, TWO SUITES ────────────────────────────────────────────────
 # The `suite` input selects which:
 #
-#   journey (default) — tests/web + tests/api, the user-journey suite. A bare
+#   journey (default) — tests/web, the user-journey suite. A bare
 #                       `npx playwright test` is already exactly this: tests/webpet
 #                       is opt-in behind WEBPET=1 / --project=webpet, so it is
 #                       excluded without any filtering.

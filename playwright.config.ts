@@ -224,16 +224,15 @@ export default defineConfig({
 
         {
             name: 'chromium',
-            // API specs run in their own browserless `api` project below; ignore
-            // them here so they don't double-run (and needlessly pull in
-            // auth-setup / browser storageState) under the browser project.
             // tests/webpet is the migrated web-pet suite — it runs only under
             // its own opt-in `webpet` project (different auth + parity settings).
             // tests/seed.spec.ts is the Playwright agents' scratch page, not a
             // test: it has no runner row and no tier tag, so collecting it would
             // put an untagged no-op in every run and fail `npm run runner:check`.
+            // Browserless specs (api.fixture) live in tests/web too — a spec that
+            // never destructures `page` never launches a browser, so one project
+            // serves both.
             testIgnore: [
-                '**/tests/api/**',
                 '**/tests/webpet/**',
                 '**/tests/seed.spec.ts',
             ],
@@ -242,14 +241,6 @@ export default defineConfig({
                 storageState: '.auth/user.json',
             },
             dependencies: ['auth-setup'],
-        },
-
-        // API-only specs (tests/api/*.spec.ts). No browser, no storageState, and
-        // no auth-setup dependency — src/fixtures/api.fixture.ts creates its own
-        // request context and applies the configured AUTH_TYPE strategy itself.
-        {
-            name: 'api',
-            testDir: './tests/api',
         },
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──

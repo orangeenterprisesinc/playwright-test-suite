@@ -101,8 +101,7 @@ playwright-test-suite/
 │
 └── tests/
     ├── auth.setup.ts
-    ├── web/              browser-driven: UI-only and UI+API hybrids (@Workflow)
-    ├── api/              API-only, browserless `api` project
+    ├── web/              journey suite: UI, UI+API hybrids (@Workflow) and API-only specs
     └── webpet/           the migrated suite — runs separately, see below
 ```
 
