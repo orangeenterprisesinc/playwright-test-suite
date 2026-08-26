@@ -105,8 +105,9 @@ the main session orchestrates, it does not implement:
    `enabled=0`), then `npm run runner:sync`.
 3. **Generator** (`playwright-test-generator`): one test per requirement, the
    requirement id in the `testCaseId` annotation or a comment. Spec path
-   `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` (`tests/api/` for
-   `surface: device`). Locators come from the live accessibility tree the
+   `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` for every surface —
+   device specs live there too, with API + UI verification in one test (see
+   `b01-crew-time-in.spec.ts`). Locators come from the live accessibility tree the
    generator reads — never from pixel coordinates.
 4. **Run**: `npm run test:dev -- tests/web/<dir>/<wf>-<slug>.spec.ts`.
 5. **Healer** (`playwright-test-healer`) on failure. It may fix locators and
