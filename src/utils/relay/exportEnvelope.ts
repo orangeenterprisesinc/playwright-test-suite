@@ -238,6 +238,8 @@ export const DEVICE_SCHEMA = {
     employeeSource: {
         crew: 'Crew',
         barcodeBadge: 'BarcodeBadge',
+        /** A sticker scan — AndroidPET's `EmployeeScanSourceOptions.AlternateCode`, which the office renders "Sticker Code". */
+        alternateCode: 'AlternateCode',
     },
     /** The capture screen a reference identifies, per `importmap/timecard.go`. */
     referenceParts: {
