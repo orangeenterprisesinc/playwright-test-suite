@@ -132,15 +132,18 @@ export function referencesInExport(xml: string): string[] {
  * Warning — so a stale run breaks every later one until someone clears it by hand.
  *
  * Scoped to the seeded employee ids and one day, so it can only ever remove this
- * suite's own fixture data.
+ * suite's own fixture data. `cardTypes`, when given, narrows the sweep further —
+ * B3 imports two Time In cards for one employee and must not touch any other
+ * card type that employee happens to carry that day.
  */
 export async function sweepFixtureCards(
     request: APIRequestContext,
-    opts: { employeeIds: number[]; day: string },
+    opts: { employeeIds: number[]; day: string; cardTypes?: number[] },
 ): Promise<{ removed: number; failed: number }> {
     const wanted = new Set(opts.employeeIds);
-    const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter((c) =>
-        wanted.has(Number(c.employeeCounter)),
+    const wantedTypes = opts.cardTypes ? new Set(opts.cardTypes) : undefined;
+    const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter(
+        (c) => wanted.has(Number(c.employeeCounter)) && (!wantedTypes || wantedTypes.has(Number(c.cardType))),
     );
 
     let removed = 0;
