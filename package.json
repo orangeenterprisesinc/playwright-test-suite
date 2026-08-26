@@ -43,6 +43,7 @@
     "notify:reminder": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/notify/slack-reminder.ts",
     "report:allure": "node scripts/report/allure-generate.js",
     "report:allure:open": "node scripts/report/allure-open.js",
+    "video:annotate": "node scripts/annotate-video.js",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "keywords": [],

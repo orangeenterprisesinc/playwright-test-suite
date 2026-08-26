@@ -1,0 +1,15 @@
+# Video annotator dependencies.
+#
+# opencv + numpy only. An earlier version ran a YOLOv8 UI-element detector
+# (ultralytics + torch, ~1.7 GB installed, torch alone 1.1 GB) and carried an
+# AGPL-3.0 obligation. It was removed after measurement showed the bounding
+# boxes contributed nothing downstream — every fact in the resulting test plans
+# came from reading the frame image or from the frame-diff `change_region`.
+# See the header of annotate_video.py.
+#
+# opencv-python-headless (not opencv-python): no GUI bindings, so it needs no
+# X11/GTK libraries. That is what lets the container run on python:3.12-slim
+# without apt-installing a desktop stack.
+
+opencv-python-headless==4.11.0.86
+numpy==2.2.1
