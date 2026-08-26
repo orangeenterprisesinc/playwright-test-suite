@@ -120,6 +120,11 @@ export class TransferToJobCardsPage extends BasePage {
      *   - Typing `MMDDYYYY` into a group's Month segment auto-advances through the
      *     rest; intermediate values can look garbled while the chip still resolves
      *     correctly, so assert the committed chip rather than the segments.
+     *
+     * For any other day, typing into the segments never commits (the chip keeps
+     * the previous range); clicking the calendar day cell ("Monday, August 24th,
+     * 2026") does. One click collapses the range onto that day, a second click
+     * on the same cell toggles it back to today — hence the read-back guard.
      */
     async applyDateRange(date = new Date()): Promise<void> {
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -146,12 +151,38 @@ export class TransferToJobCardsPage extends BasePage {
         if (preset) {
             await popup.getByText(preset, { exact: true }).click();
         } else {
-            const typed = `${pad(date.getMonth() + 1)}${pad(date.getDate())}${date.getFullYear()}`;
-            const months = popup.locator('input[aria-label="Month"]');
-            await months.first().waitFor({ state: 'visible', timeout: 10_000 });
-            for (let i = 0; i < (await months.count()); i += 1) {
-                await months.nth(i).click();
-                await this.page.keyboard.type(typed, { delay: 60 });
+            const ordinal = (n: number) => {
+                if (n % 10 === 1 && n % 100 !== 11) return 'st';
+                if (n % 10 === 2 && n % 100 !== 12) return 'nd';
+                if (n % 10 === 3 && n % 100 !== 13) return 'rd';
+                return 'th';
+            };
+            const monthName = date.toLocaleString('en-US', { month: 'long' });
+            const dayLabel = new RegExp(
+                `${monthName} ${date.getDate()}${ordinal(date.getDate())}, ${date.getFullYear()}`,
+            );
+            // Only the past is ever requested (punchDate = today − N days), so
+            // only "previous month" navigation is needed to bring an
+            // out-of-view day into the two-month calendar.
+            const prevMonthButton = popup.getByRole('button', { name: /go to the previous month/i });
+            const dayCell = popup.getByRole('button', { name: dayLabel });
+            for (let i = 0; i < 12 && (await dayCell.count()) === 0; i += 1) {
+                await prevMonthButton.click();
+            }
+            await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
+            await dayCell.first().click();
+
+            // Confirm both ends of the range collapsed onto the target day —
+            // a stale range (e.g. a multi-day preset applied by an earlier
+            // test) can need a second click to close onto a single day.
+            // Clicking a third time would toggle it back off, so this reads
+            // state rather than clicking blindly.
+            const daySegments = popup.getByRole('textbox', { name: 'Day' });
+            const collapsed = async () =>
+                (await daySegments.nth(0).inputValue()) === String(date.getDate()) &&
+                (await daySegments.nth(1).inputValue()) === String(date.getDate());
+            if (!(await collapsed())) {
+                await dayCell.first().click();
             }
         }
         await this.page.getByRole('button', { name: /^apply$/i }).click();

@@ -96,11 +96,12 @@ export function newRunPrefix(now = new Date()): string {
 }
 
 /**
- * `{seq}-{yyMMdd}-CI-{prefix}-ui`, the app's default NYIPU format with `-`
- * separators. `CI` is the Crew In screen's part id; `ui` the default initials.
+ * `{seq}-{yyMMdd}-{part}-{prefix}-ui`, the app's default NYIPU format with `-`
+ * separators. `part` is the capture screen's reference part (`CI` Crew In,
+ * `TI` Time In, …); `ui` the default initials.
  */
-export function buildReference(seq: number, at: Date, prefix: string): string {
-    return `${pad(seq, 7)}-${referenceDate(at)}-CI-${prefix}-ui`;
+export function buildReference(seq: number, at: Date, prefix: string, part: string = 'CI'): string {
+    return `${pad(seq, 7)}-${referenceDate(at)}-${part}-${prefix}-ui`;
 }
 
 /** A day at a fixed hour — deterministic, and inside the office's punch day. */
@@ -168,4 +169,260 @@ export function exportFileName(prefix: string, at = new Date()): string {
         `${pad(at.getFullYear() % 100)}${pad(at.getMonth() + 1)}${pad(at.getDate())}` +
         `${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`;
     return `FromAndroid-${stamp}-${prefix}.xml`;
+}
+
+/**
+ * Every node/tag/attribute name the importer accepts (`importmap/timecard.go`),
+ * so specs build and assert envelopes without ever writing a literal XML tag.
+ * See the B3 plan's "Planner resolution" for provenance.
+ */
+export const DEVICE_SCHEMA = {
+    nodes: {
+        TimeCard: 'TimeCard',
+        TimeIn: 'TimeIn',
+        TimeOut: 'TimeOut',
+        PieceOut: 'PieceOut',
+        CrewIn: 'CrewIn',
+        CrewOut: 'CrewOut',
+        CrewPieceOut: 'CrewPieceOut',
+        CrewPiece: 'CrewPiece',
+        PieceOutWithTimeIn: 'PieceOutWithTimeIn',
+        SignatureCard: 'SignatureCard',
+        NonLaborCard: 'NonLaborCard',
+        BreakCard: 'BreakCard',
+        UnpaidBreakCard: 'UnpaidBreakCard',
+        TimeCardQuestion: 'TimeCardQuestion',
+        TimeCardEquipment: 'TimeCardEquipment',
+    },
+    recordsSuffix: '_Records',
+    attributes: {
+        lookupContents: 'LookupContents',
+    },
+    tags: {
+        reference: 'Reference',
+        dateIn: 'DateIn',
+        timeIn: 'TimeIn',
+        dateOut: 'DateOut',
+        timeOut: 'TimeOut',
+        pieceOutDate: 'PieceOutDate',
+        pieceOutTime: 'PieceOutTime',
+        dateTime: 'DateTime',
+        cardType: 'CardType',
+        employee: 'Employee',
+        crew: 'Crew',
+        job: 'Job',
+        ranch: 'Ranch',
+        field: 'Field',
+        gpsReading: 'GpsReading',
+        traceabilityCode: 'TraceabilityCode',
+        updateTime: 'UpdateTime',
+        pictureVerification: 'PictureVerification',
+        signature: 'Signature',
+        memo: 'Memo',
+        employeeSource: 'EmployeeSource',
+        numOfPieces: 'NumOfPieces',
+        breakTime: 'BreakTime',
+        variety: 'Variety',
+        workOrder: 'WorkOrder',
+        agRow: 'AgRow',
+        load: 'Load',
+        startDate: 'StartDate',
+        startTime: 'StartTime',
+        endDate: 'EndDate',
+        endTime: 'EndTime',
+        startDateTime: 'StartDateTime',
+        endDateTime: 'EndDateTime',
+        length: 'Length',
+        isPaidBreak: 'IsPaidBreak',
+    },
+    employeeSource: {
+        crew: 'Crew',
+        barcodeBadge: 'BarcodeBadge',
+    },
+    /** The capture screen a reference identifies, per `importmap/timecard.go`. */
+    referenceParts: {
+        crewIn: 'CI',
+        crewOut: 'CO',
+        pieceOut: 'PO',
+        timeIn: 'TI',
+        timeOut: 'TO',
+        signature: 'SC',
+        nonLabor: 'NL',
+        break: 'BR',
+    },
+} as const;
+
+export type RecordNode = keyof typeof DEVICE_SCHEMA.nodes;
+export type EmployeeSource = (typeof DEVICE_SCHEMA.employeeSource)[keyof typeof DEVICE_SCHEMA.employeeSource];
+
+export interface DeviceRecord extends Partial<EnvelopeCard> {
+    node: RecordNode;
+    part: string;
+    employeeSource?: EmployeeSource;
+    at?: Date;
+    pieces?: number;
+    traceabilityCode?: string;
+    reference?: string;
+    extra?: Record<string, string>;
+}
+
+export interface BuildEnvelopeInput {
+    deviceAddress: string;
+    prefix: string;
+    /** Envelope-level punch time — only feeds the Header; per-record `at` wins for rows. */
+    at?: Date;
+    records: DeviceRecord[];
+}
+
+/**
+ * `Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code` — the individual
+ * time-in `TimeCard_Records` LookupContents from the B3 plan's Planner
+ * resolution (sample fidelity, not derived from {@link LOOKUP_CONTENTS}).
+ */
+const RECORD_LOOKUP_CONTENTS = 'Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code';
+
+type RowShape = 'punchIn' | 'punchOut' | 'pieceOut' | 'breakShape' | 'aux';
+
+/** Which date/time-tag family a node's row uses — data, not per-node logic. */
+const NODE_SHAPE: Record<RecordNode, RowShape> = {
+    TimeCard: 'punchIn',
+    TimeIn: 'punchIn',
+    CrewIn: 'punchIn',
+    TimeOut: 'punchOut',
+    CrewOut: 'punchOut',
+    SignatureCard: 'punchOut',
+    NonLaborCard: 'punchOut',
+    PieceOut: 'pieceOut',
+    CrewPieceOut: 'pieceOut',
+    CrewPiece: 'pieceOut',
+    PieceOutWithTimeIn: 'pieceOut',
+    BreakCard: 'breakShape',
+    UnpaidBreakCard: 'breakShape',
+    TimeCardQuestion: 'aux',
+    TimeCardEquipment: 'aux',
+};
+
+function xmlTag(name: string, value: string): string {
+    return `<${name}>${esc(value)}</${name}>`;
+}
+
+/**
+ * One row's element list, in the order the B3 plan's sample gives for
+ * TimeCard/TimeIn (`punchIn`): Reference, DateIn, TimeIn, Employee, Crew, Job,
+ * Ranch, Field, GpsReading (only when set), TraceabilityCode, UpdateTime,
+ * PictureVerification, Signature, Memo, EmployeeSource — no CardType. The other
+ * shapes reuse the same skeleton with their own date/time tags, kept simple and
+ * data-driven off {@link DEVICE_SCHEMA} rather than guessed per node.
+ */
+function buildRow(record: DeviceRecord, reference: string, at: Date): string {
+    const T = DEVICE_SCHEMA.tags;
+    const shape = NODE_SHAPE[record.node];
+    const dateStr = deviceDate(at);
+    const timeStr = deviceTime(at);
+    const isoStr = deviceIso(at);
+
+    const parts: string[] = [xmlTag(T.reference, reference)];
+
+    switch (shape) {
+        case 'punchIn':
+            parts.push(xmlTag(T.dateIn, dateStr), xmlTag(T.timeIn, timeStr));
+            break;
+        case 'punchOut':
+            parts.push(xmlTag(T.dateOut, dateStr), xmlTag(T.timeOut, timeStr));
+            break;
+        case 'pieceOut':
+            parts.push(xmlTag(T.pieceOutDate, dateStr), xmlTag(T.pieceOutTime, timeStr));
+            break;
+        case 'breakShape':
+            parts.push(
+                xmlTag(T.startDate, dateStr),
+                xmlTag(T.startTime, timeStr),
+                xmlTag(T.endDate, dateStr),
+                xmlTag(T.endTime, timeStr),
+            );
+            break;
+        case 'aux':
+            parts.push(xmlTag(T.dateTime, isoStr));
+            break;
+    }
+
+    if (record.employeeCode) parts.push(xmlTag(T.employee, record.employeeCode));
+    if (record.crewCode) parts.push(xmlTag(T.crew, record.crewCode));
+    if (record.jobCode) parts.push(xmlTag(T.job, record.jobCode));
+    if (record.ranchCode) parts.push(xmlTag(T.ranch, record.ranchCode));
+    if (record.fieldCode) parts.push(xmlTag(T.field, record.fieldCode));
+
+    if (shape === 'pieceOut' && record.pieces !== undefined) {
+        parts.push(xmlTag(T.numOfPieces, String(record.pieces)));
+    }
+    if (record.gps) parts.push(xmlTag(T.gpsReading, record.gps));
+
+    parts.push(xmlTag(T.traceabilityCode, record.traceabilityCode ?? ''));
+    parts.push(xmlTag(T.updateTime, isoStr));
+
+    if (shape !== 'aux') {
+        parts.push(xmlTag(T.pictureVerification, ''));
+        parts.push(xmlTag(T.signature, ''));
+        parts.push(xmlTag(T.memo, ''));
+    }
+    if (record.employeeSource) parts.push(xmlTag(T.employeeSource, record.employeeSource));
+
+    if (record.extra) {
+        for (const [tagName, value] of Object.entries(record.extra)) {
+            parts.push(xmlTag(tagName, value));
+        }
+    }
+
+    const node = DEVICE_SCHEMA.nodes[record.node];
+    return `<${node}>${parts.join('')}</${node}>`;
+}
+
+/**
+ * General-purpose envelope builder, grouping records by node into
+ * `<{Node}_Records>` sections. Reference sequence numbers are assigned in
+ * document order across the whole `records` array, matching a real device's
+ * counter; a record's own `at` overrides the envelope-level `at` for its row
+ * and reference date, but the Header timestamp always comes from the latter —
+ * identical construction to {@link buildCrewTimeInEnvelope}'s Header.
+ */
+export function buildEnvelope({
+    deviceAddress,
+    prefix,
+    at: envelopeAt = punchMoment(),
+    records,
+}: BuildEnvelopeInput): BuiltEnvelope {
+    const iso = deviceIso(envelopeAt);
+    const references: string[] = [];
+    const groups = new Map<RecordNode, string[]>();
+
+    records.forEach((record, i) => {
+        const at = record.at ?? envelopeAt;
+        const reference = record.reference ?? buildReference(i + 1, at, prefix, record.part);
+        references.push(reference);
+        const rowsForNode = groups.get(record.node) ?? [];
+        rowsForNode.push(buildRow(record, reference, at));
+        groups.set(record.node, rowsForNode);
+    });
+
+    const sections = [...groups.entries()]
+        .map(([node, rows]) => {
+            const recordsTag = `${DEVICE_SCHEMA.nodes[node]}${DEVICE_SCHEMA.recordsSuffix}`;
+            return (
+                `<${recordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${RECORD_LOOKUP_CONTENTS}">` +
+                rows.join('') +
+                `</${recordsTag}>`
+            );
+        })
+        .join('');
+
+    const xml =
+        '<OrangeExportFile>' +
+        `<Header>${DEVICE_VERSION},${iso},Created By Export, Android PET` +
+        '<Version>1</Version>' +
+        `<DeviceWebMail>${esc(deviceAddress)}</DeviceWebMail>` +
+        '</Header>' +
+        sections +
+        '</OrangeExportFile>';
+
+    return { xml, references };
 }

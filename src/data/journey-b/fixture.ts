@@ -20,4 +20,34 @@ export const JOURNEY_B_FIXTURE = {
         { code: '6003', name: 'B1 PRESENT THREE' },
     ],
     absentee: { code: '6004', name: 'B1 ABSENTEE FOUR' },
+    // B5 (sticker piece-out)
+    sticker: [
+        { code: '6005', name: 'B5 STICKER FIVE' },
+        { code: '6006', name: 'B5 STICKER SIX' },
+    ],
 } as const;
+
+/**
+ * Days back from B1's punch day, one per workflow — keeps every workflow's
+ * fixture punches on a distinct day so parallel workers (`workers=2`) never
+ * collide on the office's duplicate-Time-In rule.
+ */
+export const DAY_OFFSET = {
+    B1: 0,
+    B2: -1,
+    B3: -2,
+    B10: -3,
+    B11: -4,
+    B12: -5,
+    B6: -6,
+    B5: -7,
+    B4: -8,
+    B7: -9,
+} as const;
+
+/** `base` shifted by `offset` days (negative moves the punch into the past). */
+export function punchDay(offset: number, base = new Date()): Date {
+    const d = new Date(base);
+    d.setDate(d.getDate() + offset);
+    return d;
+}
