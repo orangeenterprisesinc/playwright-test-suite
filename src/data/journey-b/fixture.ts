@@ -51,3 +51,16 @@ export function punchDay(offset: number, base = new Date()): Date {
     d.setDate(d.getDate() + offset);
     return d;
 }
+
+/**
+ * B4 phase 2's pack-house-line assignment (`POST /scan/assign-barcode-roll`).
+ * Unlike the device-side roll codes in B4-001 (run-unique — the import has no
+ * delete endpoint for `EmployeeCodeHistory`), this one is deliberately FIXED:
+ * the write is an upsert, so a fixed payload holds exactly one permanent
+ * code-history row on employee `6006` across every run — see the B4 plan's
+ * Cleanup section.
+ */
+export const B4_PACK_HOUSE_ROLL = {
+    alternateCode: 'B7999900006',
+    firstCode: 'B7999900006',
+} as const;

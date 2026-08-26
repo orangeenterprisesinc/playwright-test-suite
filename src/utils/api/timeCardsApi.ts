@@ -39,6 +39,12 @@ export interface OfficeTimeCard {
      * observable — the office UI has no field for it.
      */
     gpsReading?: string | null;
+    /**
+     * The device's `<TraceabilityCode>` — a sticker roll's first code (B4),
+     * stored verbatim by the importer alongside `gpsReading`. Nullable: absent
+     * on any card that never carried one.
+     */
+    traceabilityCode?: string | null;
     transferred?: boolean;
     version?: string;
     [key: string]: unknown;
