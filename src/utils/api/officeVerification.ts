@@ -75,6 +75,12 @@ export interface ExpectedCard {
      * (the OFFICE_TRANSPORT_SUBSTITUTE fallback) carries no GPS.
      */
     gps?: string;
+    /**
+     * The card's `TraceabilityCode` — a sticker roll's first code (B4).
+     * Unlike GPS this is carried by both transports, so the assertion below
+     * needs no `transport` guard.
+     */
+    traceabilityCode?: string;
 }
 
 export interface OfficeVerificationInput {
@@ -344,6 +350,14 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
                 String(card!.gpsReading ?? ''),
                 `the device's GpsReading must survive the import for ${want.employeeCode}`,
             ).toBe(want.gps);
+        }
+        // The roll's first sticker code (B4), proven to survive the import
+        // verbatim — carried by both transports, unlike GPS, so no transport guard.
+        if (want.traceabilityCode) {
+            expect(
+                String(card!.traceabilityCode ?? ''),
+                `the device's TraceabilityCode must survive the import verbatim for ${want.employeeCode}`,
+            ).toBe(want.traceabilityCode);
         }
         // `programCreated` distinguishes the two routes — the import mapper
         // stamps it true, an office-API write leaves it false. Asserting it per

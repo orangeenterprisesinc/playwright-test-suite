@@ -120,9 +120,15 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B4-R1",
+                "B4-R2",
+                "B4-R3",
+                "B4-R9"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B5-001",
