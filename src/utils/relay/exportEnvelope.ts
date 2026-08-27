@@ -220,6 +220,11 @@ export const DEVICE_SCHEMA = {
         signature: 'Signature',
         memo: 'Memo',
         employeeSource: 'EmployeeSource',
+        // Grid-row elements (`TimeCardQuestion`): the parent card is addressed by
+        // its Reference and the Question by its Name — see RowShape 'grid'.
+        timeCard: 'TimeCard',
+        question: 'Question',
+        response: 'Response',
         numOfPieces: 'NumOfPieces',
         breakTime: 'BreakTime',
         variety: 'Variety',
@@ -264,6 +269,22 @@ export interface DeviceRecord extends Partial<EnvelopeCard> {
     traceabilityCode?: string;
     reference?: string;
     extra?: Record<string, string>;
+    /**
+     * Base64 signature image for the row's `<Signature>` slot — the signed
+     * acknowledgment a clock-out captures on the device (B12). Absent means the
+     * empty element every other row has always emitted.
+     */
+    signature?: string;
+    /**
+     * Grid rows only (`TimeCardQuestion`): the **parent card's `<Reference>`**.
+     * The importer resolves the grid row's parent by Reference, not by nesting
+     * (`importmap/specs_inbound_grid.go:63`).
+     */
+    parentReference?: string;
+    /** Grid rows only: the Question's **`Name`** — the importer's FK match column (`:64`). */
+    question?: string;
+    /** Grid rows only: the answer, stored verbatim (`:60`). */
+    response?: string;
 }
 
 export interface BuildEnvelopeInput {
@@ -281,7 +302,7 @@ export interface BuildEnvelopeInput {
  */
 const RECORD_LOOKUP_CONTENTS = 'Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code';
 
-type RowShape = 'punchIn' | 'punchOut' | 'pieceOut' | 'breakShape' | 'aux';
+type RowShape = 'punchIn' | 'punchOut' | 'pieceOut' | 'breakShape' | 'aux' | 'grid';
 
 /** Which date/time-tag family a node's row uses — data, not per-node logic. */
 const NODE_SHAPE: Record<RecordNode, RowShape> = {
@@ -298,9 +319,25 @@ const NODE_SHAPE: Record<RecordNode, RowShape> = {
     PieceOutWithTimeIn: 'pieceOut',
     BreakCard: 'breakShape',
     UnpaidBreakCard: 'breakShape',
-    TimeCardQuestion: 'aux',
+    TimeCardQuestion: 'grid',
     TimeCardEquipment: 'aux',
 };
+
+/**
+ * Nodes that are child GRID rows rather than cards. They resolve to a parent by
+ * Reference, carry no reference of their own, and must not consume a sequence
+ * number — a real device numbers only the cards.
+ */
+const GRID_NODES: ReadonlySet<RecordNode> = new Set<RecordNode>(['TimeCardQuestion']);
+
+/**
+ * Sections the device emits with **no** `LookupContents` attribute at all
+ * (`AndroidPET sync/TimeCardExport.java:156-158,171-173` — "No lookup attribute
+ * needed"). The generic attribute every other section carries declares `:Code`
+ * match columns for entities a grid section never references, while its own FKs
+ * match on Reference and Name.
+ */
+const NO_LOOKUP_CONTENTS: ReadonlySet<RecordNode> = new Set<RecordNode>(['TimeCardQuestion']);
 
 function xmlTag(name: string, value: string): string {
     return `<${name}>${esc(value)}</${name}>`;
@@ -320,6 +357,24 @@ function buildRow(record: DeviceRecord, reference: string, at: Date): string {
     const dateStr = deviceDate(at);
     const timeStr = deviceTime(at);
     const isoStr = deviceIso(at);
+
+    const node = DEVICE_SCHEMA.nodes[record.node];
+
+    // A grid row binds only what the spec declares as columns: the parent by
+    // Reference, the Question by Name, the Response, and UpdateTime. `Line` is
+    // assigned by the import (AutoLineColumn) and must not be sent, and
+    // Reference / DateTime / TraceabilityCode are not columns of the grid table
+    // at all — see the B12 plan's resolved N1.
+    if (shape === 'grid') {
+        return (
+            `<${node}>` +
+            xmlTag(T.timeCard, record.parentReference ?? '') +
+            xmlTag(T.question, record.question ?? '') +
+            xmlTag(T.response, record.response ?? '') +
+            xmlTag(T.updateTime, isoStr) +
+            `</${node}>`
+        );
+    }
 
     const parts: string[] = [xmlTag(T.reference, reference)];
 
@@ -362,7 +417,9 @@ function buildRow(record: DeviceRecord, reference: string, at: Date): string {
 
     if (shape !== 'aux') {
         parts.push(xmlTag(T.pictureVerification, ''));
-        parts.push(xmlTag(T.signature, ''));
+        // Empty unless the row carries a signature — byte-identical to every
+        // envelope built before `signature` existed.
+        parts.push(xmlTag(T.signature, record.signature ?? ''));
         parts.push(xmlTag(T.memo, ''));
     }
     if (record.employeeSource) parts.push(xmlTag(T.employeeSource, record.employeeSource));
@@ -373,7 +430,6 @@ function buildRow(record: DeviceRecord, reference: string, at: Date): string {
         }
     }
 
-    const node = DEVICE_SCHEMA.nodes[record.node];
     return `<${node}>${parts.join('')}</${node}>`;
 }
 
@@ -395,23 +451,31 @@ export function buildEnvelope({
     const references: string[] = [];
     const groups = new Map<RecordNode, string[]>();
 
-    records.forEach((record, i) => {
+    // Only cards are numbered and only cards get a reference: a grid row is a
+    // child of the card its `parentReference` names, so it neither carries one
+    // nor advances the device's counter (which is why `cardSeq` is tracked
+    // separately from the loop index).
+    let cardSeq = 0;
+    for (const record of records) {
         const at = record.at ?? envelopeAt;
-        const reference = record.reference ?? buildReference(i + 1, at, prefix, record.part);
-        references.push(reference);
+        let reference = '';
+        if (!GRID_NODES.has(record.node)) {
+            cardSeq += 1;
+            reference = record.reference ?? buildReference(cardSeq, at, prefix, record.part);
+            references.push(reference);
+        }
         const rowsForNode = groups.get(record.node) ?? [];
         rowsForNode.push(buildRow(record, reference, at));
         groups.set(record.node, rowsForNode);
-    });
+    }
 
     const sections = [...groups.entries()]
         .map(([node, rows]) => {
             const recordsTag = `${DEVICE_SCHEMA.nodes[node]}${DEVICE_SCHEMA.recordsSuffix}`;
-            return (
-                `<${recordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${RECORD_LOOKUP_CONTENTS}">` +
-                rows.join('') +
-                `</${recordsTag}>`
-            );
+            const lookup = NO_LOOKUP_CONTENTS.has(node)
+                ? ''
+                : ` ${DEVICE_SCHEMA.attributes.lookupContents}="${RECORD_LOOKUP_CONTENTS}"`;
+            return `<${recordsTag}${lookup}>` + rows.join('') + `</${recordsTag}>`;
         })
         .join('');
 

@@ -19,6 +19,13 @@ const logger = new Logger('UsersApi');
 export interface UserListItem {
     usersCounter: number;
     name: string;
+    /**
+     * Present on the list response — no detail call needed. Often empty (the `su`
+     * account has none), which matters because the clock-out notification skips a
+     * recipient with a blank address (`input/clockout_flag_notify.go:138-141`).
+     */
+    emailAddress?: string;
+    active?: boolean;
 }
 
 /** Status + a truncated body, so a failure is one readable log line. */
@@ -35,6 +42,21 @@ export async function listUsers(context: APIRequestContext): Promise<UserListIte
 }
 
 /** Names of every active user whose name starts with `prefix`. */
+/**
+ * An active user with a non-empty email address — a usable notification
+ * recipient. Discovered rather than hard-coded: which users exist is environment
+ * data, and `su` itself has no address.
+ */
+export async function findNotifiableUser(context: APIRequestContext): Promise<UserListItem> {
+    const match = (await listUsers(context)).find(
+        (u) => u.active !== false && (u.emailAddress ?? '').trim() !== '',
+    );
+    if (!match) {
+        throw new Error('No active user has an email address — cannot configure a notification user.');
+    }
+    return match;
+}
+
 export async function userNamesWithPrefix(
     context: APIRequestContext,
     prefix: string,
