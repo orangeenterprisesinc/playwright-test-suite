@@ -18,6 +18,11 @@ on:
         required: false
         default: 'master'
         type: string
+  # Editing this file also rebuilds — covers the gap where a workflow that only
+  # exists on a feature branch is not yet dispatchable by filename.
+  push:
+    branches: ['claude/manual-testing-tickets-vpe779']
+    paths: ['.github/workflows/build-petpocket-apk.yml']
 
 jobs:
   build:
@@ -31,7 +36,8 @@ jobs:
         with:
           repository: orangeenterprisesinc/AndroidPET
           token: ${{ secrets.ANDROIDPET_TOKEN }}
-          ref: ${{ inputs.androidpet_ref }}
+          # inputs is null on push events — fall back to master there.
+          ref: ${{ inputs.androidpet_ref || 'master' }}
           path: android-pet
 
       - name: Set up JDK 17
