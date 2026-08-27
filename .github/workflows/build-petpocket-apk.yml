@@ -1,0 +1,65 @@
+name: Build PET Pocket debug APK
+
+# Builds the PET Pocket (AndroidPET) fullPlayStoreWindowsPetDebug variant and
+# uploads it as an artifact, so QA can sideload it on physical Android devices
+# for manual beta testing against dev staging (Journey B, WEBPET-1519).
+#
+# The debug build type needs no signing keystore. AndroidPET is a separate
+# private repo, so the checkout uses the same ANDROIDPET_TOKEN PAT that
+# journey-b-device.yml (backup/appium-emulator) already relies on.
+#
+# Dispatch-only — this workflow is a build vend, never a gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      androidpet_ref:
+        description: 'AndroidPET branch/tag/SHA to build (master = released line)'
+        required: false
+        default: 'master'
+        type: string
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out AndroidPET
+        uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/AndroidPET
+          token: ${{ secrets.ANDROIDPET_TOKEN }}
+          ref: ${{ inputs.androidpet_ref }}
+          path: android-pet
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the debug APK
+        working-directory: android-pet/AndroidPET
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleFullPlayStoreWindowsPetDebug --no-daemon
+
+      - name: Stage the APK
+        run: |
+          mkdir -p publish
+          find android-pet/AndroidPET/app/build/outputs/apk \
+            -path '*fullPlayStoreWindowsPet*' -path '*debug*' -name '*.apk' \
+            -exec cp {} publish/ \;
+          ls -l publish/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: petpocket-debug-apk
+          path: publish/
+          retention-days: 30
+          if-no-files-found: error
