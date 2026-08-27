@@ -290,11 +290,14 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
     // gives the next run a second one for the same employee on the same day, which
     // the office flags as a duplicate Time In and renders **Blocking** instead of
     // Warning, failing every later run until someone clears it by hand.
+    //
+    // All card types: a stray Time-Out for a fixture employee pairs with our
+    // Time-In and silently removes the incomplete-time-in warning the grid
+    // assertions depend on.
     if (sweep) {
         const swept = await sweepFixtureCards(sessionApi, {
             employeeIds: [...expected.map((c) => c.employeeId), ...absentEmployeeIds],
             day: punchDay,
-            cardTypes: [cardType],
         });
         if (swept.removed || swept.failed) {
             testInfo.annotations.push({
