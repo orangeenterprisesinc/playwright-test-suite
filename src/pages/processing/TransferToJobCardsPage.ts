@@ -333,4 +333,14 @@ export class TransferToJobCardsPage extends BasePage {
         const match = /affected\D*(\d+)|(\d+)\D*affected/i.exec(text);
         return Number(match?.[1] ?? match?.[2] ?? 0);
     }
+
+    /**
+     * Every issue group's text. {@link issueGroupByText} can only find a group
+     * whose name you already know, so proving a whole class of issue is ABSENT
+     * (B10: no meal/lunch/break group) needs the full list instead.
+     */
+    async issueGroupTexts(): Promise<string[]> {
+        await this.expandIssuesPanel();
+        return this.issuesRegion.getByRole('listitem').allTextContents();
+    }
 }
