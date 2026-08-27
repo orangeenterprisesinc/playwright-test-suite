@@ -279,8 +279,16 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B11-R4",
+                "B11-R5",
+                "B11-R6",
+                "B11-R7",
+                "B11-R8",
+                "B11-R9"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B12-001",
