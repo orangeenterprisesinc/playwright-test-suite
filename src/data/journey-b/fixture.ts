@@ -20,10 +20,12 @@ export const JOURNEY_B_FIXTURE = {
         { code: '6003', name: 'B1 PRESENT THREE' },
     ],
     absentee: { code: '6004', name: 'B1 ABSENTEE FOUR' },
-    // B5 (sticker piece-out)
+    // Sticker employees, one per workflow so they never share an employee-day
+    // under workers=2: 6005 → B6, 6006 → B5, 6007 → B7.
     sticker: [
         { code: '6005', name: 'B5 STICKER FIVE' },
         { code: '6006', name: 'B5 STICKER SIX' },
+        { code: '6007', name: 'B7 STICKER SEVEN' },
     ],
 } as const;
 

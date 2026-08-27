@@ -45,6 +45,16 @@ export interface OfficeTimeCard {
      * on any card that never carried one.
      */
     traceabilityCode?: string | null;
+    /** `<NumOfPieces>` on a piece-out row. */
+    numOfPieces?: number | string | null;
+    /**
+     * The importer writes its FK-ladder decisions here — B7 reads the
+     * "Assigning to Undefined Employee - Missing Code: …" line the sticker rule
+     * appends when a prefix resolves to no assignment.
+     */
+    memo?: string | null;
+    /** Rendered `EmployeeSource`, e.g. "Barcode Badge", "Crew", "Sticker Code". */
+    employeeSourceText?: string | null;
     transferred?: boolean;
     version?: string;
     [key: string]: unknown;

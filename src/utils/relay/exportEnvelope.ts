@@ -238,6 +238,8 @@ export const DEVICE_SCHEMA = {
     employeeSource: {
         crew: 'Crew',
         barcodeBadge: 'BarcodeBadge',
+        /** A sticker scan — AndroidPET's `EmployeeScanSourceOptions.AlternateCode`, which the office renders "Sticker Code". */
+        alternateCode: 'AlternateCode',
     },
     /** The capture screen a reference identifies, per `importmap/timecard.go`. */
     referenceParts: {
@@ -249,6 +251,33 @@ export const DEVICE_SCHEMA = {
         signature: 'SC',
         nonLabor: 'NL',
         break: 'BR',
+        codeHistory: 'CH',
+    },
+    /**
+     * The nested roll-assignment grid a Time In carrying a First Roll Code
+     * exports alongside its flat TimeCard row (AndroidPET
+     * `TimeInActivity.createCodeHistoryRecordAndUpdateEmployee` →
+     * `TimeCardExport.serializeCodeHistoryRecords`). Not a `nodes` entry: it is
+     * a parent/child section, not a flat `<X_Records>` row, and adding it there
+     * would break `NODE_SHAPE`'s exhaustive map.
+     */
+    grid: {
+        employee: 'Employee',
+        code: 'Code',
+        employeeCodeHistory: 'EmployeeCodeHistory',
+        lookupEmployeeByCode: 'Employee:Code',
+        lookupAddOnlyGrid: 'AddOnlyGrid',
+        tags: {
+            author: 'Author',
+            dateIn: 'DateIn',
+            timeIn: 'TimeIn',
+            startDateTime: 'StartDateTime',
+            scannedCode: 'ScannedCode',
+            alternateCode: 'AlternateCode',
+            firstCode: 'FirstCode',
+            reference: 'Reference',
+            updateTime: 'UpdateTime',
+        },
     },
 } as const;
 
@@ -266,12 +295,34 @@ export interface DeviceRecord extends Partial<EnvelopeCard> {
     extra?: Record<string, string>;
 }
 
+/**
+ * One roll-to-employee link, as the Time In screen exports it when `First Roll
+ * Code` is filled. `alternateCode` is the prefix the office joins on;
+ * `scannedCode` the whole sticker; `firstCode` the remainder. `at` becomes
+ * `StartDateTime`, which the importer's sticker rule windows to the piece-out's
+ * own day — so it must fall inside it.
+ */
+export interface CodeHistoryAssignment {
+    employeeCode: string;
+    scannedCode: string;
+    alternateCode: string;
+    firstCode: string;
+    at: Date;
+}
+
 export interface BuildEnvelopeInput {
     deviceAddress: string;
     prefix: string;
     /** Envelope-level punch time — only feeds the Header; per-record `at` wins for rows. */
     at?: Date;
     records: DeviceRecord[];
+    /**
+     * Roll assignments, emitted as the nested `<Employee_Records>` grid after the
+     * flat sections. Their `CH` references are deliberately kept out of
+     * {@link BuiltEnvelope.references}, which is the importer's *card* identity
+     * list — a code-history row never becomes a time card.
+     */
+    codeHistory?: CodeHistoryAssignment[];
 }
 
 /**
@@ -390,6 +441,7 @@ export function buildEnvelope({
     prefix,
     at: envelopeAt = punchMoment(),
     records,
+    codeHistory,
 }: BuildEnvelopeInput): BuiltEnvelope {
     const iso = deviceIso(envelopeAt);
     const references: string[] = [];
@@ -422,7 +474,60 @@ export function buildEnvelope({
         `<DeviceWebMail>${esc(deviceAddress)}</DeviceWebMail>` +
         '</Header>' +
         sections +
+        buildCodeHistorySection(codeHistory, records.length, prefix) +
         '</OrangeExportFile>';
 
     return { xml, references };
+}
+
+/**
+ * `<Employee_Records>` → `<Employee><Code>` → `<EmployeeCodeHistory_Records
+ * LookupContents="AddOnlyGrid">`, the shape `TimeCardExport.serializeCodeHistoryRecords`
+ * emits. Returns `''` when there is nothing to send, so every existing caller's
+ * envelope stays byte-identical.
+ */
+function buildCodeHistorySection(
+    assignments: CodeHistoryAssignment[] | undefined,
+    recordCount: number,
+    prefix: string,
+): string {
+    if (!assignments?.length) return '';
+
+    const G = DEVICE_SCHEMA.grid;
+    const A = DEVICE_SCHEMA.attributes.lookupContents;
+    const employeeRecordsTag = `${G.employee}${DEVICE_SCHEMA.recordsSuffix}`;
+    const historyRecordsTag = `${G.employeeCodeHistory}${DEVICE_SCHEMA.recordsSuffix}`;
+
+    const blocks = assignments.map((entry, i) => {
+        const reference = buildReference(
+            recordCount + i + 1,
+            entry.at,
+            prefix,
+            DEVICE_SCHEMA.referenceParts.codeHistory,
+        );
+        const row =
+            xmlTag(G.tags.author, '') +
+            xmlTag(G.tags.dateIn, deviceDate(entry.at)) +
+            xmlTag(G.tags.timeIn, deviceTime(entry.at)) +
+            xmlTag(G.tags.startDateTime, deviceIso(entry.at)) +
+            xmlTag(G.tags.scannedCode, entry.scannedCode) +
+            xmlTag(G.tags.alternateCode, entry.alternateCode) +
+            xmlTag(G.tags.firstCode, entry.firstCode) +
+            xmlTag(G.tags.reference, reference) +
+            xmlTag(G.tags.updateTime, deviceIso(entry.at));
+        return (
+            `<${G.employee}>` +
+            xmlTag(G.code, entry.employeeCode) +
+            `<${historyRecordsTag} ${A}="${G.lookupAddOnlyGrid}">` +
+            `<${G.employeeCodeHistory}>${row}</${G.employeeCodeHistory}>` +
+            `</${historyRecordsTag}>` +
+            `</${G.employee}>`
+        );
+    });
+
+    return (
+        `<${employeeRecordsTag} ${A}="${G.lookupEmployeeByCode}">` +
+        blocks.join('') +
+        `</${employeeRecordsTag}>`
+    );
 }
