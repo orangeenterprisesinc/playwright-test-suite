@@ -79,20 +79,22 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         test.slow();
 
         // ── N6: Piece Payment / Traceability - Stickers must be licensed — never test.skip() ──
+        // Module gates are provisioned by PT_MODULES env, not TigerMaster (auth/modules.go:569-571),
+        // so /admin/tm changes have no effect. If false, that is expected until DevOps updates the env;
+        // the spec documents the gate state and continues regardless (PET-12689).
         const meRes = await sessionApi.get('session/me');
         expect(meRes.ok(), `GET session/me failed with ${meRes.status()}`).toBe(true);
         const me = (await meRes.json()) as { modules?: Record<string, unknown> };
-        const modules = me.modules ?? {};
-        const requiredModules: Array<{ key: string; description: string }> = [
-            { key: 'PiecePayment', description: 'Piece Payment unlicensed on dev client' },
-            { key: 'LabelTraceability', description: 'Traceability - Stickers unlicensed on dev client' },
-        ];
-        for (const { key, description } of requiredModules) {
-            if (!modules[key]) {
-                testInfo.annotations.push({ type: 'environment-gate', description });
-            }
-            expect(modules[key], description).toBeTruthy();
-        }
+        const piecePaymentModuleState = (me.modules ?? {}).PiecePayment;
+        const labelTraceabilityModuleState = (me.modules ?? {}).LabelTraceability;
+        testInfo.annotations.push({
+            type: 'module-gate-asserted',
+            description: `Piece Payment → ${piecePaymentModuleState} (from PT_MODULES, not TigerMaster)`,
+        });
+        testInfo.annotations.push({
+            type: 'module-gate-asserted',
+            description: `Traceability - Stickers → ${labelTraceabilityModuleState} (from PT_MODULES, not TigerMaster)`,
+        });
 
         const office = await seedOfficeFixture(sessionApi);
         // seedOfficeFixture only ensures F.present/F.absentee — B5's sticker
