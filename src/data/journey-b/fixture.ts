@@ -13,6 +13,10 @@ export const JOURNEY_B_FIXTURE = {
     // B2 destinations
     field2: { code: '4102', name: 'B2 FIELD EAST' },
     job2: { code: '4202', name: 'B2 PRUNING', paymentType: 'Time' },
+    // B10's meal job — a meal punch is an ordinary Time In whose Job is this
+    // one, which is the only thing distinguishing it from a work punch
+    // (Amy's device shows it as "0 - LUNCH").
+    mealJob: { code: '4203', name: 'B10 LUNCH', paymentType: 'Time' },
     crew: { code: '5001', name: 'B1 CREW' },
     present: [
         { code: '6001', name: 'B1 PRESENT ONE' },
