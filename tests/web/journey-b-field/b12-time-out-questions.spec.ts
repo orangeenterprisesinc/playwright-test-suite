@@ -401,7 +401,12 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         // so the crew points at a user whose address this test owns and knows.
         // Run-unique, and under the prefix global teardown sweeps if this dies
         // before its own cleanup.
-        const recipient = makeUser();
+        // B12_NOTIFY_EMAIL points the recipient at a real mailbox for a manual
+        // check that a message actually leaves the server — the one leg the API
+        // cannot observe. Unset (the default, and what CI runs) it stays a
+        // generated @example.com address, so a scheduled run never mails anyone.
+        const notifyEmail = process.env.B12_NOTIFY_EMAIL?.trim();
+        const recipient = makeUser(notifyEmail ? { email: notifyEmail } : {});
         const notifyUserId = await createUser(sessionApi, {
             name: recipient.name,
             password: recipient.password,
