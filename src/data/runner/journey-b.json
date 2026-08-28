@@ -150,9 +150,18 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B5-R1",
+                "B5-R2",
+                "B5-R3",
+                "B5-R4",
+                "B5-R5",
+                "B5-R6",
+                "B5-R7"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B6-001",
@@ -172,8 +181,17 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B6-R1",
+                "B6-R2",
+                "B6-R3",
+                "B6-R4",
+                "B6-R5",
+                "B6-R6",
+                "B6-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B7-001",
@@ -288,8 +306,16 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B11-R4",
+                "B11-R5",
+                "B11-R6",
+                "B11-R7",
+                "B11-R8",
+                "B11-R9"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B12-001",

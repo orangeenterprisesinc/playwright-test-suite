@@ -232,6 +232,17 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     /**
+     * The whole row, for asserting cells other than Reference and Status —
+     * Type ("Piece Out"), Employee Selection ("Barcode Badge"), Crew.
+     *
+     * Needed because {@link rowFor} is the *Reference cell*, not the row, so
+     * matching any other column's text against it always fails.
+     */
+    rowCells(timeCardCounter: number): Locator {
+        return this.page.getByRole('row').filter({ has: this.rowFor(timeCardCounter) });
+    }
+
+    /**
      * The row's status badge — one of Ready / Blocking / Warning / Deferred.
      * The badge (`role="status"`, holding only the keyword — the cell around it
      * also says "Manually edited") lives in a different cell than the

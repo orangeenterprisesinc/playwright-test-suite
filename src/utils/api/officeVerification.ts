@@ -50,8 +50,15 @@ import { createCrewTimeIn, punchTime } from './crewTimeInApi';
 export interface ExpectedCard {
     employeeCode: string;
     employeeId: number;
-    fieldId: number;
-    jobId: number;
+    /**
+     * Omit both for a punch the office links to no work context. A time-out row
+     * ships `Employee` and `Crew` only (`LookupContents="Employee:Code|Crew:Code"`),
+     * so the office stores null Field, Job *and* Ranch for it. Omitting them
+     * skips those three asserts — it does not prove the nulls, so a spec whose
+     * requirement is the nulls must assert them itself on the returned cards.
+     */
+    fieldId?: number;
+    jobId?: number;
     /**
      * The card's own `<Reference>`. Match by this when set instead of by
      * employee — needed when one employee has more than one expected card in
@@ -103,8 +110,12 @@ export interface OfficeVerificationInput {
      * therefore punches yesterday.
      */
     punchDate?: Date;
-    /** cardType to query/sweep for. Defaults to `CARD_TYPE.timeIn`. */
-    cardType?: number;
+    /**
+     * cardType to query for. Defaults to `CARD_TYPE.timeIn`; pass `null` to
+     * query every type, which one envelope mixing Time-Ins and Time-Outs (B11's
+     * crew-out) needs — a single cardType would find only half its references.
+     */
+    cardType?: number | null;
 }
 
 /** {@link deliverAndVerifyCards}'s input — the office UI is optional there. */
@@ -129,6 +140,9 @@ function groupByContext(
 ): Array<{ fieldId: number; jobId: number; employeeIds: number[] }> {
     const groups = new Map<string, { fieldId: number; jobId: number; employeeIds: number[] }>();
     for (const card of expected) {
+        // Unlinked punches (a time-out carries no field/job) have no context to
+        // group by, and POST /time-cards/crew-time-in cannot create one anyway.
+        if (card.fieldId === undefined || card.jobId === undefined) continue;
         const key = `${card.fieldId}:${card.jobId}`;
         const group = groups.get(key) ?? {
             fieldId: card.fieldId,
@@ -280,7 +294,7 @@ async function importViaInternetUi(
  */
 export async function deliverAndVerifyCards(input: DeliverInput): Promise<OfficeVerificationResult> {
     const { sessionApi, testInfo, expected, absentEmployeeIds = [], crewId, ranchId, label, sweep = true } = input;
-    const cardType = input.cardType ?? CARD_TYPE.timeIn;
+    const cardType = input.cardType === undefined ? CARD_TYPE.timeIn : input.cardType;
     const punchDate = input.punchDate ?? new Date();
     const punchDay = isoDay(punchDate);
 
@@ -323,7 +337,8 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
     const cards = await findByReferences(sessionApi, references, {
         from: punchDay,
         to: punchDay,
-        cardType,
+        // `null` means every type — listTimeCards omits the filter on undefined.
+        cardType: cardType ?? undefined,
         timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
     });
 
@@ -339,10 +354,19 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
         const card = want.reference ? byReference.get(want.reference) : byEmployee.get(want.employeeId);
         expect(card, `no imported card linked to employee ${want.employeeCode}`).toBeDefined();
         expect(card!.employeeCounter).toBe(want.employeeId);
-        expect(card!.fieldCounter).toBe(want.fieldId);
-        expect(card!.jobCounter).toBe(want.jobId);
         expect(card!.crewCounter).toBe(crewId);
-        expect(card!.ranchCounter).toBe(ranchId);
+        // A card that declares no field/job is an unlinked punch (a time-out):
+        // the device sends no work context for it, so Ranch is null too and the
+        // call-level ranchId does not apply.
+        if (want.fieldId !== undefined) {
+            expect(card!.fieldCounter).toBe(want.fieldId);
+        }
+        if (want.jobId !== undefined) {
+            expect(card!.jobCounter).toBe(want.jobId);
+        }
+        if (want.fieldId !== undefined || want.jobId !== undefined) {
+            expect(card!.ranchCounter).toBe(ranchId);
+        }
         // The device's GPS fix, proven to survive the import. Asserted on the
         // card rather than in the Time In panel: the deployed office build
         // renders no GPS Reading field at all (verified against a card that
