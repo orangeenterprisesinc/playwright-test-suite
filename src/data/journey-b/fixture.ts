@@ -43,6 +43,13 @@ export const DAY_OFFSET = {
     B5: -7,
     B4: -8,
     B7: -9,
+    /**
+     * B12's office-API test (`B12-002`). A day of its own, not B12's: `B12-001`
+     * sweeps every fixture employee's cards for its day before importing, which
+     * would delete this test's clock-out mid-run when the two share a worker
+     * pair at `workers=2`.
+     */
+    B12_OFFICE: -10,
 } as const;
 
 /** `base` shifted by `offset` days (negative moves the punch into the past). */

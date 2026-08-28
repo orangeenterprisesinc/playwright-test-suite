@@ -156,6 +156,102 @@ export async function getTimeOutDetail(
     return (await res.json()) as OfficeTimeOutDetail;
 }
 
+/**
+ * Create a clock-out through the office, the way the Time Out screen does.
+ *
+ * This is the ONLY route that arms the clock-out answer rules: `CreateTimeOut`
+ * calls `DetectAndFlagClockOutAnswers` and then `sendClockOutFlagNotifications`
+ * when `questions` is non-empty and the session licenses Notification
+ * (`input/time_out.go:535-551`). The connectivity import reaches neither, which
+ * is why a spec that needs a flag has to come through here.
+ */
+export async function createTimeOut(
+    request: APIRequestContext,
+    payload: {
+        /** `yyyy-MM-ddTHH:mm:ss`, the format the detail endpoint returns. */
+        dateTime: string;
+        employeeCounter: number;
+        crewCounter?: number;
+        gpsReading?: string;
+        questions?: Array<{ questionCounter: number; response: string }>;
+    },
+): Promise<number> {
+    const res = await request.post('time-cards/time-out', {
+        data: payload,
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(
+            `POST time-cards/time-out failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
+        );
+    }
+    const { timeCardCounter } = (await res.json()) as { timeCardCounter: number };
+    return timeCardCounter;
+}
+
+/** One `TimeCardQuestionFlag` row, as `GET time-cards/{id}/flag-acknowledgment` returns it. */
+export interface TimeCardQuestionFlag {
+    flagId: number;
+    questionCounter: number;
+    questionName: string;
+    /** The answer that was given. */
+    response: string;
+    /** The comma-separated list it was compared against. */
+    requiredResponse: string;
+    flaggedAtUtc: string;
+    acknowledgedAtUtc?: string | null;
+    acknowledgedByEmployeeCounter?: number | null;
+    acknowledgedByEmployeeName?: string | null;
+    /** Base64 — present once acknowledged. */
+    signatureImage?: string | null;
+}
+
+/**
+ * The question flags on a clock-out card, empty when nothing was flagged.
+ *
+ * `NotifiedAtUtc` is deliberately NOT on this response (nor any other): whether
+ * the notification email actually went out is not observable through the API.
+ */
+export async function getFlagAcknowledgment(
+    request: APIRequestContext,
+    id: number,
+): Promise<{ timeCardCounter: number; flags: TimeCardQuestionFlag[] }> {
+    const res = await request.get(`time-cards/${id}/flag-acknowledgment`);
+    if (!res.ok()) {
+        throw new Error(
+            `GET time-cards/${id}/flag-acknowledgment failed with ${res.status()}: ` +
+                `${(await res.text()).slice(0, 300)}`,
+        );
+    }
+    return (await res.json()) as { timeCardCounter: number; flags: TimeCardQuestionFlag[] };
+}
+
+/**
+ * Sign off every unacknowledged flag on a card in one write.
+ *
+ * The acknowledging employee is not a parameter — the API uses the time card's
+ * own `EmployeeCounter` (the worker signs for their own answer). 404 when the
+ * card carries no flags at all, 409 when they are already acknowledged.
+ */
+export async function createFlagAcknowledgment(
+    request: APIRequestContext,
+    id: number,
+    signatureImage: string,
+): Promise<number> {
+    const res = await request.post(`time-cards/${id}/flag-acknowledgment`, {
+        data: { signatureImage },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(
+            `POST time-cards/${id}/flag-acknowledgment failed with ${res.status()}: ` +
+                `${(await res.text()).slice(0, 400)}`,
+        );
+    }
+    const { acknowledgedCount } = (await res.json()) as { acknowledgedCount: number };
+    return acknowledgedCount;
+}
+
 /** The `<Reference>` values an export envelope carries, in document order. */
 export function referencesInExport(xml: string): string[] {
     return [...xml.matchAll(/<Reference>([^<]+)<\/Reference>/g)].map((m) => m[1]);

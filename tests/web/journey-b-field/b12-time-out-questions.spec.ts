@@ -7,7 +7,7 @@
  * | Plan | `test-plans/journey-b/b12-time-out-questions.md` |
  * | Recording | `docs/media/journey-b/b12-time-out-questions.mp4` |
  * | Jira | `PET-12650` (automation) / `WEBPET-1531` (manual test, read-only source) |
- * | Runner rows | `src/data/runner/journey-b.csv` → `B12-001` |
+ * | Runner rows | `src/data/runner/journey-b.csv` → `B12-001`, `B12-002` |
  *
  * Transport, not simulation, happy path only. Three workers clock out with a
  * clock-out question sheet and a signature: Raquel answers all three questions
@@ -20,12 +20,18 @@
  * Proven: the answers import against the right card, joined by the parent's
  * `<Reference>`, with the unexpected values stored verbatim (R3–R6), and the
  * crew's notification user resolves to a real Users record with an email (R8).
- * NOT proven — each named as a gate, never silently skipped: the clock-out
- * answer flag detector never runs on the import path and the notification email
- * has no observable channel (both halves of R10), and the importer leaves the
- * Signature column unbound by design (R9) — so the signature is asserted on the
- * envelope only. No standalone `SignatureCard` row either: Amy's signature rides
- * on the Time Out card itself, which is why R7 is out of scope (see the plan).
+ * NOT proven by that first test, each named as a gate rather than skipped: the
+ * clock-out answer flag detector never runs on the import path (R10), and the
+ * importer leaves the Signature column unbound by design (R9) — so the signature
+ * is asserted on the envelope only. No standalone `SignatureCard` row either:
+ * Amy's signature rides on the Time Out card itself, which is why R7 is out of
+ * scope (see the plan).
+ *
+ * The second test picks up what the import cannot reach. `POST /time-cards/time-out`
+ * with a `questions` array IS where the rules run, so it drives that path to prove
+ * the flag, the unflagged control, and the signed acknowledgment (R11–R13). Only
+ * the email *send* is left — no outbox, no notification-log endpoint, and
+ * `NotifiedAtUtc` on no response — which its annotation names.
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { JOURNEY_B_FIXTURE as F, DAY_OFFSET, punchDay, B12_QUESTIONS, B12_SIGNATURE_PNG } from '@data/journey-b/fixture';
@@ -33,6 +39,7 @@ import {
     buildEnvelope,
     buildReference,
     DEVICE_SCHEMA,
+    deviceIso,
     exportFileName,
     newRunPrefix,
     punchMoment,
@@ -41,10 +48,19 @@ import {
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { deliverAndVerifyCards, cleanupCards } from '@utils/api/officeVerification';
-import { CARD_TYPE, getTimeOutDetail, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import {
+    CARD_TYPE,
+    createFlagAcknowledgment,
+    createTimeOut,
+    deleteTimeCard,
+    getFlagAcknowledgment,
+    getTimeOutDetail,
+    type OfficeTimeCard,
+} from '@utils/api/timeCardsApi';
 import { ensureQuestion, unexpectedAnswer, type QuestionRecord } from '@utils/api/questionsApi';
 import { getCrew, setCrewNotifyUser } from '@utils/api/crewsApi';
-import { findNotifiableUser } from '@utils/api/usersApi';
+import { createUser, deleteUserById, findNotifiableUser } from '@utils/api/usersApi';
+import { makeUser } from '@data/generated';
 
 test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', '@B12'] }, () => {
     test('[Time-Out Questions] Clock three crew members out with their clock-out question answers and a signature, and verify every answer — including the ones outside the expected response — imports against the right time-out card.', {
@@ -361,6 +377,127 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         } finally {
             await cleanupCards(sessionApi, cards, testInfo);
             await setCrewNotifyUser(sessionApi, office.crew.id, previousNotifyUser);
+        }
+    });
+
+    test('[Clock-Out Notification] Save a clock-out with an answer outside the expected response and verify the flag it raises, the conforming clock-out it leaves unflagged, and the signed acknowledgment.', {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'B12-002' },
+            { type: 'requirement', description: 'B12-R8|B12-R11|B12-R12|B12-R13' },
+        ],
+    }, async ({ sessionApi }, testInfo) => {
+        test.slow();
+
+        const office = await seedOfficeFixture(sessionApi);
+
+        const questions = new Map<string, QuestionRecord>();
+        for (const spec of B12_QUESTIONS) {
+            questions.set(spec.name, await ensureQuestion(sessionApi, spec));
+        }
+        const questionOf = (name: string) => questions.get(name)!;
+
+        // ── Precondition data: the recipient is created here rather than borrowed,
+        // so the crew points at a user whose address this test owns and knows.
+        // Run-unique, and under the prefix global teardown sweeps if this dies
+        // before its own cleanup.
+        const recipient = makeUser();
+        const notifyUserId = await createUser(sessionApi, {
+            name: recipient.name,
+            password: recipient.password,
+            userInitials: recipient.initials,
+            emailAddress: recipient.email,
+        });
+
+        let previousNotifyUser: number | null = null;
+        const createdCards: number[] = [];
+        try {
+            previousNotifyUser = await setCrewNotifyUser(sessionApi, office.crew.id, notifyUserId);
+
+            // ── B12-R8 — the recipient the notification resolves to ──
+            const crew = await getCrew(sessionApi, office.crew.id);
+            expect(crew.userToNotifyBreakAndMeal).toBe(notifyUserId);
+            const stored = await sessionApi.get(`users/${notifyUserId}`);
+            expect(stored.ok(), 'the notification user must be readable').toBe(true);
+            expect(((await stored.json()) as { emailAddress?: string }).emailAddress).toBe(recipient.email);
+
+            const punchDate = punchDay(DAY_OFFSET.B12_OFFICE);
+            const answersFor = (unexpected: string[]) =>
+                B12_QUESTIONS.map((q) => ({
+                    questionCounter: questionOf(q.name).questionCounter,
+                    response: unexpected.includes(q.name)
+                        ? unexpectedAnswer(questionOf(q.name))
+                        : questionOf(q.name).requiredResponse!,
+                }));
+
+            // The same contrast the recording draws — one worker outside the
+            // expected response, one entirely within it — on the office path,
+            // which is the only place the clock-out answer rules actually run.
+            const flaggedEmployeeId = office.employees.get(F.present[0].code)!.id;
+            const flaggedCardId = await createTimeOut(sessionApi, {
+                dateTime: deviceIso(punchMoment(15, 10, punchDate)),
+                employeeCounter: flaggedEmployeeId,
+                crewCounter: office.crew.id,
+                questions: answersFor(['B12 Lunch']),
+            });
+            createdCards.push(flaggedCardId);
+
+            const conformingCardId = await createTimeOut(sessionApi, {
+                dateTime: deviceIso(punchMoment(15, 11, punchDate)),
+                employeeCounter: office.employees.get(F.present[1].code)!.id,
+                crewCounter: office.crew.id,
+                questions: answersFor([]),
+            });
+            createdCards.push(conformingCardId);
+
+            // ── B12-R11 — one flag, carrying the given and the expected answer ──
+            const lunch = questionOf('B12 Lunch');
+            const raised = await getFlagAcknowledgment(sessionApi, flaggedCardId);
+            await testInfo.attach('flags.json', {
+                body: JSON.stringify(raised, null, 2),
+                contentType: 'application/json',
+            });
+            expect(raised.flags, 'exactly the mismatched question is flagged').toHaveLength(1);
+            expect(raised.flags[0].questionName).toBe(lunch.name);
+            expect(raised.flags[0].response).toBe(unexpectedAnswer(lunch));
+            expect(raised.flags[0].requiredResponse).toBe(lunch.requiredResponse);
+            expect(raised.flags[0].acknowledgedAtUtc ?? null).toBeNull();
+
+            // ── B12-R12 — the discriminator: matching answers raise nothing ──
+            expect(
+                (await getFlagAcknowledgment(sessionApi, conformingCardId)).flags,
+                'a clock-out whose answers all match must raise no flag',
+            ).toHaveLength(0);
+
+            // ── B12-R13 — the signed acknowledgment ──
+            expect(await createFlagAcknowledgment(sessionApi, flaggedCardId, B12_SIGNATURE_PNG)).toBe(1);
+            const acknowledged = (await getFlagAcknowledgment(sessionApi, flaggedCardId)).flags[0];
+            expect(acknowledged.acknowledgedAtUtc, 'acknowledged timestamp').toBeTruthy();
+            expect(acknowledged.acknowledgedByEmployeeCounter).toBe(flaggedEmployeeId);
+            expect(acknowledged.signatureImage).toBe(B12_SIGNATURE_PNG);
+
+            // The one leg still out of reach — named, never silently skipped.
+            testInfo.annotations.push({
+                type: 'notification-email-delivery-not-observable',
+                description:
+                    'The send itself is not asserted: sendClockOutFlagNotifications ran — the flag above is ' +
+                    'its input and the crew resolves to a user with an email — but the sender falls back to ' +
+                    'LogEmailSender, there is no outbox table or notification-log endpoint, and ' +
+                    'TimeCardQuestionFlag.NotifiedAtUtc is returned by no API. Everything up to and ' +
+                    'including the flag and the signed acknowledgment is asserted above.',
+            });
+        } finally {
+            for (const id of createdCards) {
+                const { deleted, status } = await deleteTimeCard(sessionApi, id);
+                if (!deleted) {
+                    await testInfo.attach(`cleanup-warning-${id}`, {
+                        body: `DELETE time-cards/${id} returned ${status}`,
+                        contentType: 'text/plain',
+                    });
+                }
+            }
+            await setCrewNotifyUser(sessionApi, office.crew.id, previousNotifyUser);
+            await deleteUserById(sessionApi, notifyUserId);
         }
     });
 });

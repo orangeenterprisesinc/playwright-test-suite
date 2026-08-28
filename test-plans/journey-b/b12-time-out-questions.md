@@ -373,9 +373,12 @@ is the manual evidence, per PET-12650's "never a silent skip".
 | `B12-R5` | When a clock-out export carries `TimeCardQuestion` rows, PET Tiger shall attach every answer to the Time Out card its `<TimeCard>` reference names, preserving each `<Question>` name and `<Response>` verbatim. | `B12-001` |
 | `B12-R6` | When a worker answers a clock-out question with a value outside the question's required response, PET Tiger shall store that answer verbatim rather than rejecting or normalising the record. | `B12-001` |
 | `B12-R7` | When a clock-out export carries a `SignatureCard` row, PET Tiger shall hold it as a signature card (cardType 2) linked by id to the same employee, with an `SC` reference. | — **out of scope: Amy's flow produces no standalone signature card.** The Transfer grid's `Type` column shows only `Time In` / `Time Out` / `Piece Out` across all 23 rows (kf 69–87), and the signature image sits **inside the Time Out panel** (kf 99–113) — it is the `<Signature>` element on the *TimeOut* row (`input/time_out.go:80`), which `buildRow` already emits as an empty slot. `SignatureCard` (CardType 2) is the device's separate signature-capture screen (`SignatureCardActivity`), which she never opens. The signature requirement is `B12-R9`. |
-| `B12-R8` | Where the Notification module is licensed, PET Tiger shall record the crew's notification user as a Users record carrying an email address. | `B12-001` |
+| `B12-R8` | Where the Notification module is licensed, PET Tiger shall record the crew's notification user as a Users record carrying an email address. | `B12-001`, `B12-002` |
 | `B12-R9` | When a clock-out export's Time Out row carries a signature, PET Tiger shall store it on that card and expose it alongside the card's question answers. | — **not automatable via import (established live 2026-08-28, run 3).** The importer deliberately does not bind the column: *"Signature and PictureVerification are `image` columns. The device sends them empty in every available sample and their populated encoding is unverified, so they are left unbound (they will simply be NULL) rather than guessing a decode — logged in OPEN_QUESTIONS.md"* (`importmap/timecard.go:80-83`); `timeCardSpec.Columns` has no `Signature` entry. `GET /time-cards/time-out/{id}` duly returned `signature: null` for a card whose envelope carried one. Amy's panel shows a signature because her records came through the legacy stack — the same split that explains the email. The envelope still carries `<Signature>`, asserted as **sample fidelity** in the spec, so the day the importer binds the column this becomes assertable unchanged. **Named in a test annotation, never silently skipped.** |
-| `B12-R10` | If a clock-out answer differs from its question's required response, then PET Tiger shall raise a question flag carrying the given and the expected response, and email the crew's notification user. | — **not automatable via import**: `DetectAndFlagClockOutAnswers` / `sendClockOutFlagNotifications` are reachable only from `POST`/`PUT /api/time-cards/time-out`, never from `connectivity/`; and the email has no observable channel on dev (`LogEmailSender`, no outbox, `NotifiedAtUtc` unexposed). Manual evidence: `docs/media/journey-b/b12-notification-email.png`, transcribed above. **Named in a test annotation, never silently skipped.** |
+| `B12-R10` | If a clock-out answer differs from its question's required response, then PET Tiger shall raise a question flag carrying the given and the expected response, and email the crew's notification user. | — **not automatable via import**: `DetectAndFlagClockOutAnswers` / `sendClockOutFlagNotifications` are reachable only from `POST`/`PUT /api/time-cards/time-out`, never from `connectivity/`; and the email has no observable channel on dev (`LogEmailSender`, no outbox, `NotifiedAtUtc` unexposed). Manual evidence: `docs/media/journey-b/b12-notification-email.png`, transcribed above. **Named in a test annotation, never silently skipped.** Superseded in part by `B12-R11`–`B12-R13`, which assert the same rule on the office path where it actually runs. |
+| `B12-R11` | When a clock-out is saved with an answer outside its question's required response, PET Tiger shall raise a question flag recording both the given and the expected response. | `B12-002` |
+| `B12-R12` | Where every answer on a saved clock-out matches its question's required response, PET Tiger shall raise no question flag for that card. | `B12-002` |
+| `B12-R13` | When a flagged clock-out is acknowledged with a signature, PET Tiger shall stamp the acknowledgment against the time card's own employee and store the signature image. | `B12-002` |
 
 `B12-R10` is the workflow's headline outcome and it is the one row this plan cannot assert
 through the transport Amy uses. That is a product gap, not a test gap — see *Follow-up* below.
@@ -470,6 +473,42 @@ The **unexpected** answer for each question is derived at runtime from the store
       as the first with a non-empty `emailAddress` — never a hard-coded id or address, and
       never `Su`, whose address is empty (N4).
 
+## `B12-002` — automating the notification trigger
+
+Added on human request (2026-08-28) after the import-path findings: *"the email trigger
+workflow should be automated, and create test data for the preconditions."*
+
+The import cannot reach the rules (see the banner), so this case drives the **office path** —
+`POST /api/time-cards/time-out` with a `questions` array, which is where `CreateTimeOut` calls
+`DetectAndFlagClockOutAnswers` and then `sendClockOutFlagNotifications`
+(`input/time_out.go:535-551`). Amy never performs this step, so it is deliberately a **second
+runner row** rather than folded into `B12-001`, whose "transport, not simulation" identity it
+would otherwise blur.
+
+**Precondition test data, created by the test rather than discovered:**
+
+| Datum | How | Cleanup |
+|---|---|---|
+| The three clock-out questions | `ensureQuestion` × 3 (`B12 Break` / `B12 Injury` / `B12 Lunch`) | kept — a referenced question cannot be removed cleanly |
+| **The notification recipient** | `makeUser()` → `POST /users` with run-unique Name / Initials / Email Address (all three are uniquely indexed) | `deleteUserById` in `finally`; the name also carries the prefix global teardown sweeps, so an early death still cleans up |
+| The crew's notification user | `setCrewNotifyUser` | previous value restored in `finally` |
+| Two clock-out cards | `createTimeOut` — one answer outside the expected response, one entirely within it | `deleteTimeCard` per card in `finally` |
+
+It runs on **its own day** (`DAY_OFFSET.B12_OFFICE = -10`), not B12's: `B12-001` sweeps every
+fixture employee's cards for its day before importing, which would delete this case's clock-out
+mid-run when the two land on a worker pair at `workers=2`.
+
+**What it proves:** exactly the mismatched question is flagged, carrying both the given and the
+expected answer and initially unacknowledged (`B12-R11`); a clock-out whose answers all match
+raises **no** flag, which is what makes the first assertion a discrimination rather than a
+tautology (`B12-R12`); and acknowledging with a signature stamps the time card's own employee
+and stores the image (`B12-R13`).
+
+**What it still cannot prove:** the send itself. `sendClockOutFlagNotifications` ran — the flag
+is its input and the crew resolves to a user with an email — but the sender falls back to
+`LogEmailSender`, there is no outbox or notification-log endpoint, and `NotifiedAtUtc` is
+returned by no API. That one leg stays a named annotation.
+
 ## Cleanup
 
 | What | Before the run | After the run |
@@ -487,7 +526,8 @@ app's API.
 
 | id | Title | Req | Tags | enabled |
 |---|---|---|---|---|
-| `B12-001` | Time-out questions to notification | `B12-R3`, `B12-R4`, `B12-R5`, `B12-R6`, `B12-R8` | `regression` + `demo=1` → `@Demo` | 0 → 1 when green |
+| `B12-001` | Time-out questions to notification | `B12-R3`, `B12-R4`, `B12-R5`, `B12-R6`, `B12-R8` | `regression` + `demo=1` → `@Demo` | **1** — green |
+| `B12-002` | Clock-out answer flag and signed acknowledgment | `B12-R8`, `B12-R11`, `B12-R12`, `B12-R13` | `regression` | **1** — green |
 
 ```ts
 test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', '@B12'] }, () => {
