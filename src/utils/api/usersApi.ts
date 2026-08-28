@@ -42,38 +42,6 @@ export async function listUsers(context: APIRequestContext): Promise<UserListIte
 }
 
 /** Names of every active user whose name starts with `prefix`. */
-/** The `POST /users` body, minus the ~20 optional permission flags. */
-export interface NewUser {
-    name: string;
-    password: string;
-    userInitials: string;
-    emailAddress: string;
-    /** 0–16 (`isValidUserRole`, setup/users.go:271). Defaults to 1. */
-    userRole?: number;
-}
-
-/**
- * Create a user and return its id.
- *
- * Name, Initials and Email Address are each uniquely indexed, so callers pass
- * run-unique values — `makeUser()` in `src/data/generated` generates them under
- * the prefix global teardown sweeps, which is the safety net when a test dies
- * before its own cleanup runs.
- */
-export async function createUser(context: APIRequestContext, user: NewUser): Promise<number> {
-    const response = await context.post('users', {
-        data: { active: true, userRole: 1, ...user },
-        headers: { 'Content-Type': 'application/json' },
-    });
-    if (!response.ok()) {
-        throw new Error(`POST /users returned ${await describe(response)}`);
-    }
-    const body = (await response.json()) as { usersCounter?: number; id?: number };
-    const id = body.usersCounter ?? body.id;
-    if (!id) throw new Error(`POST /users returned no id: ${JSON.stringify(body).slice(0, 200)}`);
-    return id;
-}
-
 /**
  * An active user with a non-empty email address — a usable notification
  * recipient. Discovered rather than hard-coded: which users exist is environment

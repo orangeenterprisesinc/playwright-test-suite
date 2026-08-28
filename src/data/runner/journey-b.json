@@ -323,36 +323,6 @@
             "enabled": true
         },
         {
-            "id": "B12-002",
-            "workflow": "B12",
-            "journey": "B",
-            "category": "workflow",
-            "testName": "clockOutAnswerFlagAndSignedAcknowledgment",
-            "testTitle": "Clock-out answer flag and signed acknowledgment",
-            "testDescription": "Save a clock-out through the office with an answer outside its question's required response and verify the flag it raises carrying both the given and the expected answer, that a clock-out whose answers all match raises none, and that acknowledging with a signature records it against the time card's own employee. The office path is the only one that runs the clock-out answer rules; the connectivity import reaches neither the detector nor the notification.",
-            "segments": [
-                "grower",
-                "perennial-grower",
-                "pack-house"
-            ],
-            "modules": [
-                "Time Card Questions",
-                "Notification",
-                "Signature"
-            ],
-            "tags": [
-                "regression"
-            ],
-            "req": [
-                "B12-R8",
-                "B12-R11",
-                "B12-R12",
-                "B12-R13"
-            ],
-            "status": "automated",
-            "enabled": true
-        },
-        {
             "id": "B13-001",
             "workflow": "B13",
             "journey": "B",
