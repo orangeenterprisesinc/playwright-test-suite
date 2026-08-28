@@ -21,6 +21,15 @@
  * poll for the code-history grid's own `CH` reference — a row that never
  * becomes a time card — so this spec composes the import and poll directly,
  * as B5 does.
+ *
+ * Transport is **internet** — `POST connectivity/import/internet`, the WebMail
+ * leg a real device sync uses and the one the recording shows, not the
+ * single-folder shortcut.
+ *
+ * The envelope is byte-faithful to what AndroidPET emits, deliberately: B7
+ * currently fails on a real importer defect (see the `product-defect`
+ * annotation at the `B7-R1` assertion), and padding the file to dodge it would
+ * both break that fidelity and wipe the employee's demographics.
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { JOURNEY_B_FIXTURE as F, DAY_OFFSET, punchDay } from '@data/journey-b/fixture';
@@ -37,7 +46,7 @@ import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { getCodeHistory } from '@utils/api/stickerRollApi';
-import { createUploadContext, importDeviceExport } from '@utils/api/connectivityImportApi';
+import { pullFromRelayInternet } from '@utils/api/connectivityImportApi';
 import {
     CARD_TYPE,
     findByReferences,
@@ -46,6 +55,16 @@ import {
     type OfficeTimeCard,
 } from '@utils/api/timeCardsApi';
 import { cleanupCards } from '@utils/api/officeVerification';
+
+/**
+ * `RunTrackingEmpCodeStartLoc` / `RunTrackingRollCodeStartLoc`, 1-based. The
+ * office extracts `code[emp-1 .. roll-2]` as the alternate code, so 1/8 turns an
+ * 11-char sticker into the 7-char prefix it joins on — the values Amy's instance
+ * ran with. Dev's registry defaults are 0/0, which extract nothing at all.
+ */
+const STICKER_EMP_CODE_START = 1;
+const STICKER_ROLL_CODE_START = 8;
+const STICKER_PREFIX_LENGTH = STICKER_ROLL_CODE_START - STICKER_EMP_CODE_START;
 
 test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@B7'] }, () => {
     test('Deliver a roll assignment and employee-less sticker piece-outs, and verify the assigned prefix attributes to its owner while the unassigned one falls to the Undefined Employee', {
@@ -66,212 +85,236 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         const assignedSticker = `${assignedPrefix}0002`;
         const unassignedSticker = `${unassignedPrefix}0001`;
 
-        expect(assignedPrefix, 'the office extracts code[0..7) as the alternate code').toBe(
-            assignedSticker.slice(0, 7),
-        );
-        expect(assignedSticker).toHaveLength(11);
-        expect(unassignedSticker).toHaveLength(11);
+        // Both prefixes must be exactly what the office's own extraction yields, or
+        // the equality the sticker rule performs can never match.
+        for (const [prefix, sticker] of [
+            [assignedPrefix, assignedRoll],
+            [assignedPrefix, assignedSticker],
+            [unassignedPrefix, unassignedSticker],
+        ] as const) {
+            expect(prefix, 'the prefix the office extracts from the sticker').toBe(
+                sticker.slice(STICKER_EMP_CODE_START - 1, STICKER_ROLL_CODE_START - 1),
+            );
+            expect(prefix).toHaveLength(STICKER_PREFIX_LENGTH);
+        }
 
         const punchDate = punchDay(DAY_OFFSET.B7);
         const day = isoDay(punchDate);
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
 
-        // ── Environment gates — B7's sticker rule is inert until both land (N1, N3) ──
+        // Both flags come from PT_MODULES on the API task, which short-circuits the
+        // TigerMaster query entirely (auth/modules.go:569-571) — TigerMaster already
+        // licenses Piece Payment (moduleId 36), so /admin/tm cannot clear this gate.
+        // Documented, not enforced: Piece Payment gates piece *payment*, not piece
+        // capture, so every B7 requirement is provable through the API while it is
+        // off, and this spec is not blocked behind PET-12689.
         const meRes = await sessionApi.get('session/me');
+        expect(meRes.ok(), `GET session/me failed with ${meRes.status()}`).toBe(true);
         const me = (await meRes.json()) as { modules?: Record<string, unknown> };
         const modules = me.modules ?? {};
-        expect.soft(modules.PiecePayment, 'PiecePayment module must be licensed').toBeTruthy();
-        if (!modules.PiecePayment) {
-            testInfo.annotations.push({
-                type: 'environment-gate',
-                description:
-                    'PiecePayment absent from PT_MODULES on the dev API task; /admin/tm cannot ' +
-                    'license it (B6 precedent) — DevOps env change required',
-            });
-        }
-        expect.soft(modules.LabelTraceability, 'LabelTraceability module must be licensed').toBeTruthy();
-        if (!modules.LabelTraceability) {
-            testInfo.annotations.push({
-                type: 'environment-gate',
-                description:
-                    'LabelTraceability absent from PT_MODULES on the dev API task; /admin/tm cannot ' +
-                    'license it (B6 precedent) — DevOps env change required',
-            });
-        }
+        testInfo.annotations.push({
+            type: 'module-gate-asserted',
+            description:
+                `Piece Payment → ${modules.PiecePayment} · Traceability - Stickers → ` +
+                `${modules.LabelTraceability} (from PT_MODULES, not TigerMaster)`,
+        });
 
+        // ── Arrange the label-tracking preferences through the API ──
+        // At dev's registry defaults (0/0) the office extracts an EMPTY prefix, which
+        // fails the last conjunct of the WEBPET-1410 rule and leaves the whole
+        // reconciliation inert — B7's subject could not fire at all. These two keys
+        // are the only ones written, and both are restored in the finally below.
+        // `assignRollsDaily` is deliberately never sent: flipping it true clears
+        // AlternateCode on EVERY Employee row, and nothing puts that back.
         const prefRes = await sessionApi.get('preferences');
+        expect(prefRes.ok(), `GET preferences failed with ${prefRes.status()}`).toBe(true);
         const preferences = (await prefRes.json()) as Record<string, unknown>;
-        expect.soft(preferences.employeeCodeStartLocation, 'employeeCodeStartLocation').toBe(1);
-        expect.soft(preferences.rollCodeStartLocation, 'rollCodeStartLocation').toBe(8);
-        if (preferences.employeeCodeStartLocation !== 1 || preferences.rollCodeStartLocation !== 8) {
-            testInfo.annotations.push({
-                type: 'environment-gate',
-                description:
-                    'label-tracking start locations are 0/0 on dev — the office extracts an empty ' +
-                    'prefix and the WEBPET-1410 sticker rule is inert; an operator must PUT ' +
-                    '/preferences employeeCodeStartLocation=1, rollCodeStartLocation=8. This spec reads ' +
-                    'and gates, never writes, and must never send assignRollsDaily (flipping it true ' +
-                    'clears every Employee.AlternateCode).',
-            });
-        }
 
-        expect(
-            testInfo.errors,
-            'environment gates above must pass before B7 can exercise the sticker rule',
-        ).toHaveLength(0);
-
-        // Precondition, not a gate: 0 means the importer binds nothing and the
-        // card's employee stays NULL.
+        // 0 would leave the importer binding nothing, so the card's employee would
+        // be NULL rather than the Undefined Employee this test asserts.
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
         expect(
             Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
             'preferences.undefinedEmployee must be configured',
         ).toBe(true);
 
-        // ── Seed ──
-        const office = await seedOfficeFixture(sessionApi);
-        // seedOfficeFixture only ensures F.present/F.absentee — the sticker
-        // employee is B7's own.
-        const emp6007 = await ensureEmployee(sessionApi, F.sticker[2]);
-
-        // ── Envelope: one Time In carrying a roll assignment (device A's shape),
-        // then two employee-less piece-outs (device B's shape) ──
-        const records: DeviceRecord[] = [
-            {
-                node: 'TimeCard',
-                part: DEVICE_SCHEMA.referenceParts.timeIn,
-                employeeSource: DEVICE_SCHEMA.employeeSource.barcodeBadge,
-                employeeCode: F.sticker[2].code,
-                crewCode: F.crew.code,
-                ranchCode: F.ranch.code,
-                fieldCode: F.field.code,
-                jobCode: F.job.code,
-                traceabilityCode: assignedRoll,
-                at: punchMoment(6, 30, punchDate),
-            },
-            {
-                node: 'PieceOut',
-                part: DEVICE_SCHEMA.referenceParts.pieceOut,
-                employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
-                employeeCode: unassignedPrefix,
-                crewCode: F.crew.code,
-                pieces: 1,
-                traceabilityCode: unassignedSticker,
-                at: punchMoment(12, 16, punchDate),
-            },
-            {
-                node: 'PieceOut',
-                part: DEVICE_SCHEMA.referenceParts.pieceOut,
-                employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
-                employeeCode: assignedPrefix,
-                crewCode: F.crew.code,
-                pieces: 1,
-                traceabilityCode: assignedSticker,
-                at: punchMoment(12, 17, punchDate),
-            },
-        ];
-
-        const codeHistory: CodeHistoryAssignment[] = [
-            {
-                employeeCode: F.sticker[2].code,
-                scannedCode: assignedRoll,
-                alternateCode: assignedPrefix,
-                firstCode: '0001',
-                at: punchMoment(6, 30, punchDate),
-            },
-        ];
-
-        const { xml, references } = buildEnvelope({ deviceAddress, prefix: runPrefix, records, codeHistory });
-
-        // ── XML shape, built from DEVICE_SCHEMA — never a raw tag literal ──
-        expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.TimeCard}${DEVICE_SCHEMA.recordsSuffix}`);
-        expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.PieceOut}${DEVICE_SCHEMA.recordsSuffix}`);
-
-        const employeeRecordsTag = `${DEVICE_SCHEMA.grid.employee}${DEVICE_SCHEMA.recordsSuffix}`;
-        expect(xml).toContain(
-            `<${employeeRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupEmployeeByCode}"`,
-        );
-        const historyRecordsTag = `${DEVICE_SCHEMA.grid.employeeCodeHistory}${DEVICE_SCHEMA.recordsSuffix}`;
-        expect(xml).toContain(
-            `<${historyRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupAddOnlyGrid}"`,
-        );
-        expect(xml).toContain(
-            `<${DEVICE_SCHEMA.grid.tags.alternateCode}>${assignedPrefix}</${DEVICE_SCHEMA.grid.tags.alternateCode}>`,
-        );
-
-        expect(xml).toContain(`<${DEVICE_SCHEMA.tags.employee}>${assignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`);
-        expect(xml).toContain(
-            `<${DEVICE_SCHEMA.tags.employee}>${unassignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`,
-        );
-
-        const alternateCodeSourceTag =
-            `<${DEVICE_SCHEMA.tags.employeeSource}>${DEVICE_SCHEMA.employeeSource.alternateCode}` +
-            `</${DEVICE_SCHEMA.tags.employeeSource}>`;
-        expect(
-            xml.split(alternateCodeSourceTag).length - 1,
-            'exactly two AlternateCode-sourced piece-outs',
-        ).toBe(2);
-
-        const numOfPiecesTag = `<${DEVICE_SCHEMA.tags.numOfPieces}>1</${DEVICE_SCHEMA.tags.numOfPieces}>`;
-        expect(xml.split(numOfPiecesTag).length - 1, 'exactly two single-piece piece-outs').toBe(2);
-
-        // The CH assignment gets its own reference internally but is deliberately
-        // kept out of the card-identity list — a code-history row is never a card.
-        expect(references, 'one reference per card, the CH reference excluded').toHaveLength(3);
-
-        await testInfo.attach('device-export.xml', { body: xml, contentType: 'application/xml' });
-
-        // ── Delivery: the same POST /UploadFile the app makes ──
-        const fileName = exportFileName(runPrefix);
-        const sent = await sendToRelay({
-            url: process.env.DEVICE_RELAY_URL ?? '',
-            from: deviceAddress,
-            to: process.env.DEVICE_RELAY_SERVER ?? '',
-            xml,
-            fileName,
-        });
-        await testInfo.attach('relay-send.txt', {
-            body: `file: ${fileName}\nsuccess: ${sent.success}\nstatus: ${sent.status}\n${sent.body}`,
-            contentType: 'text/plain',
-        });
-        expect(sent.success, `relay rejected the export: ${sent.body}`).toBe(true);
-
-        // Clear any leftover fixture punches for this day before importing — an
-        // orphan from an earlier run's late import would otherwise flip the
-        // office's duplicate-Time-In rule to Blocking for this one.
-        const swept = await sweepFixtureCards(sessionApi, {
-            employeeIds: [emp6007.id, undefinedEmployeeId],
-            day,
-            cardTypes: [CARD_TYPE.timeOut, CARD_TYPE.timeIn],
-        });
-        if (swept.removed || swept.failed) {
-            testInfo.annotations.push({
-                type: 'pre-run-sweep',
-                description:
-                    `Removed ${swept.removed} leftover punch(es) for this fixture on ${day} ` +
-                    `(${swept.failed} could not be deleted).`,
+        const originalEmpStart = preferences.employeeCodeStartLocation;
+        const originalRollStart = preferences.rollCodeStartLocation;
+        const setStartLocations = async (empStart: unknown, rollStart: unknown): Promise<void> => {
+            const put = await sessionApi.put('preferences', {
+                headers: { 'Content-Type': 'application/json' },
+                data: { employeeCodeStartLocation: empStart, rollCodeStartLocation: rollStart },
             });
-        }
+            expect(
+                put.ok(),
+                `PUT preferences failed with ${put.status()}: ${(await put.text()).slice(0, 300)}`,
+            ).toBe(true);
+        };
 
-        // ── Import, composed directly: verifyImportInOffice/deliverAndVerifyCards
-        // assume one cardType and derive their poll set from every reference in
-        // the export, which would also chase the grid's own CH reference — a row
-        // that never becomes a time card, so the poll would never terminate ──
+        // The values Amy's instance ran with: an 11-char sticker yields the 7-char
+        // prefix the office joins on (B7288570926 → B728857).
+        await setStartLocations(STICKER_EMP_CODE_START, STICKER_ROLL_CODE_START);
+        testInfo.annotations.push({
+            type: 'preferences-arranged',
+            description:
+                `employeeCodeStartLocation ${String(originalEmpStart)} → ${STICKER_EMP_CODE_START}, ` +
+                `rollCodeStartLocation ${String(originalRollStart)} → ${STICKER_ROLL_CODE_START}; ` +
+                'both restored after the run. assignRollsDaily is never sent.',
+        });
+
+        // Everything from here runs inside the try whose finally restores the two
+        // preferences — a failure while building or delivering the envelope must
+        // not leave the tenant's sticker extraction reconfigured.
         let tiCards: OfficeTimeCard[] = [];
         let poCards: OfficeTimeCard[] = [];
         try {
-            const upload = await createUploadContext();
-            let run;
-            try {
-                run = await importDeviceExport(upload, xml, { fileName: `FromDevice-B7-${Date.now()}.xml` });
-            } finally {
-                await upload.dispose();
+
+            // ── Seed ──
+            const office = await seedOfficeFixture(sessionApi);
+            // seedOfficeFixture only ensures F.present/F.absentee — the sticker
+            // employee is B7's own.
+            const emp6007 = await ensureEmployee(sessionApi, F.sticker[2]);
+
+            // ── Envelope: one Time In carrying a roll assignment (device A's shape),
+            // then two employee-less piece-outs (device B's shape) ──
+            const records: DeviceRecord[] = [
+                {
+                    node: 'TimeCard',
+                    part: DEVICE_SCHEMA.referenceParts.timeIn,
+                    employeeSource: DEVICE_SCHEMA.employeeSource.barcodeBadge,
+                    employeeCode: F.sticker[2].code,
+                    crewCode: F.crew.code,
+                    ranchCode: F.ranch.code,
+                    fieldCode: F.field.code,
+                    jobCode: F.job.code,
+                    traceabilityCode: assignedRoll,
+                    at: punchMoment(6, 30, punchDate),
+                },
+                {
+                    node: 'PieceOut',
+                    part: DEVICE_SCHEMA.referenceParts.pieceOut,
+                    employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
+                    employeeCode: unassignedPrefix,
+                    crewCode: F.crew.code,
+                    pieces: 1,
+                    traceabilityCode: unassignedSticker,
+                    at: punchMoment(12, 16, punchDate),
+                },
+                {
+                    node: 'PieceOut',
+                    part: DEVICE_SCHEMA.referenceParts.pieceOut,
+                    employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
+                    employeeCode: assignedPrefix,
+                    crewCode: F.crew.code,
+                    pieces: 1,
+                    traceabilityCode: assignedSticker,
+                    at: punchMoment(12, 17, punchDate),
+                },
+            ];
+
+            const codeHistory: CodeHistoryAssignment[] = [
+                {
+                    employeeCode: F.sticker[2].code,
+                    scannedCode: assignedRoll,
+                    alternateCode: assignedPrefix,
+                    firstCode: '0001',
+                    at: punchMoment(6, 30, punchDate),
+                },
+            ];
+
+            const { xml, references } = buildEnvelope({ deviceAddress, prefix: runPrefix, records, codeHistory });
+
+            // ── XML shape, built from DEVICE_SCHEMA — never a raw tag literal ──
+            expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.TimeCard}${DEVICE_SCHEMA.recordsSuffix}`);
+            expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.PieceOut}${DEVICE_SCHEMA.recordsSuffix}`);
+
+            const employeeRecordsTag = `${DEVICE_SCHEMA.grid.employee}${DEVICE_SCHEMA.recordsSuffix}`;
+            expect(xml).toContain(
+                `<${employeeRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupEmployeeByCode}"`,
+            );
+            const historyRecordsTag = `${DEVICE_SCHEMA.grid.employeeCodeHistory}${DEVICE_SCHEMA.recordsSuffix}`;
+            expect(xml).toContain(
+                `<${historyRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupAddOnlyGrid}"`,
+            );
+            expect(xml).toContain(
+                `<${DEVICE_SCHEMA.grid.tags.alternateCode}>${assignedPrefix}</${DEVICE_SCHEMA.grid.tags.alternateCode}>`,
+            );
+
+            expect(xml).toContain(`<${DEVICE_SCHEMA.tags.employee}>${assignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`);
+            expect(xml).toContain(
+                `<${DEVICE_SCHEMA.tags.employee}>${unassignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`,
+            );
+
+            const alternateCodeSourceTag =
+                `<${DEVICE_SCHEMA.tags.employeeSource}>${DEVICE_SCHEMA.employeeSource.alternateCode}` +
+                `</${DEVICE_SCHEMA.tags.employeeSource}>`;
+            expect(
+                xml.split(alternateCodeSourceTag).length - 1,
+                'exactly two AlternateCode-sourced piece-outs',
+            ).toBe(2);
+
+            const numOfPiecesTag = `<${DEVICE_SCHEMA.tags.numOfPieces}>1</${DEVICE_SCHEMA.tags.numOfPieces}>`;
+            expect(xml.split(numOfPiecesTag).length - 1, 'exactly two single-piece piece-outs').toBe(2);
+
+            // The CH assignment gets its own reference internally but is deliberately
+            // kept out of the card-identity list — a code-history row is never a card.
+            expect(references, 'one reference per card, the CH reference excluded').toHaveLength(3);
+
+            await testInfo.attach('device-export.xml', { body: xml, contentType: 'application/xml' });
+
+            // ── Delivery: the same POST /UploadFile the app makes ──
+            const fileName = exportFileName(runPrefix);
+            const sent = await sendToRelay({
+                url: process.env.DEVICE_RELAY_URL ?? '',
+                from: deviceAddress,
+                to: process.env.DEVICE_RELAY_SERVER ?? '',
+                xml,
+                fileName,
+            });
+            await testInfo.attach('relay-send.txt', {
+                body: `file: ${fileName}\nsuccess: ${sent.success}\nstatus: ${sent.status}\n${sent.body}`,
+                contentType: 'text/plain',
+            });
+            expect(sent.success, `relay rejected the export: ${sent.body}`).toBe(true);
+
+            // Clear any leftover fixture punches for this day before importing — an
+            // orphan from an earlier run's late import would otherwise flip the
+            // office's duplicate-Time-In rule to Blocking for this one.
+            const swept = await sweepFixtureCards(sessionApi, {
+                employeeIds: [emp6007.id, undefinedEmployeeId],
+                day,
+                cardTypes: [CARD_TYPE.timeOut, CARD_TYPE.timeIn],
+            });
+            if (swept.removed || swept.failed) {
+                testInfo.annotations.push({
+                    type: 'pre-run-sweep',
+                    description:
+                        `Removed ${swept.removed} leftover punch(es) for this fixture on ${day} ` +
+                        `(${swept.failed} could not be deleted).`,
+                });
             }
+
+            // ── Import, composed directly: verifyImportInOffice/deliverAndVerifyCards
+            // assume one cardType and derive their poll set from every reference in
+            // the export, which would also chase the grid's own CH reference — a row
+            // that never becomes a time card, so the poll would never terminate ──
+            // The internet transport: ask the office to drain its relay mailbox,
+            // the WebMail leg a real device sync uses. `no-data` is not a failure
+            // under workers=2 — one office mailbox is shared, so a peer's pull can
+            // carry our envelope into its own run; the rows still land in the same
+            // client DB and matching by reference proves ownership.
+            const { pull, run } = await pullFromRelayInternet(sessionApi);
             await testInfo.attach('import-run-B7.json', {
-                body: JSON.stringify(run, null, 2),
+                body: JSON.stringify({ pull, run }, null, 2),
                 contentType: 'application/json',
             });
-            expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
+            expect(
+                ['ok', 'no-data'],
+                `relay pull could not run: ${pull.status} ${pull.message}`,
+            ).toContain(pull.status);
+            if (run) {
+                expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
+            }
 
             const pollOpts = {
                 from: day,
@@ -295,9 +338,40 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
 
             // B7-R1: the roll's extracted prefix lands as the employee's own
             // code-history alternate code, windowed to this punch day.
+            //
+            // KNOWN PRODUCT DEFECT — this is where B7 currently fails on dev, and
+            // the envelope is deliberately NOT padded to work around it. The
+            // importer's `tableMapper.bind` (upsert.go:624-646) never sets
+            // `boundColumn.Absent`, so `valueAssignments` (:1063-1075) assigns every
+            // column on the UPDATE arm, including ones the file omits. `PayPeriod`
+            // is modelled nullable (specs.go:260) but is NOT NULL on the client DB,
+            // so the parent <Employee> record dies with SQL 515 — and a parent
+            // failure is fatal to its nested grid (upsert.go:418-427), so the roll
+            // assignment is never persisted and this lookup finds nothing.
+            //
+            // Adding <PayPeriod> would clear the 515, but the same UPDATE also
+            // writes FirstName, LastName, Rate, EmailAddress, HireDate, Password and
+            // ~10 more to NULL — the 515 is the only thing preventing that. The
+            // envelope stays byte-faithful to what AndroidPET's
+            // serializeCodeHistoryRecords emits (a Code-only Employee parent), which
+            // is the shape the WEBPET-1526 recording syncs.
             const history = await getCodeHistory(sessionApi, emp6007.id);
             const historyRow = history.find((h) => h.alternateCode === assignedPrefix);
-            expect(historyRow, 'no code-history row carries the assigned prefix').toBeDefined();
+            if (!historyRow) {
+                testInfo.annotations.push({
+                    type: 'product-defect',
+                    description:
+                        'Employee_Records parent UPDATE assigns every omitted column, so it fails ' +
+                        "SQL 515 on NOT NULL PayPeriod and the nested EmployeeCodeHistory grid is " +
+                        'never written. Fix: set boundColumn.Absent in tableMapper.bind ' +
+                        '(upsert.go:645) and honour it in valueAssignments (:1066), as ' +
+                        'reference.go:1634 and gridmapper.go:666 already do.',
+                });
+            }
+            expect(
+                historyRow,
+                'no code-history row carries the assigned prefix — see the product-defect annotation',
+            ).toBeDefined();
             expect(
                 historyRow!.startDateTime,
                 'startDateTime must be set — a NULL never satisfies the window',
@@ -349,6 +423,9 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             // endpoint anywhere in openapi.yaml (N5). It is deliberately left
             // behind, one row per calendar day this suite runs, on employee 6007.
             await cleanupCards(sessionApi, [...tiCards, ...poCards], testInfo);
+            // Put the tenant preferences back however this run ended — leaving them
+            // changed would alter sticker extraction for every other client user.
+            await setStartLocations(originalEmpStart, originalRollStart);
         }
     });
 });

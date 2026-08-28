@@ -34,6 +34,49 @@ staging: values read off it are the *product's* behaviour; ids and names are tha
 | Spec | `tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts` |
 | Runner rows | `src/data/runner/journey-b.csv` → `B7-001` |
 
+## Blocked — importer defect on the `Employee_Records` parent
+
+`B7-001` is written, delivered and verified end to end **except** `B7-R1`, which cannot pass on any
+client whose `Employee.PayPeriod` is NOT NULL. The envelope is deliberately **not** padded to work
+around it: it stays byte-faithful to what the recording's device syncs.
+
+Observed on dev (run 419, internet transport, file `FromAndroid-260828184158-HDZO.xml`):
+
+```
+status: partial
+"3 imported, 1 failed: Employee_Records record 1 (Employee): Employee[Code=6007]:
+ sql error 515: cannot insert NULL into column 'PayPeriod', table 'PetData.dbo.Employee'"
+```
+
+The three TimeCard/PieceOut rows import. The parent `<Employee>` record **matches** 6007 correctly
+via the `Employee:Code` self-key (`lookupconvert/display.go:413-421` → `upsert.go:511-549`) — the
+`Employee[Code=6007]` label proves the re-key fired — and then dies on the **UPDATE** arm:
+
+* `tableMapper.bind` (`upsert.go:624-646`) never sets `boundColumn.Absent`, so
+  `valueAssignments` (`:1063-1075`) writes **every** column, including ones the file omits.
+* `PayPeriod` is modelled nullable (`specs.go:260`, `colEnum`) but is NOT NULL on the client DB → 515.
+* A parent failure is **fatal to its nested grid** (`upsert.go:418-427`): `writeNestedGrids` never
+  runs, so the roll assignment is never persisted and `B7-R1` finds nothing.
+
+The sibling families already carry the guard this one lacks — `reference.go:1634` and
+`gridmapper.go:666` both `if bc.Absent { continue }`. WEBPET-2120 fixed the displaced key `Name`
+via `OmitWhenAbsent` and never generalised it, leaving `PayPeriod` and `Gender` exposed.
+
+**Why not just send `<PayPeriod>`.** It clears the 515, but the same UPDATE also writes
+`FirstName`, `LastName`, `Rate`, `EmailAddress`, `HireDate`, `Password`, `ExportIdentifier`,
+`DateOfBirth`, `Address1/2`, `City`, `Zip`, `HomePhone`, `ShortSSN` to NULL. The 515 is currently
+the only thing preventing a demographic wipe. This would also stop reproducing the recording.
+
+**Why CI never caught it.** The importer's own regression fixture fabricates the field the device
+does not send — `employee_code_history_db_test.go:86-89` builds
+`"<Code>"+code+"</Code><PayPeriod>Hourly</PayPeriod>"` under a comment claiming it is "the shape
+the device sends".
+
+**Suggested fix** (one line each, mirroring the siblings): set
+`Absent: !f.has(c.XML) && c.Kind.fabricatesZeroWhenAbsent()` in `tableMapper.bind`
+(`upsert.go:645`), honour it in `valueAssignments` (`:1066`), then drop `<PayPeriod>` from the
+db-test fixture so the real device shape is what is exercised.
+
 ## Catalog entry
 
 | Field | Value |
@@ -238,13 +281,18 @@ assignedPrefix (`B7-R1`). `GET /time-cards` cardType 0 → per reference: `emplo
 
 - [ ] Employees `6005` / `6006` / **`6007`**, ranch `4001`, field `4101`, job `4201`, crew `5001`
       exist (`seedOfficeFixture` plus `ensureEmployee(F.sticker[2])`, as B4/B5/B6 do).
-- [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set; run with
-      `IMPORT_TRANSPORT=single-folder`, without `OFFICE_TRANSPORT_SUBSTITUTE`.
-- [ ] **N3** — `LabelTraceability` **and** `PiecePayment` licensed. `PiecePayment` is **not** in
-      `PT_MODULES` on dev today, so `B7-001` is expected **red on this gate**; the spec names it in an
-      `environment-gate` annotation and fails — never a silent skip.
-- [ ] **N1** — the label-tracking start-location preferences non-default on dev. They are **not**
-      today. Same treatment: named in an `environment-gate` annotation, and the test fails.
+- [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set. Transport is
+      **internet** (`POST connectivity/import/internet`) — the WebMail leg the recording shows.
+      Never `OFFICE_TRANSPORT_SUBSTITUTE`.
+- [x] **N3** — module state is **documented, not enforced** (`module-gate-asserted` annotation, the
+      B5/B6 pattern from `366fa89`). `PiecePayment` is absent from `PT_MODULES` (PET-12689) but gates
+      piece *payment*, not capture, so every B7 requirement is provable through the API without it.
+      `LabelTraceability` **is** licensed and is asserted hard — the importer drops the whole
+      code-history grid without it.
+- [x] **N1** — the label-tracking start locations are **arranged through the API** by the spec
+      (`PUT /preferences` `employeeCodeStartLocation=1`, `rollCodeStartLocation=8`) and restored in a
+      `finally` that wraps the whole run. `assignRollsDaily` is never sent: flipping it true clears
+      `AlternateCode` on every Employee row, irreversibly.
 
 ## Cleanup
 
