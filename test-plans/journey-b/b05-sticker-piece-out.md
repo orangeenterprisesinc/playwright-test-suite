@@ -91,6 +91,12 @@ No rejection criteria are invented. Every row cites a keyframe or an importer so
 variation is the same device flow with no distinct system surface in the recording, so it is recorded
 under *Not automatable* rather than guessed at.
 
+`B5-R1`'s `Where` clause names both catalog modules, matching the `modules` column on `B5-001` — that
+pairing is what `src/config/scope.ts` filters a per-customer run on. It scopes the requirement to
+customers licensing both; it is **not** a runtime precondition for the assertions. Dev currently
+reports `PiecePayment=false` (PET-12689) while still storing pieces and resolving employees, which is
+why `B5-001` verifies the behaviour there today. See **N6**.
+
 ## Planner evidence — the importer, read before the spec
 
 Read-only `gh api` fetches against `orangeenterprisesinc/web-pet`, so the Planner does not repeat them.
@@ -131,7 +137,7 @@ code-history path belongs to B7.
 | N3 | The Undefined Employee preference on the dev client and that employee's id (`GET /employees`, once). | `B5-R6` asserts id equality; an unset preference leaves `EmployeeCounter` NULL, and the assertion must say so rather than accept any non-null id. |
 | N4 | Does importing a piece-out for an employee with no time-in that day synthesize one (WEBPET-1409)? The recorded employees already had B4's Time In, so it never fired. | Decides whether cleanup must sweep synthesized Time-Ins as well as piece cards. |
 | N5 | The exact exception text and API surface for the missing-job issue (`JobCounter is required …`, kf 105). | `B5-R7` asserts it; the wording must come from dev, not from a keyframe crop. |
-| N6 | Are Piece Payment **and** Traceability - Stickers licensed on the dev client? | Either missing is an environment gate: named in a test annotation and failed, never silently skipped. |
+| N6 | Which modules does B5 actually depend on, and are they licensed on dev? | A module that gates the assertions is a precondition; one that gates a neighbouring feature is not. Either way the state is named in an annotation, never silently skipped. |
 
 ### Planner resolution (2026-08-26 — AndroidPET source, importer spec, dev staging GETs + one blocked UI probe)
 
@@ -141,8 +147,8 @@ code-history path belongs to B7.
 | N2 | **Rung 1 accepts it — B5 is a green test, not a gate.** `<Employee>` carries the employee *Code*, resolved by the declared `Employee:Code` lookup; rung 8's sticker arm only fires on an unresolved FK. No code-history read, no seeding, no residue. | The plan's own importer evidence; kf 105 (four correct employees with no history rows — B4-R9); B3/B4 green on the identical path. |
 | N3 | Preference **set**: `undefinedEmployee = 4`, `undefinedEmployeeName` "Undefined Employee"; employee id 4 is inactive and its comment documents exactly this fallback. `B5-R6` asserts `employeeCounter === prefs.undefinedEmployee`. Employee `6006` → id **587** (`6005` → 586). | `GET /preferences`, `GET /employees` (dev, 2026-08-26). |
 | N4 | **No synthesis on dev** — `timeInCardCreationMethod:"User"`, `fixedTimeForTimeInFromPieceOut:null`, and the recording's own Piece Out panel shows `Create Time In From Piece Out — (Global: No)`. B5 sends the Time In first regardless. The sweep still covers cardTypes `[1,0]` so a later preference flip cannot orphan a synthesized card. | `GET /preferences`; kf 0/15 panel; the WEBPET-1409 PostSave hook in the importer spec. |
-| N5 | Surface: **`POST /transfer-to-job-cards/analyze`** — it feeds both the Transfer screen and the Time Cards Exceptions panel. The message is server-side and cannot be provoked through the UI (the office Add Piece-out form requires Job client-side; Save never POSTs). `B5-R7` asserts an analyze issue matching **`/^JobCounter is required/`** attributed to the imported references; the first green run's attached analyze JSON pins the full literal. | Network trace of the Time Cards screen; blocked UI probe; kf 105 clips the text to "JobCounter is required … TimeCard". |
-| N6 | **Piece Payment is NOT licensed** on the dev client (`GET /session/me → modules.PiecePayment=false`). The sticker side **is** (`LabelTraceability=true`, `Traceability=true`). Capture demonstrably works unlicensed — the module gates *payment*, not capture — but per this plan's precondition the spec pre-checks it and **fails with the annotation** `environment-gate: Piece Payment unlicensed on dev client`, never skipping. Enabling it is a one-time TigerMaster change (`/admin/tm`, ClientID 1, su can). | `GET /session/me` 2026-08-26; leftover PO card 346 (`0000001-260811-PO-DFLT-ui`) stores `numOfPieces:12` unlicensed. |
+| N5 | Surface: **`POST /transfer-to-job-cards/analyze`** — it feeds both the Transfer screen and the Time Cards Exceptions panel. Full literal now pinned from a dev run: `{"code":"block.fk_missing","severity":"block","message":"JobCounter is required on a piece-out TimeCard","sourceTimeCardCounter":…,"employeeCounter":…,"date":…,"errorParams":{"field":"JobCounter","reason":"piece-out"}}`. **The payload identifies cards by `sourceTimeCardCounter`, not by `Reference`** — so `B5-R7` joins on the `timeCardCounter` values this run's import produced and requires **every** piece card to be flagged, not merely one. | Dev run 2026-08-28, attached as `transfer-to-job-cards-analyze-B5.json`; kf 105 clips the same text to "JobCounter is required … TimeCard". |
+| N6 | `GET /session/me` reports `PiecePayment=false`, `LabelTraceability=true`, `Traceability=true`. **The two are gated differently, because they gate different things.** *Traceability - Stickers* is a hard precondition — without it the importer has no sticker path and `B5-R2` would be vacuous, so the spec asserts it. *Piece Payment* gates piece **payment**, not piece **capture**: the importer stores `NumOfPieces` and resolves the employee with it off, which is all `B5-R1`–`B5-R7` assert. It reads false on dev only because the API resolves modules from the `PT_MODULES` env var and never queries TigerMaster — where Piece Payment (moduleId 36) **is** licensed for client 1. The spec therefore **records it in an `environment-gate` annotation naming PET-12689 and asserts against the API regardless** — named, never silently skipped. Under EARS, `Where <module> is licensed` scopes a requirement rather than failing it. | `GET /session/me` 2026-08-26; `GET /api/admin/tm/clients/1/modules` → `{"moduleId":36,"name":"Piece Payment"}`; leftover PO card 346 (`0000001-260811-PO-DFLT-ui`) stores `numOfPieces:12` unlicensed; **PET-12689** (Cloud Infra) — `PT_MODULES` in `services/tigerden/ecs.tf` omits 8 keys and blocks 26 catalog workflows. |
 
 **Structure note for the Generator.** `deliverAndVerifyCards` / `verifyImportInOffice` assume a single
 `cardType` and one reference per expected card; B5-001 composes `importDeviceExport` +
@@ -190,8 +196,10 @@ value so the assertion compares like with like.
       `seedOfficeFixture`).
 - [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set; run with
       `IMPORT_TRANSPORT=single-folder`.
-- [ ] **N6** — Piece Payment and Traceability - Stickers licensed on the dev client. The Planner
-      confirms before the spec is written; if either is off the test names it in an annotation and fails.
+- [ ] **N6** — **Traceability - Stickers** licensed on the dev client (it is): the spec asserts it,
+      because without it `B5-R2` has nothing to assert. **Piece Payment** is *not* a precondition —
+      it gates piece payment, not piece capture — so the spec records its state in an
+      `environment-gate` annotation naming PET-12689 and asserts against the API either way.
 
 ## Cleanup
 

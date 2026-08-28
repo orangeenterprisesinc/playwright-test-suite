@@ -78,23 +78,32 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
     }, async ({ sessionApi }, testInfo) => {
         test.slow();
 
-        // ── N6: Piece Payment / Traceability - Stickers must be licensed — never test.skip() ──
-        // Module gates are provisioned by PT_MODULES env, not TigerMaster (auth/modules.go:569-571),
-        // so /admin/tm changes have no effect. If false, that is expected until DevOps updates the env;
-        // the spec documents the gate state and continues regardless (PET-12689).
+        // ── N6: module state, recorded then asserted at the level each module actually gates ──
         const meRes = await sessionApi.get('session/me');
         expect(meRes.ok(), `GET session/me failed with ${meRes.status()}`).toBe(true);
         const me = (await meRes.json()) as { modules?: Record<string, unknown> };
-        const piecePaymentModuleState = (me.modules ?? {}).PiecePayment;
-        const labelTraceabilityModuleState = (me.modules ?? {}).LabelTraceability;
-        testInfo.annotations.push({
-            type: 'module-gate-asserted',
-            description: `Piece Payment → ${piecePaymentModuleState} (from PT_MODULES, not TigerMaster)`,
-        });
-        testInfo.annotations.push({
-            type: 'module-gate-asserted',
-            description: `Traceability - Stickers → ${labelTraceabilityModuleState} (from PT_MODULES, not TigerMaster)`,
-        });
+        const modules = me.modules ?? {};
+
+        // Piece Payment gates piece *payment*, not piece *capture*: the importer
+        // stores NumOfPieces and resolves the employee with the module off, which
+        // is everything B5-R1..R7 assert. Dev reports it false only because the
+        // API reads PT_MODULES instead of TigerMaster, where it is licensed
+        // (PET-12689) — so this is named, never silently skipped, and the API
+        // assertions below still run and must pass.
+        if (!modules.PiecePayment) {
+            testInfo.annotations.push({
+                type: 'environment-gate',
+                description:
+                    'Piece Payment reads false on dev (PT_MODULES omits it — PET-12689). ' +
+                    'Capture is unaffected, so B5-R1..R7 are asserted against the API regardless.',
+            });
+        }
+        // Traceability - Stickers is different: without it the importer has no
+        // sticker path at all, so B5-R2's traceability assertions would be vacuous.
+        expect(
+            modules.LabelTraceability,
+            'Traceability - Stickers unlicensed on dev client — B5 cannot assert sticker attribution',
+        ).toBeTruthy();
 
         const office = await seedOfficeFixture(sessionApi);
         // seedOfficeFixture only ensures F.present/F.absentee — B5's sticker
@@ -298,17 +307,21 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
                 contentType: 'application/json',
             });
 
-            const jobCounterIssues = collectJobCounterIssues(analyze);
+            const jobCounterIssues = collectJobCounterIssues(analyze) as Array<Record<string, unknown>>;
             expect(
                 jobCounterIssues.length,
                 `no issue matching /^JobCounter is required/ in ${JSON.stringify(analyze)}`,
             ).toBeGreaterThan(0);
-            const issuesText = JSON.stringify(jobCounterIssues);
-            const importedPieceReferences = [references[1], references[2], references[3]];
+            // The payload identifies cards by sourceTimeCardCounter, not by
+            // Reference — so join on the ids this run's import produced. Every
+            // piece card must be flagged, not merely one of them.
+            const flaggedCardIds = new Set(jobCounterIssues.map((issue) => Number(issue.sourceTimeCardCounter)));
+            const importedPieceCardIds = [stickerACard!, stickerBCard!, stickerCCard!].map((c) => c.timeCardCounter);
             expect(
-                importedPieceReferences.some((ref) => issuesText.includes(ref)),
-                `B5-R7: the missing-job issue must attribute to this run's piece-out references: ${issuesText}`,
-            ).toBe(true);
+                importedPieceCardIds.filter((id) => flaggedCardIds.has(id)),
+                `B5-R7: every piece card this run imported must carry the missing-job issue. ` +
+                    `Imported ${JSON.stringify(importedPieceCardIds)}, flagged ${JSON.stringify([...flaggedCardIds])}`,
+            ).toEqual(importedPieceCardIds);
         } finally {
             // Never leave punches on shared dev data, pass or fail — including the
             // Undefined-Employee card.
