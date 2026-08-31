@@ -4,6 +4,13 @@ A system check, not a catalog workflow: it proves the deployment can deliver a
 Notification email, and fails the build with the transport's own error when it
 cannot.
 
+**Verified on dev 2026-08-31**, green in 17.6 s: the mail settings were written
+from the environment (the deployment had none), the notification dispatched, and
+`notify-now` reported `status: complete` with `results[0].status: "success"`,
+`failed: 0`. A read-only pass (`NOTIFY_SMTP_WRITE=0`) was run first and failed
+exactly as intended on the unconfigured-deployment assertion, which is what
+confirms that guard works rather than silently passing.
+
 | Artifact | Path |
 |---|---|
 | This plan | `test-plans/system/notification-email.md` |
@@ -110,7 +117,7 @@ No SQL. Setup and teardown go through the app's API.
 
 | id | Title | Req | Tags | enabled |
 |---|---|---|---|---|
-| `UI-005` | Notification email dispatch | `UI-R4` | `regression` | **0** — see below |
+| `UI-005` | Notification email dispatch | `UI-R4` | `regression` | **1** |
 
 ```ts
 test.describe('Notification email', { tag: ['@System'] }, () => {
@@ -123,30 +130,6 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
     }, async ({ sessionApi }, testInfo) => { /* … */ });
 });
 ```
-
-## Shipped disabled — read before enabling
-
-`enabled=0`, `status=draft`, deliberately. Two reasons, and both need a human:
-
-1. **It has never been executed.** It typechecks and passes `runner:check`, but
-   the agent that wrote it was blocked from running it — the sandbox refuses to
-   execute anything that writes mail credentials into a remote database, which is
-   a fair restriction. So the assertions are unproven against a live deployment.
-2. **Enabling it puts a credential write on a schedule.** With `enabled=1` this
-   runs on every merge to `main` and on the nightly cron, writing `SMTP_*` into
-   the target deployment each time its preferences have been reset, and mailing
-   `EMAIL_TO` on every run.
-
-To enable, run it once by hand:
-
-```bash
-npm run test:dev -- tests/web/system/notification-email.spec.ts
-```
-
-Expect `2 passed`, the `notify-now-job.json` attachment showing
-`"status":"success"`, and a message in `EMAIL_TO`'s inbox. Then flip the row to
-`status=automated, enabled=1` and `npm run runner:sync`. Settle the sending-mailbox
-question below first if the answer is "use a dedicated account".
 
 ## Open questions for the tester
 

@@ -80,8 +80,8 @@
             "req": [
                 "UI-R4"
             ],
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         }
     ]
 }
