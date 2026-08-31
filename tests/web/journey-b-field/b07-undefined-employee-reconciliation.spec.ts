@@ -331,8 +331,16 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             // FirstName, LastName, Rate, EmailAddress, HireDate and Password to
             // NULL — the 515 is the only thing preventing that — and it would stop
             // the envelope reproducing what AndroidPET actually emits.
-            const runFiles = JSON.stringify(run?.files ?? []);
-            if (/PayPeriod/.test(runFiles)) {
+            // Assert on OUR file only, never the run. One office mailbox is shared
+            // by every worker, so a single pull routinely drains sibling specs'
+            // envelopes into the same run — CI run 418 carried four files, three of
+            // them other tests'. Asserting `run.status` made B7 red whenever a
+            // sibling's file failed, which is not B7's business. A file that is
+            // absent means a peer's pull took it; `findByReferences` below still
+            // proves ownership either way, exactly as `importViaInternetUi` does.
+            const ourFile = run?.files?.find((f) => String(f.filename ?? '') === fileName);
+            const ourFileJson = JSON.stringify(ourFile ?? null);
+            if (ourFile && /PayPeriod/.test(ourFileJson)) {
                 testInfo.annotations.push({
                     type: 'product-defect',
                     description:
@@ -343,8 +351,18 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                         '(:1066), as reference.go:1634 and gridmapper.go:666 already do.',
                 });
             }
-            if (run) {
-                expect(run.status, `import run ${run.runId}: ${runFiles}`).toBe('completed');
+            if (ourFile) {
+                expect(
+                    ourFile.status,
+                    `import of ${fileName} (run ${run?.runId}): ${ourFileJson}`,
+                ).toBe('completed');
+            } else {
+                testInfo.annotations.push({
+                    type: 'peer-drained',
+                    description:
+                        `${fileName} was not in run ${run?.runId ?? 'n/a'} — a parallel worker's pull ` +
+                        'drained it into that run instead. Ownership is proven by reference below.',
+                });
             }
 
             const pollOpts = {
