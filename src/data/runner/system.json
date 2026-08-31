@@ -64,6 +64,24 @@
             ],
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "UI-005",
+            "category": "api",
+            "testName": "notificationEmailDispatch",
+            "testTitle": "Notification email dispatch",
+            "testDescription": "Configure the deployment's notification mail settings from the environment, send a notification with Notify Now, and verify the job reports the recipient as dispatched. The job result is the assertion - there is no outbox to inspect, and this is the only email path in the product that reports an outcome.",
+            "modules": [
+                "Notification"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "req": [
+                "UI-R4"
+            ],
+            "status": "draft",
+            "enabled": false
         }
     ]
 }

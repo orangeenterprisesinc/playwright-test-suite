@@ -1,0 +1,144 @@
+# `UI-005` · Notification email dispatch
+
+A system check, not a catalog workflow: it proves the deployment can deliver a
+Notification email, and fails the build with the transport's own error when it
+cannot.
+
+| Artifact | Path |
+|---|---|
+| This plan | `test-plans/system/notification-email.md` |
+| Spec | `tests/web/system/notification-email.spec.ts` |
+| Runner rows | `src/data/runner/system.csv` → `UI-005` |
+
+## Why this exists
+
+Email delivery had never been verified anywhere in the suite, and the first
+manual exercise of it found the deployment misconfigured in a way no test would
+have caught — the send failed during the SMTP handshake, and the only place the
+product reports that is a job endpoint nothing was polling.
+
+It is also the **only** email path a test can assert. The two paths differ in
+where they read their mail settings, and that difference decides testability:
+
+| Path | Settings come from | Reports the outcome? |
+|---|---|---|
+| **Notification module** (Notify Now, scheduler) | **database preferences** — `GET`/`PUT /preferences` (`input/notification_smtp_prefs.go`) | **yes** — per recipient, with the transport's error |
+| Clock-out flag notification (B12-R10) | the API task's own environment, resolved once at startup by `selectEmailSender` | no — no outbox, and `TimeCardQuestionFlag.NotifiedAtUtc` is on no response |
+
+So this spec does not cover B12's notification and does not claim to. B12-R10
+stays a named gate in its own plan.
+
+## Acceptance criteria (EARS)
+
+The `UI-` prefix is the suite's generic **system** prefix, not a claim that this
+is a UI test — `scripts/runner/check.js` accepts only `[A-F]\d{1,2}` (a catalog
+workflow) or `UI` for a requirement id, so a new `NOTIF`/`SYS` prefix would mean
+editing that shared gate. Reusing `UI` keeps this change out of framework code.
+
+| id | Requirement | Cases |
+|---|---|---|
+| `UI-R4` | Where notification mail settings are configured, when a notification is sent with Notify Now, PET Tiger shall dispatch it to each active recipient and report that recipient's outcome. | `UI-005` |
+
+One requirement, one test. The assertion is the **job result**, not a mailbox:
+`status: "complete"`, one result for the one recipient, `results[0].status:
+"success"`, `failed: 0`, `successful >= 1`. A message arriving in an inbox is a
+side effect — useful for a human eyeball, never what makes this pass.
+
+## The port is the whole trick
+
+Port `587` with `smtpUseSsl: false` fails:
+
+```
+dispatch failed: smtp auth: unencrypted connection
+```
+
+The Go client will not authenticate over a plaintext socket and does **not**
+negotiate STARTTLS, so only **implicit TLS on 465** works.
+
+This does **not** match the framework's own `emailReporter`, which succeeds on
+587 because nodemailer upgrades the connection for it. A working 587 setup in
+`.env` is therefore *not* transferable to the app — the mistake this plan exists
+to stop someone repeating.
+
+## Preconditions
+
+- [x] `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_TO` present
+      in the environment. CI supplies all five from repository secrets
+      (`e2e.yml`); locally they come from `.env`. Never committed.
+- [x] At least one filter script exists — a Notification is built on one. Any
+      will do; this asserts dispatch, not report content.
+- [x] The `Notification` module licensed for the client.
+
+## Operational note
+
+The helper writes the environment's mail settings into the target deployment's
+preferences, and the product keeps them readable rather than encrypted. Two
+consequences worth being deliberate about:
+
+* Anyone with database or preference-write access on that deployment can read
+  them, and on dev the database can be snapshotted into the shared test image —
+  so what is written here can travel further than the deployment it was set on.
+* Prefer a **dedicated sending mailbox** over anyone's personal account. The
+  manual precedent in WEBPET-1531 used a purpose-made one, which now reads as a
+  deliberate choice rather than an arbitrary one.
+
+The write is skipped when a host is already configured, so a run against an
+already-configured deployment changes nothing.
+
+## Cleanup
+
+| What | How |
+|---|---|
+| The Notification | `deleteNotification` in a `finally`; a failure is attached as a warning, never raised |
+| The recipient user | `deleteUserById` in the same `finally`; its name carries the prefix global teardown sweeps, so an early death still cleans up |
+| Mail settings | **left in place** — deployment configuration, not test data; clearing them would break the next run |
+
+No SQL. Setup and teardown go through the app's API.
+
+## Test cases
+
+| id | Title | Req | Tags | enabled |
+|---|---|---|---|---|
+| `UI-005` | Notification email dispatch | `UI-R4` | `regression` | **0** — see below |
+
+```ts
+test.describe('Notification email', { tag: ['@System'] }, () => {
+    test('[Notification] Send a notification and verify it is dispatched to its recipient.', {
+        tag: ['@Regression'],
+        annotation: [
+            { type: 'testCaseId', description: 'UI-005' },
+            { type: 'requirement', description: 'UI-R4' },
+        ],
+    }, async ({ sessionApi }, testInfo) => { /* … */ });
+});
+```
+
+## Shipped disabled — read before enabling
+
+`enabled=0`, `status=draft`, deliberately. Two reasons, and both need a human:
+
+1. **It has never been executed.** It typechecks and passes `runner:check`, but
+   the agent that wrote it was blocked from running it — the sandbox refuses to
+   execute anything that writes mail credentials into a remote database, which is
+   a fair restriction. So the assertions are unproven against a live deployment.
+2. **Enabling it puts a credential write on a schedule.** With `enabled=1` this
+   runs on every merge to `main` and on the nightly cron, writing `SMTP_*` into
+   the target deployment each time its preferences have been reset, and mailing
+   `EMAIL_TO` on every run.
+
+To enable, run it once by hand:
+
+```bash
+npm run test:dev -- tests/web/system/notification-email.spec.ts
+```
+
+Expect `2 passed`, the `notify-now-job.json` attachment showing
+`"status":"success"`, and a message in `EMAIL_TO`'s inbox. Then flip the row to
+`status=automated, enabled=1` and `npm run runner:sync`. Settle the sending-mailbox
+question below first if the answer is "use a dedicated account".
+
+## Open questions for the tester
+
+- [ ] Should the sending mailbox be a dedicated one rather than whatever
+      `SMTP_USER` currently names? See the operational note — it is the one
+      decision that matters before this runs on a schedule.
