@@ -40,7 +40,6 @@ import {
     newRunPrefix,
     punchMoment,
     type CodeHistoryAssignment,
-    type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
@@ -175,115 +174,67 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             // employee is B7's own.
             const emp6007 = await ensureEmployee(sessionApi, F.sticker[2]);
 
-            // ── Envelope: one Time In carrying a roll assignment (device A's shape),
-            // then two employee-less piece-outs (device B's shape) ──
-            const records: DeviceRecord[] = [
-                {
-                    node: 'TimeCard',
-                    part: DEVICE_SCHEMA.referenceParts.timeIn,
-                    employeeSource: DEVICE_SCHEMA.employeeSource.barcodeBadge,
-                    employeeCode: F.sticker[2].code,
-                    crewCode: F.crew.code,
-                    ranchCode: F.ranch.code,
-                    fieldCode: F.field.code,
-                    jobCode: F.job.code,
-                    traceabilityCode: assignedRoll,
-                    at: punchMoment(6, 30, punchDate),
-                },
-                // Device B's piece-outs carry NO crew, as the recording shows
-                // (`Cuadrilla de Trabajo` blank, kf 218) and Amy's QA comment states
-                // ("no crew selected"). This is load-bearing, not cosmetic: her two
-                // crew-selected variants (WEBPET-1526 attachments 66917/66918) both
-                // come back with the employee CLEARED at import and
-                // "…removed, Distributed to entire Crew" appended to the memo — so a
-                // crew would undo the very reconciliation B7-R2/B7-R3 assert.
-                {
-                    node: 'PieceOut',
-                    part: DEVICE_SCHEMA.referenceParts.pieceOut,
-                    employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
-                    employeeCode: unassignedPrefix,
-                    pieces: 1,
-                    traceabilityCode: unassignedSticker,
-                    at: punchMoment(12, 16, punchDate),
-                },
-                {
-                    node: 'PieceOut',
-                    part: DEVICE_SCHEMA.referenceParts.pieceOut,
-                    employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
-                    employeeCode: assignedPrefix,
-                    pieces: 1,
-                    traceabilityCode: assignedSticker,
-                    at: punchMoment(12, 17, punchDate),
-                },
-            ];
+            // -- Two device syncs, as the recording shows --
+            // Amy uses two checkers and syncs them separately: Device 1's Time In
+            // reaches the office first (Transfer shows `3 records - 0 Pieces`,
+            // kf 128), and only then does Device 2's sticker scanning arrive
+            // (kf 152 -> 350). Collapsing both into one file would leave the
+            // code-history grid and the piece-outs racing inside a single import, so
+            // the reconciliation could fail purely on processing order -- a hazard
+            // the real two-sync flow never has. Distinct reference prefixes stand in
+            // for her two device ids (S31 / D31).
+            const prefixA = runPrefix;
+            const prefixB = newRunPrefix(new Date(Date.now() + 3_600_000));
+            expect(prefixB, 'the two devices must not share a reference prefix').not.toBe(prefixA);
 
-            const codeHistory: CodeHistoryAssignment[] = [
-                {
-                    employeeCode: F.sticker[2].code,
-                    scannedCode: assignedRoll,
-                    alternateCode: assignedPrefix,
-                    firstCode: '0001',
-                    at: punchMoment(6, 30, punchDate),
-                },
-            ];
+            const deliverAndImport = async (label: string, prefix: string, xml: string) => {
+                await testInfo.attach(`device-export-${label}.xml`, {
+                    body: xml,
+                    contentType: 'application/xml',
+                });
+                const fileName = exportFileName(prefix);
+                const sent = await sendToRelay({
+                    url: process.env.DEVICE_RELAY_URL ?? '',
+                    from: deviceAddress,
+                    to: process.env.DEVICE_RELAY_SERVER ?? '',
+                    xml,
+                    fileName,
+                });
+                await testInfo.attach(`relay-send-${label}.txt`, {
+                    body: `file: ${fileName}\nsuccess: ${sent.success}\nstatus: ${sent.status}\n${sent.body}`,
+                    contentType: 'text/plain',
+                });
+                expect(sent.success, `relay rejected the ${label} export: ${sent.body}`).toBe(true);
 
-            const { xml, references } = buildEnvelope({ deviceAddress, prefix: runPrefix, records, codeHistory });
+                const { pull, run } = await pullFromRelayInternet(sessionApi);
+                await testInfo.attach(`import-run-${label}.json`, {
+                    body: JSON.stringify({ pull, run }, null, 2),
+                    contentType: 'application/json',
+                });
+                expect(
+                    ['ok', 'no-data'],
+                    `relay pull could not run for ${label}: ${pull.status} ${pull.message}`,
+                ).toContain(pull.status);
 
-            // ── XML shape, built from DEVICE_SCHEMA — never a raw tag literal ──
-            expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.TimeCard}${DEVICE_SCHEMA.recordsSuffix}`);
-            expect(xml).toContain(`<${DEVICE_SCHEMA.nodes.PieceOut}${DEVICE_SCHEMA.recordsSuffix}`);
+                // Our file only, never the run: one office mailbox is shared by every
+                // worker, so a pull routinely drains sibling specs' envelopes too
+                // (CI run 418 carried four files, three of them other tests'). An
+                // absent file means a peer's pull took it; findByReferences still
+                // proves ownership, exactly as importViaInternetUi does.
+                const file = run?.files?.find((f) => String(f.filename ?? '') === fileName);
+                if (!file) {
+                    testInfo.annotations.push({
+                        type: 'peer-drained',
+                        description:
+                            `${fileName} (${label}) was not in run ${run?.runId ?? 'n/a'} - a parallel ` +
+                            'worker pull drained it into that run instead.',
+                    });
+                }
+                return { fileName, runId: run?.runId, file };
+            };
 
-            const employeeRecordsTag = `${DEVICE_SCHEMA.grid.employee}${DEVICE_SCHEMA.recordsSuffix}`;
-            expect(xml).toContain(
-                `<${employeeRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupEmployeeByCode}"`,
-            );
-            const historyRecordsTag = `${DEVICE_SCHEMA.grid.employeeCodeHistory}${DEVICE_SCHEMA.recordsSuffix}`;
-            expect(xml).toContain(
-                `<${historyRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupAddOnlyGrid}"`,
-            );
-            expect(xml).toContain(
-                `<${DEVICE_SCHEMA.grid.tags.alternateCode}>${assignedPrefix}</${DEVICE_SCHEMA.grid.tags.alternateCode}>`,
-            );
-
-            expect(xml).toContain(`<${DEVICE_SCHEMA.tags.employee}>${assignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`);
-            expect(xml).toContain(
-                `<${DEVICE_SCHEMA.tags.employee}>${unassignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`,
-            );
-
-            const alternateCodeSourceTag =
-                `<${DEVICE_SCHEMA.tags.employeeSource}>${DEVICE_SCHEMA.employeeSource.alternateCode}` +
-                `</${DEVICE_SCHEMA.tags.employeeSource}>`;
-            expect(
-                xml.split(alternateCodeSourceTag).length - 1,
-                'exactly two AlternateCode-sourced piece-outs',
-            ).toBe(2);
-
-            const numOfPiecesTag = `<${DEVICE_SCHEMA.tags.numOfPieces}>1</${DEVICE_SCHEMA.tags.numOfPieces}>`;
-            expect(xml.split(numOfPiecesTag).length - 1, 'exactly two single-piece piece-outs').toBe(2);
-
-            // The CH assignment gets its own reference internally but is deliberately
-            // kept out of the card-identity list — a code-history row is never a card.
-            expect(references, 'one reference per card, the CH reference excluded').toHaveLength(3);
-
-            await testInfo.attach('device-export.xml', { body: xml, contentType: 'application/xml' });
-
-            // ── Delivery: the same POST /UploadFile the app makes ──
-            const fileName = exportFileName(runPrefix);
-            const sent = await sendToRelay({
-                url: process.env.DEVICE_RELAY_URL ?? '',
-                from: deviceAddress,
-                to: process.env.DEVICE_RELAY_SERVER ?? '',
-                xml,
-                fileName,
-            });
-            await testInfo.attach('relay-send.txt', {
-                body: `file: ${fileName}\nsuccess: ${sent.success}\nstatus: ${sent.status}\n${sent.body}`,
-                contentType: 'text/plain',
-            });
-            expect(sent.success, `relay rejected the export: ${sent.body}`).toBe(true);
-
-            // Clear any leftover fixture punches for this day before importing — an
-            // orphan from an earlier run's late import would otherwise flip the
+            // Clear leftover fixture punches for this day before anything is
+            // delivered - an orphan from an earlier run's late import would flip the
             // office's duplicate-Time-In rule to Blocking for this one.
             const swept = await sweepFixtureCards(sessionApi, {
                 employeeIds: [emp6007.id, undefinedEmployeeId],
@@ -299,48 +250,80 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 });
             }
 
-            // ── Import, composed directly: verifyImportInOffice/deliverAndVerifyCards
-            // assume one cardType and derive their poll set from every reference in
-            // the export, which would also chase the grid's own CH reference — a row
-            // that never becomes a time card, so the poll would never terminate ──
-            // The internet transport: ask the office to drain its relay mailbox,
-            // the WebMail leg a real device sync uses. `no-data` is not a failure
-            // under workers=2 — one office mailbox is shared, so a peer's pull can
-            // carry our envelope into its own run; the rows still land in the same
-            // client DB and matching by reference proves ownership.
-            const { pull, run } = await pullFromRelayInternet(sessionApi);
-            await testInfo.attach('import-run-B7.json', {
-                body: JSON.stringify({ pull, run }, null, 2),
-                contentType: 'application/json',
+            // The roll-to-employee link the Time In screen exports alongside its
+            // flat row when `First Roll Code` is filled. StartDateTime is the Time
+            // In's own moment, which is what puts it inside the window the office's
+            // sticker rule searches (startOfDay(pieceOut) .. pieceOut).
+            const codeHistory: CodeHistoryAssignment[] = [
+                {
+                    employeeCode: F.sticker[2].code,
+                    scannedCode: assignedRoll,
+                    alternateCode: assignedPrefix,
+                    // The roll's own tail, the same split the office applies.
+                    firstCode: assignedRoll.slice(STICKER_ROLL_CODE_START - 1),
+                    at: punchMoment(6, 30, punchDate),
+                },
+            ];
+
+            // -- Device A: the Time In that carries the roll assignment --
+            const deviceA = buildEnvelope({
+                deviceAddress,
+                prefix: prefixA,
+                codeHistory,
+                records: [
+                    {
+                        node: 'TimeCard',
+                        part: DEVICE_SCHEMA.referenceParts.timeIn,
+                        employeeSource: DEVICE_SCHEMA.employeeSource.barcodeBadge,
+                        employeeCode: F.sticker[2].code,
+                        crewCode: F.crew.code,
+                        ranchCode: F.ranch.code,
+                        fieldCode: F.field.code,
+                        jobCode: F.job.code,
+                        traceabilityCode: assignedRoll,
+                        at: punchMoment(6, 30, punchDate),
+                    },
+                ],
             });
-            expect(
-                ['ok', 'no-data'],
-                `relay pull could not run: ${pull.status} ${pull.message}`,
-            ).toContain(pull.status);
-            // KNOWN PRODUCT DEFECT — B7 currently stops here, and the envelope is
+
+            expect(deviceA.xml).toContain(`<${DEVICE_SCHEMA.nodes.TimeCard}${DEVICE_SCHEMA.recordsSuffix}`);
+            const employeeRecordsTag = `${DEVICE_SCHEMA.grid.employee}${DEVICE_SCHEMA.recordsSuffix}`;
+            expect(deviceA.xml).toContain(
+                `<${employeeRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupEmployeeByCode}"`,
+            );
+            const historyRecordsTag = `${DEVICE_SCHEMA.grid.employeeCodeHistory}${DEVICE_SCHEMA.recordsSuffix}`;
+            expect(deviceA.xml).toContain(
+                `<${historyRecordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${DEVICE_SCHEMA.grid.lookupAddOnlyGrid}"`,
+            );
+            expect(deviceA.xml).toContain(
+                `<${DEVICE_SCHEMA.grid.tags.alternateCode}>${assignedPrefix}</${DEVICE_SCHEMA.grid.tags.alternateCode}>`,
+            );
+            // The CH assignment gets its own reference internally but is kept out of
+            // the card-identity list - a code-history row never becomes a time card.
+            expect(deviceA.references, 'device A sends one card').toHaveLength(1);
+
+            const importA = await deliverAndImport('device-a', prefixA, deviceA.xml);
+
+            // KNOWN PRODUCT DEFECT - device A's file stops here, and the envelope is
             // deliberately NOT padded to get past it. `tableMapper.bind`
             // (upsert.go:624-646) never sets `boundColumn.Absent`, so
-            // `valueAssignments` (:1063-1075) assigns every column on the UPDATE
-            // arm, including ones the file omits. `PayPeriod` is modelled nullable
+            // `valueAssignments` (:1063-1075) assigns every column on the UPDATE arm,
+            // including ones the file omits. `PayPeriod` is modelled nullable
             // (specs.go:260) but is NOT NULL on the client DB, so the parent
-            // <Employee> record dies with SQL 515 — and a parent failure is fatal to
+            // <Employee> record dies with SQL 515 - and a parent failure is fatal to
             // its nested grid (upsert.go:418-427), so the roll assignment never
-            // persists and B7-R1 below can never find it.
+            // persists and B7-R1/B7-R2 below cannot pass.
             //
             // Sending <PayPeriod> clears the 515, but the same UPDATE also writes
-            // FirstName, LastName, Rate, EmailAddress, HireDate and Password to
-            // NULL — the 515 is the only thing preventing that — and it would stop
-            // the envelope reproducing what AndroidPET actually emits.
-            // Assert on OUR file only, never the run. One office mailbox is shared
-            // by every worker, so a single pull routinely drains sibling specs'
-            // envelopes into the same run — CI run 418 carried four files, three of
-            // them other tests'. Asserting `run.status` made B7 red whenever a
-            // sibling's file failed, which is not B7's business. A file that is
-            // absent means a peer's pull took it; `findByReferences` below still
-            // proves ownership either way, exactly as `importViaInternetUi` does.
-            const ourFile = run?.files?.find((f) => String(f.filename ?? '') === fileName);
-            const ourFileJson = JSON.stringify(ourFile ?? null);
-            if (ourFile && /PayPeriod/.test(ourFileJson)) {
+            // FirstName, LastName, Rate, EmailAddress, HireDate and Password to NULL
+            // - the 515 is the only thing preventing that - and it would stop the
+            // envelope reproducing what AndroidPET actually emits.
+            //
+            // Soft, so one run still exercises and reports the Undefined-Employee
+            // half (B7-R3..B7-R7), which does not depend on the assignment. The test
+            // still fails; it just stops hiding everything behind the first error.
+            const importAJson = JSON.stringify(importA.file ?? null);
+            if (importA.file && /PayPeriod/.test(importAJson)) {
                 testInfo.annotations.push({
                     type: 'product-defect',
                     description:
@@ -351,18 +334,75 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                         '(:1066), as reference.go:1634 and gridmapper.go:666 already do.',
                 });
             }
-            if (ourFile) {
-                expect(
-                    ourFile.status,
-                    `import of ${fileName} (run ${run?.runId}): ${ourFileJson}`,
+            if (importA.file) {
+                expect.soft(
+                    importA.file.status,
+                    `import of ${importA.fileName} (run ${importA.runId}): ${importAJson}`,
                 ).toBe('completed');
-            } else {
-                testInfo.annotations.push({
-                    type: 'peer-drained',
-                    description:
-                        `${fileName} was not in run ${run?.runId ?? 'n/a'} — a parallel worker's pull ` +
-                        'drained it into that run instead. Ownership is proven by reference below.',
-                });
+            }
+
+            // -- Device B: the employee-less sticker scans, synced only after A --
+            const deviceB = buildEnvelope({
+                deviceAddress,
+                prefix: prefixB,
+                records: [
+                    // No crew, as the recording shows (`Cuadrilla de Trabajo: Not
+                    // Selected` on every device-B record, kf 282) and Amy's QA comment
+                    // states. Load-bearing: her two crew-selected variants
+                    // (attachments 66917/66918) both come back with the employee
+                    // CLEARED at import and "...removed, Distributed to entire Crew"
+                    // appended - a crew would undo the reconciliation B7-R2/B7-R3
+                    // assert.
+                    {
+                        node: 'PieceOut',
+                        part: DEVICE_SCHEMA.referenceParts.pieceOut,
+                        employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
+                        employeeCode: unassignedPrefix,
+                        pieces: 1,
+                        traceabilityCode: unassignedSticker,
+                        at: punchMoment(12, 16, punchDate),
+                    },
+                    {
+                        node: 'PieceOut',
+                        part: DEVICE_SCHEMA.referenceParts.pieceOut,
+                        employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
+                        employeeCode: assignedPrefix,
+                        pieces: 1,
+                        traceabilityCode: assignedSticker,
+                        at: punchMoment(12, 17, punchDate),
+                    },
+                ],
+            });
+
+            expect(deviceB.xml).toContain(`<${DEVICE_SCHEMA.nodes.PieceOut}${DEVICE_SCHEMA.recordsSuffix}`);
+            expect(deviceB.xml).toContain(
+                `<${DEVICE_SCHEMA.tags.employee}>${assignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`,
+            );
+            expect(deviceB.xml).toContain(
+                `<${DEVICE_SCHEMA.tags.employee}>${unassignedPrefix}</${DEVICE_SCHEMA.tags.employee}>`,
+            );
+            const alternateCodeSourceTag =
+                `<${DEVICE_SCHEMA.tags.employeeSource}>${DEVICE_SCHEMA.employeeSource.alternateCode}` +
+                `</${DEVICE_SCHEMA.tags.employeeSource}>`;
+            expect(
+                deviceB.xml.split(alternateCodeSourceTag).length - 1,
+                'exactly two AlternateCode-sourced piece-outs',
+            ).toBe(2);
+            const numOfPiecesTag = `<${DEVICE_SCHEMA.tags.numOfPieces}>1</${DEVICE_SCHEMA.tags.numOfPieces}>`;
+            expect(
+                deviceB.xml.split(numOfPiecesTag).length - 1,
+                'exactly two single-piece piece-outs',
+            ).toBe(2);
+            // Device B holds no roll assignment, so it sends no code-history grid.
+            expect(deviceB.xml).not.toContain(`<${employeeRecordsTag}`);
+            expect(deviceB.references, 'device B sends two cards').toHaveLength(2);
+
+            const importB = await deliverAndImport('device-b', prefixB, deviceB.xml);
+            if (importB.file) {
+                expect(
+                    importB.file.status,
+                    `import of ${importB.fileName} (run ${importB.runId}): ${JSON.stringify(importB.file)}`,
+                ).toBe('completed');
             }
 
             const pollOpts = {
@@ -371,7 +411,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
             };
 
-            tiCards = await findByReferences(sessionApi, [references[0]], {
+            tiCards = await findByReferences(sessionApi, [deviceA.references[0]], {
                 ...pollOpts,
                 cardType: CARD_TYPE.timeIn,
             });
@@ -387,26 +427,35 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
 
             // B7-R1: the roll's extracted prefix lands as the employee's own
             // code-history alternate code, windowed to this punch day.
+            //
+            // Soft, and guarded, for the same reason device A's import status is:
+            // both fail together on the PayPeriod defect above, and stopping here
+            // would leave the Undefined-Employee half (B7-R3..B7-R7) unexercised on
+            // every run. The test still fails — a soft assertion is not a weaker
+            // one — it just reports the whole picture instead of only the first
+            // casualty.
             const history = await getCodeHistory(sessionApi, emp6007.id);
             const historyRow = history.find((h) => h.alternateCode === assignedPrefix);
-            expect(
+            expect.soft(
                 historyRow,
-                'no code-history row carries the assigned prefix — see the product-defect annotation',
+                'B7-R1: no code-history row carries the assigned prefix — see the product-defect annotation',
             ).toBeDefined();
-            expect(
-                historyRow!.startDateTime,
-                'startDateTime must be set — a NULL never satisfies the window',
-            ).toBeTruthy();
-            expect(String(historyRow!.startDateTime)).toMatch(new RegExp(`^${day}`));
+            if (historyRow) {
+                expect.soft(
+                    historyRow.startDateTime,
+                    'startDateTime must be set — a NULL never satisfies the window',
+                ).toBeTruthy();
+                expect.soft(String(historyRow.startDateTime)).toMatch(new RegExp(`^${day}`));
+            }
 
-            poCards = await findByReferences(sessionApi, [references[1], references[2]], {
+            poCards = await findByReferences(sessionApi, deviceB.references, {
                 ...pollOpts,
                 cardType: CARD_TYPE.timeOut,
             });
             expect(poCards, 'both piece-out cards').toHaveLength(2);
             const byReference = new Map(poCards.map((c) => [String(c.reference ?? ''), c]));
-            const unassignedCard = byReference.get(references[1]);
-            const assignedCard = byReference.get(references[2]);
+            const unassignedCard = byReference.get(deviceB.references[0]);
+            const assignedCard = byReference.get(deviceB.references[1]);
             expect(unassignedCard, 'no card linked to the unassigned prefix').toBeDefined();
             expect(assignedCard, 'no card linked to the assigned prefix').toBeDefined();
 
@@ -414,8 +463,10 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             // configured Undefined Employee — id equality, never merely non-null.
             expect(unassignedCard!.employeeCounter).toBe(undefinedEmployeeId);
             // B7-R2: a prefix matching a same-day assignment attributes to that
-            // assignment's own employee.
-            expect(assignedCard!.employeeCounter).toBe(emp6007.id);
+            // assignment's own employee. Soft with B7-R1 — there is no assignment to
+            // match while the PayPeriod defect blocks the grid, so this fails for the
+            // same single cause and must not mask B7-R4..B7-R7 behind it.
+            expect.soft(assignedCard!.employeeCounter, 'B7-R2').toBe(emp6007.id);
             // B7-R4: the fallback records why on the card's memo.
             expect(String(unassignedCard!.memo ?? '')).toMatch(
                 new RegExp(`^Assigning to Undefined Employee - Missing Code: ${unassignedPrefix}`),
