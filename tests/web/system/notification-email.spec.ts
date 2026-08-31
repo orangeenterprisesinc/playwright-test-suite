@@ -24,10 +24,9 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
 import {
-    configureSmtpFromEnv,
+    ensureSmtpConfigured,
     createNotification,
     deleteNotification,
-    getSmtpPreferences,
     listFilterScripts,
     notifyNow,
 } from '@utils/api/notificationsApi';
@@ -44,22 +43,29 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
     }, async ({ sessionApi }, testInfo) => {
         test.slow();
 
-        // ── SMTP, from the environment's own secrets. Idempotent: it writes only
-        // when no host is configured, so a run on a freshly reset environment
-        // still works and a configured one is left alone. ──
-        const wrote = await configureSmtpFromEnv(sessionApi);
-        const smtp = await getSmtpPreferences(sessionApi);
+        // ── Mail settings: READ-ONLY unless NOTIFY_SMTP_WRITE=1. The product
+        // stores this password in clear text and cannot be given an encrypted
+        // one, so a scheduled run must never push a credential into the database
+        // — it only checks, and says what to do when the check fails. ──
+        const allowWrite = process.env.NOTIFY_SMTP_WRITE === '1';
+        const { configured, wrote, preferences: smtp } = await ensureSmtpConfigured(sessionApi, { allowWrite });
         testInfo.annotations.push({
             type: 'notification-smtp',
             description:
-                `${wrote ? 'Configured' : 'Reused'} notification SMTP: host=${smtp.smtpServer} ` +
+                `${wrote ? 'Wrote' : 'Read'} notification mail settings: host=${smtp.smtpServer || '(none)'} ` +
                 `port=${smtp.smtpPort} useSsl=${String(smtp.smtpUseSsl)} ` +
-                `passwordSet=${String(smtp.smtpPasswordSet)}. Port 465 with implicit TLS is ` +
-                'mandatory — 587 fails "smtp auth: unencrypted connection" because the client ' +
-                'will not send credentials over plaintext and does not negotiate STARTTLS.',
+                `passwordSet=${String(smtp.smtpPasswordSet)}. Port 465 with implicit TLS is mandatory — ` +
+                '587 fails "smtp auth: unencrypted connection" because the client will not ' +
+                'authenticate over a plaintext socket and does not negotiate STARTTLS.',
         });
-        expect(smtp.smtpServer, 'no SMTP host configured for notifications').toBeTruthy();
-        expect(smtp.smtpPasswordSet, 'no SMTP password configured for notifications').toBe(true);
+        expect(
+            configured,
+            'This deployment has no notification mail settings, and this run is not allowed to write ' +
+                'them: the product stores the password unencrypted, so a scheduled run never pushes one. ' +
+                'Configure it once by hand with NOTIFY_SMTP_WRITE=1 (it reads SMTP_HOST / SMTP_USER / ' +
+                'SMTP_PASSWORD / EMAIL_FROM from the environment), then leave this run read-only. ' +
+                'Prefer a dedicated sending mailbox over a personal account.',
+        ).toBe(true);
 
         // The address the environment nominates — the same one the framework's own
         // reporter would mail. Never a committed literal.

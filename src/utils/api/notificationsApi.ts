@@ -27,13 +27,18 @@ import { ConfigProperties, getConfigValue } from '../../config/configProperties'
  * nodemailer upgrades the connection for it — a working 587 config in `.env` is
  * not transferable here.
  *
- * ## The password is stored in clear text
+ * ## The password is stored in clear text, and cannot be encrypted from here
  *
  * `GetSmtpDetails` reads it plaintext and legacy declares the column without
- * `Encrypted=true`, so {@link configureSmtpFromEnv} writes a real credential into
- * whichever database it is pointed at. It is therefore driven from `SMTP_*`
- * secrets rather than any committed value, and it no-ops when the host is already
- * configured.
+ * `Encrypted=true`, so writing an encrypted value would just hand the ciphertext
+ * to the mail server as the password. The storage format is the reader's to
+ * decide, not the writer's — making this key use the framework's existing
+ * `Encrypted=true` capability is a product change, not something a test can do.
+ *
+ * Consequently {@link ensureSmtpConfigured} **does not write by default**: it
+ * asserts the deployment is already configured and explains how to fix it when
+ * not, so no credential ever flows from a scheduled run into a database. The
+ * write is opt-in per call, for a one-time manual setup.
  */
 
 /** The SMTP fields `GET /preferences` exposes, as one normalised group. */
@@ -60,16 +65,35 @@ export async function getSmtpPreferences(request: APIRequestContext): Promise<Sm
     return Object.fromEntries(Object.entries(body).filter(([k]) => /^smtp/i.test(k))) as SmtpPreferences;
 }
 
+/** What {@link ensureSmtpConfigured} found, and whether it changed anything. */
+export interface SmtpConfigureResult {
+    configured: boolean;
+    wrote: boolean;
+    preferences: SmtpPreferences;
+}
+
 /**
- * Point the notification SMTP at the `SMTP_*` credentials this run was given,
- * unless a host is already configured.
+ * Confirm the deployment can send notification mail, writing the settings only
+ * when explicitly allowed.
+ *
+ * **Read-only by default.** A scheduled run must never push a credential into a
+ * database that stores it in clear text, so the default is to look and report.
+ * Pass `allowWrite` (the spec derives it from `NOTIFY_SMTP_WRITE=1`) for the
+ * one-time setup of a fresh deployment.
  *
  * `PUT /preferences` replaces the record, so the current body is read and echoed
- * back with only the SMTP group changed. Returns whether it wrote anything.
+ * back with only the SMTP group changed.
  */
-export async function configureSmtpFromEnv(request: APIRequestContext): Promise<boolean> {
+export async function ensureSmtpConfigured(
+    request: APIRequestContext,
+    opts: { allowWrite?: boolean } = {},
+): Promise<SmtpConfigureResult> {
     const current = await getSmtpPreferences(request);
-    if ((current.smtpServer ?? '') !== '' && current.smtpPasswordSet === true) return false;
+    const alreadyConfigured = (current.smtpServer ?? '') !== '' && current.smtpPasswordSet === true;
+    if (alreadyConfigured) return { configured: true, wrote: false, preferences: current };
+    if (!opts.allowWrite) {
+        return { configured: false, wrote: false, preferences: current };
+    }
 
     const host = getConfigValue(ConfigProperties.SMTP_HOST);
     const user = getConfigValue(ConfigProperties.SMTP_USER);
@@ -100,7 +124,7 @@ export async function configureSmtpFromEnv(request: APIRequestContext): Promise<
     if (!res.ok()) {
         throw new Error(`PUT preferences failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`);
     }
-    return true;
+    return { configured: true, wrote: true, preferences: await getSmtpPreferences(request) };
 }
 
 /** A filter script a Notification can be built on (`GET /filter-scripts`). */

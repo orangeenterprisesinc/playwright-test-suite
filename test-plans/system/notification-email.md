@@ -62,28 +62,48 @@ to stop someone repeating.
 
 ## Preconditions
 
-- [x] `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_TO` present
-      in the environment. CI supplies all five from repository secrets
-      (`e2e.yml`); locally they come from `.env`. Never committed.
+- [x] `EMAIL_TO` present in the environment — the recipient. CI supplies it from
+      repository secrets (`e2e.yml`); locally it comes from `.env`.
+- [ ] The deployment's notification mail settings **already configured** (host,
+      user, password, from). This run does not write them — see below.
+      `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` / `EMAIL_FROM` are needed only
+      for the one-time `NOTIFY_SMTP_WRITE=1` setup. Never committed.
 - [x] At least one filter script exists — a Notification is built on one. Any
       will do; this asserts dispatch, not report content.
 - [x] The `Notification` module licensed for the client.
 
-## Operational note
+## Why this run is read-only, and why it cannot be encrypted
 
-The helper writes the environment's mail settings into the target deployment's
-preferences, and the product keeps them readable rather than encrypted. Two
-consequences worth being deliberate about:
+The product stores this password **unencrypted and cannot be given an encrypted
+one**: `GetSmtpDetails` reads it plaintext, so a ciphertext would be handed to
+the mail server *as the password* and authentication would fail. The storage
+format belongs to the reader, not the writer. Legacy's preference framework does
+have an `Encrypted=true` capability — this key simply does not use it — so
+fixing that properly is a **product change**, worth a ticket.
 
-* Anyone with database or preference-write access on that deployment can read
-  them, and on dev the database can be snapshotted into the shared test image —
-  so what is written here can travel further than the deployment it was set on.
-* Prefer a **dedicated sending mailbox** over anyone's personal account. The
-  manual precedent in WEBPET-1531 used a purpose-made one, which now reads as a
-  deliberate choice rather than an arbitrary one.
+Given that, the spec **does not write mail settings by default.** It reads them,
+asserts the deployment is configured, and fails with instructions when it is
+not. So a scheduled run never pushes a credential into a database.
 
-The write is skipped when a host is already configured, so a run against an
-already-configured deployment changes nothing.
+Setting a deployment up is a deliberate one-off:
+
+```bash
+NOTIFY_SMTP_WRITE=1 npm run test:dev -- tests/web/system/notification-email.spec.ts
+```
+
+That single invocation reads `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` /
+`EMAIL_FROM` from the environment and writes them once. Every later run — local
+or CI — leaves them alone.
+
+Two things to weigh before doing it:
+
+* Anyone with database or preference-write access on that deployment can read the
+  value, and on dev the database can be snapshotted into the shared test image,
+  so it can travel further than the deployment it was set on.
+* Prefer a **dedicated sending mailbox** over anyone's personal account — the
+  recipient can still be a person. The manual precedent in WEBPET-1531 used a
+  purpose-made sender, which now reads as a deliberate choice rather than an
+  arbitrary one.
 
 ## Cleanup
 
@@ -91,7 +111,7 @@ already-configured deployment changes nothing.
 |---|---|
 | The Notification | `deleteNotification` in a `finally`; a failure is attached as a warning, never raised |
 | The recipient user | `deleteUserById` in the same `finally`; its name carries the prefix global teardown sweeps, so an early death still cleans up |
-| Mail settings | **left in place** — deployment configuration, not test data; clearing them would break the next run |
+| Mail settings | **not touched at all** by a normal run — deployment configuration, not test data |
 
 No SQL. Setup and teardown go through the app's API.
 
