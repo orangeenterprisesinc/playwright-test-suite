@@ -28,8 +28,8 @@
  *
  * The envelope is byte-faithful to what AndroidPET emits, deliberately: B7
  * currently fails on a real importer defect (see the `product-defect`
- * annotation at the `B7-R1` assertion), and padding the file to dodge it would
- * both break that fidelity and wipe the employee's demographics.
+ * annotation at the import-status assertion), and padding the file to dodge it
+ * would both break that fidelity and wipe the employee's demographics.
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { JOURNEY_B_FIXTURE as F, DAY_OFFSET, punchDay } from '@data/journey-b/fixture';
@@ -312,8 +312,34 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 ['ok', 'no-data'],
                 `relay pull could not run: ${pull.status} ${pull.message}`,
             ).toContain(pull.status);
+            // KNOWN PRODUCT DEFECT — B7 currently stops here, and the envelope is
+            // deliberately NOT padded to get past it. `tableMapper.bind`
+            // (upsert.go:624-646) never sets `boundColumn.Absent`, so
+            // `valueAssignments` (:1063-1075) assigns every column on the UPDATE
+            // arm, including ones the file omits. `PayPeriod` is modelled nullable
+            // (specs.go:260) but is NOT NULL on the client DB, so the parent
+            // <Employee> record dies with SQL 515 — and a parent failure is fatal to
+            // its nested grid (upsert.go:418-427), so the roll assignment never
+            // persists and B7-R1 below can never find it.
+            //
+            // Sending <PayPeriod> clears the 515, but the same UPDATE also writes
+            // FirstName, LastName, Rate, EmailAddress, HireDate and Password to
+            // NULL — the 515 is the only thing preventing that — and it would stop
+            // the envelope reproducing what AndroidPET actually emits.
+            const runFiles = JSON.stringify(run?.files ?? []);
+            if (/PayPeriod/.test(runFiles)) {
+                testInfo.annotations.push({
+                    type: 'product-defect',
+                    description:
+                        'Employee_Records parent UPDATE assigns every omitted column, so it fails ' +
+                        'SQL 515 on NOT NULL PayPeriod and the nested EmployeeCodeHistory grid is ' +
+                        'never written (upsert.go:418-427). Fix: set boundColumn.Absent in ' +
+                        'tableMapper.bind (upsert.go:645) and honour it in valueAssignments ' +
+                        '(:1066), as reference.go:1634 and gridmapper.go:666 already do.',
+                });
+            }
             if (run) {
-                expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
+                expect(run.status, `import run ${run.runId}: ${runFiles}`).toBe('completed');
             }
 
             const pollOpts = {
@@ -338,36 +364,8 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
 
             // B7-R1: the roll's extracted prefix lands as the employee's own
             // code-history alternate code, windowed to this punch day.
-            //
-            // KNOWN PRODUCT DEFECT — this is where B7 currently fails on dev, and
-            // the envelope is deliberately NOT padded to work around it. The
-            // importer's `tableMapper.bind` (upsert.go:624-646) never sets
-            // `boundColumn.Absent`, so `valueAssignments` (:1063-1075) assigns every
-            // column on the UPDATE arm, including ones the file omits. `PayPeriod`
-            // is modelled nullable (specs.go:260) but is NOT NULL on the client DB,
-            // so the parent <Employee> record dies with SQL 515 — and a parent
-            // failure is fatal to its nested grid (upsert.go:418-427), so the roll
-            // assignment is never persisted and this lookup finds nothing.
-            //
-            // Adding <PayPeriod> would clear the 515, but the same UPDATE also
-            // writes FirstName, LastName, Rate, EmailAddress, HireDate, Password and
-            // ~10 more to NULL — the 515 is the only thing preventing that. The
-            // envelope stays byte-faithful to what AndroidPET's
-            // serializeCodeHistoryRecords emits (a Code-only Employee parent), which
-            // is the shape the WEBPET-1526 recording syncs.
             const history = await getCodeHistory(sessionApi, emp6007.id);
             const historyRow = history.find((h) => h.alternateCode === assignedPrefix);
-            if (!historyRow) {
-                testInfo.annotations.push({
-                    type: 'product-defect',
-                    description:
-                        'Employee_Records parent UPDATE assigns every omitted column, so it fails ' +
-                        "SQL 515 on NOT NULL PayPeriod and the nested EmployeeCodeHistory grid is " +
-                        'never written. Fix: set boundColumn.Absent in tableMapper.bind ' +
-                        '(upsert.go:645) and honour it in valueAssignments (:1066), as ' +
-                        'reference.go:1634 and gridmapper.go:666 already do.',
-                });
-            }
             expect(
                 historyRow,
                 'no code-history row carries the assigned prefix — see the product-defect annotation',
