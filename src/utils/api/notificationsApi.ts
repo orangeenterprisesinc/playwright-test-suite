@@ -35,10 +35,16 @@ import { ConfigProperties, getConfigValue } from '../../config/configProperties'
  * decide, not the writer's — making this key use the framework's existing
  * `Encrypted=true` capability is a product change, not something a test can do.
  *
- * Consequently {@link ensureSmtpConfigured} **does not write by default**: it
- * asserts the deployment is already configured and explains how to fix it when
- * not, so no credential ever flows from a scheduled run into a database. The
- * write is opt-in per call, for a one-time manual setup.
+ * Storing it encrypted is a **deferred phase** (team decision 2026-08-31), so
+ * {@link ensureSmtpConfigured} writes the plaintext settings when a deployment
+ * has none. That is deliberate rather than careless: dev resets wipe the
+ * preferences, and a run that only *checked* would leave CI red after every reset
+ * until someone re-ran a manual setup. Pass `allowWrite: false` (or
+ * `NOTIFY_SMTP_WRITE=0`) to make a run read-only.
+ *
+ * Use a **dedicated sending mailbox**, not a personal account — the recipient can
+ * still be a person. That bounds the exposure to a disposable credential until the
+ * encryption phase lands.
  */
 
 /** The SMTP fields `GET /preferences` exposes, as one normalised group. */
@@ -76,10 +82,10 @@ export interface SmtpConfigureResult {
  * Confirm the deployment can send notification mail, writing the settings only
  * when explicitly allowed.
  *
- * **Read-only by default.** A scheduled run must never push a credential into a
- * database that stores it in clear text, so the default is to look and report.
- * Pass `allowWrite` (the spec derives it from `NOTIFY_SMTP_WRITE=1`) for the
- * one-time setup of a fresh deployment.
+ * **Writes when the deployment has none.** Encryption is a later phase, so the
+ * plaintext settings are written rather than demanded — otherwise every dev reset
+ * would leave CI red until a human re-ran a setup step. Pass `allowWrite: false`
+ * (the spec honours `NOTIFY_SMTP_WRITE=0`) for a read-only run.
  *
  * `PUT /preferences` replaces the record, so the current body is read and echoed
  * back with only the SMTP group changed.
@@ -91,7 +97,7 @@ export async function ensureSmtpConfigured(
     const current = await getSmtpPreferences(request);
     const alreadyConfigured = (current.smtpServer ?? '') !== '' && current.smtpPasswordSet === true;
     if (alreadyConfigured) return { configured: true, wrote: false, preferences: current };
-    if (!opts.allowWrite) {
+    if (opts.allowWrite === false) {
         return { configured: false, wrote: false, preferences: current };
     }
 

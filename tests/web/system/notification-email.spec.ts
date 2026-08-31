@@ -43,11 +43,12 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
     }, async ({ sessionApi }, testInfo) => {
         test.slow();
 
-        // ── Mail settings: READ-ONLY unless NOTIFY_SMTP_WRITE=1. The product
-        // stores this password in clear text and cannot be given an encrypted
-        // one, so a scheduled run must never push a credential into the database
-        // — it only checks, and says what to do when the check fails. ──
-        const allowWrite = process.env.NOTIFY_SMTP_WRITE === '1';
+        // ── Mail settings, written when the deployment has none. The product
+        // stores this password in clear text and cannot be given an encrypted one;
+        // encryption is a later phase. Writing beats demanding, because dev resets
+        // wipe the preferences and a check-only run would leave CI red until
+        // someone re-ran a manual setup. NOTIFY_SMTP_WRITE=0 makes it read-only. ──
+        const allowWrite = process.env.NOTIFY_SMTP_WRITE !== '0';
         const { configured, wrote, preferences: smtp } = await ensureSmtpConfigured(sessionApi, { allowWrite });
         testInfo.annotations.push({
             type: 'notification-smtp',
@@ -60,11 +61,10 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         });
         expect(
             configured,
-            'This deployment has no notification mail settings, and this run is not allowed to write ' +
-                'them: the product stores the password unencrypted, so a scheduled run never pushes one. ' +
-                'Configure it once by hand with NOTIFY_SMTP_WRITE=1 (it reads SMTP_HOST / SMTP_USER / ' +
-                'SMTP_PASSWORD / EMAIL_FROM from the environment), then leave this run read-only. ' +
-                'Prefer a dedicated sending mailbox over a personal account.',
+            'This deployment has no notification mail settings and this run was told not to write them ' +
+                '(NOTIFY_SMTP_WRITE=0). Drop that variable to let the run configure them from ' +
+                'SMTP_HOST / SMTP_USER / SMTP_PASSWORD / EMAIL_FROM, or set them by hand. Prefer a ' +
+                'dedicated sending mailbox over a personal account.',
         ).toBe(true);
 
         // The address the environment nominates — the same one the framework's own
