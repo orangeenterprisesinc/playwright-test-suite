@@ -190,12 +190,18 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                     traceabilityCode: assignedRoll,
                     at: punchMoment(6, 30, punchDate),
                 },
+                // Device B's piece-outs carry NO crew, as the recording shows
+                // (`Cuadrilla de Trabajo` blank, kf 218) and Amy's QA comment states
+                // ("no crew selected"). This is load-bearing, not cosmetic: her two
+                // crew-selected variants (WEBPET-1526 attachments 66917/66918) both
+                // come back with the employee CLEARED at import and
+                // "…removed, Distributed to entire Crew" appended to the memo — so a
+                // crew would undo the very reconciliation B7-R2/B7-R3 assert.
                 {
                     node: 'PieceOut',
                     part: DEVICE_SCHEMA.referenceParts.pieceOut,
                     employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
                     employeeCode: unassignedPrefix,
-                    crewCode: F.crew.code,
                     pieces: 1,
                     traceabilityCode: unassignedSticker,
                     at: punchMoment(12, 16, punchDate),
@@ -205,7 +211,6 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                     part: DEVICE_SCHEMA.referenceParts.pieceOut,
                     employeeSource: DEVICE_SCHEMA.employeeSource.alternateCode,
                     employeeCode: assignedPrefix,
-                    crewCode: F.crew.code,
                     pieces: 1,
                     traceabilityCode: assignedSticker,
                     at: punchMoment(12, 17, punchDate),

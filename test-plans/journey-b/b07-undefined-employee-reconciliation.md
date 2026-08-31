@@ -17,6 +17,12 @@ was **capped at 60 change points with `Max gap 16.2s of 5.0s allowed`**; re-run 
 `--max-frames 200` per the annotator's own remedy table, which uncapped it and closed the gap. No
 other flag was changed.
 
+**Authoritative step list.** Amy's QA comment on WEBPET-1526 (2026-08-12, "PASSED QA") enumerates
+the steps device by device and is the source of record; the keyframes below corroborate it. She also
+records the instance's preferences: **Employee Barcode Start Location: 1** (confirming
+`RunTrackingEmpCodeStartLoc = 1`) and **Traceability Uniqueness Verification: 1**
+(`verifyTraceabilityUniquenessPeriod`, which gates only the duplicate-sticker case below).
+
 **Reading coverage.** The recording is a three-pane screen share: the office web app (left, Chrome on
 `https://192.168.1.74`, signed in as `Su`), a **Galaxy S20+ 5G running `PET (26.01.22) -
 DeviceDup31@je…`** (middle — **device B**, reference prefix `D31`), and a Zoom share of an **RS35
@@ -117,13 +123,31 @@ db-test fixture so the real device shape is what is exercised.
 | `0000013-260812-PO-D31-ui` | 12:18 | Time Out | **Undefined Employ…** | `Sticker Code` |
 
 **The undefined rows are flagged in the Memo — not in a Transfer issue group:**
-`Assigning to Undefined Employee - Missing Code: B728434` (attachment 66917,
-`0000018-…-PO-D31-ui`, Traceability `B7284340297`).
+`Assigning to Undefined Employee - Missing Code: B728434`, per Amy's QA comment on WEBPET-1526
+and the `Undefined Employ…` rows in the office grid (kf 350, 384).
+
+**The two attachments are NOT the video's flow — read them carefully.** Both are the
+*crew-selected* variants Amy describes in her comment's Note section ("although it is not shown on
+the video, in the piece-out screen of Device 2, the same crew is selected"). In both, the employee
+the importer resolved is then **cleared**, with `Unedited: Yes` — so this is the import doing it,
+not a manual edit:
+
+| Attachment | Reference | Traceability | Work Crew | Employee | Memo |
+|---|---|---|---|---|---|
+| `66917` (`image-20260812-195914.png`) | `0000014-260812-PO-D31-ui`, 12:29 | `B7288570949` (Joel's roll) | `319-25` | **cleared** | `Employee Ayon Corrales,Joel removed, Distributed to entire Crew` |
+| `66918` (`image-20260812-195900.png`) | `0000018-260812-PO-D31-ui`, 12:32 | `B7284340297` (other roll) | `319-25` | **cleared** | `Assigning to Undefined Employee - Missing Code: B728434` then `Employee Undefined Employee removed, Distributed to entire Crew` |
+
+**This is why B7's piece-outs carry no crew.** A crew on a Device-B piece-out makes the office
+undo the reconciliation and distribute to the crew, leaving `employeeCounter` NULL — which would
+defeat the id-equality `B7-R2`/`B7-R3` assert even with the importer defect fixed. The recording's
+own Device B has `Cuadrilla de Trabajo` blank (kf 218), so the faithful shape is also the testable
+one.
 
 *Recorded context, not a requirement.* The recording also happens to show a second route to the same
 fallback — `Duplicate Use of Traceability Code` naming the other record — when device B rescans a
 sticker device A already used (kf 370, `0000013-…-PO-D31-ui`, Traceability `B7288570930`, other
-record `0000010-260812-PO-S31-ui`). B7 automates the workflow's single path, so that edge case is
+record `0000010-260812-PO-S31-ui`), gated by the `Traceability Uniqueness Verification` preference
+(`verifyTraceabilityUniquenessPeriod`). B7 automates the workflow's single path, so that edge case is
 noted here and not carried as an acceptance criterion.
 
 The extraction arithmetic is corroborated twice: `B7288570926 → B728857` and `B7284340277 → B728434`
@@ -268,7 +292,7 @@ assertion, so the comparison is like-for-like.
 |---|---|---|---|---|
 | 1 | `TimeCard` / `TI` | 06:30 | `6007` code | crew `5001`, ranch `4001`, field `4101`, job `4201`, `employeeSource` `BarcodeBadge`, `traceabilityCode` = assigned roll — device A's Time In |
 | 2 | `Employee_Records` **nested grid** (not a flat `_Records` section) | 06:30 | `6007` code | `AlternateCode` = assignedPrefix, `FirstCode` = roll suffix, `ScannedCode` = full roll, `StartDateTime` = 06:30 that day |
-| 3 | `PieceOut` / `PO` | 12:17 | **assignedPrefix** | crew `5001`, no job/ranch/field, `pieces` 1, `traceabilityCode` = assignedSticker, `employeeSource` `AlternateCode` — `B7-R2` |
+| 3 | `PieceOut` / `PO` | 12:17 | **assignedPrefix** | **no crew**, no job/ranch/field, `pieces` 1, `traceabilityCode` = assignedSticker, `employeeSource` `AlternateCode` — `B7-R2` |
 | 4 | `PieceOut` / `PO` | 12:16 | **unassignedPrefix** | same shape, a prefix with no grid row — `B7-R3`, `B7-R4` |
 
 **Office assertions.** `GET /employees/{id}/code-history` → a row whose `alternateCode` is
