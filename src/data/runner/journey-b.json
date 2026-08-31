@@ -338,9 +338,16 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B12-R3",
+                "B12-R4",
+                "B12-R5",
+                "B12-R6",
+                "B12-R8"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B13-001",

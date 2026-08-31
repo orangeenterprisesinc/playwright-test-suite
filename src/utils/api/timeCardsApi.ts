@@ -121,6 +121,41 @@ export async function deleteTimeCard(
     return { deleted: res.ok(), status: res.status() };
 }
 
+/** One answer row on a time-out card, as `GET time-cards/time-out/{id}` returns it. */
+export interface TimeOutQuestionAnswer {
+    questionCounter: number;
+    questionName: string;
+    response: string;
+}
+
+/** The time-out detail shape, for the fields the grid list does not carry. */
+export interface OfficeTimeOutDetail extends OfficeTimeCard {
+    /** The `TimeCardQuestion` children, joined by the importer via the card's Reference. */
+    questions?: TimeOutQuestionAnswer[];
+    /** Base64 signature image — the signed acknowledgment captured on the device. */
+    signature?: string | null;
+}
+
+/**
+ * A single time-out card with its question answers and signature.
+ *
+ * A different route from `GET time-cards/{id}`: only the time-out detail
+ * (`main.go:2546` → `input.GetTimeOut`) hydrates `questions` and `signature`,
+ * which is the sole place an imported answer row is observable.
+ */
+export async function getTimeOutDetail(
+    request: APIRequestContext,
+    id: number,
+): Promise<OfficeTimeOutDetail> {
+    const res = await request.get(`time-cards/time-out/${id}`);
+    if (!res.ok()) {
+        throw new Error(
+            `GET time-cards/time-out/${id} failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`,
+        );
+    }
+    return (await res.json()) as OfficeTimeOutDetail;
+}
+
 /** The `<Reference>` values an export envelope carries, in document order. */
 export function referencesInExport(xml: string): string[] {
     return [...xml.matchAll(/<Reference>([^<]+)<\/Reference>/g)].map((m) => m[1]);
