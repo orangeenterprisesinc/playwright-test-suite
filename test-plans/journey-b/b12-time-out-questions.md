@@ -402,7 +402,7 @@ Listed, not tested. Nothing here becomes a second scenario.
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
-| Connectivity ▸ Import ▸ Internet | `Connectivity ▸ Import ▸ Internet` | `src/pages/connectivity/ImportInternetPage.ts` | exists — used only on the internet transport; B12 runs `IMPORT_TRANSPORT=single-folder` |
+| Connectivity ▸ Import ▸ Internet | `Connectivity ▸ Import ▸ Internet` | `src/pages/connectivity/ImportInternetPage.ts` | exists — the office UI half the **internet** transport drives, exactly as in B1/B2/B3/B4/B11 |
 | Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — the screen Amy uses; B12 asserts its data on the API |
 
 **No new page object.** Every outcome B12 asserts is on the API
@@ -453,8 +453,17 @@ The **unexpected** answer for each question is derived at runtime from the store
 
 ## Preconditions
 
-- [ ] `IMPORT_TRANSPORT=single-folder` — the importer-contract path (B11 proved the internet
-      relay works too, but single-folder needs no relay configuration).
+- [x] **Internet relay — the code default; do not set `IMPORT_TRANSPORT`.** It is what CI
+      runs and what Amy's environment does (her relay ingests automatically), and the only
+      transport that exercises the **WebMail/relay leg**. B11's plan warns against
+      `single-folder` for exactly this reason: it POSTs straight to
+      `connectivity/import/single-folder` and skips that leg entirely.
+      **Verified on both:** internet relay green in **64.9 s** (2026-08-31 — the run log
+      carries `Navigating via menu: Connectivity ▸ Import ▸ Internet`, so the office pull
+      really ran) and `single-folder` green in **45.3 s** (2026-08-28). Neither used
+      `OFFICE_TRANSPORT_SUBSTITUTE`, and both asserted `programCreated=true`, which
+      `deliverAndVerifyCards` only permits on a genuine device import. `single-folder`
+      remains the fallback when relay configuration is unavailable.
 - [ ] `IMPORT_POLL_TIMEOUT_MS=180000` — the worker claims files on the client's
       `serviceImportInterval` cadence, not on arrival.
 - [x] Modules open on dev — `GET /session/me` → `modules` shows `TimeCardQuestions: true`,
