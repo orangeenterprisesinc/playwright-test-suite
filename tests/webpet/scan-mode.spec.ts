@@ -18,7 +18,7 @@
  * DB-write equivalence (audit/reference columns vs legacy) lives in the env-gated companion
  * spec tests/webpet/equiv/scan-time-in-equivalence.spec.ts.
  *
- * Requires the web app running (baseURL, default http://localhost:3000) and the admin auth
+ * Requires the web app reachable at baseURL (dev staging) and the admin auth
  * storage state provisioned by global-setup. Module-gating assertions live in the companion
  * spec tests/webpet/scan-mode-gating.spec.ts.
  *

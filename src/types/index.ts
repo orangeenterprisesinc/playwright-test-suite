@@ -48,7 +48,8 @@ export type DataSourceType = 'json' | 'csv';
  * - `'ui'` — browser-driven tests (`tests/web/`)
  * - `'workflow'` — UI + API (+ DB) hybrids; act in the UI, verify through the API.
  *   Needs the browser and `auth-setup`, so it lives in `tests/web/` too
- * - `'api'` — API-only, browserless (`tests/api/`)
+ * - `'api'` — API-only / device export-import specs; same `tests/web/` folder
+ *   (the separate `tests/api/` was retired 2026-08-26)
  *
  * The mapping is enforced by `CATEGORY_FOLDER` in `scripts/runner/check.js`.
  */

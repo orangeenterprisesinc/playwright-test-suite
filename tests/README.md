@@ -3,27 +3,24 @@
 Two axes: **category** (what a test proves) and **journey** (which part of the PET
 Tiger Workflow Catalog it covers).
 
-There are **two folders, not three.** The folder boundary is a *runtime* one — it picks
-the Playwright project — and only one thing actually differs at runtime: whether a test
-needs a browser. `tests/api/` is browserless with its own request context;
-`tests/web/` drives a browser and depends on `auth-setup`. A `workflow` spec acts in the
-UI and verifies through the API, so it needs the browser and lives in `tests/web/`
-alongside the UI-only specs. Journey is the folder inside.
+There is **one journey folder, `tests/web/`**, with the journey as the folder inside.
+UI specs, API-only specs and UI+API hybrids sit side by side: a spec that never
+destructures `page` launches no browser, so nothing is gained by a separate folder,
+and device workflows (Journey B) need API *and* UI verification in the same test.
+The former `tests/api/` was retired on 2026-08-26.
 
 ```
 tests/
 ├── auth.setup.ts                       # one-time browser login → .auth/user.json (shared)
-├── api/                                # API-only, NO browser → src/fixtures/api.fixture
-│   ├── journey-a-setup/                #   A6 biometric enrollment (device)
-│   ├── journey-b-field/                #   B1–B15 field handheld capture — reserved
-│   └── journey-c-packhouse/            #   C1–C10 kiosk capture — reserved
-├── web/                                # Browser-driven → src/fixtures/base.fixture
-│   │                                   #   UI-only AND UI+API(+DB) workflow hybrids
+├── web/                                # journey suite → base.fixture (or api.fixture when browserless)
 │   ├── system/                         #   login and other non-catalog framework tests
 │   │   └── login-module.spec.ts
 │   ├── journey-a-setup/                #   A1–A14 office setup and configuration
 │   │   └── a01-user-setup.spec.ts      #     the working reference spec
-│   ├── journey-b-field/                #   B14 real-time field dashboard
+│   ├── journey-b-field/                #   B1–B15 field capture via the device export/import
+│   │   ├── b01-crew-time-in.spec.ts    #     XML envelope → relay/import → office API + UI
+│   │   ├── b01-relay-roundtrip.spec.ts #     browserless relay check (api.fixture)
+│   │   └── b02-crew-move.spec.ts
 │   ├── journey-d-office/               #   D1–D8 processing, D9–D10 transfer-time calcs
 │   ├── journey-e-payroll/              #   E8–E11 payroll close, E1–E7/E12–E13 calcs
 │   └── journey-f-analysis/             #   F1–F7 analysis and monitoring
@@ -32,25 +29,19 @@ tests/
 
 ## Which category?
 
-The category stays **three-valued** even though there are two folders, because it
-mirrors the catalog's `surface` field — collapsing it would throw away the distinction
-between a screen flow and a calculation verified against data. Take it from the
-workflow's `surface` in `src/data/catalog/workflow-catalog.json`:
+The category stays **three-valued** because it mirrors the catalog's `surface` field
+and Allure's `epic` label is derived from it. Take it from the workflow's `surface` in
+`src/data/catalog/workflow-catalog.json`:
 
-| `surface` | Category | Folder | Why |
-|---|---|---|---|
-| `ui` | `ui` | `web/` | A browser screen drives it |
-| `device` | `api` | `api/` | Handheld or kiosk capture — no web screen exists, so it is driven through the sync API |
-| `calc` | `workflow` | `web/` | A calculation verified against data — acts in the UI, verifies via API/DB |
+| `surface` | Category | Why |
+|---|---|---|
+| `ui` | `ui` | A browser screen drives it |
+| `device` | `api` (or `workflow` when the spec also verifies in the UI) | Handheld or kiosk capture — the test builds the device's export and drives the import |
+| `calc` | `workflow` | A calculation verified against data — acts in the UI, verifies via API |
 
-`npm run runner:check` enforces the category → folder mapping (`CATEGORY_FOLDER` in
-`scripts/runner/check.js`), so a spec filed in the wrong folder fails in seconds rather
-than running under the wrong project. Within `web/`, tag hybrids `@Workflow` —
+`npm run runner:check` enforces that every journey category lives under `tests/web/`
+(`CATEGORY_FOLDER` in `scripts/runner/check.js`). Tag hybrids `@Workflow` —
 `npm run test:workflow` greps for it.
-
-Journeys B and C are **25 of the 69 workflows** and are device/kiosk flows. Their
-folders and runner rows are reserved, but no specs exist yet — there is no confirmed
-web or API surface for device capture in the cloud rebuild.
 
 ## Naming
 
@@ -100,11 +91,13 @@ Use the path aliases, not deep relative paths — specs sit three folders down:
 
 ---
 
-## 1. API — `tests/api/`
+## 1. API-only — also `tests/web/`
 
-Pure API tests, run by the browserless `api` project. **No browser is launched**, no
-`auth-setup` dependency — `api.fixture` creates its own request context and applies
-the configured `AUTH_TYPE`.
+Pure API tests import `api.fixture`, which creates its own request context and
+applies the configured `AUTH_TYPE`. They run under the same `chromium` project as
+everything else; because they never destructure `page`, **no browser is launched**.
+Need the office session (cookie + CSRF)? Use `base.fixture`'s `sessionApi` instead —
+that is what the Journey B device specs do.
 
 ```ts
 import { test, expect } from '@fixtures/api.fixture';
@@ -191,7 +184,7 @@ Playwright projects, its own npm scripts and its own CI workflows.
 | runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
 | ids | `A1-001` | `WP-0001` |
 | tags | `@JourneyA`, `@UI`, `@Smoke` | `@WebPet`, `@wp-*`, `@WPBatchNN` |
-| projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
+| projects | `auth-setup` → `chromium` | `webpet-setup` → `webpet` (opt-in) |
 | run | `npx playwright test` | `npm run test:webpet` |
 
 The separation is enforced, not conventional:

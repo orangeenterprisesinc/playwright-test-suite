@@ -18,7 +18,12 @@ node_modules/
 
 # Local-only tooling and its generated output — never commit
 # (see .claude/GITHUB_WORKFLOW.md "never commit local noise").
-/tools/
+# tools/video-annotator/ is the one tracked tool; its venv, generated cursor
+# templates and output stay local (see tools/video-annotator/README.md).
+/tools/*
+!/tools/video-annotator/
+/tools/video-annotator/.venv/
+/tools/video-annotator/cursors/
 /.video-annotations/
 /inviestgate/
 
@@ -26,12 +31,8 @@ node_modules/
 /playwright/.auth/
 .auth/
 
-# Personal env overrides (SMTP credentials etc.) — loaded by envLoader as the
-# base file, never committed. The committed .env.local/.dev/.qa hold no real
-# plaintext secrets: anything sensitive there is stored as ENC(...) ciphertext
-# and decrypted at read time (see src/config/secrets.ts). The master key
-# SECRET_KEY lives HERE, in this untracked file, and in CI secrets — never in a
-# committed file, or the encryption buys nothing.
+# Personal env overrides and real credentials — loaded by envLoader as the base
+# file, never committed. The committed .env.local/.dev/.qa carry no secrets.
 .env
 # ...but never ignore the committed per-environment files or the template.
 !.env.example
@@ -51,7 +52,9 @@ Reference project/
 # which requires it.
 
 
-# Local SQL Server backup (12.9GB real client data — never commit)
+# Local SQL Server backups (12.9GB real client data — never commit). No longer
+# part of the stack: docker/e2e/ pulls a pre-baked DB image instead. Kept on disk
+# only as a fallback while the image's thinner PetData is being evaluated.
 docker/db-backup/
 *.bak
 docker/e2e/.env

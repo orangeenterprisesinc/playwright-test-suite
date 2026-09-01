@@ -18,7 +18,7 @@ import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/
  *
  * Differences from the source file (mechanical only):
  *   - request contexts are created against API_BASE_URL (identical to the web
- *     origin on localhost; https://api.ptdev.xyz on dev staging — see
+ *     origin on the containerized stack; https://api.ptdev.xyz on dev — see
  *     ./webpet-env.ts) while the Origin header stays the web origin.
  *   - the auth dir is tests/webpet/.auth instead of <cwd>/e2e/.auth.
  *
@@ -55,7 +55,7 @@ export async function healAdminSession(): Promise<void> {
             `webpet setup: admin login failed (HTTP ${adminLoginRes.status()}) against ${API_BASE_URL} ` +
                 `as '${ADMIN_USER}'. Check E2E_ADMIN_USER / E2E_ADMIN_PASSWORD (falls back to ` +
                 `USER_NAME / PASSWORD — see src/config/webpetEnv.ts), and make sure the stack is ` +
-                `reachable (localhost: Vite proxy + Go API running; dev: WEBPET_API_ORIGIN set).`,
+                `reachable and that WEBPET_API_ORIGIN points at the API host).`,
         );
     }
 

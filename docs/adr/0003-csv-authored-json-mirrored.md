@@ -24,7 +24,7 @@ if the two disagree.
   different journeys do not conflict. At 69 catalog workflows a single file would
   be a permanent merge conflict.
 - The mirror can drift, so the check is mandatory in CI — it runs before the tests
-  in `e2e.yml` and `e2e-local.yml`.
+  in `e2e.yml`.
 - The migrated web-pet suite contradicts the "one file per journey" half of this:
   `src/data/webpet/webpetRunnerManager.csv` is a single 406-row file. That is
   inherited from the source repo's flat spec layout, not a second opinion.

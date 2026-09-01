@@ -4,7 +4,7 @@ One orchestration layer serves two automation domains:
 
 * **Web-PET** — maintaining the existing E2E suite (`tests/webpet/`, ~406 tests)
 * **User Journey** — creating and maintaining automation from the PET-Tiger
-  workflow catalog (`tests/web/`, `tests/api/`, `test-plans/`)
+  workflow catalog (`tests/web/`, `test-plans/`)
 
 For every Playwright-related task — bug, test failure, test-generation request,
 framework change, or automation maintenance — follow this workflow unless the task
@@ -72,7 +72,7 @@ by default, never in non-Playwright sessions:
 | Task touches | Profile |
 |---|---|
 | `tests/webpet/`, `src/pages/webpet/`, `src/components/webpet/`, `src/data/webpet/` | [profiles/WEBPET.md](profiles/WEBPET.md) |
-| `tests/web/`, `tests/api/`, `src/data/runner/`, `src/data/catalog/`, `test-plans/` | [profiles/JOURNEY.md](profiles/JOURNEY.md) |
+| `tests/web/`, `src/data/runner/`, `src/data/catalog/`, `test-plans/` | [profiles/JOURNEY.md](profiles/JOURNEY.md) |
 | Shared core (`src/fixtures/`, `src/config/`, `src/utils/`, `src/components/` root, `src/data/readers/`) | profile per affected suite; **both** suites' validation gates |
 
 An agent invocation prompt names exactly: its stage contract (§4, summarized
@@ -91,6 +91,7 @@ says agent, invoke the agent.
 |---|---|
 | Automate a catalog workflow ("automate B3") | `journey-from-catalog` skill → Planner → Generator (→ Healer), JOURNEY profile |
 | Automate a Jira story | `jira-to-script` skill (agent-orchestrated) |
+| Automate from a screen recording | `annotate-video` → `annotations-to-script` skills → Planner → Generator (→ Healer), JOURNEY profile |
 | New webpet spec / extend coverage | Planner → Generator (→ Healer), WEBPET profile |
 | Failure, cause unknown | main session: `pw-failure-triage` Step 1 (gate-skip?) → if real, Healer with classification + artifact paths |
 | Failure, cause known, single file | main session + `pw-locator-hardening` / `pw-spec-author` — no agents |
@@ -178,14 +179,16 @@ is suite-wide.
 Agent definitions default to `model: sonnet`; the orchestrator overrides per
 invocation via the Agent tool's `model` parameter.
 
-* **Fable 5** — complex planning, difficult root-cause analysis, architecture
-  decisions, final escalation.
-* **Opus** — complex implementation/review, difficult debugging; escalation step
-  before Fable 5.
+* **Opus** — first escalation from Sonnet: complex planning, complex
+  implementation/review, difficult debugging.
+* **Fable 5** — reserved for two cases only: root-cause analysis Opus could
+  not resolve, and framework/architecture decisions (shared-core changes).
+  Never the first escalation.
 * **Sonnet (default)** — Generator and Healer, normal coding, locator/fixture
   work, routine review.
 * **Haiku** — lightweight searches, file discovery, extracting small facts.
 
+Escalation order is always Sonnet → Opus → Fable 5.
 Do not use Fable 5 or Opus for tasks Sonnet or Haiku can handle.
 
 ## 7. Context and Token Efficiency

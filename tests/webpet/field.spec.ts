@@ -25,11 +25,6 @@ import {
     type EnsuredField,
 } from './data-factory';
 
-// Tests in this file mutate DB state on their own fields — cannot run in
-// parallel without racing. Serialize despite playwright.config's
-// `fullyParallel: true`.
-test.describe.configure({ mode: 'serial' });
-
 // This file owns two fields (under a dedicated ranch), created fresh via the
 // API (no dependency on a seeded Field 1 / Field 5 or on there being ≥2 active
 // uniquely-named fields). The inline-edit/multi-edit tests toggle Active and

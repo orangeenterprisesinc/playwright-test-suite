@@ -1,9 +1,13 @@
 /**
- * @fileoverview Environment file loader supporting .env.local/dev/qa with OS-env precedence.
+ * @fileoverview Environment file loader supporting .env.dev/qa with OS-env precedence.
  *
  * Loads a base `.env` (if present) and an environment-specific `.env.<name>`
  * file, where name is resolved from `TEST_ENV` (preferred) or `ENV`, defaulting
- * to `'local'`. OS-level environment variables always take precedence.
+ * to `'dev'`. OS-level environment variables always take precedence.
+ *
+ * The default is `dev` because dev staging is the only target this suite runs
+ * against — a bare `npx playwright test` with no TEST_ENV would otherwise load
+ * nothing and leave every spec with an undefined baseURL.
  */
 import fs from 'fs';
 import path from 'path';
@@ -26,7 +30,7 @@ function parseIfExists(filePath: string): Record<string, string> {
 /** Resolves the environment name from an explicit value, `TEST_ENV`, or `ENV`. */
 function resolveEnvName(explicitEnv?: string): string {
     const raw =
-        (explicitEnv || process.env.TEST_ENV || process.env.ENV || 'local').toString().toLowerCase();
+        (explicitEnv || process.env.TEST_ENV || process.env.ENV || 'dev').toString().toLowerCase();
     return raw;
 }
 

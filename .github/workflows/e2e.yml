@@ -8,13 +8,13 @@ name: E2E
 # fallback to a generic PASSWORD secret).
 #
 # Pinning TEST_ENV is load-bearing: without it envLoader falls back to 'local'
-# and loads .env.local, pointing the suite at the containerized stack on a
-# GitHub-hosted runner where nothing is listening.
+# and loads a .env.local that no longer exists, leaving every spec with an
+# undefined baseURL. The loader now defaults to dev for the same reason.
 #
 # ── ONE WORKFLOW, TWO SUITES ────────────────────────────────────────────────
 # The `suite` input selects which:
 #
-#   journey (default) — tests/web + tests/api, the user-journey suite. A bare
+#   journey (default) — tests/web, the user-journey suite. A bare
 #                       `npx playwright test` is already exactly this: tests/webpet
 #                       is opt-in behind WEBPET=1 / --project=webpet, so it is
 #                       excluded without any filtering.
@@ -38,9 +38,7 @@ name: E2E
 # documents skip on unset S3_ENDPOINT; data-scoping needs RestrictedTest
 # provisioning). Full list and the baseline procedure: tests/webpet/README.md.
 #
-# Need to run against a locally-booted app instead? See docker/e2e/README.md —
-# the containerized stack, which pulls the PET Tiger DB image and builds the app
-# from a web-pet checkout. It has no workflow; it is run by hand.
+# There is no local-execution path any more: dev staging is the only target.
 #
 # This file must live on `main`: GitHub only fires `schedule:` from the default
 # branch, so a cron block on any other branch is accepted and then never triggers.
@@ -144,8 +142,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # web-pet's advisory job dispatches this workflow on every PR AND on every
+  # merge to main. Dev staging is deployed from main only, so the merge run
+  # retests the same build the 4 PM cron covers and just adds a Slack post per
+  # merge. Skip it here rather than in web-pet: web-pet's helper exits non-zero
+  # on any run conclusion other than `success`, and a run whose only job was
+  # skipped concludes `skipped`. With this job green the run concludes `success`
+  # even when `e2e` is skipped, so web-pet's verdict stays PASS.
+  route:
+    name: Route dispatch
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+    steps:
+      - id: decide
+        env:
+          RUN_LABEL: ${{ inputs.run_label }}
+        run: |
+          if [[ "$RUN_LABEL" == "web-pet push "* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::'$RUN_LABEL' is a merge-to-main dispatch — the suite runs on PRs and the 4 PM cron only."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
+    needs: route
+    if: needs.route.outputs.skip != 'true'
     runs-on: ubuntu-latest
 
     strategy:
@@ -176,8 +200,7 @@ jobs:
       # static SPA — plus WEBPET_API_ORIGIN for the webpet suite's direct API
       # calls, since the SPA host serves index.html for every path including
       # /api/*). Applies to every trigger above, so the repository_dispatch the
-      # app repo fires also targets dev staging; locally-booted coverage lives
-      # in docker/e2e/.
+      # app repo fires also targets dev staging.
       TEST_ENV: dev
       # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
       # secret. A login name is not a credential, and Actions masks every literal
@@ -293,12 +316,9 @@ jobs:
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
       # One report per suite, never merged — the header has to say which.
       SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || 'User Journey') }}
-      # Normally derived from the trigger ('Scheduled Dry Run' on a cron, 'Manual'
-      # on a dispatch). A cross-repo dispatcher carries no caller context of its
-      # own, so run_label lets it name its origin — web-pet's e2e-dev job passes
-      # 'web-pet PR #<n>'. Null inputs (cron, push, repository_dispatch) fall
-      # through to the variable, which keeps the old format-review override.
-      SLACK_EXECUTION_LABEL: ${{ inputs.run_label || vars.SLACK_EXECUTION_LABEL }}
+      # SLACK_EXECUTION_LABEL is set by the "Resolve Slack execution label" step
+      # below, not here: a job-level env mapping would shadow the GITHUB_ENV
+      # export that step relies on for the web-pet PR lookup.
       # --- S3 artifact upload (opt-in): set the SEND_S3 repo variable to 'yes'
       #     and add the AWS_* secrets + S3_REPORT_BUCKET/AWS_REGION variables.
       #     With SEND_S3 unset, every AWS step below is skipped and the Slack
@@ -336,6 +356,49 @@ jobs:
           # relocation audit to a skipped warning. `||` returns its right operand
           # whatever its truthiness, so 0 has to sit last.
           fetch-depth: ${{ matrix.suite != 'webpet' && 1 || 0 }}
+
+      # The Slack "how was this run started" label. Priority: explicit run_label
+      # input → repository_dispatch payload → repo variable → web-pet PR lookup →
+      # blank (the reporter then derives 'Manual'/'Scheduled Dry Run' from the
+      # trigger).
+      #
+      # The lookup exists because web-pet's e2e-dev job dispatches this workflow
+      # with a bare `gh workflow run` (no run_label), making its runs read as
+      # 'Manual'. That job then polls in_progress until our run finishes — so
+      # while we run, at most one web-pet CI run has an in_progress
+      # 'E2E on DEV (advisory)' job, and its PR number is the one that sent us.
+      # Needs a token that can read web-pet's Actions API. APP_REPO_TOKEN (the
+      # web-pet read PAT minted for the retired e2e-local checkout) is tried
+      # first; set WEBPET_READ_TOKEN (fine-grained PAT on web-pet: read-only
+      # Actions + Pull requests + Metadata) only if that one turns out to lack
+      # Actions:read — the run log's "Slack execution label:" line shows which.
+      # Without a working token, or on any API hiccup, the label just falls
+      # back — never fails the run.
+      - name: Resolve Slack execution label
+        env:
+          GH_TOKEN: ${{ secrets.WEBPET_READ_TOKEN || secrets.APP_REPO_TOKEN }}
+          EXPLICIT_LABEL: ${{ inputs.run_label || github.event.client_payload.run_label || vars.SLACK_EXECUTION_LABEL }}
+          WEBPET_REPO: orangeenterprisesinc/web-pet
+        run: |
+          LABEL="$EXPLICIT_LABEL"
+          if [ -z "$LABEL" ] && [ -n "$GH_TOKEN" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            for RUN_ID in $(gh api "repos/$WEBPET_REPO/actions/workflows/ci.yml/runs?status=in_progress&per_page=10" \
+                              --jq '.workflow_runs[].id' 2>/dev/null || true); do
+              ACTIVE=$(gh api "repos/$WEBPET_REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+                         --jq '[.jobs[] | select(.name == "E2E on DEV (advisory)" and .status == "in_progress")] | length' \
+                         2>/dev/null || echo 0)
+              if [ "$ACTIVE" -gt 0 ]; then
+                LABEL=$(gh api "repos/$WEBPET_REPO/actions/runs/$RUN_ID" \
+                          --jq 'if (.pull_requests | length) > 0
+                                then "web-pet PR #\(.pull_requests[0].number)"
+                                else "web-pet \(.event) \(.head_branch)@\(.head_sha[0:7])" end' \
+                          2>/dev/null || true)
+                break
+              fi
+            done
+          fi
+          echo "SLACK_EXECUTION_LABEL=$LABEL" >> "$GITHUB_ENV"
+          echo "Slack execution label: '${LABEL:-<derived from trigger>}'"
 
       - uses: actions/setup-node@v7
         with:

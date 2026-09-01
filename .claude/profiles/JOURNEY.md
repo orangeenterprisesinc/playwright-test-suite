@@ -1,14 +1,15 @@
 # User Journey domain profile
 
-Read this profile when the task touches `tests/web/`, `tests/api/`,
-`src/data/runner/`, `src/data/catalog/`, or `test-plans/`. Orchestration
-contract: [../PLAYWRIGHT_AGENT_WORKFLOW.md](../PLAYWRIGHT_AGENT_WORKFLOW.md).
+Read this profile when the task touches `tests/web/`, `src/data/runner/`,
+`src/data/catalog/`, or `test-plans/`. Orchestration contract:
+[../PLAYWRIGHT_AGENT_WORKFLOW.md](../PLAYWRIGHT_AGENT_WORKFLOW.md).
 
 ## Facts
 
-* Suites: `tests/web/journey-<x>-<area>/` (browser, `chromium` project),
-  `tests/api/journey-<x>-<area>/` (device/API, `api` project), plus
-  `tests/web/system/` for cross-journey system specs.
+* One suite folder: `tests/web/journey-<x>-<area>/` (`chromium` project) holds
+  UI, API-only and device/XML specs side by side, plus `tests/web/system/` for
+  cross-journey system specs. There is no separate `tests/api/` (retired
+  2026-08-26).
 * Source of truth: the PET-Tiger workflow catalog — 6 journeys (A setup, B field
   harvest, C pack-house, D office processing, E payroll close, F analysis),
   69 workflows. `docs/catalog/PET-Tiger-Workflow-Catalog.docx` →
@@ -19,8 +20,9 @@ contract: [../PLAYWRIGHT_AGENT_WORKFLOW.md](../PLAYWRIGHT_AGENT_WORKFLOW.md).
   → plan (`test-plans/journey-<x>/<wf>-<slug>.md`, copied from
   `test-plans/_template.md`) → spec → runner rows
   (`src/data/runner/journey-<x>.csv`).
-* Fixtures: `src/fixtures/base.fixture.ts` (UI) or `src/fixtures/api.fixture.ts`
-  (API-only). Page objects come as named fixtures from the `PageObjects` registry
+* Fixtures: `src/fixtures/base.fixture.ts` (browser + `sessionApi`; the default,
+  also for API+UI device workflows like B1/B2) or `src/fixtures/api.fixture.ts`
+  (browserless, no office session — relay/transport checks only). Page objects come as named fixtures from the `PageObjects` registry
   (`src/fixtures/pages.fixture.ts`); classes live in `src/pages/<area>/`
   (`admin/`, `shell/` today; `setup/`, `processing/`, `payroll/`, `analysis/`,
   `connectivity/` are reserved landing zones). Never import `webpet.fixture`
@@ -61,8 +63,9 @@ human-reviewable.
    `src/data/runner/journey-<x>.csv`, then `npm run runner:sync`.
 5. **Generate** — Generator (one invocation per plan, not per test) receives the
    plan path, this profile, `pw-spec-author`, and the target spec path.
-   Folder from the workflow's `surface`: `ui` → `tests/web/`, `calc` →
-   `tests/web/` tagged `@Workflow`, `device` → `tests/api/`.
+   Always `tests/web/journey-<x>-<area>/`; the `surface` sets the runner
+   category (`ui` → ui, `calc` → workflow tagged `@Workflow`, `device` → api
+   or workflow when the spec also verifies in the UI).
 6. **Run** — affected specs only (`--grep @<WF>`); failures → Healer with the
    artifact paths.
 7. **Finalize** — rows to `status=automated`, `enabled=1`, re-sync,
@@ -80,5 +83,5 @@ human-reviewable.
 ## Validation
 
 * `npm run runner:check`, `npm run typecheck`, `npm run lint`
-* Affected specs only: `npx playwright test <file> --project=chromium` (or
-  `--project=api`); full-suite runs only for suite-wide fixture/config changes.
+* Affected specs only: `npm run test:dev -- <file>` (chromium project);
+  full-suite runs only for suite-wide fixture/config changes.

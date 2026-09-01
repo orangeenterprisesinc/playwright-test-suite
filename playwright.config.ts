@@ -27,8 +27,8 @@ const IS_CI = !!process.env.CI;
 /**
  * The migrated web-pet suite (tests/webpet) is opt-in: its projects are only
  * materialized when explicitly requested, so a bare `npx playwright test`
- * (developer machines, e2e.yml, e2e-local.yml) never picks up its ~406 tests
- * (~48 min, requires the full local web-pet stack). Activated by WEBPET=1 or
+ * (developer machines, e2e.yml) never picks up its ~406 tests
+ * (~48 min, requires a full web-pet stack). Activated by WEBPET=1 or
  * by asking for the project on the CLI (`--project=webpet`); the npm scripts
  * and scripts/run-playwright.js set the env var for worker processes too.
  */
@@ -224,16 +224,15 @@ export default defineConfig({
 
         {
             name: 'chromium',
-            // API specs run in their own browserless `api` project below; ignore
-            // them here so they don't double-run (and needlessly pull in
-            // auth-setup / browser storageState) under the browser project.
             // tests/webpet is the migrated web-pet suite — it runs only under
             // its own opt-in `webpet` project (different auth + parity settings).
             // tests/seed.spec.ts is the Playwright agents' scratch page, not a
             // test: it has no runner row and no tier tag, so collecting it would
             // put an untagged no-op in every run and fail `npm run runner:check`.
+            // Browserless specs (api.fixture) live in tests/web too — a spec that
+            // never destructures `page` never launches a browser, so one project
+            // serves both.
             testIgnore: [
-                '**/tests/api/**',
                 '**/tests/webpet/**',
                 '**/tests/seed.spec.ts',
             ],
@@ -242,14 +241,6 @@ export default defineConfig({
                 storageState: '.auth/user.json',
             },
             dependencies: ['auth-setup'],
-        },
-
-        // API-only specs (tests/api/*.spec.ts). No browser, no storageState, and
-        // no auth-setup dependency — src/fixtures/api.fixture.ts creates its own
-        // request context and applies the configured AUTH_TYPE strategy itself.
-        {
-            name: 'api',
-            testDir: './tests/api',
         },
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
@@ -285,6 +276,9 @@ export default defineConfig({
                   {
                       name: 'webpet',
                       testDir: './tests/webpet',
+                      // File-level parallelism only: the global fullyParallel (line 138)
+                      // splits one file across workers and runs its beforeAll twice.
+                      fullyParallel: false,
                       dependencies: ['webpet-setup'], // NOT auth-setup; no .auth/user.json
                       // Host-bound parity specs, excluded from COLLECTION rather than
                       // skipped — a skipped test still shows up in the report. See

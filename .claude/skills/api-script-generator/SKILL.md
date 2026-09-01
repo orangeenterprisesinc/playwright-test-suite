@@ -1,6 +1,6 @@
 ---
 name: api-script-generator
-description: Use when the user asks to generate or update a Playwright API test (an API-only spec under tests/api/) for this repository and provides the scenario directly in chat. Encodes the repo's api.fixture usage, ApiHelper/auth conventions, data-driven rules, and response-assertion standards so generated specs run without manual correction.
+description: Use when the user asks to generate or update a Playwright API test (a browserless API-only spec, kept in tests/web/ beside the UI specs) for this repository and provides the scenario directly in chat. Encodes the repo's api.fixture usage, ApiHelper/auth conventions, data-driven rules, and response-assertion standards so generated specs run without manual correction.
 ---
 
 ## Playwright API Script Generator
@@ -17,7 +17,7 @@ When the user pastes a scenario into chat, make the **smallest runnable change s
 
 ### Start by inspecting the repo before generating code
 
-1. Check the target folder `tests/api/*.spec.ts` and copy the style of the nearest existing API spec (if one exists yet)
+1. Check `tests/web/**/*.spec.ts` for the nearest API-only spec (imports `api.fixture`, e.g. `tests/web/journey-b-field/b01-relay-roundtrip.spec.ts`) and copy its style
 2. Read `src/fixtures/api.fixture.ts` to confirm the current `ApiHelper` surface and fixture names
 3. Check whether the scenario is data-driven by `testCaseId` / `testCaseName`, or non-data-driven
 4. Confirm the auth model the endpoint needs (see **Authentication model** below)
@@ -31,10 +31,10 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
-  on whether a browser is needed. The category comes from the catalog entry's `surface`:
-  `ui` → `tests/web/`, `calc` → `tests/web/` (tagged `@Workflow`), `device` → `tests/api/`.
-  API specs are the `tests/api/` case.
+- **Folder**: `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` — one folder for every
+  category. The category comes from the catalog entry's `surface`:
+  `ui` → `ui`, `calc` → `workflow` (tagged `@Workflow`), `device` → `api`.
+  API specs carry `category: api` and sit in the same folder as the UI specs.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.
@@ -44,7 +44,7 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 
 ### Repository structure
 
-- API specs: `tests/api/*.spec.ts` (import from `src/fixtures/api.fixture`)
+- API specs: `tests/web/journey-<x>-<area>/*.spec.ts` (import from `src/fixtures/api.fixture`; no separate folder)
 - API fixture: `src/fixtures/api.fixture.ts` (`api`, `apiContext`, `authenticatedApi`)
 - Auth layer: `src/auth/*` — `authContextFactory.ts` (`buildAuthContextOptions()`), `requestBuilder.ts` (`executeWithAuthRetry`, `HttpMethod`, `RequestOptions`), `authorizationManager.ts` (token cache)
 - Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
@@ -115,7 +115,7 @@ Do not invent or bake in concrete values (endpoints, ids, payloads, credentials,
 Preferred sources of values, in order:
 
 1. the user's scenario
-2. existing nearby specs in `tests/api`
+2. existing nearby API-only specs in `tests/web`
 3. the module data file (`src/data/journey-<x>/<name>Data.ts`) for module-specific values
 4. `testCaseData` for data-driven values
 5. `getConfigValue(...)` / `process.env` for environment and auth values
@@ -135,7 +135,7 @@ Only when a `testCaseId`/`testCaseName` option is set may a spec destructure `te
 
 ### Running
 
-- `npm run test:api` runs the browserless `api` project (`--project=api`, no auth-setup, no browser)
+- `npm run test:dev -- <file>` runs it under the `chromium` project; a spec that never destructures `page` launches no browser
 - Or filter by tag across projects: `npx playwright test --grep @API`
 
 ### Forbidden actions
@@ -159,10 +159,10 @@ Return only these sections (write `None` where unused):
 
 ### Self-check before responding
 
-- spec lives under `tests/api/`, imports from `api.fixture`, tagged `@API`
+- spec lives under `tests/web/journey-<x>-<area>/`, imports from `api.fixture`, tagged `@API`
 - correct auth path chosen (`authGet`/`authPost`/`executeWithAuthRetry` vs plain calls) for the endpoint
 - `url` is relative to `API_URL`; no host, no hardcoded ids/secrets
 - `testCaseId`/`testCaseName`/non-data-driven choice is correct; `testCaseData` only used when a row is selected; `npm run runner:check` passes (it proves the JSON mirror matches the CSV)
 - `verifyJsonKeyValues` used with a raw `APIResponse`, not the `ApiHelper` result
 - no unused destructured fixtures (`tsc --noEmit` stays clean)
-- generated code runs without manual correction (`npm run typecheck`, `npx playwright test --project=api --list`)
+- generated code runs without manual correction (`npm run typecheck`, `npx playwright test <file> --list`)

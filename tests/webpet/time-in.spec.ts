@@ -31,10 +31,6 @@ import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import { ensureRanch, deleteRanch, type EnsuredRanch } from './data-factory';
 
-// Mutates shared Time In rows (ranchCounter) then restores via Undo — cannot
-// run in parallel with itself.
-test.describe.configure({ mode: 'serial' });
-
 let extraRanch: EnsuredRanch;
 
 test.beforeAll(async ({ request }) => {

@@ -50,8 +50,22 @@ import { createCrewTimeIn, punchTime } from './crewTimeInApi';
 export interface ExpectedCard {
     employeeCode: string;
     employeeId: number;
-    fieldId: number;
-    jobId: number;
+    /**
+     * Omit both for a punch the office links to no work context. A time-out row
+     * ships `Employee` and `Crew` only (`LookupContents="Employee:Code|Crew:Code"`),
+     * so the office stores null Field, Job *and* Ranch for it. Omitting them
+     * skips those three asserts — it does not prove the nulls, so a spec whose
+     * requirement is the nulls must assert them itself on the returned cards.
+     */
+    fieldId?: number;
+    jobId?: number;
+    /**
+     * The card's own `<Reference>`. Match by this when set instead of by
+     * employee — needed when one employee has more than one expected card in
+     * the same run (B3: two Time In records for the same person), where a
+     * by-employee map would collapse them into one.
+     */
+    reference?: string;
     /**
      * Display values asserted in the Time In side panel. Optional — only the
      * one card {@link verifyImportInOffice} opens a panel for needs them.
@@ -68,6 +82,12 @@ export interface ExpectedCard {
      * (the OFFICE_TRANSPORT_SUBSTITUTE fallback) carries no GPS.
      */
     gps?: string;
+    /**
+     * The card's `TraceabilityCode` — a sticker roll's first code (B4).
+     * Unlike GPS this is carried by both transports, so the assertion below
+     * needs no `transport` guard.
+     */
+    traceabilityCode?: string;
 }
 
 export interface OfficeVerificationInput {
@@ -90,7 +110,19 @@ export interface OfficeVerificationInput {
      * therefore punches yesterday.
      */
     punchDate?: Date;
+    /**
+     * cardType to query for. Defaults to `CARD_TYPE.timeIn`; pass `null` to
+     * query every type, which one envelope mixing Time-Ins and Time-Outs (B11's
+     * crew-out) needs — a single cardType would find only half its references.
+     */
+    cardType?: number | null;
 }
+
+/** {@link deliverAndVerifyCards}'s input — the office UI is optional there. */
+export type DeliverInput = OfficeVerificationInput & {
+    /** Pre-run sweep of leftover fixture punches. Defaults to true. */
+    sweep?: boolean;
+};
 
 export interface OfficeVerificationResult {
     /** Which route actually put the punches in the office. */
@@ -108,6 +140,9 @@ function groupByContext(
 ): Array<{ fieldId: number; jobId: number; employeeIds: number[] }> {
     const groups = new Map<string, { fieldId: number; jobId: number; employeeIds: number[] }>();
     for (const card of expected) {
+        // Unlinked punches (a time-out carries no field/job) have no context to
+        // group by, and POST /time-cards/crew-time-in cannot create one anyway.
+        if (card.fieldId === undefined || card.jobId === undefined) continue;
         const key = `${card.fieldId}:${card.jobId}`;
         const group = groups.get(key) ?? {
             fieldId: card.fieldId,
@@ -251,8 +286,17 @@ async function importViaInternetUi(
     return { transport: 'device-import', references: referencesInExport(input.xml) };
 }
 
-export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {
-    const { sessionApi, pages, testInfo, expected, absentEmployeeIds = [], label, crewId, ranchId } = input;
+/**
+ * Deliver the envelope through the configured transport and confirm the office
+ * cards it produced link by id to every expected record — the API-level half of
+ * a Journey B run, with no UI and no cleanup. {@link verifyImportInOffice} wraps
+ * this with the Transfer to Job Cards screen and teardown.
+ */
+export async function deliverAndVerifyCards(input: DeliverInput): Promise<OfficeVerificationResult> {
+    const { sessionApi, testInfo, expected, absentEmployeeIds = [], crewId, ranchId, label, sweep = true } = input;
+    const cardType = input.cardType === undefined ? CARD_TYPE.timeIn : input.cardType;
+    const punchDate = input.punchDate ?? new Date();
+    const punchDay = isoDay(punchDate);
 
     // Clear this fixture's punches for the target day BEFORE importing. The import
     // is asynchronous on a per-client cadence, so a run whose poll times out still
@@ -260,20 +304,24 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
     // gives the next run a second one for the same employee on the same day, which
     // the office flags as a duplicate Time In and renders **Blocking** instead of
     // Warning, failing every later run until someone clears it by hand.
-    const punchDate = input.punchDate ?? new Date();
-    const punchDay = isoDay(punchDate);
-    const swept = await sweepFixtureCards(sessionApi, {
-        employeeIds: [...expected.map((c) => c.employeeId), ...absentEmployeeIds],
-        day: punchDay,
-    });
-    if (swept.removed || swept.failed) {
-        testInfo.annotations.push({
-            type: 'pre-run-sweep',
-            description:
-                `Removed ${swept.removed} leftover punch(es) for this fixture on ${punchDay} ` +
-                `(${swept.failed} could not be deleted) — orphans from an earlier run whose ` +
-                'import landed after its poll timed out.',
+    //
+    // All card types: a stray Time-Out for a fixture employee pairs with our
+    // Time-In and silently removes the incomplete-time-in warning the grid
+    // assertions depend on.
+    if (sweep) {
+        const swept = await sweepFixtureCards(sessionApi, {
+            employeeIds: [...expected.map((c) => c.employeeId), ...absentEmployeeIds],
+            day: punchDay,
         });
+        if (swept.removed || swept.failed) {
+            testInfo.annotations.push({
+                type: 'pre-run-sweep',
+                description:
+                    `Removed ${swept.removed} leftover punch(es) for this fixture on ${punchDay} ` +
+                    `(${swept.failed} could not be deleted) — orphans from an earlier run whose ` +
+                    'import landed after its poll timed out.',
+            });
+        }
     }
 
     const { transport, references } =
@@ -289,53 +337,102 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
     const cards = await findByReferences(sessionApi, references, {
         from: punchDay,
         to: punchDay,
-        cardType: CARD_TYPE.timeIn,
+        // `null` means every type — listTimeCards omits the filter on undefined.
+        cardType: cardType ?? undefined,
         timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
     });
+
+    expect(cards, `office cards for ${label} via ${transport}`).toHaveLength(expected.length);
+
+    const byReference = new Map(cards.map((c) => [String(c.reference ?? ''), c]));
+    const byEmployee = new Map(cards.map((c) => [Number(c.employeeCounter), c]));
+    for (const want of expected) {
+        // Compare ids, never merely "not null": an unresolved employee code walks a
+        // nine-rung fallback ladder that can land on a same-named employee or the
+        // "Undefined Employee" row, which passes a non-null check while pointing at
+        // the wrong person.
+        const card = want.reference ? byReference.get(want.reference) : byEmployee.get(want.employeeId);
+        expect(card, `no imported card linked to employee ${want.employeeCode}`).toBeDefined();
+        expect(card!.employeeCounter).toBe(want.employeeId);
+        expect(card!.crewCounter).toBe(crewId);
+        // A card that declares no field/job is an unlinked punch (a time-out):
+        // the device sends no work context for it, so Ranch is null too and the
+        // call-level ranchId does not apply.
+        if (want.fieldId !== undefined) {
+            expect(card!.fieldCounter).toBe(want.fieldId);
+        }
+        if (want.jobId !== undefined) {
+            expect(card!.jobCounter).toBe(want.jobId);
+        }
+        if (want.fieldId !== undefined || want.jobId !== undefined) {
+            expect(card!.ranchCounter).toBe(ranchId);
+        }
+        // The device's GPS fix, proven to survive the import. Asserted on the
+        // card rather than in the Time In panel: the deployed office build
+        // renders no GPS Reading field at all (verified against a card that
+        // definitely has one), so the API is the only place the value is
+        // observable. Only a real import carries it — an office-API punch has none.
+        if (want.gps && transport === 'device-import') {
+            expect(
+                String(card!.gpsReading ?? ''),
+                `the device's GpsReading must survive the import for ${want.employeeCode}`,
+            ).toBe(want.gps);
+        }
+        // The roll's first sticker code (B4), proven to survive the import
+        // verbatim — carried by both transports, unlike GPS, so no transport guard.
+        if (want.traceabilityCode) {
+            expect(
+                String(card!.traceabilityCode ?? ''),
+                `the device's TraceabilityCode must survive the import verbatim for ${want.employeeCode}`,
+            ).toBe(want.traceabilityCode);
+        }
+        // `programCreated` distinguishes the two routes — the import mapper
+        // stamps it true, an office-API write leaves it false. Asserting it per
+        // transport proves the rows came from the route this run actually used,
+        // so a silent fallback can never masquerade as a successful import.
+        expect(
+            card!.programCreated,
+            `${transport} rows should have programCreated=${transport === 'device-import'}`,
+        ).toBe(transport === 'device-import');
+    }
+    for (const absent of absentEmployeeIds) {
+        expect(cards.map((c) => Number(c.employeeCounter))).not.toContain(absent);
+    }
+
+    return { transport, cards };
+}
+
+/**
+ * Best-effort teardown of imported cards. Never lets a delete failure turn a
+ * green assertion red — it only records what could not be removed.
+ */
+export async function cleanupCards(
+    sessionApi: APIRequestContext,
+    cards: OfficeTimeCard[],
+    testInfo: TestInfo,
+): Promise<void> {
+    for (const card of cards) {
+        const { deleted, status } = await deleteTimeCard(sessionApi, card.timeCardCounter);
+        if (!deleted) {
+            await testInfo.attach(`cleanup-warning-${card.timeCardCounter}`, {
+                body: `DELETE time-cards/${card.timeCardCounter} returned ${status}`,
+                contentType: 'text/plain',
+            });
+        }
+    }
+}
+
+export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {
+    const { pages, testInfo, expected, label } = input;
+    const punchDate = input.punchDate ?? new Date();
+
+    const { transport, cards } = await deliverAndVerifyCards(input);
 
     // Everything from here is wrapped so the punches are deleted even when an
     // assertion throws — a failed run that leaves rows behind pollutes the next
     // run's grid and the shared dev database (observed: two failed runs left 14
     // punches, and the Transfer screen showed them all as blockers).
     try {
-        expect(cards, `office cards for ${label} via ${transport}`).toHaveLength(expected.length);
-
-        const byEmployee = new Map(cards.map((c) => [Number(c.employeeCounter), c]));
-        for (const want of expected) {
-        // Compare ids, never merely "not null": an unresolved employee code walks a
-        // nine-rung fallback ladder that can land on a same-named employee or the
-        // "Undefined Employee" row, which passes a non-null check while pointing at
-        // the wrong person.
-            const card = byEmployee.get(want.employeeId);
-            expect(card, `no imported card linked to employee ${want.employeeCode}`).toBeDefined();
-            expect(card!.fieldCounter).toBe(want.fieldId);
-            expect(card!.jobCounter).toBe(want.jobId);
-            expect(card!.crewCounter).toBe(crewId);
-            expect(card!.ranchCounter).toBe(ranchId);
-            // `programCreated` distinguishes the two routes — the import mapper
-            // stamps it true, an office-API write leaves it false. Asserting it per
-            // transport proves the rows came from the route this run actually used,
-            // so a silent fallback can never masquerade as a successful import.
-            // The device's GPS fix, proven to survive the import. Asserted on the
-            // card rather than in the Time In panel: the deployed office build
-            // renders no GPS Reading field at all (verified against a card that
-            // definitely has one), so the API is the only place the value is
-            // observable. Only a real import carries it — an office-API punch has none.
-            if (want.gps && transport === 'device-import') {
-                expect(
-                    String(card!.gpsReading ?? ''),
-                    `the device's GpsReading must survive the import for ${want.employeeCode}`,
-                ).toBe(want.gps);
-            }
-            expect(
-                card!.programCreated,
-                `${transport} rows should have programCreated=${transport === 'device-import'}`,
-            ).toBe(transport === 'device-import');
-        }
-        for (const absent of absentEmployeeIds) {
-            expect(cards.map((c) => Number(c.employeeCounter))).not.toContain(absent);
-        }
-
         // ── The screen Amy's recording ends on, reached the way she reaches it ──
         await pages.leftNav.navigate();
         await pages.leftNav.openViaMenu(['Transfer to Job Cards'], '/transfer-to-job-cards');
@@ -355,7 +452,11 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
 
             // ── One row's Time In panel: display fields, GPS only on a real import ──
             const panelExpected = expected[0];
-            const panelCard = byEmployee.get(panelExpected.employeeId);
+            const byEmployee = new Map(cards.map((c) => [Number(c.employeeCounter), c]));
+            const byReference = new Map(cards.map((c) => [String(c.reference ?? ''), c]));
+            const panelCard = panelExpected.reference
+                ? byReference.get(panelExpected.reference)
+                : byEmployee.get(panelExpected.employeeId);
             expect(panelCard, 'panel candidate must have a matching office card').toBeDefined();
             await transferPage.openRow(panelCard!.timeCardCounter);
             // Ranch is a custom lookup widget — its displayed name is a real
@@ -406,11 +507,14 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
                 'No corresponding Time-Out/Piece-Out',
             );
             // ≥, not ==: dev is a shared tenant, so the day can legitimately
-            // hold open punches from other suites or leftover data.
+            // hold open punches from other suites or leftover data. The group
+            // counts affected EMPLOYEES, not rows — B3 imports two cards for one
+            // person and the panel reports 1 (observed 2026-08-26).
+            const affectedEmployees = new Set(cards.map((c) => Number(c.employeeCounter))).size;
             expect(
                 affected,
-                'issue group must count at least every imported row',
-            ).toBeGreaterThanOrEqual(cards.length);
+                'issue group must count at least every imported employee',
+            ).toBeGreaterThanOrEqual(affectedEmployees);
         } else {
             // The grid is fed by an endpoint behind a server flag; without it no
             // row can ever render, so asserting one would test the flag, not the data.
@@ -428,15 +532,7 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
         });
     } finally {
         // ── Cleanup: never leave punches on shared dev data, pass or fail ──────
-        for (const card of cards) {
-            const { deleted, status } = await deleteTimeCard(sessionApi, card.timeCardCounter);
-            if (!deleted) {
-                await testInfo.attach(`cleanup-warning-${card.timeCardCounter}`, {
-                    body: `DELETE time-cards/${card.timeCardCounter} returned ${status}`,
-                    contentType: 'text/plain',
-                });
-            }
-        }
+        await cleanupCards(input.sessionApi, cards, testInfo);
     }
 
     return { transport, cards };

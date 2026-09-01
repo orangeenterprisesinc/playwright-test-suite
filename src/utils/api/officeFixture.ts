@@ -22,6 +22,8 @@ export interface OfficeFixture {
     field2: EnsuredRecord;
     job: EnsuredRecord;
     job2: EnsuredRecord;
+    /** B10's meal job — the job a meal-start Time In names. */
+    mealJob: EnsuredRecord;
     crew: EnsuredRecord;
     /** Keyed by the barcode, e.g. `6001`. */
     employees: Map<string, EnsuredRecord>;
@@ -39,6 +41,7 @@ export async function seedOfficeFixture(request: APIRequestContext): Promise<Off
     // deliberately not forwarded — ensureJob applies the office default.
     const job = await ensureJob(request, { code: F.job.code, name: F.job.name });
     const job2 = await ensureJob(request, { code: F.job2.code, name: F.job2.name });
+    const mealJob = await ensureJob(request, { code: F.mealJob.code, name: F.mealJob.name });
     const crew = await ensureCrew(request, F.crew);
 
     const employees = new Map<string, EnsuredRecord>();
@@ -46,5 +49,5 @@ export async function seedOfficeFixture(request: APIRequestContext): Promise<Off
         employees.set(employee.code, await ensureEmployee(request, employee));
     }
 
-    return { ranch, field, field2, job, job2, crew, employees };
+    return { ranch, field, field2, job, job2, mealJob, crew, employees };
 }

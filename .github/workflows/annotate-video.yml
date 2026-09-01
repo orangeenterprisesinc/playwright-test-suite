@@ -1,0 +1,274 @@
+name: Annotate video
+
+run-name: annotate ${{ inputs.video_url }}
+
+# Stage 1 of the video pipeline: extracts timestamped keyframes and change
+# regions from a screen recording of a manual test journey, and publishes them
+# as an artifact.
+#
+# Stage 2 (plan → generate → run → heal) is deliberately NOT here. It needs
+# Claude reading the frames, a live app for the generator to resolve real
+# locators against, and a human confirmation gate that catches a misread frame
+# before it becomes a wrong assertion. Only stage 1 is deterministic and
+# unattended — which is why the pipeline is two skills, not one.
+# See docs/AI-INTEGRATION.md.
+#
+# Runs on ubuntu-latest: the annotator is a container (tools/video-annotator/
+# Dockerfile, published to GHCR by annotator-image.yml) with no Windows
+# dependency, so nothing has to be provisioned on the self-hosted box.
+#
+# Input must be MP4 (H.264). OpenCV is unreliable with the VP8/VP9 .webm that
+# browser-based recorders emit; the guard below checks the file header rather
+# than the extension because a renamed .webm passes an extension check and then
+# dies inside OpenCV with an unhelpful stack trace.
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Direct download URL for the .mp4 (a Google Drive share link is an HTML page, not a video)'
+        required: true
+        type: string
+      extra_args:
+        description: 'Optional annotator flags, e.g. --scene-threshold 0.004 --max-frames 90'
+        required: false
+        type: string
+
+concurrency:
+  group: annotate-video-${{ inputs.video_url }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/video-annotator:latest
+  VIDEO_URL: ${{ inputs.video_url }}
+  EXTRA_ARGS: ${{ inputs.extra_args }}
+
+jobs:
+  annotate:
+    name: Annotate screen recording
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+
+    # Job-level because the `secrets` context is not available in a step-level
+    # `if:`; `env.` is.
+    env:
+      SEND_SLACK: ${{ vars.SEND_SLACK || 'no' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # $EXTRA_ARGS is not a shell-injection vector — bash does not re-parse an
+      # expansion for `;`, `&&` or $(). The real risks are glob expansion
+      # (handled with `set -f` at the run step) and resource abuse
+      # (`--max-frames 100000 --keep-raw` = multi-GB artifact), hence an
+      # allowlist and a cap. --input / --output-dir are deliberately absent.
+      - name: 'Guard: validate extra_args'
+        if: env.EXTRA_ARGS != ''
+        run: |
+          set -euo pipefail
+          # Value-taking flags REQUIRE their value; a bare `--max-frames` would
+          # otherwise pass here and leave N empty below.
+          VALUED='--(scene-threshold|pixel-delta|min-gap-ms|max-gap-ms|settle-ms|max-frames|cursor-threshold) [0-9]+(\.[0-9]+)?'
+          BARE='--(cursor|keep-raw)'
+          FLAG="$VALUED|$BARE"
+          if ! printf '%s' "$EXTRA_ARGS" | grep -qE "^($FLAG)( ($FLAG))*$"; then
+            echo "::error::extra_args rejected. Allowed flags only, and every flag that takes a value must be given one — see tools/video-annotator/annotate_video.py."
+            exit 1
+          fi
+          case " $EXTRA_ARGS " in
+            *" --max-frames "*)
+              N=$(printf '%s' "$EXTRA_ARGS" | sed -nE 's/.*--max-frames ([0-9]+).*/\1/p')
+              if [ -z "$N" ] || [ "$N" -gt 300 ]; then
+                echo "::error::--max-frames must be an integer of 300 or less here (artifact size and the 20-minute job timeout)."
+                exit 1
+              fi ;;
+          esac
+          echo "extra_args accepted: $EXTRA_ARGS"
+
+      - name: Download the recording
+        id: dl
+        run: |
+          set -euo pipefail
+          mkdir -p in out
+
+          # The slug downstream derives from the filename the annotator sees, so
+          # keep the URL's basename — sanitised: control chars out, path stripped,
+          # extension dropped, non-[A-Za-z0-9._-] replaced, no leading ./- so it
+          # can never be read as an option by argparse.
+          sanitise() {
+            printf '%s' "$1" \
+              | tr -d '\000-\037\177' \
+              | sed -e 's#.*[/\\]##' \
+                    -e 's#\.[A-Za-z0-9]\{1,5\}$##' \
+                    -e 's#[^A-Za-z0-9._-]#_#g' \
+                    -e 's#_\{2,\}#_#g' \
+                    -e 's#^[._-]*##' -e 's#[._-]*$##' \
+              | cut -c1-80
+          }
+
+          STEM=$(sanitise "$(printf '%s' "${VIDEO_URL%%\?*}" | sed 's#.*/##')")
+          [ -n "$STEM" ] || STEM="recording"
+          TARGET="in/${STEM}.mp4"
+          curl -sS --fail-with-body --remove-on-error \
+            --retry 3 --retry-delay 5 --retry-all-errors --max-time 900 \
+            -o "$TARGET" "$VIDEO_URL"
+
+          # Size only: run logs on a public repo are world-readable and a file
+          # name often carries a customer or ticket identifier.
+          echo "downloaded $(stat -c %s "$TARGET") bytes"
+          { echo "target=$TARGET"; echo "stem=$STEM"; } >> "$GITHUB_OUTPUT"
+
+      # QuickTime .mov also carries an ftyp box, so this proves "ISO base media
+      # family", not strictly MP4. H.264-in-MOV decodes fine, so that is acceptable.
+      - name: 'Guard: must be a decodable MP4'
+        env:
+          TARGET: ${{ steps.dl.outputs.target }}
+        run: |
+          set -euo pipefail
+          SZ=$(stat -c %s "$TARGET")
+          if [ "$SZ" -lt 10240 ]; then
+            echo "::error::Download is only ${SZ} bytes — the source returned an error page or an empty file, not a video."
+            exit 1
+          fi
+          head -c 12 "$TARGET" > "$RUNNER_TEMP/hdr"
+          if grep -qa '^[[:space:]]*[{[]' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Got a JSON body instead of video bytes — an API error was saved to disk."
+            exit 1
+          fi
+          if grep -qai '<!doctype\|<html' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Got an HTML page instead of video bytes. A share link is not a download URL — use a direct download link."
+            exit 1
+          fi
+          # Bytes 4..8 of MP4/MOV are the 'ftyp' box; Matroska/webm starts 0x1A45DFA3.
+          if ! grep -qa 'ftyp' "$RUNNER_TEMP/hdr"; then
+            echo "::error::Not an MP4/MOV container (no ftyp box). A .webm renamed to .mp4 will fail in OpenCV — transcode it: ffmpeg -i in.webm -c:v libx264 -pix_fmt yuv420p out.mp4"
+            exit 1
+          fi
+
+      # --user keeps the bind-mounted output owned by the runner user so the
+      # upload step can read it. The rest is because an untrusted file is being
+      # fed to OpenCV's native decoders; the annotator needs no network and no
+      # capabilities.
+      - name: Run the annotator
+        env:
+          TARGET: ${{ steps.dl.outputs.target }}
+        run: |
+          set -euo pipefail
+          # `set -f` disables globbing before word-splitting $EXTRA_ARGS.
+          set -f
+          read -ra ARGS <<< "${EXTRA_ARGS:-}"
+          set +f
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --memory 4g \
+            --pids-limit 256 \
+            -v "$PWD/in:/in:ro" \
+            -v "$PWD/out:/out" \
+            "$IMAGE" \
+            --input "/in/$(basename "$TARGET")" \
+            --output-dir /out \
+            "${ARGS[@]}"
+
+      # Surface the numbers in the run summary so a reviewer can judge the
+      # result without downloading the artifact.
+      - name: Summarise
+        id: summary
+        run: |
+          node -e '
+            const fs = require("fs");
+            const d = JSON.parse(fs.readFileSync("out/annotations.json", "utf8"));
+            const gapS = d.max_action_gap_ms / 1000;
+            const limitS = d.settings.max_gap_ms / 1000;
+            const covered = d.max_action_gap_ms <= d.settings.max_gap_ms;
+            // duration_ms is nullable (written as null when the container reports
+            // no frame count) — guard it or the long-video warning never fires.
+            const durMs = typeof d.duration_ms === "number" ? d.duration_ms : null;
+            const durTxt = durMs === null ? "unknown" : (durMs / 1000).toFixed(1) + " s";
+            let md = "## Annotation result\n\n| | |\n|---|---|\n";
+            for (const [k, v] of [
+              ["Video", d.video],
+              ["Resolution", d.frame_size.join(" x ")],
+              ["Duration", durTxt],
+              ["Keyframes", `${d.keyframe_count} (${d.action_count} action, ${d.forced_count} force-sampled)`],
+              ["Max action gap", `${gapS.toFixed(1)} s of ${limitS.toFixed(1)} s allowed`],
+              ["Truncated", String(d.truncated)],
+            ]) md += `| **${k}** | ${v} |\n`;
+            if (!covered) md += "\n> **Coverage gap** — an interval exceeded `--max-gap-ms`, so a step of the journey may be unsampled. Lower `--max-gap-ms` and re-run.\n";
+            if (d.truncated) md += "\n> **Change points were capped** — raise `--max-frames` if steps look missing.\n";
+            if (durMs === null) md += "\n> **Duration unknown** — the container reported no frame count, so per-keyframe timestamps may be wrong. Check the recording.\n";
+            if (d.action_count < 10 && durMs !== null && durMs > 60000) md += "\n> **Few action keyframes for a long video** — consider `--scene-threshold 0.004`.\n";
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT,
+              `keyframes=${d.keyframe_count}\naction=${d.action_count}\ngap=${gapS.toFixed(1)}\ncovered=${covered}\nslug=${d.video.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}\n`);
+          '
+
+      # This repository is public and artifacts on a public repo are downloadable
+      # by anyone. The keyframes are screenshots of the live application with real
+      # records in them, so they never go out in the clear. annotations.json stays
+      # plaintext on purpose: timestamps, rectangles and settings only — no pixels.
+      # A missing passphrase FAILS the run rather than falling back to plaintext.
+      - name: Encrypt frames
+        env:
+          PASSPHRASE: ${{ secrets.ANNOTATION_ARCHIVE_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PASSPHRASE:-}" ]; then
+            echo "::error::Secret ANNOTATION_ARCHIVE_PASSPHRASE is not set. The keyframes show the live application and this repo is public, so they are never published unencrypted. Add the secret, then re-run."
+            exit 1
+          fi
+          # --passphrase-fd 3 keeps the secret out of argv (world-readable via /proc).
+          tar -C out -czf - frames \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 -o out/frames.tar.gz.gpg 3<<<"$PASSPHRASE"
+          rm -rf out/frames
+          echo "Encrypted archive replaces the plaintext frames:"
+          ls -lh out
+
+      - name: Upload annotations
+        uses: actions/upload-artifact@v4
+        with:
+          name: annotations-${{ steps.summary.outputs.slug }}
+          path: out
+          retention-days: 30
+
+      - name: Notify Slack
+        if: always() && env.SEND_SLACK == 'yes' && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "${{ job.status }}" = "success" ]; then
+            TEXT=":movie_camera: Annotated *${{ steps.summary.outputs.slug }}* — ${{ steps.summary.outputs.keyframes }} keyframes (${{ steps.summary.outputs.action }} action), max gap ${{ steps.summary.outputs.gap }}s. Artifact: ${RUN_URL}"
+          else
+            TEXT=":x: Video annotation failed — ${RUN_URL}"
+          fi
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -d "$(node -e 'console.log(JSON.stringify({text: process.argv[1]}))' "$TEXT")" \
+            "$SLACK_WEBHOOK_URL"
+
+      - name: Next step
+        if: success()
+        run: |
+          {
+            echo ""
+            echo "### Next"
+            echo "Download the \`annotations-${{ steps.summary.outputs.slug }}\` artifact and extract it. The keyframes ship encrypted, because artifacts on a public repo are downloadable by anyone — decrypt them in place first:"
+            echo '```'
+            echo 'gpg -d frames.tar.gz.gpg | tar xz'
+            echo '```'
+            echo "That restores \`frames/\` next to \`annotations.json\`. Stage 2 needs both. Then, locally:"
+            echo '```'
+            echo '/annotations-to-script "<path to the extracted folder>"'
+            echo '```'
+            echo "Stage 2 needs Claude, a live app and a human confirmation gate, so it is not run in CI."
+          } >> "$GITHUB_STEP_SUMMARY"

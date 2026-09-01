@@ -35,10 +35,10 @@ One workflow id (`A1`, `D4`) joins five artifacts, so there is no lookup table:
    spec being rewritten twice.
 3. **Add runner rows** to `src/data/runner/journey-<x>.csv` — one per test case,
    `enabled=0` — then `npm run runner:sync`.
-4. **Write the spec** at `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
-   Two folders, split on whether a browser is needed. Category comes from the
-   workflow's `surface`: `ui` → `tests/web/`, `calc` → `tests/web/` (tag it
-   `@Workflow`), `device` → `tests/api/`.
+4. **Write the spec** at `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
+   One folder for every category. Category comes from the workflow's `surface`:
+   `ui` → `ui`, `calc` → `workflow` (tag it `@Workflow`), `device` → `api` (or
+   `workflow` when it also verifies in the UI).
 5. **Set `status=automated`** and `enabled=1` on the rows, re-sync, and
    `npm run runner:check`.
 
@@ -51,3 +51,9 @@ and 5 cannot be silently skipped.
 are referenced from plans for the human reviewer, not read by tooling. Name new
 recordings `docs/media/journey-<x>/<wf>-<slug>.mp4` to match the plan path
 (existing files predate this convention and are flat with spaces in the names).
+
+A recording can also seed the plan mechanically: `/annotate-video <mp4>` reduces
+it to timestamped keyframes under `.video-annotations/<slug>/`, and
+`/annotations-to-script <that dir>` reads them and drafts the `_template.md`
+sections for review before the Planner/Generator agents take over. Recordings
+must be MP4/H.264 — see `tools/video-annotator/README.md`.

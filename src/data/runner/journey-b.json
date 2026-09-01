@@ -80,7 +80,7 @@
             "id": "B3-001",
             "workflow": "B3",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "individualTimeInAndDuplicateRangeCorrection",
             "testTitle": "Individual time-in and duplicate-range correction",
             "testDescription": "Clock in a single worker by badge or biometric (start of day, late arrival, or a fix), with same-scan correction inside the duplicate range. A rescan with corrected data within the window overwrites rather than duplicates.",
@@ -94,14 +94,18 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B3-R1",
+                "B3-R2"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B4-001",
             "workflow": "B4",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "stickerRollAssignmentAtDayStart",
             "testTitle": "Sticker-roll assignment at day start",
             "testDescription": "Link an employee to the sticker number range they will use for the day so later case scans attribute to them. The checker scans the roll's first sticker, then the badge.",
@@ -116,15 +120,21 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B4-R1",
+                "B4-R2",
+                "B4-R3",
+                "B4-R9"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B5-001",
             "workflow": "B5",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "stickerPieceOut",
             "testTitle": "Sticker piece-out",
             "testDescription": "The checker scans completed-case stickers to record each piece and attribute it to the employee by sticker prefix. Workers keep moving rather than queueing at the checker.",
@@ -140,15 +150,24 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B5-R1",
+                "B5-R2",
+                "B5-R3",
+                "B5-R4",
+                "B5-R5",
+                "B5-R6",
+                "B5-R7"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B6-001",
             "workflow": "B6",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "badgePieceOut",
             "testTitle": "Badge piece-out",
             "testDescription": "Record a piece by scanning the employee's badge when stickers are not used, which is lower throughput because the worker waits at the checker.",
@@ -162,14 +181,23 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B6-R1",
+                "B6-R2",
+                "B6-R3",
+                "B6-R4",
+                "B6-R5",
+                "B6-R6",
+                "B6-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B7-001",
             "workflow": "B7",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "undefinedEmployeeReconciliation",
             "testTitle": "Undefined-employee reconciliation",
             "testDescription": "Stickers scanned on a different device than the one that assigned them record as undefined, then attribute to the employee by sticker prefix at sync. Records still undefined after sync need manual office correction.",
@@ -185,8 +213,18 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B7-R1",
+                "B7-R2",
+                "B7-R3",
+                "B7-R4",
+                "B7-R5",
+                "B7-R6",
+                "B7-R7",
+                "B7-R8"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B8-001",
@@ -234,7 +272,7 @@
             "id": "B10-001",
             "workflow": "B10",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "mealStartAndEndField",
             "testTitle": "Meal start and end (field)",
             "testDescription": "Capture an unpaid meal, which by law requires both a start and a return punch and a minimum length. Devices can enforce the minimum so an early return does not trigger a penalty.",
@@ -248,14 +286,23 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B10-R1",
+                "B10-R2",
+                "B10-R3",
+                "B10-R4",
+                "B10-R5",
+                "B10-R6",
+                "B10-R7"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B11-001",
             "workflow": "B11",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "crewOutToIndividualTimeOuts",
             "testTitle": "Crew-out to individual time-outs",
             "testDescription": "One crew-out at end of day expands into an individual time-out for every active member. Workers who left early were already timed out individually.",
@@ -269,14 +316,22 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B11-R4",
+                "B11-R5",
+                "B11-R6",
+                "B11-R7",
+                "B11-R8",
+                "B11-R9"
+            ],
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B12-001",
             "workflow": "B12",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "timeOutQuestionsToNotification",
             "testTitle": "Time-out questions to notification",
             "testDescription": "At clock-out the worker answers compliance and safety questions; an unexpected answer emails the crew's notification user and leaves a signed acknowledgment. The question set and expected answers are configured in device setup (A7, A14).",
@@ -293,9 +348,16 @@
             "tags": [
                 "regression"
             ],
+            "req": [
+                "B12-R3",
+                "B12-R4",
+                "B12-R5",
+                "B12-R6",
+                "B12-R8"
+            ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B13-001",

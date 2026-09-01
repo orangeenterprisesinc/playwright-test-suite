@@ -97,7 +97,7 @@ function listWebpetTests() {
             env: {
                 ...process.env,
                 WEBPET: '1',
-                TEST_ENV: process.env.TEST_ENV || 'local',
+                TEST_ENV: process.env.TEST_ENV || 'dev',
                 PLAYWRIGHT_JSON_OUTPUT_NAME: jsonOut,
             },
         },

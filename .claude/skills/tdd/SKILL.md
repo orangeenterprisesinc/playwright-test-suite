@@ -58,9 +58,9 @@ Read the workflow's entry in `src/data/catalog/workflow-catalog.json` before
 generating anything, and follow the conventions in the `ui-script-generator` skill's
 "Catalog workflows" section — they apply to every category:
 
-- **Folder**: `tests/{web|api}/journey-<x>-<area>/<wf>-<slug>.spec.ts`. Two folders, split
-  on whether a browser is needed. The category comes from the catalog entry's `surface`:
-  `ui` → `tests/web/`, `calc` → `tests/web/` (tagged `@Workflow`), `device` → `tests/api/`.
+- **Folder**: `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` — one folder for every
+  category. The category comes from the catalog entry's `surface`:
+  `ui` → `ui`, `calc` → `workflow` (tagged `@Workflow`), `device` → `api`.
 - **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.

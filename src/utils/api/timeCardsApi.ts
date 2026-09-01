@@ -39,6 +39,22 @@ export interface OfficeTimeCard {
      * observable — the office UI has no field for it.
      */
     gpsReading?: string | null;
+    /**
+     * The device's `<TraceabilityCode>` — a sticker roll's first code (B4),
+     * stored verbatim by the importer alongside `gpsReading`. Nullable: absent
+     * on any card that never carried one.
+     */
+    traceabilityCode?: string | null;
+    /** `<NumOfPieces>` on a piece-out row. */
+    numOfPieces?: number | string | null;
+    /**
+     * The importer writes its FK-ladder decisions here — B7 reads the
+     * "Assigning to Undefined Employee - Missing Code: …" line the sticker rule
+     * appends when a prefix resolves to no assignment.
+     */
+    memo?: string | null;
+    /** Rendered `EmployeeSource`, e.g. "Barcode Badge", "Crew", "Sticker Code". */
+    employeeSourceText?: string | null;
     transferred?: boolean;
     version?: string;
     [key: string]: unknown;
@@ -115,6 +131,41 @@ export async function deleteTimeCard(
     return { deleted: res.ok(), status: res.status() };
 }
 
+/** One answer row on a time-out card, as `GET time-cards/time-out/{id}` returns it. */
+export interface TimeOutQuestionAnswer {
+    questionCounter: number;
+    questionName: string;
+    response: string;
+}
+
+/** The time-out detail shape, for the fields the grid list does not carry. */
+export interface OfficeTimeOutDetail extends OfficeTimeCard {
+    /** The `TimeCardQuestion` children, joined by the importer via the card's Reference. */
+    questions?: TimeOutQuestionAnswer[];
+    /** Base64 signature image — the signed acknowledgment captured on the device. */
+    signature?: string | null;
+}
+
+/**
+ * A single time-out card with its question answers and signature.
+ *
+ * A different route from `GET time-cards/{id}`: only the time-out detail
+ * (`main.go:2546` → `input.GetTimeOut`) hydrates `questions` and `signature`,
+ * which is the sole place an imported answer row is observable.
+ */
+export async function getTimeOutDetail(
+    request: APIRequestContext,
+    id: number,
+): Promise<OfficeTimeOutDetail> {
+    const res = await request.get(`time-cards/time-out/${id}`);
+    if (!res.ok()) {
+        throw new Error(
+            `GET time-cards/time-out/${id} failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`,
+        );
+    }
+    return (await res.json()) as OfficeTimeOutDetail;
+}
+
 /** The `<Reference>` values an export envelope carries, in document order. */
 export function referencesInExport(xml: string): string[] {
     return [...xml.matchAll(/<Reference>([^<]+)<\/Reference>/g)].map((m) => m[1]);
@@ -132,15 +183,18 @@ export function referencesInExport(xml: string): string[] {
  * Warning — so a stale run breaks every later one until someone clears it by hand.
  *
  * Scoped to the seeded employee ids and one day, so it can only ever remove this
- * suite's own fixture data.
+ * suite's own fixture data. `cardTypes`, when given, narrows the sweep further —
+ * B3 imports two Time In cards for one employee and must not touch any other
+ * card type that employee happens to carry that day.
  */
 export async function sweepFixtureCards(
     request: APIRequestContext,
-    opts: { employeeIds: number[]; day: string },
+    opts: { employeeIds: number[]; day: string; cardTypes?: number[] },
 ): Promise<{ removed: number; failed: number }> {
     const wanted = new Set(opts.employeeIds);
-    const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter((c) =>
-        wanted.has(Number(c.employeeCounter)),
+    const wantedTypes = opts.cardTypes ? new Set(opts.cardTypes) : undefined;
+    const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter(
+        (c) => wanted.has(Number(c.employeeCounter)) && (!wantedTypes || wantedTypes.has(Number(c.cardType))),
     );
 
     let removed = 0;

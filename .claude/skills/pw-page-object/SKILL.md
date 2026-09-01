@@ -19,7 +19,7 @@ error, or worse, an existing member is shadowed. Do both in the same change.
 
 | Suite | Registry file | Interface | Factory | Specs reach it via |
 |---|---|---|---|---|
-| Journey suites (`tests/web/`, `tests/api/`) | [src/fixtures/pages.fixture.ts](src/fixtures/pages.fixture.ts) | `PageObjects` | `createPageObjects` | `@fixtures/base.fixture` → `pages.x` |
+| Journey suites (`tests/web/`) | [src/fixtures/pages.fixture.ts](src/fixtures/pages.fixture.ts) | `PageObjects` | `createPageObjects` | `@fixtures/base.fixture` → `pages.x` |
 | Migrated web-pet suite (`tests/webpet/`) | [src/fixtures/webpetPages.fixture.ts](src/fixtures/webpetPages.fixture.ts) | `WebpetPages` | `createWebpetPages` | `@fixtures/webpet.fixture` → `pages.x` |
 
 They are deliberately separate. `PageObjects` targets the legacy shell; `WebpetPages`

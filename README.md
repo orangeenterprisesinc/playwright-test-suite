@@ -86,10 +86,9 @@ playwright-test-suite/
 ├── package.json                      # Dependencies and scripts
 ├── .mcp.json                         # MCP servers (Claude Code reads root only)
 │
-├── .env.local  .env.dev  .env.qa     # committed per-environment config; any
-│                                     #   sensitive value stored as ENC(...)
+├── .env.dev  .env.qa                 # committed per-environment config, no secrets
 ├── .env.example                      # documented template
-├── .env                              # personal overrides + SECRET_KEY (gitignored)
+├── .env                              # personal overrides + real credentials (gitignored)
 │
 ├── config/                           # ALL configuration, grouped by tool
 │   ├── lint/.eslintrc.json           #   code standards
@@ -97,14 +96,8 @@ playwright-test-suite/
 │   ├── notifications/recipients.csv  #   per-branch/trigger email routing
 │   └── scopes/anthony-vineyards.json #   per-customer segments + modules (TEST_SCOPE)
 │
-├── docker/                           # ALL Docker
-│   ├── Dockerfile                    #   the test image
-│   ├── Dockerfile.dockerignore       #   BuildKit per-Dockerfile ignore
-│   ├── e2e/                          #   containerized app stack (compose + DB restore)
-│   └── db-backup/                    #   local SQL backups (gitignored, never committed)
-│
 ├── .vscode/                          # Editor: points at config/lint, debug configs
-├── .github/workflows/                # 4 pipelines (journey + webpet, dev + local)
+├── .github/workflows/                # e2e.yml — both suites against dev staging
 │
 ├── artifacts/                        # ALL run output — one .gitignore line
 │   ├── results/                      #   results.json, traces, videos, screenshots
@@ -126,7 +119,7 @@ playwright-test-suite/
 │   │   └── DataGridComponent.ts      #   The PET Tiger list grid (filters, rows, totals)
 │   │
 │   ├── config/                       # Configuration management
-│   │   ├── envLoader.ts              #   Loads .env.local/dev/qa files
+│   │   ├── envLoader.ts              #   Loads .env.dev/qa files
 │   │   ├── dataSource.config.ts      #   Runner directory / JSON+CSV path resolution
 │   │   └── scope.ts                   #   TEST_SCOPE segment + module filtering
 │   │
@@ -218,12 +211,8 @@ playwright-test-suite/
 ├── tests/                             # Specs — TWO folders (browser vs no browser), journey inside
 │   ├── auth.setup.ts                  #   Keycloak login → storageState (auth-setup project)
 │   ├── seed.spec.ts
-│   ├── api/                           #   API-only (api.fixture) — browserless `api` project
-│   │   ├── journey-a-setup/           #     A6 biometric enrollment
-│   │   ├── journey-b-field/           #     B1-B15 device capture — reserved
-│   │   └── journey-c-packhouse/       #     C1-C10 kiosk capture — reserved
-│   ├── web/                           #   Browser-driven (base.fixture + POM): UI-only AND
-│   │   │                              #     UI+API(+DB) hybrids, the latter tagged @Workflow
+│   ├── web/                           #   Journey suite (base.fixture / api.fixture): UI-only,
+│   │   │                              #     API-only, and UI+API hybrids (tagged @Workflow)
 │   │   ├── system/login-module.spec.ts#     logged-out login module
 │   │   ├── journey-a-setup/           #     A1-A14 — a01-user-setup.spec.ts is the reference
 │   │   ├── journey-b-field/           #     B14 real-time field dashboard
@@ -280,11 +269,11 @@ suites:
 | runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
 | ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
-| CI | `e2e.yml` (`suite: journey`), `e2e-local.yml` | `e2e.yml` (`suite: webpet`), `webpet-e2e-local.yml` |
+| CI | `e2e.yml` (`suite: journey`) | `e2e.yml` (`suite: webpet`) |
 | dev-staging run | `e2e.yml -f suite=journey` | `e2e.yml -f suite=webpet` |
 
 ```bash
-npm run test:webpet                        # whole suite against localhost
+npm run test:webpet                        # whole suite against the container stack
 npm run test:webpet:dev                    # against dev staging
 npm run test:webpet:list                   # collection check — prints 407 tests / 57 files
 npm run test:webpet -- --grep @wp-crop     # one module
@@ -335,7 +324,7 @@ The framework uses environment-specific configuration files in the project root:
 
 | File | Purpose |
 |------|---------|
-| `.env.local` | Local environment (default) |
+| `.env.dev` | Dev staging — the only target (default) |
 | `.env.dev` | Development environment |
 | `.env.qa` | QA environment |
 
@@ -574,7 +563,7 @@ The framework reads test data **directly** from JSON or CSV — there is no conv
 | Field | Description |
 |-------|-------------|
 | `id` | Unique test case ID (e.g., `UI-001`, `USR-001`) |
-| `category` | Test category — `ui` \| `api` \| `workflow`. Three values, two folders: `ui`/`workflow` → `tests/web/`, `api` → `tests/api/` (enforced by `runner:check`) |
+| `category` | Test category — `ui` \| `api` \| `workflow`. Three values, one folder: every category lives in `tests/web/` (enforced by `runner:check`) |
 | `testName` | Programmatic test name |
 | `testTitle` | Human-readable test title |
 | `testDescription` | Detailed description |
@@ -777,7 +766,7 @@ test.describe('Login Tests', { tag: '@login' }, () => {
 ### Example 2: Pure API Test
 
 ```typescript
-// tests/api/user-api.spec.ts
+// tests/web/journey-a-setup/user-api.spec.ts  (API-only specs share the web folder)
 import { test, expect } from '../../src/fixtures/api.fixture';
 
 test.describe('User API Tests', { tag: '@API' }, () => {
@@ -831,7 +820,7 @@ test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
 ```
 
 > Prefer `/api-script-generator` and `/workflow-script-generator` (repo skills) to
-> generate `tests/api/` and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
+> generate API-only and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
 
 ---
 
@@ -855,9 +844,6 @@ npm run test:debug
 # Smoke tests only
 npm run test:smoke
 
-# API-only specs (browserless `api` project — no auth-setup, no browser)
-npm run test:api
-
 # Workflow (UI + API hybrid) specs
 npm run test:workflow
 
@@ -867,7 +853,6 @@ npm run test:last-failed
 # Raw Playwright CLI (any flag)
 npx playwright test --grep "@Smoke"
 npx playwright test --project=chromium
-npx playwright test --project=api          # API-only specs, no browser
 npx playwright test --grep "@Workflow"
 npx playwright test --workers=4
 npx playwright test --retries=2
@@ -895,8 +880,8 @@ npm run report:allure:open
 Two things that look like bugs but aren't:
 
 - **The HTML report only ever shows the most recent run.** Every run rewrites
-  `artifacts/html` and clears `artifacts/results`, so a browserless run
-  (`--project=api`) legitimately leaves a report with no screenshots or videos,
+  `artifacts/html` and clears `artifacts/results`, so a run of browserless
+  API-only specs legitimately leaves a report with no screenshots or videos,
   and replaces whatever evidence was there. Re-run the specs you want evidence
   from, or copy `artifacts/` aside first.
 - **Open `http://localhost:9323`, not `127.0.0.1:9323`.** `show-report` binds
@@ -909,7 +894,7 @@ Two things that look like bugs but aren't:
 
 ### GitHub Actions
 
-`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app (see `e2e-local.yml` for the localhost variant).
+`.github/workflows/e2e.yml` runs the user-journey suite against the **dev staging** deployment. It does **not** boot an app: dev staging is already deployed.
 
 `e2e.yml` serves **both** suites. Its `suite` input (`journey` | `webpet`) switches the timeout, the `WEBPET`/`DB_*` env, the checkout depth, the validation gates, the test command, the S3 prefix and the artifact names — so the two never share artifacts or overwrite each other's reports:
 
@@ -938,7 +923,7 @@ Each suite keeps its own tests, artifacts, Allure report and Slack message — n
 
 The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
-Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names: `e2e-local.yml` uses its own `LOCAL_USER_NAME`/`LOCAL_PASSWORD`, and an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with localhost credentials.
+Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secret** (never committed), and the username is the **`DEV_USER_NAME` variable**, defaulting to `su`. A login name isn't a credential, and storing a short one as a secret is actively harmful — Actions masks every literal occurrence of a secret's value, so `su` gets redacted inside unrelated words (`playwright-test-***ite`, `allure-re***lts`), making logs hard to read. Both are dev-staging-specific with no fallback to generic names — an earlier generic-`PASSWORD` fallback silently logged the dev-staging run in with local credentials.
 
 ```yaml
 on:

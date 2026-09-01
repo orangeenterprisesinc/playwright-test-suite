@@ -20,7 +20,7 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
-const [envName = 'local', ...rawArgs] = process.argv.slice(2);
+const [envName = 'dev', ...rawArgs] = process.argv.slice(2);
 const cli = path.join(__dirname, '..', 'node_modules', '@playwright', 'test', 'cli.js');
 
 // Consumed here — Playwright would reject it as an unknown option.

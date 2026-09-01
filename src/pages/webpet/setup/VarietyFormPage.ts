@@ -29,7 +29,9 @@ export class VarietyFormPage extends WebpetFormPage {
     readonly notFoundMessage: Locator;
     /**
      * The 409 the API returns when a variety name repeats within one crop.
-     * Uniqueness here is scoped to the parent crop, not global.
+     * Uniqueness here is scoped to the parent crop, not global. Same tolerant
+     * pattern as WebpetFormPage.duplicateError since WEBPET-1990 resolves the
+     * `unique` code to "Already in use".
      */
     readonly duplicateForCropError: Locator;
 
@@ -39,9 +41,7 @@ export class VarietyFormPage extends WebpetFormPage {
         this.codeInput = page.locator('input#code');
         this.cropPicker = new ParentPickerComponent(page, 'Crop');
         this.notFoundMessage = page.locator('text=Variety not found.');
-        this.duplicateForCropError = page.getByText(
-            'A variety with this name already exists for the selected crop.',
-        );
+        this.duplicateForCropError = page.getByText(/Already in use|already exists/i);
     }
 
     /** Choose a crop by its entity id, matching the legacy `selectOption(value)` semantics. */
