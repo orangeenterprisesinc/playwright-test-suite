@@ -221,7 +221,12 @@ export async function pullFromRelayInternet(
     request: APIRequestContext,
     opts: { timeoutMs?: number } = {},
 ): Promise<{ pull: InternetPullResult; run?: ImportRunResult }> {
-    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 120_000);
+    // The worker claims queued files once per `serviceImportInterval` (1 minute on
+    // dev), so a pull whose run lands just after a tick waits most of an interval
+    // before parsing even starts — and a caller doing two sequential syncs pays
+    // that twice, with peers' files in the shared mailbox ahead of it. 120s was too
+    // tight: a run timed out here and then completed moments later.
+    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 180_000);
 
     const res = await request.post('connectivity/import/internet', {
         headers: { 'Content-Type': 'application/json' },

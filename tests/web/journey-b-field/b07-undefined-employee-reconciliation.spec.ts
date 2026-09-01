@@ -73,7 +73,11 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             { type: 'requirement', description: 'B7-R1|B7-R2|B7-R3|B7-R4|B7-R5|B7-R6|B7-R7|B7-R8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        // Not test.slow(): that triples the 110s default to 330s, and B7 is the only
+        // spec that imports TWICE — device A then device B, each waiting up to a
+        // full worker interval — plus a UI leg. A healthy run is ~135s; this leaves
+        // room for both imports to sit behind a tick without a false red.
+        test.setTimeout(9 * 60 * 1000);
 
         // ── Data — prefixes derived so the office's own extraction (empStartLoc=1,
         // rollStartLoc=8) reproduces the value this test sends, like-for-like ──
