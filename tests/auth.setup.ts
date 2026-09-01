@@ -44,7 +44,41 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
                 `Set them in your gitignored .env (locally) or as CI secrets.`,
         );
     }
+    // Narrowed copies for the closure below — TypeScript does not carry the
+    // guard's narrowing into a nested function declaration.
+    const loginUser: string = userName;
+    const loginPassword: string = password;
 
+    // Ride out a dev-API restart: when the login POST answers 5xx, wait and
+    // re-attempt instead of failing the whole suite. Playwright-level retries
+    // already exist but all three land within ~8 seconds — far shorter than an
+    // API restart. Two real incidents (2026-08-30 16:58Z, 2026-09-01 00:50Z)
+    // took the suite down with a 500 that had cleared minutes later. Only 5xx
+    // is retried; 4xx and UI rejections are credential problems and still fail
+    // immediately. Backoffs (10s + 25s + 50s) plus the fast-failing 5xx
+    // attempts fit inside this test's 180s budget because a 5xx answers in
+    // milliseconds, long before any 60s redirect wait matters.
+    const serverErrorBackoffsMs = [10_000, 25_000, 50_000];
+    for (let attempt = 0; ; attempt++) {
+        try {
+            await attemptUiLogin();
+            break;
+        } catch (err) {
+            const is5xx = err instanceof Error && /returned HTTP 5\d\d/.test(err.message);
+            const waitMs = serverErrorBackoffsMs[attempt];
+            if (!is5xx || waitMs === undefined) throw err;
+            console.warn(
+                `auth setup: login attempt ${attempt + 1} hit a server error — ` +
+                    `likely a mid-deploy restart; retrying in ${waitMs / 1000}s. (${err.message.slice(0, 120)})`,
+            );
+            await new Promise((r) => setTimeout(r, waitMs));
+        }
+    }
+
+    // One full UI login attempt: navigate, click, and race the three outcomes.
+    // Throws with the HTTP status in the message on an API failure, which the
+    // retry loop above uses to distinguish 5xx (retry) from 4xx (fail now).
+    async function attemptUiLogin(): Promise<void> {
     await loginPage.gotoPetTiger();
 
     // Registered after the page is up but BEFORE the click, so the response
@@ -67,7 +101,7 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
     // context closes, so it needs a handler from the moment it exists.
     failedLogin.catch(() => {});
 
-    await loginPage.loginPetTiger(userName, password);
+    await loginPage.loginPetTiger(loginUser, loginPassword);
 
     // Clicking Login has three possible outcomes and only one is success, so
     // watch for all of them. A bare waitForURL cannot tell them apart: wrong
@@ -119,6 +153,7 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
     for (const outcome of outcomes) outcome.catch(() => {});
 
     await Promise.race(outcomes);
+    }
 
     // Confirm a post-login landmark before persisting the session, so a session
     // that redirected but never actually rendered the shell is not saved.

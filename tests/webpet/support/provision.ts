@@ -43,17 +43,41 @@ export async function healAdminSession(): Promise<void> {
         extraHTTPHeaders: { Origin: WEB_BASE_URL },
     });
 
-    const adminLoginRes = await adminCtx.post('/api/auth/login', {
+    // Ride out a dev-API restart instead of dying on the first 5xx. Two real
+    // incidents (2026-08-30 16:58Z, 2026-09-01 00:50Z) killed whole suite runs
+    // with a login HTTP 500 that had cleared minutes later — both windows lined
+    // up with dev deploys. Only 5xx retries: a 4xx is a credential/contract
+    // problem that waiting will not fix. Backoffs total ~90s inside this
+    // project's 120s setup timeout.
+    const backoffsMs = [5_000, 15_000, 30_000, 40_000];
+    let adminLoginRes = await adminCtx.post('/api/auth/login', {
         data: {
             username: ADMIN_USER,
             password: ADMIN_PASSWORD,
         },
         headers: { 'Content-Type': 'application/json' },
     });
+    for (const waitMs of backoffsMs) {
+        if (adminLoginRes.ok() || adminLoginRes.status() < 500) break;
+        console.warn(
+            `webpet setup: admin login got HTTP ${adminLoginRes.status()} from ${API_BASE_URL} — ` +
+                `likely a mid-deploy restart; retrying in ${waitMs / 1000}s`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        adminLoginRes = await adminCtx.post('/api/auth/login', {
+            data: {
+                username: ADMIN_USER,
+                password: ADMIN_PASSWORD,
+            },
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
     if (!adminLoginRes.ok()) {
         throw new Error(
             `webpet setup: admin login failed (HTTP ${adminLoginRes.status()}) against ${API_BASE_URL} ` +
-                `as '${ADMIN_USER}'. Check E2E_ADMIN_USER / E2E_ADMIN_PASSWORD (falls back to ` +
+                `as '${ADMIN_USER}'` +
+                (adminLoginRes.status() >= 500 ? ` after ${String(backoffsMs.length + 1)} attempts over ~90s` : '') +
+                `. Check E2E_ADMIN_USER / E2E_ADMIN_PASSWORD (falls back to ` +
                 `USER_NAME / PASSWORD — see src/config/webpetEnv.ts), and make sure the stack is ` +
                 `reachable and that WEBPET_API_ORIGIN points at the API host).`,
         );
