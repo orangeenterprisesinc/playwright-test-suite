@@ -179,14 +179,16 @@ is suite-wide.
 Agent definitions default to `model: sonnet`; the orchestrator overrides per
 invocation via the Agent tool's `model` parameter.
 
-* **Fable 5** — complex planning, difficult root-cause analysis, architecture
-  decisions, final escalation.
-* **Opus** — complex implementation/review, difficult debugging; escalation step
-  before Fable 5.
+* **Opus** — first escalation from Sonnet: complex planning, complex
+  implementation/review, difficult debugging.
+* **Fable 5** — reserved for two cases only: root-cause analysis Opus could
+  not resolve, and framework/architecture decisions (shared-core changes).
+  Never the first escalation.
 * **Sonnet (default)** — Generator and Healer, normal coding, locator/fixture
   work, routine review.
 * **Haiku** — lightweight searches, file discovery, extracting small facts.
 
+Escalation order is always Sonnet → Opus → Fable 5.
 Do not use Fable 5 or Opus for tasks Sonnet or Haiku can handle.
 
 ## 7. Context and Token Efficiency
