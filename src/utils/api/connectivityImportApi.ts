@@ -159,10 +159,20 @@ export async function importDeviceExport(
         };
     }
 
+    return waitForImportRun(upload, runId, timeoutMs, created);
+}
+
+/** Poll one import run until it reaches a terminal status. */
+export async function waitForImportRun(
+    request: APIRequestContext,
+    runId: number,
+    timeoutMs: number,
+    seed: { status?: string; files?: ImportFileResult[] } = {},
+): Promise<ImportRunResult> {
     const deadline = Date.now() + timeoutMs;
-    let last: { status?: string; files?: ImportFileResult[] } = created;
+    let last: { status?: string; files?: ImportFileResult[] } = seed;
     for (;;) {
-        const poll = await upload.get(`connectivity/import/runs/${runId}`);
+        const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
             last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
             if (TERMINAL.includes(String(last.status))) break;
@@ -185,4 +195,46 @@ export async function importDeviceExport(
         files: last.files ?? [],
         raw: last,
     };
+}
+
+/** What `POST connectivity/import/internet` reports about the pull itself. */
+export interface InternetPullResult {
+    runId: number;
+    filesPulled: number;
+    status: string;
+    message: string;
+}
+
+/**
+ * The **internet** transport: ask the office to drain its relay mailbox, the
+ * same POST the Connectivity ▸ Import ▸ Internet screen makes. Preferred over
+ * `single-folder` because it exercises the WebMail leg a real device sync uses.
+ *
+ * The route answers HTTP 200 whatever happens, so the body's `status` is the
+ * outcome: `ok` pulled files, `no-data` found none, anything else is a closed
+ * relay gate. `no-data` is NOT a failure under `workers=2` — every worker shares
+ * one office mailbox, so a peer's pull can drain our envelope into its own run.
+ * The rows still land in the same client DB, and matching by reference proves
+ * ownership either way.
+ */
+export async function pullFromRelayInternet(
+    request: APIRequestContext,
+    opts: { timeoutMs?: number } = {},
+): Promise<{ pull: InternetPullResult; run?: ImportRunResult }> {
+    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 120_000);
+
+    const res = await request.post('connectivity/import/internet', {
+        headers: { 'Content-Type': 'application/json' },
+        data: {},
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const pull: InternetPullResult = {
+        runId: Number(body.runId ?? 0),
+        filesPulled: Number(body.filesPulled ?? 0),
+        status: String(body.status ?? ''),
+        message: String(body.message ?? ''),
+    };
+
+    if (!Number.isFinite(pull.runId) || pull.runId <= 0) return { pull };
+    return { pull, run: await waitForImportRun(request, pull.runId, timeoutMs) };
 }
