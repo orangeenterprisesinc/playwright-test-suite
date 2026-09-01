@@ -69,8 +69,10 @@ test.describe('Export to Accounting — v2 dispatch workspace', { tag: ['@WebPet
         // that no longer feeds them.
         await workspace.dateRange.applyPreset('Last 30 days');
 
-        // After analyze the four readiness counters render with numeric counts.
-        for (const c of ['pending', 'needsReexport', 'alreadyExported', 'warnings']) {
+        // After analyze the three readiness counters render with numeric counts.
+        // (alreadyExported was removed with the 'Include already exported' option —
+        // web-pet WEBPET-2493, 2026-08-30.)
+        for (const c of ['pending', 'needsReexport', 'warnings']) {
             await expect(workspace.counter(c)).toContainText(/\d/);
         }
     });

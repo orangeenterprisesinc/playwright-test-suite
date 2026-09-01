@@ -118,7 +118,7 @@ export class ExportDispatchWorkspacePage extends BasePage {
 
     /**
      * A readiness counter on the **redesigned** chrome, keyed
-     * `pending | needsReexport | alreadyExported | warnings`.
+     * `pending | needsReexport | warnings`. (alreadyExported removed — WEBPET-2493.)
      *
      * Driven by the run-draft (`POST /runs`), not the `/candidates` response — so
      * mocking fixed candidate rows does not move these numbers.
