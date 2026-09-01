@@ -72,7 +72,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             { type: 'testCaseId', description: 'B7-001' },
             { type: 'requirement', description: 'B7-R1|B7-R2|B7-R3|B7-R4|B7-R5|B7-R6|B7-R7|B7-R8' },
         ],
-    }, async ({ sessionApi }, testInfo) => {
+    }, async ({ sessionApi, pages }, testInfo) => {
         test.slow();
 
         // ── Data — prefixes derived so the office's own extraction (empStartLoc=1,
@@ -166,6 +166,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         // not leave the tenant's sticker extraction reconfigured.
         let tiCards: OfficeTimeCard[] = [];
         let poCards: OfficeTimeCard[] = [];
+        let preferencesRestored = false;
         try {
 
             // ── Seed ──
@@ -398,6 +399,15 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             expect(deviceB.references, 'device B sends two cards').toHaveLength(2);
 
             const importB = await deliverAndImport('device-b', prefixB, deviceB.xml);
+
+            // Both imports are done, so the tenant preferences have served their
+            // purpose — everything below is reads. Restore them HERE rather than in
+            // the finally: a long UI leg or a dropped session would otherwise leave
+            // dev's sticker extraction reconfigured for every other user, which is
+            // exactly what happened on the run that added the UI step.
+            await setStartLocations(originalEmpStart, originalRollStart);
+            preferencesRestored = true;
+
             if (importB.file) {
                 expect(
                     importB.file.status,
@@ -490,14 +500,58 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 body: JSON.stringify({ tiCards, poCards }, null, 2),
                 contentType: 'application/json',
             });
+
+            // ── The office screen Amy actually reads (kf 318 → 384) ──
+            // View ▸ Time Cards, filtered to the punch day: she confirms the
+            // reconciliation by eye, in the Employee and Employee Selection
+            // columns. The API asserts above prove WHICH employee by id; this
+            // proves a reviewer can see it, and catches rendering regressions the
+            // API never would — the same belt-and-braces split B6 uses for the
+            // Transfer grid. Substring matching because the grid truncates
+            // ("Undefined Employ…").
+            await pages.leftNav.navigate();
+            await pages.leftNav.openViaMenu(['View', 'Time Cards'], pages.timeCards.pageUrl);
+            await pages.timeCards.heading.waitFor({ state: 'visible', timeout: 30_000 });
+            await pages.timeCards.applyDateRange(punchDate);
+
+            const unassignedRow = await pages.timeCards.rowText(deviceB.references[0]);
+            const assignedRow = await pages.timeCards.rowText(deviceB.references[1]);
+            await testInfo.attach('time-cards-grid-B7.png', {
+                body: await pages.timeCards.screenshot(),
+                contentType: 'image/png',
+            });
+
+            // B7-R3 on screen: the unassigned prefix reads as the Undefined
+            // Employee. Truncated in the column, so match the stable prefix.
+            expect(unassignedRow, 'grid Employee column for the unassigned prefix').toContain(
+                'Undefined Employ',
+            );
+            // B7-R2 on screen: the assigned prefix reads as the roll's owner.
+            expect(assignedRow, 'grid Employee column for the assigned prefix').toContain(
+                F.sticker[2].name,
+            );
+            // B7-R5 on screen: both rows report the sticker employee source.
+            expect(unassignedRow, 'grid Employee Selection column').toContain('Sticker Code');
+            expect(assignedRow, 'grid Employee Selection column').toContain('Sticker Code');
         } finally {
             // Time cards only — the EmployeeCodeHistory row itself has no DELETE
             // endpoint anywhere in openapi.yaml (N5). It is deliberately left
             // behind, one row per calendar day this suite runs, on employee 6007.
             await cleanupCards(sessionApi, [...tiCards, ...poCards], testInfo);
-            // Put the tenant preferences back however this run ended — leaving them
-            // changed would alter sticker extraction for every other client user.
-            await setStartLocations(originalEmpStart, originalRollStart);
+            // Safety net for a failure BEFORE the restore above (envelope, relay or
+            // import). Best-effort: if the session itself died there is no way back,
+            // and throwing here would bury the real failure.
+            if (!preferencesRestored) {
+                await setStartLocations(originalEmpStart, originalRollStart).catch(async (err) => {
+                    testInfo.annotations.push({
+                        type: 'preferences-not-restored',
+                        description:
+                            `employeeCodeStartLocation/rollCodeStartLocation left at ` +
+                            `${STICKER_EMP_CODE_START}/${STICKER_ROLL_CODE_START} — restore failed: ` +
+                            `${String(err).slice(0, 200)}`,
+                    });
+                });
+            }
         }
     });
 });

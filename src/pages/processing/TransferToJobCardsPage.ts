@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { applyDateRange } from '../../components/DateRangeFilterComponent';
 
 /**
  * Input ▸ Transfer to Job Card (catalog D2/D4) — the screen Amy's Journey B
@@ -127,68 +128,7 @@ export class TransferToJobCardsPage extends BasePage {
      * on the same cell toggles it back to today — hence the read-back guard.
      */
     async applyDateRange(date = new Date()): Promise<void> {
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const sameDay = (a: Date, b: Date) =>
-            a.getFullYear() === b.getFullYear() &&
-            a.getMonth() === b.getMonth() &&
-            a.getDate() === b.getDate();
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        await this.dateRangeFilter.click();
-        const popup = this.page.getByRole('dialog');
-        await popup.waitFor({ state: 'visible', timeout: 10_000 });
-
-        // Prefer the popup's quick-select presets: typing into the segmented
-        // Month/Day/Year inputs commits nothing for a non-today date (the chip
-        // stays on today), which only ever *looked* like it worked because the
-        // chip already displayed today.
-        const preset = sameDay(date, new Date())
-            ? 'Today'
-            : sameDay(date, yesterday)
-              ? 'Yesterday'
-              : null;
-        if (preset) {
-            await popup.getByText(preset, { exact: true }).click();
-        } else {
-            const ordinal = (n: number) => {
-                if (n % 10 === 1 && n % 100 !== 11) return 'st';
-                if (n % 10 === 2 && n % 100 !== 12) return 'nd';
-                if (n % 10 === 3 && n % 100 !== 13) return 'rd';
-                return 'th';
-            };
-            const monthName = date.toLocaleString('en-US', { month: 'long' });
-            const dayLabel = new RegExp(
-                `${monthName} ${date.getDate()}${ordinal(date.getDate())}, ${date.getFullYear()}`,
-            );
-            // Only the past is ever requested (punchDate = today − N days), so
-            // only "previous month" navigation is needed to bring an
-            // out-of-view day into the two-month calendar.
-            const prevMonthButton = popup.getByRole('button', { name: /go to the previous month/i });
-            const dayCell = popup.getByRole('button', { name: dayLabel });
-            for (let i = 0; i < 12 && (await dayCell.count()) === 0; i += 1) {
-                await prevMonthButton.click();
-            }
-            await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
-            await dayCell.first().click();
-
-            // Confirm both ends of the range collapsed onto the target day —
-            // a stale range (e.g. a multi-day preset applied by an earlier
-            // test) can need a second click to close onto a single day.
-            // Clicking a third time would toggle it back off, so this reads
-            // state rather than clicking blindly.
-            const daySegments = popup.getByRole('textbox', { name: 'Day' });
-            const collapsed = async () =>
-                (await daySegments.nth(0).inputValue()) === String(date.getDate()) &&
-                (await daySegments.nth(1).inputValue()) === String(date.getDate());
-            if (!(await collapsed())) {
-                await dayCell.first().click();
-            }
-        }
-        await this.page.getByRole('button', { name: /^apply$/i }).click();
-
-        const expected = `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()}`;
-        await expect(this.dateRangeFilter).toContainText(expected, { timeout: 20_000 });
+        await applyDateRange(this.page, this.dateRangeFilter, date);
     }
 
     /** Screenshot of the screen as the reviewer sees it, for the run's evidence. */

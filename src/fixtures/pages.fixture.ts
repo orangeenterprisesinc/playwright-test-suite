@@ -23,6 +23,7 @@ import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
+import { TimeCardsPage } from '../pages/processing/TimeCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 
 /**
@@ -44,6 +45,8 @@ export interface PageObjects {
     // ── Input ▸ processing ──────────────────────────────────────────
     /** Transfer to Job Card review screen (D2/D4; Journey B verification). */
     readonly transferToJobCards: TransferToJobCardsPage;
+    /** View ▸ Time Cards — the imported-card grid (Journey B verification). */
+    readonly timeCards: TimeCardsPage;
 
     // ── Connectivity ────────────────────────────────────────────────
     /** Connectivity ▸ Import ▸ Internet — the office's relay pull (Journey B). */
@@ -70,6 +73,7 @@ export function createPageObjects(page: Page): PageObjects {
         get leftNav() { return lazy('leftNav', () => new LeftNavigationPage(page)); },
         get users() { return lazy('users', () => new UsersPage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
+        get timeCards() { return lazy('timeCards', () => new TimeCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
     };
 }
