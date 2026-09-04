@@ -100,6 +100,13 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         createdDeviceId = deviceId;
         await page.goto(`/setup/scan-devices/${String(deviceId)}`);
 
+        // The record route must accept the id the create returned. Same check the old
+        // post-save waitForURL made, minus the dependence on a redirect dev does not
+        // reliably perform, plus the id equality the old version could not make.
+        const match = page.url().match(/\/setup\/scan-devices\/(\d+)/);
+        expect(match, 'should be on the new device record').not.toBeNull();
+        expect(Number(match![1]), 'record URL should carry the created device id').toBe(deviceId);
+
         // ── Step 2: Edit — add Preferences + Crews ────────────────────────────
         // Preferences section only renders after the first save (isNew=false + device data loaded).
         // waitForLoadState('networkidle') is unusable here because 4 endpoints return 403 and
