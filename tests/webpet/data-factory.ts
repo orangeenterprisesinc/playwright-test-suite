@@ -681,6 +681,16 @@ export async function deleteBoard(request: APIRequestContext, id: number): Promi
   await deleteByRowversion(request, '/api/boards', id)
 }
 
+// ── ScanDevice ────────────────────────────────────────────────────────────────
+
+/**
+ * Soft-delete a scan device. No `ensureScanDevice` counterpart yet — the one spec
+ * that creates devices drives the two-step UI form, and only needs the cleanup half.
+ */
+export async function deleteScanDevice(request: APIRequestContext, id: number): Promise<void> {
+  await deleteByRowversion(request, '/api/scan-devices', id)
+}
+
 // ── JobGroup ──────────────────────────────────────────────────────────────────
 
 export interface EnsuredJobGroup {

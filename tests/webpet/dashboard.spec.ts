@@ -123,21 +123,42 @@ test.describe('Dashboard shell — persistence + reload', { tag: ['@WebPet', '@w
         await dashboard.gotoDashboard();
 
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
-        const initialCount = await dashboard.widgetCells.count();
+        const typesBefore = await dashboard.widgetTypes();
 
         await dashboard.editWidgetsButton.click();
-        await dashboard.firstAddWidgetButton.click();
-        await expect(dashboard.widgetCells).toHaveCount(initialCount + 1);
-        const afterAddCount = await dashboard.widgetCells.count();
+
+        // Wait for the layout PUT, so the reload below cannot race the write this test
+        // exists to prove. The add is optimistic on the canvas and the save is debounced,
+        // so without this the reload could abort the in-flight write.
+        const [saved] = await Promise.all([
+            page.waitForResponse(
+                (res) =>
+                    res.request().method() === 'PUT' &&
+                    /\/api\/widget-canvases\/\d+\/layout$/.test(new URL(res.url()).pathname),
+                { timeout: 15_000 },
+            ),
+            dashboard.firstAddWidgetButton.click(),
+        ]);
+        expect(saved.ok(), 'the canvas layout PUT should persist the added widget').toBe(true);
+
+        // Identify the widget by type rather than by the global cell total. The board is
+        // shared server-side state that neither this test nor WP-0129 cleans up, so the
+        // total climbs every run — it reached 93 in CI run 33860893832, where this test
+        // expected 93 and saw 92 and failed on a number that was never a stable oracle.
+        const typesAfter = await dashboard.widgetTypes();
+        const countOf = (types: string[], t: string) => types.filter((x) => x === t).length;
+        const addedType = typesAfter.find((t) => countOf(typesAfter, t) > countOf(typesBefore, t));
+        expect(addedType, 'adding a widget should introduce one more cell of its type').toBeTruthy();
+        const expectedOfType = countOf(typesAfter, addedType as string);
 
         // Persistence moved from a LocalStorage document (pt.dashboards.v2) to the
-        // server-backed ApiWidgetCanvasRepository (DashboardPage → useBoards). The
-        // old localStorage-key assertion is therefore obsolete; the meaningful
-        // round-trip the ticket calls out is that a full page reload rehydrates the
-        // board from its (now server-side) store with the same widget count painted.
+        // server-backed ApiWidgetCanvasRepository (DashboardPage → useBoards). The old
+        // localStorage-key assertion is therefore obsolete; the round-trip the ticket
+        // calls out is that a full reload rehydrates the board from its (now server-side)
+        // store with the widget just added still painted on it.
         await page.reload();
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
-        await expect(dashboard.widgetCells).toHaveCount(afterAddCount);
+        await expect(dashboard.widgetCellsOfType(addedType as string)).toHaveCount(expectedOfType);
     });
 
 });

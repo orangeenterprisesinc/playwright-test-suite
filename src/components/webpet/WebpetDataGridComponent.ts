@@ -319,9 +319,17 @@ export class WebpetDataGridComponent extends BaseComponent {
 
     // ── Actions ─────────────────────────────────────────────────────
 
-    /** Waits for the grid itself to render — the list page's readiness signal. */
-    async waitForGrid(): Promise<void> {
-        await this.root.first().waitFor({ state: 'visible' });
+    /**
+     * Waits for the grid itself to render — the list page's readiness signal.
+     *
+     * `timeout` is optional and defaults to Playwright's implicit 30s action timeout,
+     * which is what every caller had before the parameter existed. Pass a bound from a
+     * spec running under the parity project: its *test* budget is also 30s, so the
+     * implicit default can never fire and a list query that never settles surfaces as
+     * a bare test timeout naming no element (WP-0259, 29.1s, 2026-09-04).
+     */
+    async waitForGrid(timeout?: number): Promise<void> {
+        await this.root.first().waitFor({ state: 'visible', timeout });
     }
 
     /** Turn multi-select mode on (or off — it is a toggle). */

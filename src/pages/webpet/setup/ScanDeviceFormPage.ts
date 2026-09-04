@@ -6,8 +6,10 @@
  * The New form exposes the General section only. Crew assignment and Preferences
  * render solely on the Edit form (`isNew=false` **and** the device data loaded),
  * so creating a fully-configured device takes two saves. After the second (PUT)
- * the app navigates to the **list**, not back to the record — so the id has to be
- * read from the URL after save one.
+ * the app navigates to the **list**, not back to the record.
+ *
+ * The id comes from the create **response**, not from the post-save URL — see
+ * {@link ScanDeviceFormPage.saveNewAndReturnId}.
  *
  * ## Four option-locating quirks, all load-bearing
  *
@@ -149,6 +151,41 @@ export class ScanDeviceFormPage extends BasePage {
     }
 
     /** Pick a crew by `crewCounter` and click Add. */
+    /**
+     * Submit the New form and return the created device id, read from the POST.
+     *
+     * Deliberately not `page.waitForURL(/scan-devices\/\d+/)`: dev's scan-device save
+     * double-fires and its post-save redirect is unreliable, so waiting on the URL hung
+     * the whole spec for 60s naming no element — and a rejected create (a 409 on the
+     * unfiltered `ScanDevice_Name_Unique`, say) looked identical to a redirect that
+     * merely did not happen. Same idiom save two already uses for its PUT, and it names
+     * the failure: the response body is surfaced on a non-2xx.
+     */
+    async saveNewAndReturnId(): Promise<number> {
+        const [response] = await Promise.all([
+            this.page.waitForResponse(
+                (res) =>
+                    res.request().method() === 'POST' &&
+                    /\/api\/scan-devices\/?$/.test(new URL(res.url()).pathname),
+                { timeout: 30_000 },
+            ),
+            this.saveButton.click(),
+        ]);
+
+        if (!response.ok()) {
+            throw new Error(
+                `POST /api/scan-devices returned ${String(response.status())}: ` +
+                    `${(await response.text()).slice(0, 300)}`,
+            );
+        }
+
+        const { deviceCounter } = (await response.json()) as { deviceCounter?: number };
+        if (!deviceCounter) {
+            throw new Error('POST /api/scan-devices response carried no deviceCounter');
+        }
+        return deviceCounter;
+    }
+
     async addCrew(crewCounter: number | string): Promise<void> {
         await this.crewCombobox.click();
         const option = this.openComboboxOption(String(crewCounter));

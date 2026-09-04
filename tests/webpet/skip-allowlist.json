@@ -24,18 +24,8 @@
       "ticket": "WORK-ITEM: scan-time-in equivalence setup"
     },
     {
-      "match": "IncludeReconcileJCs preference is off",
-      "reason": "Reconcile Job Cards tests self-gate on a per-client preference. Dev has it off, so the populated-grid branch cannot be exercised. Complementary tests cover the off-branch, so this is conditional coverage rather than lost coverage — but the gating question itself is open (see the reconcile ticket draft: accounting.export is granted yet the sidebar link is absent).",
-      "ticket": "DRAFT: reconcile-gating question"
-    },
-    {
-      "match": "IncludeReconcileJCs preference is on",
-      "reason": "Mirror of the above — the banner branch only runs where the preference is ON. One of this pair always skips by design.",
-      "ticket": "DRAFT: reconcile-gating question"
-    },
-    {
       "match": "No JobCards in the last 30 days",
-      "reason": "Populated-grid branch needs recent Job Cards on the environment. Genuine data dependency — candidate for the data-factory treatment (create a Job Card, assert, delete) the way parent-picker.spec.ts now works.",
+      "reason": "Populated-grid branch needs Job Cards the reconciler actually considers. The spec now provisions two of its own in beforeAll, so this fires only where that provisioning failed or where reconcile excludes them on other grounds (locked, already exported). The preference is no longer a factor - the file drives it, and the API never enforced it (probed 2026-09-04: dryRun POST returns 200 with the preference false).",
       "ticket": "WORK-ITEM: own Job Card data in reconcile spec"
     },
     {
@@ -70,7 +60,7 @@
     },
     {
       "match": "Seeded user has accounting.export",
-      "reason": "WP-0302 exercises the no-permission redirect branch, but the seeded su account always holds accounting.export on dev, so the negative branch is unreachable every run. Runs once a non-SU login exists for the suite (same account the WEBPET_NONSU entry below waits on).",
+      "reason": "WP-0302 exercises the no-permission redirect branch, but the seeded su account always holds accounting.export on dev, so the negative branch is unreachable every run. Runs once the suite has a non-SU login of its own. Note this is a third account, distinct from both the suite-provisioned RestrictedTest user (data-scoping) and WEBPET_NONSU_USER (WP-0408) - the earlier wording cross-referenced a WEBPET_NONSU entry that was removed in 1951bca.",
       "ticket": "WEBPET-1797"
     },
     {

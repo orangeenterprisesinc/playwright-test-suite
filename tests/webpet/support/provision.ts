@@ -1,4 +1,4 @@
-import { request, type APIRequestContext } from '@playwright/test';
+import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { WEBPET_ADMIN_STORAGE, WEBPET_AUTH_DIR } from '@config/webpetPaths';
@@ -43,13 +43,7 @@ export async function healAdminSession(): Promise<void> {
         extraHTTPHeaders: { Origin: WEB_BASE_URL },
     });
 
-    const adminLoginRes = await adminCtx.post('/api/auth/login', {
-        data: {
-            username: ADMIN_USER,
-            password: ADMIN_PASSWORD,
-        },
-        headers: { 'Content-Type': 'application/json' },
-    });
+    const adminLoginRes = await loginWithBackoff(adminCtx, ADMIN_USER, ADMIN_PASSWORD, 'admin');
     if (!adminLoginRes.ok()) {
         throw new Error(
             `webpet setup: admin login failed (HTTP ${adminLoginRes.status()}) against ${API_BASE_URL} ` +
@@ -105,6 +99,8 @@ interface UserListItem {
     usersCounter: number;
     name: string;
     userInitials?: string;
+    /** Present on GET /api/users; a soft-deleted or deactivated row cannot log in. */
+    active?: boolean;
 }
 
 /**
@@ -151,6 +147,70 @@ async function csrfTokenFromContext(ctx: APIRequestContext): Promise<string> {
 }
 
 /**
+ * POST /api/auth/login, retrying only the statuses worth retrying.
+ *
+ * Dev rate-limits its login path in memory, so a burst of runs answers 429 for a
+ * while. A single-shot login reports that as "credentials may have drifted", which is
+ * a misleading diagnosis and, on the admin path, takes the whole webpet project down.
+ * Any other 4xx is a real answer and returns immediately, so a genuinely wrong
+ * password still fails fast.
+ */
+async function loginWithBackoff(
+    ctx: APIRequestContext,
+    username: string,
+    password: string,
+    label: string,
+): Promise<APIResponse> {
+    const send = () =>
+        ctx.post('/api/auth/login', {
+            data: { username, password },
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+    let res = await send();
+    for (const delay of [2_000, 5_000, 10_000]) {
+        if (res.ok()) return res;
+        if (res.status() !== 429 && res.status() < 500) return res;
+        console.warn(
+            `[webpet-setup] ${label} login got HTTP ${String(res.status())}; ` +
+                `retrying in ${String(delay / 1000)}s`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        res = await send();
+    }
+    return res;
+}
+
+/**
+ * Soft-delete a user through the admin context, rowversion-guarded.
+ *
+ * Not `usersApi.deleteUserById`: that helper issues *relative* requests and so needs a
+ * baseURL ending in `/api`, while every context in this file is built on
+ * `API_BASE_URL`. Same contract otherwise - quiet on 404, loud on anything else.
+ */
+async function deleteUserViaAdmin(adminCtx: APIRequestContext, id: number): Promise<void> {
+    const detailRes = await adminCtx.get(`/api/users/${String(id)}`);
+    if (detailRes.status() === 404) return;
+    if (!detailRes.ok()) {
+        throw new Error(`GET /api/users/${String(id)} returned ${String(detailRes.status())}`);
+    }
+    const { version } = (await detailRes.json()) as { version?: string };
+    if (!version) {
+        throw new Error(
+            `GET /api/users/${String(id)} returned no 'version' - the delete is rowversion-guarded`,
+        );
+    }
+    const csrf = await csrfTokenFromContext(adminCtx);
+    const res = await adminCtx.delete(`/api/users/${String(id)}`, {
+        data: { rowversion: version },
+        headers: { 'X-CSRF-Token': csrf },
+    });
+    if (res.status() !== 204 && res.status() !== 404) {
+        throw new Error(`DELETE /api/users/${String(id)} returned ${String(res.status())}`);
+    }
+}
+
+/**
  * Idempotently provisions the RestrictedTest user with one UserCrew row,
  * then logs in as that user and persists storage-restricted.json plus
  * restricted-meta.json (carrying the assigned crew id for the spec to read).
@@ -160,6 +220,7 @@ async function csrfTokenFromContext(ctx: APIRequestContext): Promise<string> {
 async function provisionRestrictedUser(
     adminCtx: APIRequestContext,
     authDir: string,
+    forceCreate = false,
 ): Promise<void> {
     // 1. Find or create the user.
     const userListRes = await adminCtx.get('/api/users');
@@ -170,7 +231,14 @@ async function provisionRestrictedUser(
     // Reuse ANY active RestrictedTest* user (prefix match) — prior runs may have
     // created a unique-suffixed one (see the create branch below). Prefix reuse
     // stops a new user being minted every run.
-    const existing = users.find((u) => (u.name ?? '').startsWith(RESTRICTED_USERNAME));
+    //
+    // `active !== false` is load-bearing: matching on the name alone meant a single
+    // deactivated row made the create branch — the only branch that mints a user whose
+    // password this file knows — unreachable forever, so every later run failed login
+    // with 401. That is what silently skipped WP-0133 from 2026-08-27 onward.
+    const reusable = (u: UserListItem) =>
+        (u.name ?? '').startsWith(RESTRICTED_USERNAME) && u.active !== false;
+    const existing = forceCreate ? undefined : users.find(reusable);
 
     let userId: number;
     let crewId: number;
@@ -178,6 +246,7 @@ async function provisionRestrictedUser(
     // unique-per-run name assigned in the create branch.
     let restrictedName = RESTRICTED_USERNAME;
 
+    const existingWasReused = existing !== undefined;
     if (existing) {
         userId = existing.usersCounter;
         restrictedName = existing.name;
@@ -275,12 +344,28 @@ async function provisionRestrictedUser(
         baseURL: API_BASE_URL,
         extraHTTPHeaders: { Origin: WEB_BASE_URL },
     });
-    const loginRes = await restrictedCtx.post('/api/auth/login', {
-        data: { username: restrictedName, password: RESTRICTED_PASSWORD },
-        headers: { 'Content-Type': 'application/json' },
-    });
+    const loginRes = await loginWithBackoff(
+        restrictedCtx,
+        restrictedName,
+        RESTRICTED_PASSWORD,
+        'RestrictedTest',
+    );
     if (!loginRes.ok()) {
         await restrictedCtx.dispose();
+        // A reused row whose password drifted cannot be repaired in place — the API
+        // exposes no admin-side password write. Delete it and mint a fresh one; the
+        // create branch owns the password, so the retry is authoritative. `forceCreate`
+        // makes this recurse exactly once.
+        if (!forceCreate && existingWasReused) {
+            console.warn(
+                `[webpet-setup] RestrictedTest login failed (HTTP ${String(loginRes.status())}) for ` +
+                    `reused user '${restrictedName}' (id ${String(userId)}); ` +
+                    `deleting it and creating a fresh one.`,
+            );
+            await deleteUserViaAdmin(adminCtx, userId);
+            await provisionRestrictedUser(adminCtx, authDir, true);
+            return;
+        }
         throw new Error(
             `RestrictedTest login failed (HTTP ${loginRes.status()}) — ` +
                 `user exists but credentials may have drifted, or the user is inactive.`,

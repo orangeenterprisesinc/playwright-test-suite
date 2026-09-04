@@ -78,6 +78,25 @@ export class DashboardPage extends BasePage {
     }
 
     /**
+     * Widget cells of one widget type, e.g. `'dashboard.crop-comparison'`.
+     *
+     * Every cell carries `data-widget-type`, which is what makes an assertion about a
+     * *specific* widget possible. A global `widgetCells` count is not a usable oracle on
+     * this screen: the board is shared server-side state that no test cleans up, so the
+     * total drifts run to run (97 and climbing as of 2026-09-04).
+     */
+    widgetCellsOfType(widgetType: string): Locator {
+        return this.page.locator(`[data-slot="widget-cell"][data-widget-type="${widgetType}"]`);
+    }
+
+    /** Every rendered cell's `data-widget-type`, in DOM order. Duplicates are meaningful. */
+    async widgetTypes(): Promise<string[]> {
+        return this.widgetCells.evaluateAll((cells) =>
+            cells.map((cell) => cell.getAttribute('data-widget-type') ?? ''),
+        );
+    }
+
+    /**
      * Clear persisted boards before the page loads, so the next navigation hits
      * the auto-create-default-board branch.
      *
