@@ -6,22 +6,28 @@
  * the grid's column-filter row) drives the preview fetch, and Reconcile
  * issues a POST /reconcile via the confirmation dialog.
  *
- * Server prereqs: PetData with IncludeReconcileJCs preference set true.
+ * No server prereqs. The `IncludeReconcileJCs` preference is **driven** by the file,
+ * not required of the environment — see `forceReconcilePreference` and the
+ * file-level `beforeEach`.
  *
- * ## Framework alignment (Batch 12) — where the skips live and why
+ * ## Where the skips went (2026-09-04)
  *
- * Eleven `test.skip` callsites for ten tests. Every one of them turns on server
- * state the suite cannot set: the `IncludeReconcileJCs` preference, the
- * `accounting.export` permission, or whether the seeded DB has any JobCards in the
- * last 30 days. They stay **in the spec**, never inside `ReconcileJobCardsPage`:
- * a page object that skipped for you would make a skipped test look like a passing
- * one at the callsite. The page object answers the question
+ * This file used to carry nine `test.skip`s on the `IncludeReconcileJCs` preference,
+ * which meant six of its tests ran only while someone kept the preference flipped on
+ * by hand on dev (done 2026-08-24, since reverted — that revert is what turned them
+ * into skips). They are gone: the gate is **client-side only**, proven by probing the
+ * API with the preference false — `POST /api/job-cards/reconcile {dryRun:true}` still
+ * returned 200 with `matchedCount: 18`. So rewriting `GET /api/preferences` opens the
+ * screen while every request underneath stays real, and WP-0303 drives the preference
+ * *off* for itself, so both directions of the gate run on every environment.
+ *
+ * Two conditional skips remain, and both turn on state the suite genuinely cannot set:
+ * WP-0302's `accounting.export` (the su account always holds it) and the
+ * no-JobCards-in-range branch. Those stay **in the spec**, never inside
+ * `ReconcileJobCardsPage`: a page object that skipped for you would make a skipped test
+ * look like a passing one at the callsite. The page object answers the question
  * ({@link ReconcileJobCardsPage.applyLast30IfEnabled} returns a boolean); the spec
  * decides what to do with the answer.
- *
- * WP-0301 is the exception: it *drives* the preference through a `/api/preferences`
- * rewrite instead of skipping on it, because a skip there would leave the
- * permission-AND-preference gate untested in both directions.
  *
  * The route mocks stay here too, and they must keep inspecting `postData()` for
  * `"dryRun":true` and falling back: the preview count and the real run POST to the
@@ -94,9 +100,9 @@ const mockReconcilePost = async (
 
 /** Pick a scope, wait for the preview, then confirm the run. Skips on either gate. */
 const submitReconcile = async (reconcile: ReconcileJobCardsPage) => {
-    if (!(await reconcile.applyLast30IfEnabled())) {
-        test.skip(true, 'IncludeReconcileJCs preference is off');
-    }
+    // The file-level beforeEach forces the preference on, so this reports true; the
+    // assertion keeps the helper honest if that ever regresses.
+    expect(await reconcile.applyLast30IfEnabled(), 'reconcile page should be enabled').toBe(true);
     await expect(reconcile.previewCount).not.toHaveText('');
     // previewOutcome settles on the dry-run result — an instant isVisible read
     // here raced the fetch and drove tests into the disabled CTA instead of a
@@ -211,6 +217,31 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         if (emp) await deleteEmployee(request, emp.id);
     });
 
+    /**
+     * Force `IncludeReconcileJCs` on for the whole file.
+     *
+     * The gate is purely client-side — proven 2026-09-04: with the preference false,
+     * `POST /api/job-cards/reconcile {dryRun:true}` still returns 200 with
+     * `matchedCount: 18`. So rewriting `GET /api/preferences` opens the screen without
+     * touching shared dev state, and the dry-run stays a real round trip rather than a
+     * stub. That settles the "reconcile-gating question" the skip allowlist carried.
+     *
+     * This replaces nine `test.skip`s that fired whenever dev's preference was off — it
+     * was hand-flipped ON via su on 2026-08-24 and has since reverted, which is what
+     * turned six of these tests into skips.
+     */
+    let setIncludeReconcileJCs: (value: boolean) => void = () => undefined;
+
+    test.beforeEach(async ({ page }) => {
+        setIncludeReconcileJCs = await forceReconcilePreference(page, true);
+    });
+
+    // The SPA re-fetches preferences on its own schedule, so a handler caught
+    // mid-`route.fetch()` at teardown fails an otherwise-green test.
+    test.afterEach(async ({ page }) => {
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+    });
+
     test('[Reconcile] Verify that the page header renders and the preference gate is respected.', {
         tag: ['@wp-ui', '@wp-smoke'],
         annotation: { type: 'testCaseId', description: 'WP-0298' },
@@ -238,9 +269,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        if (await reconcile.isDisabled()) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
         // The grid renders its pre-analyze empty state with a clickable
         // "date range" link that opens the picker.
         await expect(reconcile.gridEmptyPickRange).toBeVisible();
@@ -257,9 +285,7 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         await reconcile.gotoReconcile();
         await expect(reconcile.heading).toBeVisible();
         await page.waitForLoadState('networkidle');
-        if (!(await reconcile.applyLast30IfEnabled())) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
+        expect(await reconcile.applyLast30IfEnabled(), 'reconcile page should be enabled').toBe(true);
 
         // Wait for the preview count to populate, then for the dry-run outcome
         // to settle (an instant no-match read here races the fetch).
@@ -318,9 +344,8 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         // on — it passed solely because the pref had been flipped by hand on dev
         // (runner note, 2026-08-24) and went red the moment that reverted. Reading the
         // preference instead would just make it assert *absence* forever here, leaving
-        // the positive branch untested.
-        const setIncludeReconcileJCs = await forceReconcilePreference(page, true);
-
+        // the positive branch untested. The file-level beforeEach has already registered
+        // the handler at `true`; this test just drives its setter.
         await pages.shell.gotoRoot();
         await page.waitForLoadState('networkidle');
 
@@ -331,7 +356,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
             // The permission alone removes the entry; the positive branch is
             // unreachable for this session whatever the preference says.
             await expect(sidebarLink).toHaveCount(0);
-            await page.unrouteAll({ behavior: 'ignoreErrors' });
             return;
         }
 
@@ -345,11 +369,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         await page.reload();
         await expect(pages.shell.navLink('Export to Accounting')).toBeAttached();
         await expect(sidebarLink).toHaveCount(0);
-
-        // The SPA re-fetches preferences on its own schedule, so a handler can still be
-        // mid-`route.fetch()` when the context tears down — which surfaces as a route
-        // callback error and fails an otherwise-green test.
-        await page.unrouteAll({ behavior: 'ignoreErrors' });
     });
 
     test('[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.', {
@@ -377,13 +396,14 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         annotation: { type: 'testCaseId', description: 'WP-0303' },
     }, async ({ page, pages }) => {
         const reconcile = pages.reconcileJobCards;
+        // The mirror of every other test in this file: flip the shared handler off before
+        // the first navigation, so the banner branch runs on every environment instead of
+        // skipping whenever dev happens to have the preference on.
+        setIncludeReconcileJCs(false);
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
 
-        if (!(await reconcile.isDisabled())) {
-            test.skip(true, 'IncludeReconcileJCs preference is on; cannot exercise the banner branch.');
-        }
-
+        expect(await reconcile.isDisabled(), 'preference forced off, so the banner should show').toBe(true);
         await expect(page).toHaveURL(/\/reconcile-job-cards$/);
         await expect(reconcile.disabledBanner).toBeVisible();
     });
@@ -397,9 +417,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        if (await reconcile.isDisabled()) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
 
         await mockReconcilePost(page, {
             summary: {
@@ -432,9 +449,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        if (await reconcile.isDisabled()) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
 
         await mockReconcilePost(page, {
             summary: {
@@ -463,9 +477,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        if (await reconcile.isDisabled()) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
 
         await mockReconcilePost(page, { status: 500, body: {} });
 
@@ -482,9 +493,6 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         const reconcile = pages.reconcileJobCards;
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        if (await reconcile.isDisabled()) {
-            test.skip(true, 'IncludeReconcileJCs preference is off');
-        }
 
         await mockReconcilePost(page, { status: 400, body: { error: 'invalid request' } });
 
