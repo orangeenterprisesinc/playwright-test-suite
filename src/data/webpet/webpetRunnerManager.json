@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-08-23T18:57:03.368Z",
+    "generatedAt": "2026-09-04T09:55:05.638Z",
     "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2975,12 +2975,12 @@
       "category": "ui",
       "testName": "v2ChromeRendersAndPrepareLoadsCounters",
       "testTitle": "[Export] Verify that the v2 chrome renders and Prepare populates readiness and queue.",
-      "testDescription": "The v2 dispatch workspace renders its top strip, spine and grid, shows the pick-a-date-range empty state, and after a date preset is applied all four readiness counters carry numeric counts.",
+      "testDescription": "The v2 dispatch workspace renders its top strip, spine and grid, shows the pick-a-date-range empty state, and after a date preset is applied the three readiness counters (pending, needsReexport, warnings) carry numeric counts while the retired alreadyExported counter is absent.",
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-smoke",
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Realigned 2026-09-04 to the deployed 3-counter row (CI run 33847629704). alreadyExported was retired as a counter in the workspace redesign — the exported state is now a per-row grid flag plus the include-reexport scope toggle, verified in assets/ExportToAccountingPageV2-*.js. Not a product bug. The 4-key readiness() family is a different testid vocabulary belonging to the mobile layout."
     },
     {
       "id": "WP-0187",
@@ -4143,12 +4143,12 @@
       "category": "api",
       "testName": "regularEmployeesAbsentFromBadgeList",
       "testTitle": "[Badge] Verify that regular employees do not appear in the onboarding-badges list.",
-      "testDescription": "Cross-contamination guard: a freshly created RecordType 0 employee must not appear in /api/onboarding-badges. Any leakage is a backend regression.",
-      "tags": "@WebPet|@wp-setup|@wp-badge|@WPBatch06|@wp-api|@wp-regression",
+      "testDescription": "Cross-contamination guard: a freshly created RecordType 0 employee must not appear in /api/onboarding-badges, and must not appear in the rendered badge grid either — the list query is asserted 200 and the row absence is checked after narrowing. Any leakage is a backend regression.",
+      "tags": "@WebPet|@wp-setup|@wp-badge|@WPBatch06|@wp-api|@wp-ui|@wp-regression",
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Fixed 2026-09-04 after CI run 33847629704. Root cause was the same preference drift as WP-0301, not a slow query: /setup/badge is gated on ReusableOnboardingBadges, which was flipped ON by hand via su on 2026-08-24 (artifacts/bug-evidence/pref-backup-2026-08-24) and has since reverted — with it off the route guard redirects to /setup, so no grid ever renders. The whole file now forces the preference on via a /api/preferences rewrite (this also un-broke WP-0255, which was failing 6/6 locally). The UI leg additionally asserts the page’s own list response and the filtered row absence instead of asserting nothing, with a bounded grid wait; provisioning moved to beforeAll/afterAll so a timeout cannot leak an Employee row (no purge endpoint, WEBPET-1798)."
     },
     {
       "id": "WP-0260",
@@ -4809,18 +4809,18 @@
     {
       "id": "WP-0301",
       "file": "reconcile-job-cards.spec.ts",
-      "titlePath": "Reconcile Job Cards > [Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.",
+      "titlePath": "Reconcile Job Cards > [Reconcile] Verify that the sidebar entry presence matches the accounting.export permission and the IncludeReconcileJCs preference.",
       "caseKey": "",
       "module": "reconcile-job-cards",
       "category": "ui",
-      "testName": "sidebarPresenceMatchesExportPermission",
-      "testTitle": "[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.",
-      "testDescription": "The sidebar entry is attached exactly when the session grants accounting.export, via derivedPermissions or the capabilities action map.",
+      "testName": "sidebarPresenceMatchesExportPermissionAndReconcilePreference",
+      "testTitle": "[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission and the IncludeReconcileJCs preference.",
+      "testDescription": "The sidebar entry is attached exactly when the session grants accounting.export AND the IncludeReconcileJCs preference is on. Both branches are driven in-test by rewriting GET /api/preferences, so the AND gate is proven in both directions on any environment.",
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": true,
-      "notes": "Re-enabled 2026-08-24 and passing: BUG-14 answered empirically — the sidebar entry is gated on permission AND the IncludeReconcileJCs preference; with the preference flipped ON via su (backup: artifacts/bug-evidence/pref-backup-2026-08-24) the link renders and the assertion holds."
+      "notes": "Rewritten 2026-09-04 after CI run 33847629704 (BUG-14 stays answered: the entry is gated on permission AND IncludeReconcileJCs). The 2026-08-24 pass depended on that preference being flipped ON by hand via su (backup: artifacts/bug-evidence/pref-backup-2026-08-24); that has since reverted, which is what turned the row red. The test no longer depends on server preference state — it drives the preference through a route rewrite instead."
     },
     {
       "id": "WP-0302",

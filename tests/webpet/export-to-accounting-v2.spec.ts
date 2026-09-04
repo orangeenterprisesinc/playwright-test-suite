@@ -69,10 +69,16 @@ test.describe('Export to Accounting — v2 dispatch workspace', { tag: ['@WebPet
         // that no longer feeds them.
         await workspace.dateRange.applyPreset('Last 30 days');
 
-        // After analyze the four readiness counters render with numeric counts.
-        for (const c of ['pending', 'needsReexport', 'alreadyExported', 'warnings']) {
+        // After analyze the readiness counters render with numeric counts. Three,
+        // not four: `alreadyExported` was dropped as a counter in the redesign —
+        // the exported state is now a per-row grid flag plus the include-reexport
+        // scope toggle. (The 4-key `readiness()` family is the mobile layout's.)
+        for (const c of ['pending', 'needsReexport', 'warnings']) {
             await expect(workspace.counter(c)).toContainText(/\d/);
         }
+        // Assert the retired key negatively, so its return is a deliberate re-widening
+        // rather than silent under-coverage.
+        await expect(workspace.counter('alreadyExported')).toHaveCount(0);
     });
 
     test('[Export] Verify that the pt-export-new-ia flag no longer falls back to the v1 page.', {

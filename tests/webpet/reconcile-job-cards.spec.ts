@@ -19,6 +19,10 @@
  * ({@link ReconcileJobCardsPage.applyLast30IfEnabled} returns a boolean); the spec
  * decides what to do with the answer.
  *
+ * WP-0301 is the exception: it *drives* the preference through a `/api/preferences`
+ * rewrite instead of skipping on it, because a skip there would leave the
+ * permission-AND-preference gate untested in both directions.
+ *
  * The route mocks stay here too, and they must keep inspecting `postData()` for
  * `"dryRun":true` and falling back: the preview count and the real run POST to the
  * same URL, so a blanket fulfill would stub out the preview and the confirm dialog
@@ -153,6 +157,34 @@ const hasExportPermission = async (page: Page): Promise<boolean> => {
     );
 };
 
+/**
+ * Force the `IncludeReconcileJCs` preference client-side, returning a setter so one
+ * route handler serves both branches across a reload.
+ *
+ * The deployed nav builder gates the entry on
+ * `enableExportToAccounting && preferences.includeReconcileJCs` (GET /api/preferences,
+ * default false) — so with the preference off the link is legitimately absent, and an
+ * unconditional `toBeAttached()` could only ever pass where someone had flipped the
+ * preference by hand. Rewriting the response makes both branches reachable anywhere.
+ * Same idiom as `employee.spec.ts`'s preference rewrite.
+ */
+const forceReconcilePreference = async (page: Page, initial: boolean) => {
+    let include = initial;
+    await page.route('**/api/preferences*', async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+        if (!body) {
+            await route.fulfill({ response });
+            return;
+        }
+        body['includeReconcileJCs'] = include;
+        await route.fulfill({ response, json: body });
+    });
+    return (value: boolean) => {
+        include = value;
+    };
+};
+
 test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBatch12'] }, () => {
 
     // Own JobCard data (WEBPET-1797 work-item): dev often has no JobCards inside
@@ -276,21 +308,48 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         await expect(reconcile.summaryPanel).toBeVisible();
     });
 
-    test('[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission.', {
+    test('[Reconcile] Verify that the sidebar entry presence matches the accounting.export permission and the IncludeReconcileJCs preference.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0301' },
     }, async ({ page, pages }) => {
+        // Drive the preference instead of reading it, so both branches of the AND gate
+        // are exercised on every environment. Asserting only `toBeAttached()` on the
+        // permission made this the one test in the file that assumed the preference was
+        // on — it passed solely because the pref had been flipped by hand on dev
+        // (runner note, 2026-08-24) and went red the moment that reverted. Reading the
+        // preference instead would just make it assert *absence* forever here, leaving
+        // the positive branch untested.
+        const setIncludeReconcileJCs = await forceReconcilePreference(page, true);
+
         await pages.shell.gotoRoot();
         await page.waitForLoadState('networkidle');
 
         const hasPermission = await hasExportPermission(page);
-
         const sidebarLink = pages.shell.navLinkNamed('Reconcile Job Cards');
-        if (hasPermission) {
-            await expect(sidebarLink).toBeAttached();
-        } else {
+
+        if (!hasPermission) {
+            // The permission alone removes the entry; the positive branch is
+            // unreachable for this session whatever the preference says.
             await expect(sidebarLink).toHaveCount(0);
+            await page.unrouteAll({ behavior: 'ignoreErrors' });
+            return;
         }
+
+        await expect(sidebarLink).toBeAttached();
+
+        // Flip the one term and reload: same session, same permission, entry gone.
+        // Wait on the sibling entry (permission-only gate) rather than the network:
+        // it proves the nav list actually rebuilt, so the absence below cannot pass
+        // vacuously against a sidebar that has not rendered yet.
+        setIncludeReconcileJCs(false);
+        await page.reload();
+        await expect(pages.shell.navLink('Export to Accounting')).toBeAttached();
+        await expect(sidebarLink).toHaveCount(0);
+
+        // The SPA re-fetches preferences on its own schedule, so a handler can still be
+        // mid-`route.fetch()` when the context tears down — which surfaces as a route
+        // callback error and fails an otherwise-green test.
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
     });
 
     test('[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.', {
