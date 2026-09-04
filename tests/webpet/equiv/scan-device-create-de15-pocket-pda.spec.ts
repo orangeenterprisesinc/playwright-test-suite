@@ -1,4 +1,5 @@
 import { apiUrl } from '@config/webpetEnv';
+import { deleteScanDevice } from '../data-factory';
 /**
  * Equivalence test: scan-device-create-de15-pocket-pda
  *
@@ -50,6 +51,16 @@ const SAFE_WEBMAIL = `${SAFE_NAME}@silo`;
 
 test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPet', '@wp-equiv', '@WPBatch14'] }, () => {
 
+    // The spec used to leak every device it created — cleanup was a manual DB note in the
+    // header — and SAFE_PREFIX draws from only 1296 values ('Z' + Date.now() mod 1296),
+    // each one permanently consumed by a leaked row on the unfiltered
+    // ScanDevice_Name_Unique. deleteScanDevice is best-effort, so cleanup never fails a run.
+    let createdDeviceId: number | null = null;
+
+    test.afterAll(async ({ request }) => {
+        if (createdDeviceId !== null) await deleteScanDevice(request, createdDeviceId);
+    });
+
     test('[Equiv] Verify that creating a scan device writes the correct DB values.', {
         tag: ['@wp-e2e', '@wp-scan'],
         annotation: { type: 'testCaseId', description: 'WP-0177' },
@@ -82,12 +93,12 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         // Active defaults true; Supervisor leaveBlank; SyncFolder leaveBlank.
         // Save button in ScanDeviceFormPage uses disabled={isSubmitting} only — no isDirty guard.
         await expect(form.saveButton).toBeEnabled();
-        await form.saveButton.click();
-        await page.waitForURL(/\/setup\/scan-devices\/\d+/, { timeout: 60_000 });
-
-        const match = page.url().match(/\/setup\/scan-devices\/(\d+)/);
-        expect(match, 'URL should contain new device ID after save').not.toBeNull();
-        const deviceId = parseInt(match![1]!, 10);
+        // The id comes from the create response, not the post-save URL: dev's save
+        // double-fires and the redirect is unreliable, which is what made this step hang
+        // for 60s naming nothing. Save two already waits on its PUT for the same reason.
+        const deviceId = await form.saveNewAndReturnId();
+        createdDeviceId = deviceId;
+        await page.goto(`/setup/scan-devices/${String(deviceId)}`);
 
         // ── Step 2: Edit — add Preferences + Crews ────────────────────────────
         // Preferences section only renders after the first save (isNew=false + device data loaded).
