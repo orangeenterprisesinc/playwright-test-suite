@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-04T09:55:05.638Z",
+    "generatedAt": "2026-09-04T11:30:19.244Z",
     "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -2084,7 +2084,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-flaked 2026-09-04 (PR #60): expected 93 widget cells and saw 92 in CI run 33860893832. The global count was never a stable oracle - the dashboard board is shared server state that no test cleans up, so it grows every run (97 now). Now asserts the added widget by data-widget-type and waits for the layout PUT before reloading. The board still grows; capture-and-restore of layoutJson is the open follow-up."
     },
     {
       "id": "WP-0131",
@@ -2132,7 +2132,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Recovered 2026-09-04 (PR #60). It had skipped every run since 2026-08-26 because provision.ts reused any RestrictedTest*-named user without checking active and without repairing credentials, so one drifted row made the create branch - the only branch that knows the password - unreachable forever and every login 401d. Provisioning now skips inactive rows, deletes and recreates a reused user whose login fails, and backs off on 429 (dev rate-limits logins in memory)."
     },
     {
       "id": "WP-0134",
@@ -2836,7 +2836,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": true,
-      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05: ScanDeviceFormPage.choosePreference/scrollToCrewSection now retry as a unit. Layer 3: step-2 PUT succeeds (204) but the client redirect to the list is unreliable on dev (a second, aborted PUT races it) — test now asserts on the PUT response instead of the redirect. Layer 4 fixed 2026-08-12: the Crew picker is a Base UI Combobox (combobox-popup/combobox-item), not a Select, so addCrew's select-content matcher could never resolve and burned the full 300s timeout. Verified on dev: with the Crew list open, select-content[data-open] = 0 while combobox-popup[data-open] = 1 holding all 37 assignable crews. Crews 2 and 3 exist and are active — this was never a data gap."
+      "notes": "Layer 1 (webMailAddress collision) fixed 2026-08-04. Layer 2 (crewSection/preferences DOM timing) fixed 2026-08-05. Layer 3 (save-two PUT wait) fixed earlier. Layer 4 fixed 2026-09-04 (PR #60): save ONE also stopped depending on the post-save redirect - dev double-fires the save and the redirect is unreliable, which hung this spec for 60s twice in CI run 33860893832. The new device id now comes from the POST response, and the spec deletes the device it creates (it used to leak one per run against a 1296-value prefix space)."
     },
     {
       "id": "WP-0178",
@@ -4788,7 +4788,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried."
     },
     {
       "id": "WP-0300",
@@ -4804,7 +4804,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": "Unblocked 2026-08-24: IncludeReconcileJCs flipped ON on dev (su preferences API, backup in artifacts/bug-evidence/pref-backup-2026-08-24) and the spec now owns its JobCard data via ensureJobCard, so the Last-30-days scope always matches. Real (dryRun:false) reconcile recomputes the file-owned cards."
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried. Keeps the live non-dry-run reconcile; the 2026-08-24 note about the hand-flipped preference no longer applies."
     },
     {
       "id": "WP-0301",
@@ -4852,7 +4852,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried. This is the mirror: it drives the preference OFF for itself, so both directions of the gate run on every environment and neither of the pair skips."
     },
     {
       "id": "WP-0304",
@@ -4868,7 +4868,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried."
     },
     {
       "id": "WP-0305",
@@ -4884,7 +4884,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried."
     },
     {
       "id": "WP-0306",
@@ -4900,7 +4900,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried."
     },
     {
       "id": "WP-0307",
@@ -4916,7 +4916,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "De-skipped 2026-09-04 (PR #60): the file now drives the IncludeReconcileJCs preference through a GET /api/preferences rewrite instead of skipping when dev has it off. The gate is client-side only - probed with the preference false, POST /api/job-cards/reconcile {dryRun:true} still returned 200 with matchedCount 18 - so every request underneath stays real. That settles the reconcile-gating question the skip allowlist carried."
     },
     {
       "id": "WP-0308",
