@@ -77,6 +77,12 @@ export abstract class WebpetFormPage extends BasePage {
      * asserted together: banner present, error toasts absent.
      */
     readonly concurrencyBanner: Locator;
+    /**
+     * The "Duplicate Record" header action, present only once a record exists.
+     * Lives here rather than on one entity's page: every setup edit header
+     * renders it (WEBPET-2612/2617), Job Group is just the first spec to use it.
+     */
+    readonly duplicateRecordButton: Locator;
 
     // ── Fields every setup form carries ─────────────────────────────
     // Declared here rather than repeated on each screen: Name, Export
@@ -99,6 +105,7 @@ export abstract class WebpetFormPage extends BasePage {
         this.unsavedChanges = new UnsavedChangesModal(page);
         this.duplicateError = page.getByText(/Already in use|already exists/i);
         this.concurrencyBanner = page.getByTestId('concurrency-banner');
+        this.duplicateRecordButton = page.getByRole('button', { name: 'Duplicate Record' });
 
         this.nameInput = page.locator('input#name');
         this.exportIdentifierInput = page.locator('input#exportIdentifier');

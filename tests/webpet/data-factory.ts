@@ -700,9 +700,10 @@ export interface EnsuredJobGroup {
 }
 
 /**
- * Creates a fresh JobGroup (name ≤40 is the only required field). JobGroup does
- * not auto-assign a code, so `code` is empty unless one is supplied — returned
- * so the edit spec can assert the form's Code field against real data.
+ * Creates a fresh JobGroup (name ≤40 is the only required field). Since
+ * WEBPET-2682 the server auto-assigns `code` (the barcode, e.g. "15839") when
+ * none is supplied — returned so the edit spec can assert the form's Code field
+ * against real data.
  */
 export async function ensureJobGroup(
   request: APIRequestContext,
