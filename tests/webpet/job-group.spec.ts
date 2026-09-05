@@ -122,7 +122,7 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
         await expect(form.codeInput).toHaveValue(group.code);
     });
 
-    test('[Job Group] Verify that the name is read-only while export identifier and code stay editable.', {
+    test('[Job Group] Verify that name and code are read-only while export identifier stays editable.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0225' },
     }, async ({ pages }) => {
@@ -130,8 +130,15 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
         await form.gotoEdit(group.id);
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
+        // Code is the barcode, and WEBPET-2682 made it auto-generated on create; it
+        // locks on edit so the generated value cannot be overwritten. That brought Job
+        // Group in line with crew/department/employee/equipment/job/variety; customer is
+        // now the only setup entity left asserting an editable code.
+        await expect(form.codeInput).toHaveAttribute('readonly', '');
+        // The attribute is markup; this is the guarantee it exists for.
+        await expect(form.codeInput).not.toBeEditable();
+        // Export identifier is a mapping field, not identity — it stays editable.
         await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
-        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
     });
 
     test('[Job Group] Verify that Cancel returns to the list from the edit form.', {
