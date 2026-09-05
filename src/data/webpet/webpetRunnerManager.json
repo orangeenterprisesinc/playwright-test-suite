@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-04T11:30:19.244Z",
+    "generatedAt": "2026-09-05T08:48:59.206Z",
     "total": 406,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -3593,18 +3593,18 @@
     {
       "id": "WP-0225",
       "file": "job-group.spec.ts",
-      "titlePath": "Edit job group form > [Job Group] Verify that the name is read-only while export identifier and code stay editable.",
+      "titlePath": "Edit job group form > [Job Group] Verify that name and code are read-only while export identifier stays editable.",
       "caseKey": "",
       "module": "job-group",
       "category": "ui",
-      "testName": "nameReadOnlyExportIdentifierAndCodeEditable",
-      "testTitle": "[Job Group] Verify that the name is read-only while export identifier and code stay editable.",
-      "testDescription": "Only Name locks after save; Export Identifier and Code stay editable, unlike Department and Crew.",
+      "testName": "nameAndCodeReadOnlyExportIdentifierEditable",
+      "testTitle": "[Job Group] Verify that name and code are read-only while export identifier stays editable.",
+      "testDescription": "Name and Code both lock after save; Export Identifier stays editable. Code is the Job Group barcode, auto-generated on create since WEBPET-2682, so it is read-only on edit to stop the generated value being overwritten — matching crew, department, employee, equipment, job and variety.",
       "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-regression",
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Realigned 2026-09-05 after CI run 33932691282. WEBPET-2682 (epic WEBPET-2679, \"QA fixes from A3 beta test round 2\") fixed Job Group never generating a barcode, and locked the Code field on edit as a deliberate consequence — the ticket records it as a decide-and-proceed. Verified in the deployed bundle: readOnly is bound to !isNew, no preference or permission involved. Not a product bug; the old expectation was stale. The same deploy also added a Jobs assignment grid, a Duplicate Record action and the barcode auto-generation itself, none of which the suite covers yet."
     },
     {
       "id": "WP-0226",
