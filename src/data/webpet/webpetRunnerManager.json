@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-05T10:07:18.888Z",
+    "generatedAt": "2026-09-05T11:53:56.844Z",
     "total": 409,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -4879,12 +4879,12 @@
       "category": "ui",
       "testName": "directUrlRedirectsWithoutPermission",
       "testTitle": "[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.",
-      "testDescription": "Without accounting.export a direct /reconcile-job-cards URL redirects to the app root.",
+      "testDescription": "Without accounting.export a direct /reconcile-job-cards URL redirects off the guarded route to the app landing page. The permission is stripped in-test via a session/me rewrite, so the branch runs on every environment rather than depending on the seeded account.",
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Recovered 2026-09-05: had skipped on every run since it was written because the su account always holds accounting.export, so the redirect branch was unreachable. It now strips the grant from the session/me payload - the same rewrite WP-0195 uses - instead of reading it and skipping. All three carriers must be cleared (legacyPermissions.enableExportToAccounting, the derivedPermissions string and capabilities.actions), because the guard and hasExportPermission do not read the same one. The redirect target also drifted: the app settles on /dashboard, not bare /."
     },
     {
       "id": "WP-0303",

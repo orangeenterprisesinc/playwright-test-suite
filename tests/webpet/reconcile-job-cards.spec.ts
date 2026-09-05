@@ -374,21 +374,48 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
     test('[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.', {
         tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
         annotation: { type: 'testCaseId', description: 'WP-0302' },
-    }, async ({ page, pages }) => {
+    }, async ({ context, page, pages }) => {
         const reconcile = pages.reconcileJobCards;
-        await pages.shell.gotoRoot();
-        const hasPermission = await hasExportPermission(page);
 
-        if (hasPermission) {
-            test.skip(
-                true,
-                'Seeded user has accounting.export; cannot exercise the redirect branch.',
-            );
-        }
+        // Drive the permission away instead of reading it and skipping. The su account
+        // this suite runs as always holds accounting.export, so the redirect branch was
+        // unreachable and this test skipped on every run since it was written. Stripping
+        // it from the session payload is the same rewrite WP-0195 uses to prove the nav
+        // entry disappears; the route guard reads the same payload.
+        await context.route('**/api/session/me', async (route) => {
+            const response = await route.fetch();
+            const body = (await response.json().catch(() => null)) as {
+                legacyPermissions?: Record<string, unknown>;
+                derivedPermissions?: string[];
+                capabilities?: { actions?: Record<string, boolean> };
+            } | null;
+            if (!body) {
+                await route.fulfill({ response });
+                return;
+            }
+            // All three carry the grant — session/me exposes it as a legacy flag, a
+            // derived-permission string and a capability action, and the guard and
+            // hasExportPermission do not read the same one.
+            if (body.legacyPermissions) body.legacyPermissions.enableExportToAccounting = false;
+            if (Array.isArray(body.derivedPermissions)) {
+                body.derivedPermissions = body.derivedPermissions.filter(
+                    (p) => p !== 'accounting.export',
+                );
+            }
+            if (body.capabilities?.actions) body.capabilities.actions['accounting.export'] = false;
+            await route.fulfill({ response, json: body });
+        });
+
+        await pages.shell.gotoRoot();
+        expect(await hasExportPermission(page), 'permission should be stripped').toBe(false);
 
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        await expect(page).toHaveURL(/\/$/);
+        // Off the guarded route, onto the app's landing page. The old assertion was a
+        // bare `/`; the app settles the URL on /dashboard, so match either rather than
+        // pinning the landing route this test does not own.
+        await expect(page).not.toHaveURL(/\/reconcile-job-cards/);
+        await expect(page).toHaveURL(/\/(dashboard)?$/);
     });
 
     test('[Reconcile] Verify that with the preference off the URL stays stable and the banner shows.', {

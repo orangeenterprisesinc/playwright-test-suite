@@ -59,11 +59,6 @@
       "ticket": "WORK-ITEM: ensureTimeIn data factory"
     },
     {
-      "match": "Seeded user has accounting.export",
-      "reason": "WP-0302 exercises the no-permission redirect branch, but the seeded su account always holds accounting.export on dev, so the negative branch is unreachable every run. Runs once the suite has a non-SU login of its own. Note this is a third account, distinct from both the suite-provisioned RestrictedTest user (data-scoping) and WEBPET_NONSU_USER (WP-0408) - the earlier wording cross-referenced a WEBPET_NONSU entry that was removed in 1951bca.",
-      "ticket": "WEBPET-1797"
-    },
-    {
       "match": "widgets removed from the editor flow",
       "reason": "WP-0319 only: web-pet 219d5ac83 deliberately removed widgets from the editor flow (reconfirmed live 2026-08-23 — no Widgets entry anywhere); the filter-summary half of the old assertion moved into WP-0310. The other 12 report-editor tests were realigned to the rebuilt ReportCanvas UI and run green.",
       "ticket": "WEBPET-1797"
