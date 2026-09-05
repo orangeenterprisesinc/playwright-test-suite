@@ -257,6 +257,22 @@ export abstract class WebpetFormPage extends BasePage {
         await this.page.goto(this.config.listUrl);
     }
 
+    /**
+     * Click "Duplicate Record", once the record is actually loaded.
+     *
+     * The handler is `record && navigate(...)`, but the button renders as soon as
+     * the edit route does — so clicking too early is a **silent no-op**: no error,
+     * no navigation, and the test fails later on a URL assertion that names
+     * nothing useful. `waitForForm()` is not enough on its own; it waits for the
+     * field to exist, not for the record to have landed in it. A populated Name is
+     * the signal that it has. Always go through this rather than clicking
+     * {@link duplicateRecordButton} directly.
+     */
+    async duplicateRecord(): Promise<void> {
+        await expect(this.nameInput).not.toHaveValue('');
+        await this.duplicateRecordButton.click();
+    }
+
     // ── Saving ──────────────────────────────────────────────────────
 
     /**

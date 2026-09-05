@@ -31,9 +31,17 @@ const IS_CI = !!process.env.CI;
  * (~48 min, requires a full web-pet stack). Activated by WEBPET=1 or
  * by asking for the project on the CLI (`--project=webpet`); the npm scripts
  * and scripts/run-playwright.js set the env var for worker processes too.
+ *
+ * Third case: the MCP server the planner/generator/healer agents drive. It is
+ * spawned as `run-test-mcp-server` from .mcp.json with no env, so neither of the
+ * above fires and the webpet projects simply do not exist for those agents —
+ * they cannot open the app or run a webpet spec, and the failure reads as
+ * "Project not found" rather than anything pointing here. Materialize both
+ * project sets for it; WEBPET=1 is additive, so the journey projects stay.
  */
 const WEBPET_ENABLED =
     process.env.WEBPET === '1' ||
+    process.argv.includes('run-test-mcp-server') ||
     process.argv.some(
         (arg, i, argv) =>
             arg.startsWith('--project=webpet') ||

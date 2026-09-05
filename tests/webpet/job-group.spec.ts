@@ -242,11 +242,10 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
     }, async ({ page, pages }) => {
         const form = pages.jobGroupForm;
         await form.gotoEdit(group.id);
-        // The handler is `record && navigate(...)`, so a click before the record
-        // has loaded is a silent no-op — the button renders either way.
-        await form.waitForForm();
         await expect(form.duplicateRecordButton).toBeVisible();
-        await form.duplicateRecordButton.click();
+        // duplicateRecord() waits for the record to land before clicking — the
+        // handler is `record && navigate(...)`, so an early click does nothing.
+        await form.duplicateRecord();
         await expect(page).toHaveURL(/\/setup\/jobs\/groups\/new/);
         await expect(form.nameInput).toHaveValue(group.name);
         // WEBPET-2682: the deployed bundle's mount effect reads
