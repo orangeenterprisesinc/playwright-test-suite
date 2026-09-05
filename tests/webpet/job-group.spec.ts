@@ -8,7 +8,15 @@
  * JobGroupListPage; action order and assertions are unchanged.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureJobGroup, deleteJobGroup, type EnsuredJobGroup } from './data-factory';
+import {
+    ensureJobGroup,
+    deleteJobGroup,
+    ensureJob,
+    deleteJob,
+    uniqueName,
+    type EnsuredJobGroup,
+    type EnsuredJob,
+} from './data-factory';
 
 // This file owns its own JobGroup, created fresh via the API (no dependency on
 // a seeded "Hourly" row). Assert against `group.*`, never a literal — that is
@@ -29,11 +37,23 @@ test.afterAll(async ({ request }) => {
 //   - API server running:  cd apps/api  && go run .
 //
 // Route: /setup/jobs/groups, /setup/jobs/groups/new, /setup/jobs/groups/:id
-// Only "name" is read-only after save; exportIdentifier and code remain editable.
+// Name and Code (the auto-generated barcode, WEBPET-2682) are both read-only
+// after save; exportIdentifier is the only field that stays editable.
 
 // ── New Job Group Form ─────────────────────────────────────────────────────────
 
 test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-group', '@WPBatch01'] }, () => {
+
+    // Own record, unlike `group` (owned by the file-level beforeAll/afterAll):
+    // this test creates a second job group via the UI, so it cleans up its own.
+    let extraGroupId: number | null = null;
+
+    test.afterEach(async ({ request }) => {
+        if (extraGroupId != null) {
+            await deleteJobGroup(request, extraGroupId);
+            extraGroupId = null;
+        }
+    });
 
     test('[Job Group] Verify that the new job group form renders the expected fields.', {
         tag: ['@wp-ui', '@wp-smoke'],
@@ -106,11 +126,41 @@ test.describe('New job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gro
         await expect(page).toHaveURL(/\/setup\/jobs\/groups\/new/);
     });
 
+    test('[Job Group] Verify that leaving Code blank on create auto-generates a barcode.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0409' },
+    }, async ({ page, pages }) => {
+        const form = pages.jobGroupForm;
+        await form.gotoNew();
+        await form.fillName(uniqueName('WP2682JG'));
+        // Code is left blank — WEBPET-2682 shipped the server auto-generating it.
+        expect(await form.submit()).toBe('created');
+
+        const match = page.url().match(/\/setup\/jobs\/groups\/(\d+)/);
+        expect(match, 'URL should contain the new job group id after save').not.toBeNull();
+        extraGroupId = parseInt(match![1]!, 10);
+
+        // Code is read-only on edit (WP-0225); read the generated value, never type it.
+        await expect(form.codeInput).toHaveValue(/^\d+$/);
+    });
+
 });
 
 // ── Edit Job Group Form ────────────────────────────────────────────────────────
 
 test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-group', '@WPBatch01'] }, () => {
+
+    // This file's own Job — assigned to `group` and cleaned up here rather than
+    // via a shared seeded row, so the assignment test is safe in parallel.
+    let assignedJob: EnsuredJob;
+
+    test.beforeAll(async ({ request }) => {
+        assignedJob = await ensureJob(request);
+    });
+
+    test.afterAll(async ({ request }) => {
+        if (assignedJob) await deleteJob(request, assignedJob.id);
+    });
 
     test('[Job Group] Verify that the edit form loads the existing job group data.', {
         tag: ['@wp-ui', '@wp-smoke'],
@@ -157,6 +207,54 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
     }, async ({ pages }) => {
         await pages.jobGroupForm.gotoEdit(999999);
         await expect(pages.jobGroupForm.notFoundMessage).toBeVisible();
+    });
+
+    test('[Job Group] Verify that an assigned Job persists across a reload.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0410' },
+    }, async ({ page, pages }) => {
+        const form = pages.jobGroupForm;
+        await form.gotoEdit(group.id);
+        await form.waitForForm();
+        await form.addJob(assignedJob.name);
+        await expect(form.footer.saveButtonExact).toBeEnabled();
+
+        // Wait on the actual PUT rather than on-page state: this screen's post-save
+        // navigation isn't confirmed (some setup forms stay put, others return to
+        // the list), so the response is the one deterministic "it's done" signal.
+        const saveResponse = page.waitForResponse(
+            (res) => res.url().includes(`/api/job-groups/${group.id}`) && res.request().method() === 'PUT',
+        );
+        await form.footer.saveButtonExact.click();
+        expect((await saveResponse).ok()).toBe(true);
+
+        // Re-open the edit form and hard-reload so only server state, never
+        // on-page cache, can satisfy this assertion.
+        await form.gotoEdit(group.id);
+        await page.reload();
+        await form.waitForForm();
+        await expect(form.jobRow(assignedJob.name)).toBeVisible();
+    });
+
+    test('[Job Group] Verify that Duplicate Record opens a prefilled new form.', {
+        tag: ['@wp-ui', '@wp-regression'],
+        annotation: { type: 'testCaseId', description: 'WP-0411' },
+    }, async ({ page, pages }) => {
+        const form = pages.jobGroupForm;
+        await form.gotoEdit(group.id);
+        await expect(form.duplicateRecordButton).toBeVisible();
+        // duplicateRecord() waits for the record to land before clicking — the
+        // handler is `record && navigate(...)`, so an early click does nothing.
+        await form.duplicateRecord();
+        await expect(page).toHaveURL(/\/setup\/jobs\/groups\/new/);
+        await expect(form.nameInput).toHaveValue(group.name);
+        // WEBPET-2682: the deployed bundle's mount effect reads
+        // reset({...toFormValues(src), code: null, jobs: []}) — i.e. Code and the
+        // Jobs grid should clear on duplicate — but live dev clears neither (a
+        // probe duplicating a group with barcode 15839 plus one assigned job showed
+        // both still present on the resulting new form). That discrepancy is open
+        // with product, so this test deliberately asserts neither behaviour — do
+        // not "fix" it by adding one.
     });
 
 });

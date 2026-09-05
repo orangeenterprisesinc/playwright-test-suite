@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-05T08:48:59.206Z",
-    "total": 406,
+    "generatedAt": "2026-09-05T10:07:18.888Z",
+    "total": 409,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -3575,6 +3575,22 @@
       "notes": ""
     },
     {
+      "id": "WP-0409",
+      "file": "job-group.spec.ts",
+      "titlePath": "New job group form > [Job Group] Verify that leaving Code blank on create auto-generates a barcode.",
+      "caseKey": "",
+      "module": "job-group",
+      "category": "ui",
+      "testName": "",
+      "testTitle": "[Job Group] Verify that leaving Code blank on create auto-generates a barcode.",
+      "testDescription": "",
+      "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-regression",
+      "jira": "",
+      "status": "lifted",
+      "enabled": true,
+      "notes": ""
+    },
+    {
       "id": "WP-0224",
       "file": "job-group.spec.ts",
       "titlePath": "Edit job group form > [Job Group] Verify that the edit form loads the existing job group data.",
@@ -3635,6 +3651,38 @@
       "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-negative",
       "jira": "",
       "status": "automated",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0410",
+      "file": "job-group.spec.ts",
+      "titlePath": "Edit job group form > [Job Group] Verify that an assigned Job persists across a reload.",
+      "caseKey": "",
+      "module": "job-group",
+      "category": "ui",
+      "testName": "",
+      "testTitle": "[Job Group] Verify that an assigned Job persists across a reload.",
+      "testDescription": "",
+      "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-regression",
+      "jira": "",
+      "status": "lifted",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0411",
+      "file": "job-group.spec.ts",
+      "titlePath": "Edit job group form > [Job Group] Verify that Duplicate Record opens a prefilled new form.",
+      "caseKey": "",
+      "module": "job-group",
+      "category": "ui",
+      "testName": "",
+      "testTitle": "[Job Group] Verify that Duplicate Record opens a prefilled new form.",
+      "testDescription": "",
+      "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-regression",
+      "jira": "",
+      "status": "lifted",
       "enabled": true,
       "notes": ""
     },

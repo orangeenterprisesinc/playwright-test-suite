@@ -77,6 +77,12 @@ export abstract class WebpetFormPage extends BasePage {
      * asserted together: banner present, error toasts absent.
      */
     readonly concurrencyBanner: Locator;
+    /**
+     * The "Duplicate Record" header action, present only once a record exists.
+     * Lives here rather than on one entity's page: every setup edit header
+     * renders it (WEBPET-2612/2617), Job Group is just the first spec to use it.
+     */
+    readonly duplicateRecordButton: Locator;
 
     // ── Fields every setup form carries ─────────────────────────────
     // Declared here rather than repeated on each screen: Name, Export
@@ -99,6 +105,7 @@ export abstract class WebpetFormPage extends BasePage {
         this.unsavedChanges = new UnsavedChangesModal(page);
         this.duplicateError = page.getByText(/Already in use|already exists/i);
         this.concurrencyBanner = page.getByTestId('concurrency-banner');
+        this.duplicateRecordButton = page.getByRole('button', { name: 'Duplicate Record' });
 
         this.nameInput = page.locator('input#name');
         this.exportIdentifierInput = page.locator('input#exportIdentifier');
@@ -248,6 +255,22 @@ export abstract class WebpetFormPage extends BasePage {
     /** Return to the list, whatever the current URL. */
     async gotoList(): Promise<void> {
         await this.page.goto(this.config.listUrl);
+    }
+
+    /**
+     * Click "Duplicate Record", once the record is actually loaded.
+     *
+     * The handler is `record && navigate(...)`, but the button renders as soon as
+     * the edit route does — so clicking too early is a **silent no-op**: no error,
+     * no navigation, and the test fails later on a URL assertion that names
+     * nothing useful. `waitForForm()` is not enough on its own; it waits for the
+     * field to exist, not for the record to have landed in it. A populated Name is
+     * the signal that it has. Always go through this rather than clicking
+     * {@link duplicateRecordButton} directly.
+     */
+    async duplicateRecord(): Promise<void> {
+        await expect(this.nameInput).not.toHaveValue('');
+        await this.duplicateRecordButton.click();
     }
 
     // ── Saving ──────────────────────────────────────────────────────
