@@ -93,7 +93,9 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
         await form.waitForFormRoot();
 
         const picker = form.departmentPicker;
-        await picker.openCombobox();
+        // Filter first: the popup caps at 100 options and dev holds ~500
+        // departments, so a run-unique name is never in the unfiltered page.
+        await picker.filterCombobox(dept.name);
         await expect(picker.comboboxOptionByExactText(dept.name)).toBeVisible();
 
         // Filter: a no-match string hides the option; typing a prefix brings it back.
@@ -118,7 +120,7 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
         // set-to-none affordance is the X clear button, shown once a value is
         // selected — not a "— None —" list item.
         const picker = form.departmentPicker;
-        await picker.openCombobox();
+        await picker.filterCombobox(dept.name); // 100-option cap, see WP-0260
         await picker.comboboxOptionByExactText(dept.name).click();
         await expect(picker.comboboxInput).toHaveValue(dept.name);
 
@@ -189,7 +191,7 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
         await form.waitForFormRoot();
 
         const picker = form.departmentPicker;
-        await picker.openCombobox();
+        await picker.filterCombobox(dept.name); // 100-option cap, see WP-0260
         await expect(picker.comboboxOptionByText(dept.name)).toBeVisible();
         await picker.comboboxOptionByText(dept.name).click();
         await expect(picker.comboboxInput).toHaveValue(dept.name);
@@ -204,7 +206,7 @@ test.describe('Parent Picker — combobox mode', { tag: ['@WebPet', '@wp-picker'
         await form.waitForFormRoot();
 
         const picker = form.departmentPicker;
-        await picker.openCombobox();
+        await picker.filterCombobox(dept.name); // 100-option cap, see WP-0260
         await expect(picker.comboboxOptionByText(dept.name)).toBeVisible();
         await picker.comboboxOptionByText(dept.name).click();
         await expect(picker.comboboxInput).toHaveValue(dept.name);
