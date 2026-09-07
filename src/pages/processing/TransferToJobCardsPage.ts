@@ -44,6 +44,10 @@ export class TransferToJobCardsPage extends BasePage {
     readonly analyzeError: Locator;
     /** The date-range column filter — the grid stays empty until it is applied. */
     readonly dateRangeFilter: Locator;
+    /** Enabled once a range is committed; runs the analyze that fills the grid. */
+    readonly analyzeButton: Locator;
+    /** "Includes N Time Cards of M initial selection" — the grid's own count. */
+    readonly gridCaption: Locator;
     /** The "Warnings (n)" pill in {@link topStrip}. */
     readonly warningsCounter: Locator;
     /** The Issues breakdown panel below the grid. */
@@ -84,7 +88,15 @@ export class TransferToJobCardsPage extends BasePage {
         this.rows = page.getByRole('row');
         this.pickRangePrompt = page.getByTestId('v2-grid-empty-pick-range');
         this.analyzeError = page.getByTestId('transfer-analyze-error-banner');
-        this.dateRangeFilter = page.locator('#filter-dateTime');
+        this.analyzeButton = page.getByRole('button', { name: 'Analyze Transfer Candidates' });
+        this.gridCaption = page.getByText(/^Includes \d+ Time Cards? of \d+ initial selection$/);
+        // By accessible name, not the grid's `filter-<columnKey>` id: the date
+        // column was renamed (dateTime → date) and the old id waited forever.
+        // Scoped to its column header and matched exactly — the empty-state
+        // prompt below the grid is also a button named "date range".
+        this.dateRangeFilter = this.pageRoot
+            .getByRole('columnheader', { name: 'Date range' })
+            .getByRole('button', { name: 'Date range', exact: true });
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
 
@@ -197,18 +209,28 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     /**
+     * Load the grid for the committed range. The screen no longer analyzes on
+     * date commit — it parks on "Ready to analyze." until this is clicked.
+     */
+    async analyze(): Promise<void> {
+        await this.analyzeButton.click();
+    }
+
+    /**
      * Wait for the grid to finish analysing, then report its candidate count.
      *
-     * Must poll: the heading renders "Transfer Candidates (0)" immediately and is
-     * only rewritten when the analyze response lands, so reading it once returns 0
-     * from a grid that is merely still loading.
+     * Must poll: the grid caption reads "Includes 0 Time Cards of 0 initial
+     * selection" before and during analysis and is only rewritten when the
+     * response lands, so reading it once returns 0 from a grid that is merely
+     * still loading. The first number is the count after the grid's own
+     * filters — the rows actually shown.
      */
     async waitForCandidates(atLeast = 1, timeout = 45_000): Promise<number> {
-        const heading = this.page.getByRole('heading', { name: /Transfer Candidates/i }).first();
+        const heading = this.gridCaption;
         await heading.waitFor({ state: 'visible', timeout });
 
         const count = async () =>
-            Number(/\((\d+)\)/.exec((await heading.textContent()) ?? '')?.[1] ?? 0);
+            Number(/^Includes (\d+) /.exec(((await heading.textContent()) ?? '').trim())?.[1] ?? 0);
         await expect
             .poll(count, {
                 timeout,
@@ -329,9 +351,16 @@ export class TransferToJobCardsPage extends BasePage {
      * day leaves it collapsed, and role queries don't see collapsed content.
      */
     private async expandIssuesPanel(): Promise<void> {
-        const expand = this.issuesRegion.getByRole('button', { name: /expand issues panel/i });
-        if (await expand.isVisible().catch(() => false)) {
-            await expand.click();
+        // One toggle whose name flips between "Expand…" and "Collapse…".
+        const toggle = this.issuesRegion.getByRole('button', { name: /(expand|collapse) issues panel/i });
+        if ((await toggle.getAttribute('aria-expanded').catch(() => null)) === 'false') {
+            // At the default viewport the collapsed header sits under the grid's
+            // totals strip, which intercepts the pointer — a click retried until
+            // the test timed out (2026-09-07). Activate it as a keyboard user
+            // would, then wait on the state the group assertions depend on.
+            await toggle.focus();
+            await this.page.keyboard.press('Enter');
+            await expect(toggle).toHaveAttribute('aria-expanded', 'true', { timeout: 10_000 });
         }
     }
 

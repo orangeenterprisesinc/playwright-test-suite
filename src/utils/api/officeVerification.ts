@@ -5,6 +5,7 @@ import {
     importDeviceExport,
     isStorageUnavailable,
     NO_STORAGE_REASON,
+    waitForImportRun,
 } from './connectivityImportApi';
 import {
     CARD_TYPE,
@@ -273,6 +274,21 @@ async function importViaInternetUi(
         // The mailbox can hold envelopes from earlier runs too — wait for every
         // pulled file to finish importing, then rely on reference matching below.
         await pages.importInternet.waitForTerminalFiles(outcome.api.filesPulled);
+        // A `Failed` badge is terminal too, and the screen never shows why. Read
+        // the run so a failed file fails here with the worker's own message
+        // (e.g. "could not read stored file") instead of surfacing three minutes
+        // later as a bare "0 cards" from the reference poll.
+        const run = await waitForImportRun(input.sessionApi, outcome.api.runId, 15_000);
+        await testInfo.attach(`internet-import-run-${label}.json`, {
+            body: JSON.stringify(run, null, 2),
+            contentType: 'application/json',
+        });
+        const failedFiles = run.files.filter((f) => String(f.status) === 'failed');
+        expect(
+            failedFiles,
+            `import run ${run.runId} could not import ${failedFiles.length} pulled file(s): ` +
+                JSON.stringify(failedFiles),
+        ).toHaveLength(0);
     } else {
         // A parallel worker's trigger got there first and is importing our
         // envelope in its own run; the reference poll below waits it out.
@@ -440,8 +456,10 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
         await transferPage.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
 
         if (await transferPage.analyzeEnabled()) {
-            // Nothing renders until a date range is committed — the step Amy performs.
+            // Nothing renders until a date range is committed and analyzed — the
+            // two steps Amy performs.
             await transferPage.applyDateRange(punchDate);
+            await transferPage.analyze();
             // Polls until the analyze response lands; asserts the count itself.
             await transferPage.waitForCandidates(cards.length);
             for (const card of cards) {
@@ -503,9 +521,9 @@ export async function verifyImportInOffice(input: OfficeVerificationInput): Prom
             for (const card of cards) {
                 await expect(transferPage.rowStatus(card.timeCardCounter)).toHaveText(/Warning/i);
             }
-            const affected = await transferPage.issueGroupAffectedCount(
-                'No corresponding Time-Out/Piece-Out',
-            );
+            // The group carries the exception resolver's short title (the legacy
+            // "No corresponding Time-Out/Piece-Out…" text is now the detail message).
+            const affected = await transferPage.issueGroupAffectedCount('Time-In has no closing punch');
             // ≥, not ==: dev is a shared tenant, so the day can legitimately
             // hold open punches from other suites or leftover data. The group
             // counts affected EMPLOYEES, not rows — B3 imports two cards for one

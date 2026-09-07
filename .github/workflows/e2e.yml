@@ -188,11 +188,14 @@ jobs:
     # A serial webpet run of the whole suite took 56.5 min on dev (see
     # tests/webpet/DEV-BASELINE-2026-07-29.md); with ~5 min of setup that is ~62,
     # so 75 left almost no headroom for a slow night. 90 does. The journey suite
-    # runs in a couple of minutes, but 15 left it almost no slack: against ~5 min
-    # of setup, a slow install alone cancelled the job before any test ran
-    # (2026-08-19). 30 absorbs a slow npm ci or install retry while still failing
-    # fast on a real hang.
-    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 30 }}
+    # runs in a couple of minutes when green, but 15 left it almost no slack:
+    # against ~5 min of setup, a slow install alone cancelled the job before any
+    # test ran (2026-08-19). 30 then proved too tight for a RED run: six Journey B
+    # specs each failing at the 330s slow-test budget × 3 attempts hit the cap
+    # (2026-09-06/07), and a cancelled job uploads no report, posts no Slack and
+    # looks like the suite never ran. 45 lets a fully red journey run still
+    # finish and report; a genuine hang still dies well inside it.
+    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 45 }}
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
