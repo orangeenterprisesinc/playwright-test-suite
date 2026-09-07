@@ -204,6 +204,7 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
 
             if (await transferPage.analyzeEnabled()) {
                 await transferPage.applyDateRange(punchDate);
+                await transferPage.analyze();
                 await transferPage.waitForCandidates(cards.length);
                 for (const card of cards) {
                     await expect(transferPage.rowFor(card.timeCardCounter)).toHaveText(String(card.reference));

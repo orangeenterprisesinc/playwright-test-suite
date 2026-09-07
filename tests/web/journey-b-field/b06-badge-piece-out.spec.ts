@@ -204,6 +204,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
 
             if (await pages.transferToJobCards.analyzeEnabled()) {
                 await pages.transferToJobCards.applyDateRange(punchDate);
+                await pages.transferToJobCards.analyze();
                 await pages.transferToJobCards.waitForCandidates(1);
                 const row = pages.transferToJobCards.rowCells(card.timeCardCounter);
                 await expect(row, 'B6-R3: grid Type column').toContainText('Piece Out');
