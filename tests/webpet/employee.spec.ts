@@ -80,9 +80,11 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
-        await form.departmentPicker.openCombobox();
-        // Assert our own department shows up — proves the dropdown is DB-populated
-        // without depending on a specific seeded name.
+        // Filter rather than just open: the popup caps at 100 options and dev holds
+        // ~491 departments, so a run-unique E2EDept_* name sorts past the first page
+        // and is never in the unfiltered list. Typing it still proves the dropdown is
+        // DB-populated — the option can only come back from the server's own lookup.
+        await form.departmentPicker.filterCombobox(dept.name);
         await expect(form.departmentPicker.comboboxOptionByText(dept.name)).toBeVisible();
     });
 
@@ -92,7 +94,9 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
     }, async ({ pages }) => {
         const form = pages.employeeForm;
         await form.gotoNew();
-        await form.crewPicker.openCombobox();
+        // Filtered for the same reason as the department picker above — the crew list
+        // is under the 100 cap today, but it grows the same way.
+        await form.crewPicker.filterCombobox(crew.name);
         await expect(form.crewPicker.comboboxOptionByText(crew.name)).toBeVisible();
     });
 

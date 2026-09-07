@@ -50,6 +50,21 @@ export function uniqueName(prefix: string): string {
   return `${prefix}_${RUN_TOKEN}_${seq}`
 }
 
+let codeSeq = 0
+
+/**
+ * A run-unique numeric barcode Code.
+ *
+ * Kept numeric (not the base36 RUN_TOKEN) because Code is a barcode column and
+ * `AllowOnlyDigitsInEmpBarcodes` can restrict it per client. The 99* namespace
+ * stays clear of the `*NextBarCode` counters' range, so a code we pick is never
+ * one the server is about to hand out.
+ */
+export function uniqueCode(): string {
+  codeSeq += 1
+  return `99${String(Date.now()).slice(-7)}${WORKER_INDEX}${codeSeq}`
+}
+
 async function bodyText(res: { text: () => Promise<string> }): Promise<string> {
   return res.text().catch(() => '<unreadable body>')
 }
@@ -241,11 +256,22 @@ export interface EnsuredEmployee {
  * hard requirements; firstName/lastName are set explicitly so specs can assert
  * against the returned values. Optionally assigns a department (resolved to a
  * real id) so the department-dropdown edit test has a current value to show.
+ *
+ * `code` is always sent. Omitting it makes the server auto-assign from the
+ * `EmployeeNextBarCode` preference counter (web-pet PET-571), which returns a
+ * permanent 409 `{"field":"code","errorCode":"unique"}` once that counter drifts
+ * behind the real max Employee.Code — a failed insert rolls back without
+ * advancing the counter, so it never self-heals, and nothing clamps it
+ * (WEBPET-1490 chose validate-on-write over clamp-on-read). Supplying our own
+ * code bypasses the counter path entirely and keeps the factory off shared
+ * mutable state, exactly like the run-unique names above.
  */
 export async function ensureEmployee(
   request: APIRequestContext,
   opts: {
     namePrefix?: string
+    /** Barcode Code. Defaults to a run-unique one; pass only to pin a value. */
+    code?: string
     /** Assign to a specific department (its name is returned for assertions). */
     department?: { id: number; name: string }
     /** Or auto-resolve the first existing department. Ignored if `department` set. */
@@ -272,6 +298,7 @@ export async function ensureEmployee(
   const res = await request.post('/api/employees', {
     data: {
       name,
+      code: opts.code ?? uniqueCode(),
       firstName,
       lastName,
       active: true,
