@@ -12,6 +12,11 @@
  * Field's existing combobox propagation test does NOT cover this — Field keys
  * options by name, so it was never affected.
  *
+ * Realigned (WP-0378, 2026-09-07) for the redesigned Multi Update UX: the old
+ * click-cell → propagate-dialog flow is gone. Selecting rows now surfaces a
+ * Field/Value select bar above the grid; picking Field = Ranch, a Value, then
+ * "Update Records (N)" applies the edit to every selected row directly.
+ *
  * Data: relies on seeded Time In records. A narrow date window (2025-12-01) is
  * used because that day has ~80 records (under the 100-row virtualization
  * threshold) so the first rows are reliably in the DOM. Mutations are restored
@@ -101,30 +106,40 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
         await grid.selectCheckbox(rowB).check();
         await expect(grid.selectionCount(2)).toBeVisible();
 
+        // Read-only: the redesigned bar edits via the Field/Value selects above the
+        // grid, not the cell itself — the cell only needs to be read.
         const rowARanch = list.ranchEditor(rowA);
         const rowBRanch = list.ranchEditor(rowB);
         const originalA = (await rowARanch.textContent())?.trim() ?? '';
         const originalB = (await rowBRanch.textContent())?.trim() ?? '';
 
-        // Enter edit mode on row A's Ranch cell → opens the base-ui combobox popup.
-        await rowARanch.click();
+        // Open Field → choose "Ranch".
+        await grid.multiUpdateFieldTrigger.click();
+        await expect(grid.multiUpdateOption('Ranch')).toBeVisible({ timeout: 5000 });
+        await grid.multiUpdateOption('Ranch').click();
+        await grid.waitForSelectPortalClosed();
 
-        // Pick the first option whose text differs from row A's current ranch.
-        const options = grid.editorOptions;
-        await expect(options.first()).toBeVisible();
+        // Open Value → the portal renders "— None —" synchronously, then the
+        // real ranch names asynchronously. Pick the first one that differs from
+        // row A's current ranch.
+        await grid.multiUpdateValueTrigger.click();
+        const options = grid.openSelectOptions;
+        await expect(options.first()).toBeVisible({ timeout: 5000 });
         // Options render their label asynchronously, so reading textContent as soon as
-        // the first one is visible can return '' for every entry — which the loop below
-        // then skips, leaving `chosen` empty and failing as if dev had only one ranch.
-        // Wait for the labels to actually populate before comparing.
+        // the portal opens can return '' for every entry — which the loop below then
+        // skips, leaving `chosen` empty and failing as if dev had only one ranch. Wait
+        // for more than the static "— None —" to load, then for that last option's
+        // label to actually populate before comparing.
+        await expect.poll(async () => options.count()).toBeGreaterThan(1);
         await expect
-            .poll(async () => (await options.first().textContent())?.trim() ?? '')
+            .poll(async () => (await options.last().textContent())?.trim() ?? '')
             .not.toBe('');
 
         const optionCount = await options.count();
         let chosen = '';
         for (let i = 0; i < optionCount; i++) {
             const txt = (await options.nth(i).textContent())?.trim() ?? '';
-            if (txt && txt !== originalA) {
+            if (txt && txt !== '— None —' && txt !== originalA) {
                 chosen = txt;
                 await options.nth(i).click();
                 break;
@@ -135,10 +150,13 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
             `expected a ranch option different from row A's current value (${originalA}); saw ${String(optionCount)} option(s)`,
         ).not.toBe('');
 
-        // The propagate dialog must appear (pre-fix: commitEdit was never called,
-        // so no dialog appeared and the value reverted).
-        await expect(grid.multiEditDialog).toBeVisible();
-        await grid.applyToAllButton.click();
+        // Wait for the pick to commit and the portal's backdrop to go before
+        // reaching for the button behind it.
+        await expect(grid.multiUpdateValueTrigger).toHaveText(chosen);
+        await grid.waitForSelectPortalClosed();
+
+        // Commit — the label carries the selected-row count.
+        await grid.updateRecordsButton.click();
 
         // Both selected rows now show the chosen ranch (the edit actually stuck).
         await expect(rowARanch).toHaveText(chosen, { timeout: 10000 });

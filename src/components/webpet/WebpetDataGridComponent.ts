@@ -17,7 +17,7 @@
  * Most row-level helpers take the row `Locator` rather than reading state, so a
  * spec can hold a row and interrogate it repeatedly without re-querying.
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { BaseComponent } from '../BaseComponent';
 
 /** Escapes a value for safe interpolation into a `RegExp`. */
@@ -61,6 +61,17 @@ export class WebpetDataGridComponent extends BaseComponent {
     /** Applies the edit to the edited row only. */
     readonly justThisRowButton: Locator;
 
+    // ── Multi Update bar (Input grids) ─────────────────────────────
+    // Input lists (Time In, …) replaced the cell-edit → propagate-dialog flow
+    // with a Field / Value / "Update Records (N)" bar above the grid. Setup
+    // grids still use the dialog, so both sets of locators coexist.
+    /** The "Field" select — which column the bulk edit targets. */
+    readonly multiUpdateFieldTrigger: Locator;
+    /** The "Value" select. Unlabelled in the DOM, so anchored to the adjacent "Value" text. */
+    readonly multiUpdateValueTrigger: Locator;
+    /** Applies the bar's edit to every selected row; the label carries the count. */
+    readonly updateRecordsButton: Locator;
+
     // ── Insights strip ──────────────────────────────────────────────
     /** Expands the insights strip; reflected in the URL as `?expand=top`. */
     readonly expandToTopButton: Locator;
@@ -81,6 +92,14 @@ export class WebpetDataGridComponent extends BaseComponent {
         // count is part of the accessible name — match the prefix only.
         this.applyToAllButton = this.multiEditDialog.getByRole('button', { name: /^Apply to all/ });
         this.justThisRowButton = this.multiEditDialog.getByRole('button', { name: /^Just this row$/ });
+
+        this.multiUpdateFieldTrigger = page.getByRole('combobox', { name: 'Field' });
+        // "Value" is a bare <span>, not a <label>, so climb from the text to its
+        // group and take the Select trigger there. The group unmounts and
+        // re-renders when Field changes, so callers rely on auto-wait.
+        this.multiUpdateValueTrigger = page.getByText('Value', { exact: true }).locator('..').getByRole('combobox');
+        // Prefix match: the label carries the selected-row count once rows are ticked.
+        this.updateRecordsButton = page.getByRole('button', { name: /^Update Records/ });
 
         this.expandToTopButton = page.getByRole('button', { name: /Expand table to top/ });
         this.shrinkFromTopButton = page.getByRole('button', { name: /Shrink table from top/ });
@@ -155,6 +174,26 @@ export class WebpetDataGridComponent extends BaseComponent {
     /** Options in an open cell-editor combobox. Portaled, so page-scoped. */
     get editorOptions(): Locator {
         return this.page.getByRole('option');
+    }
+
+    /** Items of whichever base-ui Select portal is open — page-scoped, `[data-open]` guarded. */
+    get openSelectOptions(): Locator {
+        return this.page.locator('[data-slot="select-content"][data-open] [data-slot="select-item"]');
+    }
+
+    /**
+     * Wait for a Select portal to finish closing. base-ui closes through an exit
+     * animation behind a full-screen `inert` backdrop that intercepts pointer
+     * events, so a click issued right after picking an option can stall on it.
+     */
+    async waitForSelectPortalClosed(): Promise<void> {
+        await expect(this.page.locator('[data-slot="select-content"][data-open]')).toHaveCount(0, { timeout: 5000 });
+        await expect(this.page.locator('[data-base-ui-portal] [inert]')).toHaveCount(0, { timeout: 5000 });
+    }
+
+    /** One item of the open Select portal by exact text ("Ranch" is a prefix of "Ranch Fresno"). */
+    multiUpdateOption(text: string): Locator {
+        return this.openSelectOptions.filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) });
     }
 
     /** Any grid cell containing `text` — used for presence/absence on a filtered list. */
