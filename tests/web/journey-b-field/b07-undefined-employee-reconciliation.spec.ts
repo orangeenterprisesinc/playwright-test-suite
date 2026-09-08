@@ -134,10 +134,10 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
         expect(
             Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
-            'preferences.undefinedEmployee must be configured — READ-ONLY in the web app with no '
-                + 'API write path (WEBPET-1858), so it is set in legacy or the DB: '
-                + `Preferen.RunTrackingUndefinedEmp must hold the Undefined Employee's counter, not its `
-                + `name. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
+            'preferences.undefinedEmployee must be configured — no UI or API path sets it '
+                + '(read-only in web, no request-struct field, and legacy uses oeReadOnly = true — '
+                + 'WEBPET-1858). It has to be set in the DB: Preferen.RunTrackingUndefinedEmp must hold '
+                + `the Undefined Employee's COUNTER, not its name. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
         ).toBe(true);
 
         const originalEmpStart = preferences.employeeCodeStartLocation;

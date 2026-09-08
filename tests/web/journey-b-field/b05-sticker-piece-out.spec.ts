@@ -121,10 +121,11 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         expect(
             Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
             'preferences.undefinedEmployee must be configured — the importer binds it as the ' +
-                'fallback owner, so B5-R6 cannot be asserted without it. It is READ-ONLY in the ' +
-                'web app and has no API write path (WEBPET-1858), so it is set in legacy or the ' +
-                `DB: Preferen.RunTrackingUndefinedEmp must hold the Undefined Employee's counter, ` +
-                `not its name. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
+                'fallback owner, so B5-R6 cannot be asserted without it. There is no UI or API path ' +
+                'to set it: read-only in the web app, no request-struct field, and legacy binds the ' +
+                'same control with oeReadOnly = true (WEBPET-1858). It has to be set in the DB — ' +
+                `Preferen.RunTrackingUndefinedEmp must hold the Undefined Employee's COUNTER, not its ` +
+                `name; a name reads as null in legacy and web alike. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
         ).toBe(true);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
