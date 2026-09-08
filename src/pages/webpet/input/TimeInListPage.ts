@@ -36,11 +36,13 @@ export class TimeInListPage extends WebpetListPage {
     /**
      * Column index of the Ranch cell.
      *
-     * The row's cells are `[selection, reference, dateTime, employeeName,
-     * ranchName, …]`, so Ranch is index 4. Named rather than inlined because an
-     * off-by-one here silently drives the wrong column's editor.
+     * The row's cells are `[selection, delete, reference, dateTime, employeeName,
+     * ranchName, …]`, so Ranch is index 5 — the per-row delete column landed at
+     * index 1 with web-pet #871 (WEBPET-2685, 2026-09-08) and shifted everything
+     * after it. Named rather than inlined because an off-by-one here silently
+     * drives the wrong column's editor.
      */
-    static readonly RANCH_CELL_INDEX = 4;
+    static readonly RANCH_CELL_INDEX = 5;
 
     /** Narrow the grid to a single day, so the first data rows are present. */
     async filterToDay(day: string): Promise<void> {
