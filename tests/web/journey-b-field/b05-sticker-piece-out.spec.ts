@@ -114,9 +114,18 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         expect(prefsRes.ok(), `GET preferences failed with ${prefsRes.status()}`).toBe(true);
         const preferences = (await prefsRes.json()) as { undefinedEmployee?: unknown };
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
+        // `> 0`, not just isFinite: Number(null) is 0, which is finite, so the old
+        // guard passed on an unconfigured tenant and the run died 160 lines later on
+        // `expect(employeeCounter).toBe(0)` — a message that points at the card
+        // instead of at the preference. Matches B7's guard.
         expect(
-            Number.isFinite(undefinedEmployeeId),
-            `preferences.undefinedEmployee must be set: ${JSON.stringify(preferences)}`,
+            Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
+            'preferences.undefinedEmployee must be configured — the importer binds it as the ' +
+                'fallback owner, so B5-R6 cannot be asserted without it. There is no UI or API path ' +
+                'to set it: read-only in the web app, no request-struct field, and legacy binds the ' +
+                'same control with oeReadOnly = true (WEBPET-1858). It has to be set in the DB — ' +
+                `Preferen.RunTrackingUndefinedEmp must hold the Undefined Employee's COUNTER, not its ` +
+                `name; a name reads as null in legacy and web alike. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
         ).toBe(true);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';

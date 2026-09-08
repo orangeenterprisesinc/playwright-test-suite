@@ -69,8 +69,18 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
 
         // The address the environment nominates — the same one the framework's own
         // reporter would mail. Never a committed literal.
-        const recipientEmail = (getConfigValue(ConfigProperties.EMAIL_TO) ?? '').split(',')[0].trim();
-        expect(recipientEmail, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
+        const nominated = (getConfigValue(ConfigProperties.EMAIL_TO) ?? '').split(',')[0].trim();
+        expect(nominated, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
+
+        // Plus-address it per run. A user is soft-deleted, never purged, and the
+        // email stays reserved — so reusing EMAIL_TO verbatim meant the second run
+        // ever got `409 userEmailInUse` at create and this test could pass exactly
+        // once per address. The tag routes to the same mailbox, so a human can still
+        // eyeball the mail.
+        const [localPart, domain] = nominated.split('@');
+        const recipientEmail = domain
+            ? `${localPart}+ui005-${Date.now().toString(36).slice(-6)}@${domain}`
+            : nominated;
 
         const recipient = makeUser({ email: recipientEmail });
         const userId = await createUser(sessionApi, {
@@ -82,10 +92,20 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
 
         let notificationId = 0;
         try {
-            // Any filter script proves the transport; this asserts dispatch, not
-            // report content. Fail loudly rather than silently skipping.
-            const scripts = await listFilterScripts(sessionApi);
-            expect(scripts.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
+            // The script has to produce a report: dispatch renders one and attaches
+            // it, so a script with executeReport=false comes back `failed` /
+            // "render failed" with nothing sent. Dev returns exactly such a row
+            // (DashBoardTimeInReviewOfCrewProductivity) FIRST, which is what made
+            // taking scripts[0] fail — the content still is not asserted, only that
+            // there is something to render.
+            const allScripts = await listFilterScripts(sessionApi);
+            expect(allScripts.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
+            const scripts = allScripts.filter((s) => s.executeReport !== false);
+            expect(
+                scripts.length,
+                `no filter script executes a report, so dispatch has nothing to render: ` +
+                    JSON.stringify(allScripts.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
+            ).toBeGreaterThan(0);
 
             const subject = `PET Tiger notification check ${Date.now() % 1000000}`;
             notificationId = await createNotification(sessionApi, {
