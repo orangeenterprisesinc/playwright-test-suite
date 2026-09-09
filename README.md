@@ -2,7 +2,7 @@
 
 > Enterprise-grade Playwright Test Automation Framework with Page Object Model, direct JSON/CSV data-driven testing, OAuth2/Basic/API-Key authentication, and comprehensive reporting.
 
-![Playwright](https://img.shields.io/badge/Playwright-v1.58.2-45ba4b)
+![Playwright](https://img.shields.io/badge/Playwright-v1.63.0-45ba4b)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6)
 ![Node.js](https://img.shields.io/badge/Node.js-ES2022-339933)
 ![License](https://img.shields.io/badge/License-ISC-blue)
@@ -59,7 +59,7 @@ The framework implements the **Page Object Model (POM)** design pattern with a *
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| [Playwright Test](https://playwright.dev/) | 1.58.2 | Test runner & browser automation |
+| [Playwright Test](https://playwright.dev/) | 1.63.0 | Test runner & browser automation |
 | [TypeScript](https://www.typescriptlang.org/) | ^5.3.0 | Type-safe development |
 | [Allure Playwright](https://docs.qameta.io/allure/) | ^3.10.2 | Advanced test reporting |
 | [PapaParse](https://www.papaparse.com/) | ^5.5.3 | CSV parsing |
