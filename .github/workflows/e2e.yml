@@ -166,6 +166,35 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+  # Fails the run on a high or critical advisory in the installed tree.
+  #
+  # Deliberately its own job rather than a step in `e2e`: as a step it would abort
+  # the suite before a single test ran, so one new advisory in a lint dependency
+  # would cost the daily dry run its report and its Slack post. Here the run still
+  # concludes `failure` — which is what a branch protection or a reviewer reads —
+  # while the suite runs, reports and diffs against the baseline as usual.
+  #
+  # Clearing one is normally a lockfile-only `npm audit fix`, since every direct
+  # dependency is on a caret range. Moderate and below stay advisory: Dependabot
+  # (.github/dependabot.yml) opens PRs for those on its own schedule.
+  audit:
+    name: Dependency audit
+    needs: route
+    if: needs.route.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout test suite
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Audit dependencies (high and critical only)
+        run: npm audit --audit-level=high
+
   e2e:
     name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
     needs: route
@@ -405,8 +434,11 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # Keep in step with .nvmrc.
+          # Keep in step with .nvmrc (and engines.node in package.json).
           node-version: 24
+          # Restores ~/.npm keyed on package-lock.json, so `npm ci` below installs
+          # from cache instead of re-fetching every tarball.
+          cache: npm
 
       - name: Set up Java (for Allure report generation)
         uses: actions/setup-java@v5
