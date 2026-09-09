@@ -48,7 +48,7 @@
   "keywords": [],
   "license": "ISC",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
