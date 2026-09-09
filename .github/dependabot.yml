@@ -1,0 +1,66 @@
+# Dependency update PRs. GitHub already opens *security* updates for this repo
+# on its own (that is where PR #20, the js-yaml bump, came from); this file adds
+# scheduled *version* updates on top and, more importantly, splits them into two
+# groups that get reviewed very differently.
+#
+# See docs/FRAMEWORK-GUIDE.md §8.1 for the policy these groups implement.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Playwright decides which browser build the suite runs against, so its
+      # bumps are never mixed with tooling: a red run after a Playwright PR is
+      # unambiguous, and the PR can be reverted on its own. Major included —
+      # Playwright ships browser engine changes in minors anyway, so the review
+      # is the same either way.
+      #
+      # REVIEW GATE: a PR in this group needs a full E2E run (workflow_dispatch
+      # on the PR branch, suite=both, workers=1) compared per test against the
+      # last green run — lint and typecheck prove nothing about browser
+      # behaviour. The group name is in the PR title ("bump the playwright
+      # group"), which is what marks a PR as needing that run; Dependabot labels
+      # are per-ecosystem, not per-group, so they cannot carry the distinction.
+      playwright:
+        patterns:
+          - '@playwright/*'
+          - 'playwright*'
+        update-types:
+          - major
+          - minor
+          - patch
+      # Everything else: lint, formatting, types, reporting, CSV, mail. Patch and
+      # minor only — a major here (an ESLint 8 -> 9 flat-config migration, say)
+      # is a piece of work, not a dependency bump, so it stays a human decision.
+      dev-tooling:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - '@playwright/*'
+          - 'playwright*'
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    labels:
+      - dependencies
+    commit-message:
+      prefix: ci(deps)
