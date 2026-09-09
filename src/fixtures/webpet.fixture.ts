@@ -222,7 +222,13 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
                 // element that never mounts) ends before the session bootstrap
                 // lands. Playwright fails the test on a throwing route callback,
                 // so a teardown race would be reported as a product failure.
-                if (!/has been closed/i.test(String(error))) throw error;
+                //
+                // Two wordings for the one race: pre-1.63 Playwright closed the
+                // page out from under the fetch ("...has been closed"), 1.63
+                // disposes the request context first ("route.fetch: Request
+                // context disposed"). Both mean the test already ended. Anything
+                // else is a real failure and still throws.
+                if (!/has been closed|request context disposed/i.test(String(error))) throw error;
             }
         });
 
