@@ -408,6 +408,36 @@ scripts (§9).
 
 ---
 
+## 8.1 Dependency policy
+
+- **`@playwright/test` is exact-pinned** (no caret). It decides which Chromium
+  build the suite drives, so a floating range would silently change browser
+  behaviour between two runs of the same commit. It is the only direct
+  dependency pinned this way, and it is the only Playwright package declared —
+  `playwright` and `playwright-core` arrive transitively at exactly the same
+  version.
+- **Everything else uses `^` ranges**, with `package-lock.json` committed. The
+  lockfile is what makes an install reproducible; the ranges are what let
+  Dependabot bump lint, types and reporting without a manifest edit. `npm ci`
+  everywhere (locally too) — `npm install` may quietly re-resolve the tree.
+- **A Playwright upgrade travels alone**, in its own commit and its own PR. Lint
+  and typecheck say nothing about browser behaviour, so it is validated by a full
+  E2E run: dispatch `e2e.yml` on the branch with `suite=both` and `workers=1`
+  (the committed webpet baseline only holds serially), then compare **per test**
+  against the last green run, not on the job's conclusion. A new failure is
+  treated as a Playwright/Chromium compatibility question first, never patched
+  away in the test.
+- **[`.github/dependabot.yml`](../.github/dependabot.yml)** enforces the split:
+  weekly npm updates in two groups — `playwright` (all update types, needs the
+  E2E run above) and `dev-tooling` (minor and patch only, everything else) — plus
+  monthly `github-actions` updates. A tooling major stays a human decision.
+- **High and critical advisories fail CI** via the `audit` job in `e2e.yml`
+  (`npm audit --audit-level=high`). It runs beside the suite rather than in front
+  of it, so a new advisory turns the run red without costing the daily dry run
+  its report.
+
+---
+
 ## 9. The migrated web-pet suite (`tests/webpet/`)
 
 The PET Tiger app repo's own Playwright suite — **406 tests in 56 spec files** — lifted from

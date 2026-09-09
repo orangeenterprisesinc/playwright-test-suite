@@ -65,7 +65,6 @@ The framework implements the **Page Object Model (POM)** design pattern with a *
 | [PapaParse](https://www.papaparse.com/) | ^5.5.3 | CSV parsing |
 | [Nodemailer](https://nodemailer.com/) | ^9.0.3 | Email report delivery |
 | [dotenv](https://github.com/motdotla/dotenv) | ^17.2.4 | Environment variable management |
-| [mssql](https://github.com/tediousjs/node-mssql) | ^12.7.0 | SQL Server test-data cleanup (pure JS via `tedious`) |
 
 Logging is a custom in-repo `Logger` (no external logging library), and Slack/ELK notifications use Node's built-in `https` module directly (no SDK dependency).
 
@@ -307,8 +306,8 @@ tests skip while the run reports green).
 git clone <repository-url>
 cd playwright-test-suite
 
-# Install dependencies
-npm install
+# Install dependencies exactly as the lockfile pins them
+npm ci
 
 # Install Playwright browsers
 npx playwright install --with-deps
