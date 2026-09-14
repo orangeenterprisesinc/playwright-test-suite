@@ -53,6 +53,20 @@ const WEBPET_ENABLED =
 if (WEBPET_ENABLED) process.env.WEBPET = '1';
 
 /**
+ * The standalone residue-sweep tool (tests/tools) is a project only when asked
+ * for, so a normal run never collects it. It sweeps for itself, which the
+ * lifecycle hooks read through RESIDUE_SWEEP_STANDALONE to skip their own passes.
+ */
+const RESIDUE_TOOLS_ENABLED =
+    process.env.RESIDUE_SWEEP_STANDALONE === '1' ||
+    process.argv.some(
+        (arg, i, argv) =>
+            arg.startsWith('--project=residue-sweep') ||
+            (arg === '--project' && (argv[i + 1] ?? '').startsWith('residue-sweep')),
+    );
+if (RESIDUE_TOOLS_ENABLED) process.env.RESIDUE_SWEEP_STANDALONE = '1';
+
+/**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
  * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
  * so a run of the converted suite is still comparable with the source repo's
@@ -242,6 +256,7 @@ export default defineConfig({
             // serves both.
             testIgnore: [
                 '**/tests/webpet/**',
+                '**/tests/tools/**',
                 '**/tests/seed.spec.ts',
             ],
             use: {
@@ -250,6 +265,19 @@ export default defineConfig({
             },
             dependencies: ['auth-setup'],
         },
+
+        // ── Residue-sweep tool (tests/tools) — opt-in, see RESIDUE_TOOLS_ENABLED ──
+        ...(RESIDUE_TOOLS_ENABLED
+            ? [
+                  {
+                      name: 'residue-sweep',
+                      testDir: './tests/tools',
+                      testMatch: '**/residue-sweep.spec.ts',
+                      retries: 0,
+                      use: { trace: 'off' as const, video: 'off' as const, screenshot: 'off' as const },
+                  },
+              ]
+            : []),
 
         // ── Migrated web-pet suite (tests/webpet) — opt-in, see WEBPET_ENABLED ──
         // Two run states, selected by WEBPET_PARITY (see above):

@@ -31,7 +31,7 @@ import {
     notifyNow,
 } from '@utils/api/notificationsApi';
 import { createUser, deleteUserById } from '@utils/api/usersApi';
-import { makeUser } from '@data/generated';
+import { makeUser, uid } from '@data/generated';
 
 test.describe('Notification email', { tag: ['@System'] }, () => {
     test('[Notification] Send a notification and verify it is dispatched to its recipient.', {
@@ -89,7 +89,8 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
 
             const subject = `PET Tiger notification check ${Date.now() % 1000000}`;
             notificationId = await createNotification(sessionApi, {
-                name: `ZZ NOTIF CHECK ${Date.now() % 1000000}`,
+                // uid() carries the full clock, so the residue sweep can date a leftover.
+                name: `ZZ NOTIF CHECK ${uid()}`,
                 filterScriptCounter: scripts[0].filterScriptCounter,
                 emailSubject: subject,
                 usersCounter: userId,

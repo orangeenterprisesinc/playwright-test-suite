@@ -23,9 +23,19 @@ const path = require('node:path');
 const [envName = 'dev', ...rawArgs] = process.argv.slice(2);
 const cli = path.join(__dirname, '..', 'node_modules', '@playwright', 'test', 'cli.js');
 
-// Consumed here — Playwright would reject it as an unknown option.
+// Consumed here — Playwright would reject them as unknown options.
 const wantsFrameworkSettings = rawArgs.includes('--framework-settings');
-const args = rawArgs.filter((arg) => arg !== '--framework-settings');
+// `--dry-run` belongs to the residue-sweep tool: report, delete nothing.
+const wantsDryRun = rawArgs.includes('--dry-run');
+const args = rawArgs.filter((arg) => arg !== '--framework-settings' && arg !== '--dry-run');
+
+// The residue-sweep tool project is conditional too (RESIDUE_TOOLS_ENABLED); the
+// env flag keeps the project list identical in worker processes.
+const wantsResidueSweep = args.some(
+    (arg, i) =>
+        arg.startsWith('--project=residue-sweep') ||
+        (arg === '--project' && (args[i + 1] ?? '').startsWith('residue-sweep')),
+);
 
 // The migrated web-pet projects are conditional in playwright.config.ts
 // (see WEBPET_ENABLED). The runner process would detect `--project=webpet`
@@ -44,6 +54,8 @@ const result = spawnSync(process.execPath, [cli, 'test', ...args], {
         TEST_ENV: process.env.TEST_ENV || envName,
         ...(wantsWebpet ? { WEBPET: '1' } : {}),
         ...(wantsFrameworkSettings ? { WEBPET_PARITY: '0' } : {}),
+        ...(wantsResidueSweep ? { RESIDUE_SWEEP_STANDALONE: '1' } : {}),
+        ...(wantsDryRun ? { RESIDUE_DRY_RUN: '1' } : {}),
     },
 });
 

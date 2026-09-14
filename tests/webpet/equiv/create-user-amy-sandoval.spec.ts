@@ -27,8 +27,10 @@ import { apiUrl } from '@config/webpetEnv';
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { Page } from '@playwright/test';
+import { sixCharRunToken } from '@utils/cleanup/runToken';
 
-const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+// Shared token so the residue sweep can date the record from its name.
+const RUN_TOKEN = sixCharRunToken();
 const SAFE_NAME = `ZZTEST_USR_${RUN_TOKEN}`;
 const SAFE_EMAIL = `zztest_${RUN_TOKEN.toLowerCase()}@example.com`;
 const TEST_PASSWORD = 'Test@12345';

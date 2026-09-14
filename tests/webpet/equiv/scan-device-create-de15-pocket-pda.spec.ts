@@ -37,8 +37,10 @@ import { deleteScanDevice } from '../data-factory';
  * `ScanDeviceFormPage` instead of being re-derived at each callsite.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
+import { sixCharRunToken } from '@utils/cleanup/runToken';
 
-const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+// Shared token so the residue sweep can date the record from its name.
+const RUN_TOKEN = sixCharRunToken();
 const SAFE_NAME = `ZZTEST_SD_${RUN_TOKEN}`;
 // ReferencePrefix col is nvarchar(3) — max 3 chars. 'D14' already exists in DB.
 // Use last 2 chars of base-36 token for 36^2=1296 combinations (enough for test use).

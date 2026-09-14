@@ -26,13 +26,15 @@
  */
 import { readFileSync } from 'fs';
 import { WEBPET_ADMIN_STORAGE } from '@config/webpetPaths';
-import { API_BASE_URL, apiUrl } from '@config/webpetEnv';
+import { API_BASE_URL, WEB_BASE_URL, apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { APIRequestContext } from '@playwright/test';
 import { ensureCrop, deleteCrop, type EnsuredCrop } from '../data-factory';
+import { sixCharRunToken } from '@utils/cleanup/runToken';
 
-// Unique per-run suffix avoids the unfiltered unique-constraint ghost-row issue.
-const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+// Unique per-run suffix avoids the unfiltered unique-constraint ghost-row issue;
+// shared with the residue sweep so it can date the record from its name.
+const RUN_TOKEN = sixCharRunToken();
 const SAFE_NAME = `ZZTEST_VAR_${RUN_TOKEN}`;
 const ADMIN_STORAGE = WEBPET_ADMIN_STORAGE;
 
@@ -73,9 +75,13 @@ let createdId: number | null = null;
 // that is why we use a unique SAFE_NAME per run rather than a fixed constant.
 test.afterAll(async ({ playwright }) => {
     const csrf = csrfFromStorage();
+    // Origin + CSRF on the context itself: without them the API answered every
+    // deleteCrop with 403 "Cross-origin request rejected", silently — 268
+    // E2EVarCrop_* rows had accumulated on dev by 2026-09-14.
     const api = await playwright.request.newContext({
         baseURL: API_BASE_URL,
         storageState: ADMIN_STORAGE,
+        extraHTTPHeaders: { Origin: WEB_BASE_URL, 'X-CSRF-Token': csrf },
     });
     try {
         // Children before parents — the API blocks a delete with live FK rows.

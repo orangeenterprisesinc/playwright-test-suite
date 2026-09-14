@@ -22,6 +22,7 @@
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 import { deleteBillingCenter, ensureBillingCenter, type EnsuredBillingCenter } from './data-factory';
+import { sixCharRunToken } from '@utils/cleanup/runToken';
 
 // Unique per-run token: Customer_Name_Unique (and the Code/ExportIdentifier
 // unique constraints) are NOT filtered by Deleted, so a soft-deleted ghost
@@ -30,7 +31,8 @@ import { deleteBillingCenter, ensureBillingCenter, type EnsuredBillingCenter } f
 // and the create silently 500s. Same fix as provision.ts's RestrictedTest
 // provisioning: mint a fresh identity every run instead of relying on a fixed
 // name a ghost could be squatting on.
-const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+// Shared token so the residue sweep can date the record from its name.
+const RUN_TOKEN = sixCharRunToken();
 const TEST_NAME = `_PET213TestBillingCenter_${RUN_TOKEN}`;
 const TEST_CODE = `BC${RUN_TOKEN}`;
 const TEST_EXPORT_ID = `EXPBC${RUN_TOKEN}`;
@@ -38,6 +40,16 @@ const TEST_EXPORT_ID = `EXPBC${RUN_TOKEN}`;
 // ── New Form ───────────────────────────────────────────────────────────────────
 
 test.describe('Setup > Billing Center — new form', { tag: ['@WebPet', '@wp-setup', '@wp-billing-center', '@WPBatch04'] }, () => {
+
+    // WP-0004 creates through the UI, so the id is only knowable by name afterwards.
+    // 313 of these had accumulated on dev before this cleanup existed.
+    test.afterAll(async ({ request }) => {
+        const res = await request.get('/api/billing-centers');
+        if (!res.ok()) return;
+        const rows = (await res.json()) as Array<{ billingCenterCounter: number; name: string }>;
+        const created = rows.find((r) => r.name === TEST_NAME);
+        if (created) await deleteBillingCenter(request, created.billingCenterCounter);
+    });
 
     test('[Billing Center] Verify that the new form renders the name field.', {
         tag: ['@wp-ui', '@wp-smoke'],

@@ -23,18 +23,19 @@
  * its test users behind. WEBPET-1606 added `DELETE /users/{id}` to fix exactly
  * that, and the SQL transport is gone.
  *
- * An entity is cleanable once it appears in {@link API_CLEANUP}; `track` throws for
- * anything else, so a missing deleter surfaces immediately rather than as records
- * quietly accumulating.
+ * Every entity in `cleanupTargets.ts` is cleanable: the list and delete calls are
+ * derived from its `listPath` / `idKey`, so a new entity is one table row. `track`
+ * still throws for an unregistered entity.
  *
  * Cleanup can never fail a test: {@link drain} catches, because it runs after the
- * test body where an exception would mask the real result.
+ * test body where an exception would mask the real result. The run-start and
+ * run-end residue sweeps (`residueSweep.ts`) are the backstop for what per-test
+ * cleanup cannot reach — timed-out bodies and killed runs.
  */
 import type { APIRequestContext } from '@playwright/test';
 import { CLEANUP_TARGETS, cleanupTarget, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { Logger } from '../logger';
-import { createSessionRequestContext } from '../api/sessionContext';
-import { deleteUserByName, userNamesWithPrefix } from '../api/usersApi';
+import { deleteById, listRows, runResidueSweep, type SweepSummary } from './residueSweep';
 
 /** One record awaiting cleanup. */
 interface TrackedRecord {
@@ -45,33 +46,22 @@ interface TrackedRecord {
 /** Supplies the authenticated API context on first use, or `null` if there is none. */
 export type SessionContextFactory = () => Promise<APIRequestContext | null>;
 
-/** How to remove one kind of record through the app's API. */
-interface ApiCleanup {
-    /** Remove the record with this exact name. */
-    deleteByName(context: APIRequestContext, name: string): Promise<unknown>;
-    /** Names of every live record whose name starts with `prefix` — for the sweep. */
-    namesWithPrefix(context: APIRequestContext, prefix: string): Promise<string[]>;
-}
-
 /**
- * The delete call behind each entity in `cleanupTargets.ts`. Adding an entity there
- * without adding it here fails loudly on the first `track` — see {@link apiCleanup}.
+ * Delete the one record of `target`'s kind whose name is exactly `name` (trimmed —
+ * the app can pad a stored name). Resolves `false` when no live row carries it.
  */
-const API_CLEANUP: Record<string, ApiCleanup> = {
-    user: { deleteByName: deleteUserByName, namesWithPrefix: userNamesWithPrefix },
-};
-
-/** The API cleanup for an entity, or an error naming what is missing. */
-function apiCleanup(entity: string): ApiCleanup {
-    const cleanup = API_CLEANUP[entity];
-    if (!cleanup) {
-        throw new Error(
-            `'${entity}' is registered in cleanupTargets.ts but has no delete call in ` +
-            `API_CLEANUP (src/utils/cleanup/cleanupRegistry.ts). Add one so records of ` +
-            `this kind are actually removed.`,
-        );
+export async function deleteByName(context: APIRequestContext, target: CleanupTarget, name: string): Promise<boolean> {
+    const wanted = name.trim();
+    const rows = await listRows(context, target);
+    const row = rows.find((r) => String(r[target.nameKey ?? 'name'] ?? '').trim() === wanted);
+    if (!row) return false;
+    const id = Number(row[target.idKey]);
+    if (!Number.isFinite(id)) {
+        throw new Error(`${target.entity}: idKey '${target.idKey}' missing on '${wanted}'`);
     }
-    return cleanup;
+    const result = await deleteById(context, target, id);
+    if (result.outcome === 'deleted' || result.outcome === 'notFound') return true;
+    throw new Error(`DELETE ${target.listPath}/${String(id)} returned ${String(result.status)}: ${result.body}`);
 }
 
 /**
@@ -98,7 +88,6 @@ export class CleanupRegistry {
      */
     track(entity: string, name: string): void {
         cleanupTarget(entity); // fail fast on an unregistered entity
-        apiCleanup(entity);    // …and on one with no delete call
         this.tracked.push({ entity, name });
     }
 
@@ -137,58 +126,25 @@ export class CleanupRegistry {
 
     /** Remove one record through its entity's delete call. */
     private async deleteRecord(entity: string, name: string): Promise<void> {
-        cleanupTarget(entity);
+        const target = cleanupTarget(entity);
         const context = await this.session?.();
         if (!context) {
             this.logger.warn(`No authenticated API context — leaving ${entity} '${name}' in place`);
             return;
         }
 
-        await apiCleanup(entity).deleteByName(context, name);
-        this.logger.info(`Deleted ${entity} '${name}' via the API`);
+        const found = await deleteByName(context, target, name);
+        this.logger.info(found ? `Deleted ${entity} '${name}' via the API` : `${entity} '${name}' was already gone`);
     }
 }
 
 /**
- * Sweep leftovers from earlier runs — every record whose name starts with the
- * configured test prefix, for every registered entity.
- *
- * Per-test cleanup already removes the happy-path records; this catches what an
- * interrupted or crashed run left behind, so test data never accumulates in a
- * shared environment. Called once from global teardown, in the main process, so it
- * builds and disposes its own API context.
+ * The end-of-run sweep: this run's own residue (by run id, whatever its age) plus
+ * anything older than the age gate. Called once from global teardown, in the main
+ * process; it logs in for itself.
  */
 export async function sweepLeftovers(
     targets: readonly CleanupTarget[] = CLEANUP_TARGETS,
-): Promise<void> {
-    const logger = new Logger('CleanupSweep');
-    if (!targets.length) return;
-
-    const context = await createSessionRequestContext();
-    if (!context) {
-        logger.warn('No authenticated API context — skipping the leftover sweep');
-        return;
-    }
-
-    try {
-        for (const target of targets) {
-            // A blank or near-blank prefix would match records no test created.
-            if (target.prefix.trim().length < 3) {
-                logger.warn(`Skipping sweep of ${target.entity}: prefix '${target.prefix}' is too broad`);
-                continue;
-            }
-
-            try {
-                const { deleteByName, namesWithPrefix } = apiCleanup(target.entity);
-                const names = await namesWithPrefix(context, target.prefix);
-                for (const name of names) await deleteByName(context, name);
-                logger.info(`Swept ${names.length} leftover ${target.entity}(s) matching '${target.prefix}'`);
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                logger.warn(`Sweep of ${target.entity} failed: ${message}`);
-            }
-        }
-    } finally {
-        await context.dispose().catch(() => undefined);
-    }
+): Promise<SweepSummary> {
+    return runResidueSweep({ phase: 'end', targets, ownRunId: process.env.RESIDUE_RUN_ID });
 }
