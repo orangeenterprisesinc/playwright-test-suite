@@ -98,7 +98,27 @@ export async function ensureQuestion(
         headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok()) {
-        throw new Error(`POST questions failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`);
+        const detail = (await res.text()).slice(0, 400);
+
+        // Lookup-then-create is not atomic — with two workers the loser of the
+        // race sees the winner's row as a conflict.
+        const raced = (await listQuestions(request)).find((q) => q.name === spec.name);
+        if (raced) {
+            return {
+                ...raced,
+                allowedResponses: raced.allowedResponses?.trim() ? raced.allowedResponses : spec.allowedResponses,
+            };
+        }
+
+        // Questions have no /deleted or /restore route, so unlike the setup
+        // entities a binned one cannot be recovered from here.
+        throw new Error(
+            `POST questions failed with ${res.status()}: ${detail}` +
+                (res.status() === 409
+                    ? `\nIf '${spec.name}' was soft-deleted it still owns the name and questions have ` +
+                      'no recycle-bin endpoint to restore it — the fixture name has to change.'
+                    : ''),
+        );
     }
     const body = (await res.json()) as QuestionRecord;
     // The create response does not echo every column back, so the values we just

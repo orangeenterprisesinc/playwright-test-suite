@@ -105,12 +105,66 @@ async function ensureRecord(
         headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok()) {
-        throw new Error(
-            `POST ${path} failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
-        );
+        const detail = (await res.text()).slice(0, 400);
+
+        // Lookup-then-create is not atomic: with two workers both can miss and
+        // both POST, and the loser gets the same 409 as a genuine conflict.
+        const raced = await findByCode(request, path, code, idKey);
+        if (raced && raced.name === name) return raced;
+
+        if (res.status() === 409) {
+            const restored = await restoreFromRecycleBin(request, path, idKey, code, name);
+            if (restored) return restored;
+            throw new Error(
+                `POST ${path} failed with 409: ${detail}\n` +
+                    `A soft-deleted '${name}' (code ${code}) reserves the name — the list endpoint ` +
+                    `hides it but the unique index does not — and it could not be restored ` +
+                    `automatically. Restore it from ${path}/deleted in the app, then re-run.`,
+            );
+        }
+
+        throw new Error(`POST ${path} failed with ${res.status()}: ${detail}`);
     }
     const body = (await readJson<Record<string, unknown>>(res)) ?? {};
     return { id: Number(body[idKey] ?? body.id), code, name, created: true };
+}
+
+/**
+ * Bring a binned record back so its name stops blocking the create.
+ *
+ * A soft-deleted setup row keeps owning its name (the unique index is
+ * unfiltered) while disappearing from the list endpoint, so every later run
+ * 409s forever. The journey fixtures join the device envelope on fixed codes,
+ * so renaming around it is not an option — the row has to come back.
+ *
+ * Returns null when the entity has no recycle bin or the row is not in it;
+ * the caller then reports the 409 with the explanation.
+ */
+async function restoreFromRecycleBin(
+    request: APIRequestContext,
+    path: string,
+    idKey: string,
+    code: string,
+    name: string,
+): Promise<EnsuredRecord | null> {
+    const deletedRes = await request.get(`${path}/deleted`);
+    if (!deletedRes.ok()) return null;
+
+    // Match on both, so a stranger's row that happens to share one never gets
+    // silently resurrected under our fixture's identity.
+    const binned = asArray(await readJson(deletedRes)).find(
+        (r) => String(r.code ?? '') === code && String(r.name ?? '') === name,
+    );
+    if (!binned) return null;
+
+    const id = Number(binned[idKey] ?? binned.id);
+    const restoreRes = await request.post(`${path}/${String(id)}/restore`, {
+        data: { rowversion: binned.version },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!restoreRes.ok()) return null;
+
+    return findByCode(request, path, code, idKey);
 }
 
 export function ensureRanch(

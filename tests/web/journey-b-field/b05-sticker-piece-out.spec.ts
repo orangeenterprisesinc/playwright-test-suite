@@ -123,9 +123,18 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
             requireJobInEmpPieceOut?: boolean;
         };
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
+        // `> 0`, not just isFinite: Number(null) is 0, which is finite, so the old
+        // guard passed on an unconfigured tenant and the run died 160 lines later on
+        // `expect(employeeCounter).toBe(0)` — a message that points at the card
+        // instead of at the preference. Matches B7's guard.
         expect(
-            Number.isFinite(undefinedEmployeeId),
-            `preferences.undefinedEmployee must be set: ${JSON.stringify(preferences)}`,
+            Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
+            'preferences.undefinedEmployee must be configured — the importer binds it as the ' +
+                'fallback owner, so B5-R6 cannot be asserted without it. The field is read-only on ' +
+                'the preferences screen, but no DB write is needed: run Help ▸ Administration ▸ ' +
+                '"Add Standard Records to Database" (/settings/standard-records, or POST ' +
+                'admin/standard-records) and it repoints the setting at the existing Undefined ' +
+                `Employee record. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
         ).toBe(true);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';

@@ -134,7 +134,11 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
         expect(
             Number.isFinite(undefinedEmployeeId) && undefinedEmployeeId > 0,
-            'preferences.undefinedEmployee must be configured',
+            'preferences.undefinedEmployee must be configured. The field itself is read-only on '
+                + 'the preferences screen, but it does not need a DB write: run Help ▸ Administration ▸ '
+                + '"Add Standard Records to Database" (/settings/standard-records, or POST '
+                + 'admin/standard-records) and it repoints the setting at the existing Undefined '
+                + `Employee record. Got: ${JSON.stringify(preferences.undefinedEmployee)}`,
         ).toBe(true);
 
         const originalEmpStart = preferences.employeeCodeStartLocation;

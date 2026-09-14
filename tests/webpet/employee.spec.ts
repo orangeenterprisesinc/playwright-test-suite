@@ -194,7 +194,7 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         await expect(form.lastNameInput).toHaveValue(emp.lastName);
     });
 
-    test('[Employee] Verify that the barcode and export identifier are read-only and the name is editable.', {
+    test('[Employee] Verify that the name, barcode and export identifier are all editable for su.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0154' },
     }, async ({ pages }) => {
@@ -206,8 +206,14 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         // a "Temporary Badge"/"Temporary Name" placeholder. The suite runs as su,
         // so Name is editable here; the locked side is the next test.
         await expect(form.nameInput).not.toHaveAttribute('readonly', '');
-        await expect(form.codeInput).toHaveAttribute('readonly', '');
-        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
+        // Code and Export Identifier unlocked for su on dev between 2026-09-09 and
+        // 2026-09-10 — both inputs still ship the read-only:* classes but the
+        // attribute is never applied. This diverges from WEBPET-2682, which locked
+        // the generated code on edit across the setup entities, so it is a trip-wire:
+        // if the app re-locks them this reds and the decision gets revisited.
+        // WP-0408 covers the genuinely locked side with a real non-SU login.
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
     });
 
     test('[Employee] Verify that the name is read-only for a non-SU user when name modification is disallowed.', {
@@ -234,7 +240,10 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         await form.gotoEdit(emp.id);
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
-        await expect(form.codeInput).toHaveAttribute('readonly', '');
+        // Rewriting isSU reaches the Name gate but not Code's — Code stays editable
+        // here even though WP-0408's real non-SU session sees it locked, so whatever
+        // now gates it is server-side, not the session/me body.
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
     });
 
     test('[Employee] Verify that the name stays editable for a temporary-badge employee for a non-SU user when name modification is disallowed.', {

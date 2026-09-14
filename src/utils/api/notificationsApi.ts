@@ -137,6 +137,14 @@ export async function ensureSmtpConfigured(
 export interface FilterScript {
     filterScriptCounter: number;
     name: string;
+    /**
+     * Whether the script produces a report. A notification built on one that does
+     * not (dev's `DashBoardTimeInReviewOfCrewProductivity` is the first row the
+     * endpoint returns) dispatches as `failed` with `render failed` — there is
+     * nothing to render, so the transport never gets a message.
+     */
+    executeReport?: boolean;
+    active?: boolean;
 }
 
 export async function listFilterScripts(request: APIRequestContext): Promise<FilterScript[]> {
