@@ -333,6 +333,15 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
             // ── B12-R5 ──
             const detailByCode = new Map<string, Awaited<ReturnType<typeof getTimeOutDetail>>>();
             for (const { worker, card } of timeOutCards) {
+                // The card is listable before its question rows are — a detail read
+                // straight after the reference poll came back with 2 of 3 answers
+                // (2026-09-14, passed on retry). Wait for the count, then assert it.
+                await expect
+                    .poll(async () => (await getTimeOutDetail(sessionApi, card.timeCardCounter)).questions?.length ?? 0, {
+                        timeout: 30_000,
+                        message: `${worker.code}'s answers never reached 3 on card ${card.timeCardCounter}`,
+                    })
+                    .toBeGreaterThanOrEqual(3);
                 const detail = await getTimeOutDetail(sessionApi, card.timeCardCounter);
                 detailByCode.set(worker.code, detail);
 

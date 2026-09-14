@@ -248,7 +248,19 @@ export async function notifyNow(
     for (;;) {
         const res = await request.get(`notifications/${id}/notify-now/${jobId}`);
         if (!res.ok()) {
-            throw new Error(`GET notify-now job failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
+            // 404 right after a 2xx POST is not "no such job": the API keeps Notify
+            // Now jobs in a per-process sync.Map (web-pet notification_notify_now_jobs.go,
+            // WEBPET-1907), so a poll routed to a different API task than the POST
+            // cannot see it. Multi-task dev makes this deterministic, not flaky.
+            const hint =
+                res.status() === 404
+                    ? ' The job store is in-memory per API process - with more than one tigerden task behind ' +
+                      'the load balancer the poll lands on a task that never saw the POST. Product-side ' +
+                      '(shared job store or sticky routing); nothing test-side can recover it.'
+                    : '';
+            throw new Error(
+                `GET notify-now job ${jobId} failed with ${res.status()}: ${(await res.text()).slice(0, 300)}.${hint}`,
+            );
         }
         job = (await res.json()) as NotifyJob;
         const settled = job.status && job.status !== 'pending' && job.status !== 'running';

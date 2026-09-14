@@ -5,7 +5,7 @@ import {
     importDeviceExport,
     isStorageUnavailable,
     NO_STORAGE_REASON,
-    waitForImportRun,
+    waitForImportFiles,
     type ImportFileResult,
 } from './connectivityImportApi';
 import {
@@ -272,29 +272,36 @@ async function importViaInternetUi(
     ).toBe(true);
 
     if (pulled) {
-        // The mailbox can hold envelopes from earlier runs too — wait for every
-        // pulled file to finish importing, then rely on reference matching below.
-        await pages.importInternet.waitForTerminalFiles(outcome.api.filesPulled);
-        // A `Failed` badge is terminal too, and the screen never shows why. Read
-        // the run so a failed file fails here with the worker's own message
-        // (e.g. "could not read stored file") instead of surfacing three minutes
-        // later as a bare "0 cards" from the reference poll.
-        const run = await waitForImportRun(input.sessionApi, outcome.api.runId, 15_000);
-        await testInfo.attach(`internet-import-run-${label}.json`, {
-            body: JSON.stringify(run, null, 2),
-            contentType: 'application/json',
-        });
-        // Only OUR envelope may fail the test. The shared mailbox re-serves
-        // envelopes from earlier runs (a drain of 8 stale files was seen on
-        // 2026-09-14, every one a duplicate-key rejection), and those say
-        // nothing about this run. The filename `FromAndroid-<stamp>-<prefix>.xml`
-        // and every reference `<seq>-<yyMMdd>-<part>-<prefix>-ui` share the prefix.
+        // The mailbox can hold envelopes from earlier runs too — the screen lists
+        // one row per pulled file, but only OUR file's outcome matters here. The
+        // filename `FromAndroid-<stamp>-<prefix>.xml` and every reference
+        // `<seq>-<yyMMdd>-<part>-<prefix>-ui` share the prefix, which is how ours
+        // is told apart. Waiting on every badge instead stalled on a peer's lagging
+        // duplicate (2026-09-14: 2 pulled, 1 terminal after 90 s).
         const references = referencesInExport(input.xml);
         const prefix = references[0]?.split('-')[3] ?? '';
         const fileNameOf = (f: ImportFileResult) => String((f as { filename?: string }).filename ?? f.fileName ?? '');
         const isOurs = (f: ImportFileResult) =>
             (prefix !== '' && fileNameOf(f).endsWith(`-${prefix}.xml`)) ||
             references.some((r) => String(f.message ?? '').includes(r));
+        await pages.importInternet.waitForFileRows(outcome.api.filesPulled);
+        // A `Failed` badge is terminal too, and the screen never shows why. Read
+        // the run so a failed file fails here with the worker's own message
+        // (e.g. "could not read stored file") instead of surfacing three minutes
+        // later as a bare "0 cards" from the reference poll.
+        const run = await waitForImportFiles(
+            input.sessionApi,
+            outcome.api.runId,
+            isOurs,
+            Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
+        );
+        await testInfo.attach(`internet-import-run-${label}.json`, {
+            body: JSON.stringify(run, null, 2),
+            contentType: 'application/json',
+        });
+        // Only OUR envelope may fail the test. Re-served stale envelopes (a drain
+        // of 8 was seen on 2026-09-14, every one a duplicate-key rejection) say
+        // nothing about this run.
         const failedFiles = run.files.filter((f) => String(f.status) === 'failed');
         const stale = failedFiles.filter((f) => !isOurs(f));
         if (stale.length) {

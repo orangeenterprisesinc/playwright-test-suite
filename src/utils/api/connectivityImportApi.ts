@@ -197,6 +197,44 @@ export async function waitForImportRun(
     };
 }
 
+/**
+ * Poll one import run until every file matching `wanted` is terminal, ignoring the
+ * rest. A drain of the shared mailbox can carry other runs' envelopes (re-served
+ * stale ones, a peer worker's), and their processing time says nothing about ours.
+ * Resolves with the latest run snapshot; throws only when our files never settle.
+ */
+export async function waitForImportFiles(
+    request: APIRequestContext,
+    runId: number,
+    wanted: (file: ImportFileResult) => boolean,
+    timeoutMs: number,
+): Promise<ImportRunResult> {
+    const deadline = Date.now() + timeoutMs;
+    let last: { status?: string; files?: ImportFileResult[] } = {};
+    for (;;) {
+        const poll = await request.get(`connectivity/import/runs/${runId}`);
+        if (poll.ok()) {
+            last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            const ours = (last.files ?? []).filter(wanted);
+            if (ours.length && ours.every((f) => TERMINAL.includes(String(f.status)))) break;
+            if (TERMINAL.includes(String(last.status))) break;
+        }
+        if (Date.now() > deadline) {
+            const ours = (last.files ?? []).filter(wanted).map((f) => ({
+                file: f.fileName ?? (f as { filename?: string }).filename,
+                status: f.status,
+            }));
+            const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
+            throw new Error(
+                `Import run ${runId}: this run's file(s) did not reach a terminal status within ${timeoutMs}ms ` +
+                    `(ours: ${JSON.stringify(ours)}, run: ${String(last.status)}).${stuck}`,
+            );
+        }
+        await new Promise((r) => setTimeout(r, 1_000));
+    }
+    return { runId, status: String(last.status), files: last.files ?? [], raw: last };
+}
+
 /** What `POST connectivity/import/internet` reports about the pull itself. */
 export interface InternetPullResult {
     runId: number;
