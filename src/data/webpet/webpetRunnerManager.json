@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-05T11:53:56.844Z",
-    "total": 409,
+    "generatedAt": "2026-09-14T10:32:21.243Z",
+    "total": 411,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
   },
@@ -2457,12 +2457,12 @@
     {
       "id": "WP-0154",
       "file": "employee.spec.ts",
-      "titlePath": "Edit employee form > [Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+      "titlePath": "Edit employee form > [Employee] Verify that the name, barcode and export identifier are all editable for su.",
       "caseKey": "",
       "module": "employee",
       "category": "ui",
       "testName": "barcodeAndExportIdReadOnlyNameEditable",
-      "testTitle": "[Employee] Verify that the barcode and export identifier are read-only and the name is editable.",
+      "testTitle": "[Employee] Verify that the name, barcode and export identifier are all editable for su.",
       "testDescription": "Barcode and Export Identifier are readonly once the employee exists; Name is gated (WEBPET-2006) and editable for su. Locked side covered by WP-0407.",
       "tags": "@WebPet|@wp-setup|@wp-employee|@WPBatch02|@wp-ui|@wp-regression",
       "jira": "WEBPET-2006",
@@ -6355,6 +6355,38 @@
       "tags": "@WebPet|@wp-setup|@wp-batcha|@WPBatch05|@wp-ui|@wp-smoke",
       "jira": "",
       "status": "automated",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0412",
+      "file": "transfer-multi-edit.spec.ts",
+      "titlePath": "Transfer to Job Cards — Multi-Edit field matrix > [Transfer] Verify that the Multi-Edit dialog offers every licensed field with its exact label and value control.",
+      "caseKey": "",
+      "module": "transfer-multi-edit",
+      "category": "ui",
+      "testName": "",
+      "testTitle": "[Transfer] Verify that the Multi-Edit dialog offers every licensed field with its exact label and value control.",
+      "testDescription": "",
+      "tags": "@WebPet|@wp-input|@wp-transfer|@WPBatch15|@wp-ui|@wp-regression",
+      "jira": "",
+      "status": "lifted",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "WP-0413",
+      "file": "transfer-multi-edit.spec.ts",
+      "titlePath": "Transfer to Job Cards — Multi-Edit field matrix > [Transfer] Verify that the relaxed guard lets a blank value through for every clearable field and still blocks the rest.",
+      "caseKey": "",
+      "module": "transfer-multi-edit",
+      "category": "ui",
+      "testName": "",
+      "testTitle": "[Transfer] Verify that the relaxed guard lets a blank value through for every clearable field and still blocks the rest.",
+      "testDescription": "",
+      "tags": "@WebPet|@wp-input|@wp-transfer|@WPBatch15|@wp-ui|@wp-regression",
+      "jira": "",
+      "status": "lifted",
       "enabled": true,
       "notes": ""
     },
