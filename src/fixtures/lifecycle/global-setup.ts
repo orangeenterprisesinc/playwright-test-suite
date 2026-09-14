@@ -6,6 +6,7 @@
 import { FullConfig, request } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
+import { runResidueSweep } from '../../utils/cleanup/residueSweep';
 import fs from 'fs';
 import path from 'path';
 
@@ -94,6 +95,15 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     logger.info(`Reset ${ALLURE_RESULTS_DIR} and wrote categories.json`);
 
     await warmUpTargets(logger);
+
+    // One run id for every worker: the end-of-run sweep deletes this run's own
+    // residue by it, and `uniqueName()` stamps it into every factory-made name.
+    process.env.RESIDUE_RUN_ID ??= Date.now().toString(36).slice(-5).toUpperCase();
+    // Other runs' leftovers, age-gated. The standalone tool project sweeps for
+    // itself, so it skips this one.
+    if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
+        await runResidueSweep({ phase: 'start' });
+    }
 
     logger.info('Global setup completed');
 }

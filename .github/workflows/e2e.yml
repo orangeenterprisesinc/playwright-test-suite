@@ -330,6 +330,13 @@ jobs:
       SEND_S3: ${{ vars.SEND_S3 || 'no' }}
       S3_REPORT_BUCKET: ${{ vars.S3_REPORT_BUCKET }}
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      # --- Residue sweep (src/utils/cleanup/residueSweep.ts) ---------------------
+      # Global setup deletes other runs' leftovers older than RESIDUE_MIN_AGE_MIN;
+      # global teardown deletes this run's own. Both log in with USER_NAME/PASSWORD
+      # above. RESIDUE_SWEEP=0 disables both without a code change; =dry reports
+      # only. The age gate protects a run that is still in progress elsewhere.
+      RESIDUE_SWEEP: ${{ vars.RESIDUE_SWEEP || '' }}
+      RESIDUE_MIN_AGE_MIN: ${{ vars.RESIDUE_MIN_AGE_MIN || '120' }}
 
     steps:
       # Without this, a missing password surfaces ~4 minutes later as an opaque
@@ -598,6 +605,16 @@ jobs:
         with:
           name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
           path: artifacts/allure/report
+
+      # What the start/end residue sweeps found and deleted (also summarised in the
+      # Allure Environment panel and the [ResidueSweep] log lines).
+      - name: Upload residue-sweep summaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.suite == 'webpet' && 'webpet-residue-sweep' || 'residue-sweep' }}
+          path: artifacts/results/residue-sweep-*.json
+          if-no-files-found: ignore
 
       # Publish the raw test-results (traces, videos, screenshots, results.json)
       # to a public S3 bucket so a Slack reader can open them directly, without

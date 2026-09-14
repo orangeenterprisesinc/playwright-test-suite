@@ -453,3 +453,50 @@ npm run webpet:baseline / webpet:diff  # per-test baseline capture + regression 
 Full documentation: [tests/webpet/README.md](../tests/webpet/README.md) and
 [src/pages/webpet/README.md](../src/pages/webpet/README.md).
 ```
+
+## 10. Residue sweep (self-healing test data)
+
+Every record a spec creates should be deleted by that spec, but two failure modes
+defeat that: a **test timeout** aborts the body before its `finally`, and a
+**cancelled or killed run** never reaches `afterAll` or global teardown. Left
+alone, the leftovers accumulate until lists cross the 100-row picker cap and the
+suite starts failing on its own residue (dev held ~1,470 such rows on 2026-09-14).
+
+The residue sweep (`src/utils/cleanup/residueSweep.ts`) closes that gap without
+any database access:
+
+* **Run start** (`global-setup.ts`): deletes other runs' leftovers older than
+  `RESIDUE_MIN_AGE_MIN` (default 120). The age comes from the clock token every
+  factory name carries (`src/utils/cleanup/runToken.ts`) — the API exposes no
+  timestamps. Younger rows may belong to a run still in progress and are left alone.
+* **Run end** (`global-teardown.ts`): deletes this run's own leftovers by run id
+  (`RESIDUE_RUN_ID`, set once in global setup and shared by every worker) —
+  whatever a timed-out test could not clean — plus anything past the age gate.
+* It logs in with `USER_NAME`/`PASSWORD` (or `E2E_ADMIN_*`) through
+  `src/utils/api/apiLogin.ts`, so it needs no storage-state file. It never fails a
+  run; the summary is logged as `[ResidueSweep]`, written to
+  `artifacts/results/residue-sweep-<phase>.json`, and shown in the Allure
+  Environment panel.
+
+**Adding an entity** is one row in `src/data/static/shared/cleanupTargets.ts`
+(`entity`, `listPath`, `idKey`, `order` — children before parents — and the name
+prefixes with their token style). Every row there is also usable with
+`cleanup.track(entity, name)` in a journey spec. Prefixes must be ≥ 5 chars and
+must never match a protected name (Journey B fixture, `RestrictedTest`, seed
+rows); both are asserted at module load.
+
+**Naming rule:** anything a spec creates must carry a factory prefix and a clock
+token — `uniqueName(prefix)` for `data-factory` records, `sixCharRunToken()` for
+the equiv specs, `uid()` for `src/data/generated`. A name the sweep cannot date is
+treated as legacy residue and deleted once it matches a prefix.
+
+```bash
+npm run residue:sweep:dry   # report what would go, delete nothing
+npm run residue:sweep       # standalone sweep (budget 15 min, cap 1000/entity)
+```
+
+Env: `RESIDUE_SWEEP=0` disables both phases (`=dry` reports only),
+`RESIDUE_MIN_AGE_MIN`, `RESIDUE_CAP_PER_ENTITY` (default 250 per run),
+`RESIDUE_SWEEP_BUDGET_MS` (default 3 min in a run). Job cards and time cards have
+no name prefix and are out of scope here — the Journey B specs sweep them by
+employee and day (`sweepFixtureCards` / `cleanupCards`).

@@ -13,6 +13,30 @@ import path from 'path';
 
 const ALLURE_RESULTS_DIR = path.join('artifacts', 'allure', 'results');
 
+/** One Environment line per residue-sweep phase that ran, read from its summary file. */
+function residueSweepLines(): [string, string][] {
+    const lines: [string, string][] = [];
+    for (const phase of ['start', 'end'] as const) {
+        const file = path.join('artifacts', 'results', `residue-sweep-${phase}.json`);
+        if (!fs.existsSync(file)) continue;
+        try {
+            const s = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+                auth: string;
+                dryRun: boolean;
+                totals: { candidates: number; deleted: number; conflict: number; other: number };
+            };
+            lines.push([
+                `Residue sweep (${phase})`,
+                `auth ${s.auth}, candidates ${String(s.totals.candidates)}, deleted ${String(s.totals.deleted)}, ` +
+                    `409 ${String(s.totals.conflict)}, other ${String(s.totals.other)}${s.dryRun ? ' (dry run)' : ''}`,
+            ]);
+        } catch {
+            /* a malformed summary is not worth failing teardown over */
+        }
+    }
+    return lines;
+}
+
 /**
  * Writes `artifacts/allure/results/environment.properties` — Allure reads this file
  * by convention and renders it as the report's "Environment" panel.
@@ -26,6 +50,7 @@ function writeAllureEnvironmentInfo(config: FullConfig): void {
         ['Node', process.version],
         ['OS', process.platform],
         ['CI', process.env.CI ? 'yes' : 'no'],
+        ...residueSweepLines(),
     ];
 
     fs.mkdirSync(ALLURE_RESULTS_DIR, { recursive: true });
@@ -98,20 +123,20 @@ async function globalTeardown(config: FullConfig): Promise<void> {
         }
     }
 
+    // End-of-run sweep: this run's own residue (rows a timed-out test never got to
+    // delete) plus anything past the age gate. Table-driven by
+    // src/data/static/shared/cleanupTargets.ts; never throws, logs in for itself.
+    // Before the Allure metadata so its summary can appear there.
+    if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
+        try {
+            await sweepLeftovers();
+        } catch (error) {
+            logger.warn(`Leftover sweep failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
     writeAllureEnvironmentInfo(config);
     writeAllureExecutorInfo();
-
-    // Safety-net sweep: delete any leftover test records the suites created (e.g.
-    // from an interrupted run) so they never accumulate. Per-test cleanup already
-    // removes the happy-path records; this catches the rest. Driven by
-    // src/data/static/shared/cleanupTargets.ts, so a new entity is swept by adding a row
-    // there rather than by editing this file. Warns rather than throwing when
-    // there is no authenticated session to sweep with.
-    try {
-        await sweepLeftovers();
-    } catch (error) {
-        logger.warn(`Leftover sweep failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
 
     logger.info('Global teardown completed');
 }

@@ -1,8 +1,10 @@
-import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { request, type APIRequestContext } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { WEBPET_ADMIN_STORAGE, WEBPET_AUTH_DIR } from '@config/webpetPaths';
 import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/webpetEnv';
+// Shared with the residue sweep, which logs in the same way before any project runs.
+import { csrfTokenFromContext, loginWithBackoff } from '@utils/api/apiLogin';
 
 /**
  * Port of the source repo's e2e/global-setup.ts (apps/web/e2e), invoked by the
@@ -124,62 +126,6 @@ function freeUserInitials(users: UserListItem[]): string {
 const RESTRICTED_USERNAME = 'RestrictedTest';
 const RESTRICTED_PASSWORD = 'Restricted123!';
 
-// Cookie names the Go API uses for the CSRF token, gated on PT_COOKIE_SECURE:
-// "__Host-pt_csrf" under HTTPS, unprefixed "pt_csrf" in dev/HTTP. Mirrors the
-// browser's readCsrfToken() (apps/web/src/shared/lib/csrf.ts).
-const CSRF_COOKIE_NAMES = ['__Host-pt_csrf', 'pt_csrf'] as const;
-
-/**
- * Reads the CSRF token from a logged-in request context's cookies so it can be
- * echoed in the X-CSRF-Token header on mutating requests (the API's RequireCSRF
- * double-submit check). Throws if no CSRF cookie is present (e.g. login didn't
- * set it), so the caller's catch reports a precise reason rather than a bare 403.
- */
-async function csrfTokenFromContext(ctx: APIRequestContext): Promise<string> {
-    const { cookies } = await ctx.storageState();
-    for (const name of CSRF_COOKIE_NAMES) {
-        const hit = cookies.find((c) => c.name === name);
-        if (hit) return decodeURIComponent(hit.value);
-    }
-    throw new Error(
-        `No CSRF cookie (${CSRF_COOKIE_NAMES.join(' / ')}) found on the logged-in context — cannot send X-CSRF-Token`,
-    );
-}
-
-/**
- * POST /api/auth/login, retrying only the statuses worth retrying.
- *
- * Dev rate-limits its login path in memory, so a burst of runs answers 429 for a
- * while. A single-shot login reports that as "credentials may have drifted", which is
- * a misleading diagnosis and, on the admin path, takes the whole webpet project down.
- * Any other 4xx is a real answer and returns immediately, so a genuinely wrong
- * password still fails fast.
- */
-async function loginWithBackoff(
-    ctx: APIRequestContext,
-    username: string,
-    password: string,
-    label: string,
-): Promise<APIResponse> {
-    const send = () =>
-        ctx.post('/api/auth/login', {
-            data: { username, password },
-            headers: { 'Content-Type': 'application/json' },
-        });
-
-    let res = await send();
-    for (const delay of [2_000, 5_000, 10_000]) {
-        if (res.ok()) return res;
-        if (res.status() !== 429 && res.status() < 500) return res;
-        console.warn(
-            `[webpet-setup] ${label} login got HTTP ${String(res.status())}; ` +
-                `retrying in ${String(delay / 1000)}s`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        res = await send();
-    }
-    return res;
-}
 
 /**
  * Soft-delete a user through the admin context, rowversion-guarded.

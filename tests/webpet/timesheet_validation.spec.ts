@@ -37,6 +37,7 @@
  * coupling and costs nothing.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
+import { sixCharRunToken } from '@utils/cleanup/runToken';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -44,7 +45,8 @@ test.describe.configure({ mode: 'serial' });
 // rows BUG-11/WEBPET-1798's own bug repro soft-deleted on dev, and a
 // soft-deleted row permanently occupies its name (the fix changed 500->409,
 // it did not free the name) — so the bare literals would collide forever.
-const RUN_TOKEN = Date.now().toString(36).slice(-6).toUpperCase();
+// Shared token so the residue sweep can date the record from its name.
+const RUN_TOKEN = sixCharRunToken();
 const TEST_NAME = `_PET202TestValidation_${RUN_TOKEN}`;
 const TEST_NAME_2 = `_PET202TestValidation2_${RUN_TOKEN}`;
 

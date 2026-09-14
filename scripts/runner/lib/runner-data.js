@@ -138,7 +138,7 @@ function loadScopes() {
  * Playwright project and has its own row data and checker (`webpet:runner:check`),
  * so its `testCaseId`s must not be measured against `src/data/runner/`.
  */
-const EXCLUDED_TEST_DIRS = new Set(['webpet']);
+const EXCLUDED_TEST_DIRS = new Set(['webpet', 'tools']);
 
 /**
  * Every `*.spec.ts` under `tests/`, excluding the trees listed in

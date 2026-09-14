@@ -391,28 +391,34 @@ test.describe('401 session-lifecycle discriminator', { tag: ['@WebPet', '@wp-not
 
         const form = pages.departmentForm;
         const dept = await ensureDepartment(request);
-        await form.gotoEdit(dept.id);
-        await form.waitForForm();
+        try {
+            await form.gotoEdit(dept.id);
+            await form.waitForForm();
 
-        await page.route(`**/api/departments/${String(dept.id)}`, async (route, req) => {
-            if (req.method() !== 'PUT') {
-                await route.fallback();
-                return;
-            }
-            await route.fulfill({
-                status: 401,
-                contentType: 'application/json',
-                body: JSON.stringify({ error: 'Not authenticated.', code: 'not_authenticated' }),
+            await page.route(`**/api/departments/${String(dept.id)}`, async (route, req) => {
+                if (req.method() !== 'PUT') {
+                    await route.fallback();
+                    return;
+                }
+                await route.fulfill({
+                    status: 401,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ error: 'Not authenticated.', code: 'not_authenticated' }),
+                });
             });
-        });
 
-        await form.crewRequiredLabel.click();
-        await form.footer.saveButtonExact.click();
+            await form.crewRequiredLabel.click();
+            await form.footer.saveButtonExact.click();
 
-        await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 5000 });
-        // The "your session expired" toast must NOT appear on the not_authenticated
-        // path — the user never had a session to lose.
-        await expect(pages.toasts.message(/session expired.*sign in again/i)).toHaveCount(0);
+            await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 5000 });
+            // The "your session expired" toast must NOT appear on the not_authenticated
+            // path — the user never had a session to lose.
+            await expect(pages.toasts.message(/session expired.*sign in again/i)).toHaveCount(0);
+        } finally {
+            // The PUT was intercepted, so the row is untouched on the server and
+            // deletes cleanly; without this the department leaked every run.
+            await deleteDepartment(request, dept.id);
+        }
     });
 
 });

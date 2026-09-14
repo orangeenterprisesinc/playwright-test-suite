@@ -31,24 +31,14 @@
  * name, mirroring variety-equivalence-cucumbers-european.spec.ts's RUN_TOKEN.
  */
 import type { APIRequestContext } from '@playwright/test'
+import { Logger } from '@utils/logger'
+// The token scheme lives with its decoder so the residue sweep can date every
+// record this factory makes; `uniqueName` is re-exported unchanged for the specs.
+import { RUN_TOKEN, WORKER_INDEX, uniqueName } from '@utils/cleanup/runToken'
 
-// Per-worker token: Date.now() gives run-freshness; the worker index guarantees
-// two workers that boot in the same millisecond still get distinct tokens.
-const WORKER_INDEX =
-  process.env['TEST_WORKER_INDEX'] ?? process.env['TEST_PARALLEL_INDEX'] ?? '0'
-const RUN_TOKEN = `${Date.now().toString(36).slice(-5)}${WORKER_INDEX}`.toUpperCase()
+export { uniqueName }
 
-let seq = 0
-
-/**
- * A run-unique name. `prefix` keeps records human-identifiable in the DB when
- * triaging leftovers; the token+seq suffix guarantees uniqueness per worker and
- * across concurrent workers. Kept well under typical name-column limits.
- */
-export function uniqueName(prefix: string): string {
-  seq += 1
-  return `${prefix}_${RUN_TOKEN}_${seq}`
-}
+const logger = new Logger('DataFactory')
 
 let codeSeq = 0
 
@@ -121,16 +111,7 @@ export async function ensureCrew(
  * delete (the only FK the API guards on).
  */
 export async function deleteCrew(request: APIRequestContext, id: number): Promise<void> {
-  // Best-effort: never let cleanup fail an otherwise-passing test (e.g. if the
-  // request context is already tearing down when an in-test finally runs).
-  try {
-    const detailRes = await request.get(`/api/crews/${String(id)}`)
-    if (!detailRes.ok()) return
-    const { version } = (await detailRes.json()) as { version: string }
-    await request.delete(`/api/crews/${String(id)}`, { data: { rowversion: version } })
-  } catch {
-    /* swallow — cleanup is best-effort */
-  }
+  await deleteByRowversion(request, '/api/crews', id)
 }
 
 /**
@@ -145,15 +126,28 @@ async function deleteByRowversion(
   id: number
 ): Promise<void> {
   // Best-effort: never let cleanup fail an otherwise-passing test (e.g. if the
-  // request context is already tearing down when an in-test finally runs).
+  // request context is already tearing down when an in-test finally runs) — but
+  // say so. A silent 409 is how a leaked row used to vanish from view.
   try {
     const detailRes = await request.get(`${path}/${String(id)}`)
-    if (!detailRes.ok()) return
-    const { version } = (await detailRes.json()) as { version: string }
-    if (!version) return
-    await request.delete(`${path}/${String(id)}`, { data: { rowversion: version } })
-  } catch {
-    /* swallow — cleanup is best-effort */
+    if (detailRes.status() === 404) return
+    if (!detailRes.ok()) {
+      logger.warn(`cleanup GET ${path}/${String(id)} → ${String(detailRes.status())}; row left in place`)
+      return
+    }
+    const { version } = (await detailRes.json()) as { version?: string }
+    if (!version) {
+      logger.warn(`cleanup ${path}/${String(id)}: detail carries no version; row left in place`)
+      return
+    }
+    const res = await request.delete(`${path}/${String(id)}`, { data: { rowversion: version } })
+    if (res.status() !== 204 && res.status() !== 200 && res.status() !== 404) {
+      logger.warn(
+        `cleanup DELETE ${path}/${String(id)} → ${String(res.status())} ${(await res.text()).slice(0, 200)}; row left in place`
+      )
+    }
+  } catch (error) {
+    logger.warn(`cleanup ${path}/${String(id)} threw: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
@@ -278,8 +272,15 @@ export async function ensureEmployee(
     withDepartment?: boolean
   } = {}
 ): Promise<EnsuredEmployee> {
-  const lastName = uniqueName(opts.namePrefix ?? 'E2EEmp').slice(0, 20)
-  const firstName = 'Test'
+  const prefix = opts.namePrefix ?? 'E2EEmp'
+  const requested = uniqueName(prefix)
+  // lastName is capped at 20. Truncation may drop the `_seq` (harmless) but must
+  // never cut the token the residue sweep dates the record by: when even the token
+  // would not fit, the prefix stays the last name and the token moves into the
+  // first name — `Temporary Badge, Test_<token>_<seq>`.
+  const tokenFits = `${prefix}_${RUN_TOKEN}`.length <= 20
+  const lastName = tokenFits ? requested.slice(0, 20) : prefix.slice(0, 20)
+  const firstName = tokenFits ? 'Test' : `Test${requested.slice(prefix.length)}`
   const name = `${lastName}, ${firstName}`.slice(0, 50)
 
   let departmentId: number | null = opts.department?.id ?? null
