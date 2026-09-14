@@ -85,15 +85,13 @@ export class ImportInternetPage extends BasePage {
     }
 
     /**
-     * Wait until every pulled file's badge reaches a terminal import state.
-     * The page polls the run every 3s; `Received`/`Processing...` are transient.
+     * Wait until the results list shows one row per pulled file. Terminal state is
+     * NOT awaited here: a drain can include other runs' envelopes whose badges may
+     * lag or never settle, so callers wait on their own file through the run API
+     * (`waitForImportFiles`) instead of on every badge.
      */
-    async waitForTerminalFiles(count: number, timeout = 90_000): Promise<void> {
+    async waitForFileRows(count: number, timeout = 30_000): Promise<void> {
         await expect(this.fileRows).toHaveCount(count, { timeout });
-        const terminal = this.fileRows.locator('[data-slot="badge"]', {
-            hasText: /^(Completed|Failed|Completed with errors)$/,
-        });
-        await expect(terminal).toHaveCount(count, { timeout });
     }
 
     async screenshot(): Promise<Buffer> {

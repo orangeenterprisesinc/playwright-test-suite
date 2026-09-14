@@ -89,10 +89,13 @@ function referenceDate(d: Date): string {
  * insert. Base36 of the clock keeps it 4 chars, like a real device prefix.
  */
 export function newRunPrefix(now = new Date()): string {
-    return Math.floor(now.getTime() / 1000)
-        .toString(36)
-        .slice(-4)
-        .toUpperCase();
+    // Clock alone is not unique across workers: two specs building in the same
+    // second minted the same prefix and so the same filename, and the relay
+    // mailbox kept only one envelope (2026-09-14, B2 vanished behind B1). The
+    // last char is the worker slot, the first three the clock — still 4 chars.
+    const worker = Number(process.env['TEST_PARALLEL_INDEX'] ?? process.env['TEST_WORKER_INDEX'] ?? 0);
+    const clock = Math.floor(now.getTime() / 1000).toString(36).slice(-3);
+    return `${clock}${(worker % 36).toString(36)}`.toUpperCase();
 }
 
 /**

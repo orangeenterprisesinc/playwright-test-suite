@@ -48,24 +48,30 @@ import {
 import { cleanupCards } from '@utils/api/officeVerification';
 
 /**
- * The analyze response schema is not pinned by the plan (N5: server-side only,
- * no UI probe reaches it) — this walks whatever shape comes back looking for a
- * string value starting with the EARS-mandated text, so the assertion is exact
- * about the message while staying tolerant of the surrounding envelope.
+ * The analyze payload reports exceptions in a top-level `exceptions[]`, each with
+ * a `code`, a legacy-parity `message` and the `sourceTimeCardCounter` it flags
+ * (WEBPET-2657 retired the interim "JobCounter is required…" text). Which code a
+ * job-less piece-out draws depends on the tenant: with `requireJobInEmpPieceOut`
+ * on it is the blocking `block.fk_missing` ("… is missing Job"); off, the card
+ * can only fail to pair and is flagged `warn.employee_piece_job_card_not_found_plain`
+ * ("No corresponding Job-Card was found for Piece-Out record."). The test reads
+ * the preference and expects exactly one of the two — never either.
  */
-function collectJobCounterIssues(node: unknown, matches: unknown[] = []): unknown[] {
-    if (Array.isArray(node)) {
-        for (const item of node) collectJobCounterIssues(item, matches);
-    } else if (node && typeof node === 'object') {
-        for (const value of Object.values(node as Record<string, unknown>)) {
-            if (typeof value === 'string' && /^JobCounter is required/.test(value)) {
-                matches.push(node);
-            } else {
-                collectJobCounterIssues(value, matches);
-            }
-        }
-    }
-    return matches;
+const MISSING_JOB_CODE = {
+    blocking: 'block.fk_missing',
+    warning: 'warn.employee_piece_job_card_not_found_plain',
+} as const;
+
+interface AnalyzeException {
+    code?: string;
+    severity?: string;
+    message?: string;
+    sourceTimeCardCounter?: number;
+}
+
+function missingJobExceptions(analyze: unknown, code: string): AnalyzeException[] {
+    const list = (analyze as { exceptions?: AnalyzeException[] }).exceptions ?? [];
+    return list.filter((e) => e.code === code);
 }
 
 test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
@@ -112,7 +118,10 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
 
         const prefsRes = await sessionApi.get('preferences');
         expect(prefsRes.ok(), `GET preferences failed with ${prefsRes.status()}`).toBe(true);
-        const preferences = (await prefsRes.json()) as { undefinedEmployee?: unknown };
+        const preferences = (await prefsRes.json()) as {
+            undefinedEmployee?: unknown;
+            requireJobInEmpPieceOut?: boolean;
+        };
         const undefinedEmployeeId = Number(preferences.undefinedEmployee);
         expect(
             Number.isFinite(undefinedEmployeeId),
@@ -307,21 +316,40 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
                 contentType: 'application/json',
             });
 
-            const jobCounterIssues = collectJobCounterIssues(analyze) as Array<Record<string, unknown>>;
+            const expectedCode = preferences.requireJobInEmpPieceOut
+                ? MISSING_JOB_CODE.blocking
+                : MISSING_JOB_CODE.warning;
+            const jobCounterIssues = missingJobExceptions(analyze, expectedCode);
+            testInfo.annotations.push({
+                type: 'missing-job-exception',
+                description:
+                    `requireJobInEmpPieceOut=${String(preferences.requireJobInEmpPieceOut)} → expected ` +
+                    `${expectedCode}; got ${jobCounterIssues.length}: "${jobCounterIssues[0]?.message ?? ''}"`,
+            });
             expect(
                 jobCounterIssues.length,
-                `no issue matching /^JobCounter is required/ in ${JSON.stringify(analyze)}`,
+                `no ${expectedCode} exception in ${JSON.stringify((analyze as { exceptions?: unknown }).exceptions ?? analyze)}`,
             ).toBeGreaterThan(0);
             // The payload identifies cards by sourceTimeCardCounter, not by
-            // Reference — so join on the ids this run's import produced. Every
-            // piece card must be flagged, not merely one of them.
-            const flaggedCardIds = new Set(jobCounterIssues.map((issue) => Number(issue.sourceTimeCardCounter)));
-            const importedPieceCardIds = [stickerACard!, stickerBCard!, stickerCCard!].map((c) => c.timeCardCounter);
+            // Reference — so join on the ids this run's import produced, per card.
+            // One exception per card, the blocking one first: the sticker that fell
+            // to the Undefined Employee is flagged `block.undefined_employee`
+            // ("Cannot use Undefined Employee") instead of the missing-job code —
+            // the fallback owner B5-R6 lands on is itself unusable, which
+            // supersedes the missing job.
+            const exceptions = (analyze as { exceptions?: AnalyzeException[] }).exceptions ?? [];
+            const codesFor = (id: number) =>
+                exceptions.filter((e) => Number(e.sourceTimeCardCounter) === id).map((e) => e.code);
+            for (const card of [stickerACard!, stickerBCard!]) {
+                expect(
+                    codesFor(card.timeCardCounter),
+                    `B5-R7: piece card ${card.timeCardCounter} must carry ${expectedCode}`,
+                ).toContain(expectedCode);
+            }
             expect(
-                importedPieceCardIds.filter((id) => flaggedCardIds.has(id)),
-                `B5-R7: every piece card this run imported must carry the missing-job issue. ` +
-                    `Imported ${JSON.stringify(importedPieceCardIds)}, flagged ${JSON.stringify([...flaggedCardIds])}`,
-            ).toEqual(importedPieceCardIds);
+                codesFor(stickerCCard!.timeCardCounter),
+                `B5-R6/R7: the Undefined-Employee piece card ${stickerCCard!.timeCardCounter} must be flagged unusable`,
+            ).toContain('block.undefined_employee');
         } finally {
             // Never leave punches on shared dev data, pass or fail — including the
             // Undefined-Employee card.
