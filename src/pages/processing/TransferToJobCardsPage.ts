@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
 
 /**
  * Input ▸ Transfer to Job Card (catalog D2/D4) — the screen Amy's Journey B
@@ -53,6 +54,12 @@ export class TransferToJobCardsPage extends BasePage {
     /** The Issues breakdown panel below the grid. */
     readonly issuesRegion: Locator;
 
+    // ── Multi-Edit (More actions ▸ Multi-Edit) ──────────────────────
+    /** Role-based, not a testid: only the dialog's own multi-edit-* testids were DOM-verified. */
+    readonly moreActionsButton: Locator;
+    readonly multiEditMenuItem: Locator;
+    readonly multiEdit: WebpetMultiEditDialogComponent;
+
     /**
      * The Time In side panel opened from a row — title "Time In", fields
      * Reference / Date-Time / Ranch / Field / Phase / Employee / Work Crew /
@@ -99,6 +106,10 @@ export class TransferToJobCardsPage extends BasePage {
             .getByRole('button', { name: 'Date range', exact: true });
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
+
+        this.moreActionsButton = page.getByRole('button', { name: /more actions/i });
+        this.multiEditMenuItem = page.getByRole('menuitem', { name: /^Multi-Edit$/i });
+        this.multiEdit = new WebpetMultiEditDialogComponent(page);
 
         this.timeInPanel = page
             .locator('div')
@@ -262,6 +273,30 @@ export class TransferToJobCardsPage extends BasePage {
      */
     rowCells(timeCardCounter: number): Locator {
         return this.page.getByRole('row').filter({ has: this.rowFor(timeCardCounter) });
+    }
+
+    /**
+     * A cell by column index. This screen's grid is not the shared
+     * WebpetDataGridComponent, hence the local helper. Column map:
+     * 0 select · 1 add-record · 2 delete · 3 Crew · 4 Employee · 5 date · 6 time ·
+     * 7 Field · 8 Job · 9 Pieces · 10 Traceability · 11 Ranch · 12 Reference ·
+     * 13 Type · 14 Pay by Piece · 15 Transferred · 16 Export Identifier · 17 Run ·
+     * 18 Employee Selection · 19 Status
+     */
+    cellAt(row: Locator, index: number): Locator {
+        return row.getByRole('cell').nth(index);
+    }
+
+    async selectRowByReference(reference: string): Promise<void> {
+        const row = this.rowByReference(reference);
+        await row.getByRole('checkbox').first().check();
+    }
+
+    /** Opens More actions ▸ Multi-Edit on the currently selected rows. */
+    async openMultiEdit(): Promise<void> {
+        await this.moreActionsButton.click();
+        await this.multiEditMenuItem.click();
+        await this.multiEdit.waitForOpen();
     }
 
     /**
