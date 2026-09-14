@@ -6,6 +6,7 @@ import {
     isStorageUnavailable,
     NO_STORAGE_REASON,
     waitForImportRun,
+    type ImportFileResult,
 } from './connectivityImportApi';
 import {
     CARD_TYPE,
@@ -283,11 +284,31 @@ async function importViaInternetUi(
             body: JSON.stringify(run, null, 2),
             contentType: 'application/json',
         });
+        // Only OUR envelope may fail the test. The shared mailbox re-serves
+        // envelopes from earlier runs (a drain of 8 stale files was seen on
+        // 2026-09-14, every one a duplicate-key rejection), and those say
+        // nothing about this run. The filename `FromAndroid-<stamp>-<prefix>.xml`
+        // and every reference `<seq>-<yyMMdd>-<part>-<prefix>-ui` share the prefix.
+        const references = referencesInExport(input.xml);
+        const prefix = references[0]?.split('-')[3] ?? '';
+        const fileNameOf = (f: ImportFileResult) => String((f as { filename?: string }).filename ?? f.fileName ?? '');
+        const isOurs = (f: ImportFileResult) =>
+            (prefix !== '' && fileNameOf(f).endsWith(`-${prefix}.xml`)) ||
+            references.some((r) => String(f.message ?? '').includes(r));
         const failedFiles = run.files.filter((f) => String(f.status) === 'failed');
+        const stale = failedFiles.filter((f) => !isOurs(f));
+        if (stale.length) {
+            testInfo.annotations.push({
+                type: 'stale-envelopes-failed',
+                description:
+                    `The drain also pulled ${stale.length} older envelope(s) that failed to import — not this ` +
+                    `run's, so not asserted: ${stale.map((f) => `${fileNameOf(f)}: ${String(f.message ?? '').slice(0, 160)}`).join(' | ')}`,
+            });
+        }
+        const ours = failedFiles.filter(isOurs);
         expect(
-            failedFiles,
-            `import run ${run.runId} could not import ${failedFiles.length} pulled file(s): ` +
-                JSON.stringify(failedFiles),
+            ours,
+            `import run ${run.runId} could not import this run's envelope: ${JSON.stringify(ours)}`,
         ).toHaveLength(0);
     } else {
         // A parallel worker's trigger got there first and is importing our
