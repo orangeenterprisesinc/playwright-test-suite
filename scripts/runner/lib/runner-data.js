@@ -138,7 +138,7 @@ function loadScopes() {
  * Playwright project and has its own row data and checker (`webpet:runner:check`),
  * so its `testCaseId`s must not be measured against `src/data/runner/`.
  */
-const EXCLUDED_TEST_DIRS = new Set(['webpet', 'tools']);
+const EXCLUDED_TEST_DIRS = new Set(['webpet', 'tools', 'contrib']);
 
 /**
  * Every `*.spec.ts` under `tests/`, excluding the trees listed in
@@ -162,9 +162,9 @@ function specFiles(dir = TESTS_DIR) {
  * `annotation: { type: 'testCaseId', description: 'A1-001' }` and a
  * `test.use({ testCaseId: 'A1-001' })` option.
  */
-function specClaims() {
+function specClaims(root = TESTS_DIR) {
     const claims = new Map();
-    for (const file of specFiles()) {
+    for (const file of specFiles(root)) {
         const source = fs.readFileSync(file, 'utf8');
         const relative = path.relative(ROOT, file).split(path.sep).join('/');
         const patterns = [
@@ -209,9 +209,9 @@ function parseAnnotation(optionsBlock, type) {
  * @returns {{file: string, title: string, tags: string[], suiteTags: string[],
  *            testCaseId: string|null, requirements: string[]}[]}
  */
-function specTests() {
+function specTests(root = TESTS_DIR) {
     const found = [];
-    for (const file of specFiles()) {
+    for (const file of specFiles(root)) {
         const source = fs.readFileSync(file, 'utf8');
         const relative = path.relative(ROOT, file).split(path.sep).join('/');
 
