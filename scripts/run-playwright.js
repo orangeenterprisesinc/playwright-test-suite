@@ -41,6 +41,15 @@ const wantsResidueSweep = args.some(
 // (see WEBPET_ENABLED). The runner process would detect `--project=webpet`
 // on its own argv, but worker processes re-load the config with a different
 // argv — exporting WEBPET=1 keeps the project list identical everywhere.
+// The contrib lane project is conditional the same way (see CONTRIB_ENABLED);
+// exporting CONTRIB=1 keeps the project list identical in the worker processes,
+// which re-evaluate the config with a different argv.
+const wantsContrib = args.some(
+    (arg, i) =>
+        arg.startsWith('--project=contrib') ||
+        (arg === '--project' && (args[i + 1] ?? '').startsWith('contrib')),
+);
+
 const wantsWebpet = args.some(
     (arg, i) =>
         arg.startsWith('--project=webpet') ||
@@ -53,6 +62,7 @@ const result = spawnSync(process.execPath, [cli, 'test', ...args], {
         ...process.env,
         TEST_ENV: process.env.TEST_ENV || envName,
         ...(wantsWebpet ? { WEBPET: '1' } : {}),
+        ...(wantsContrib ? { CONTRIB: '1' } : {}),
         ...(wantsFrameworkSettings ? { WEBPET_PARITY: '0' } : {}),
         ...(wantsResidueSweep ? { RESIDUE_SWEEP_STANDALONE: '1' } : {}),
         ...(wantsDryRun ? { RESIDUE_DRY_RUN: '1' } : {}),

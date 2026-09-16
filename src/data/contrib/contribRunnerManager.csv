@@ -1,0 +1,2 @@
+id,jira,file,category,testName,testTitle,tags,owner,enabled,notes
+WEBPET-0000-01,WEBPET-0000,WEBPET-0000-lane-example.spec.ts,ui,verifyThatTheCropListScreenLoads,[Crop] Verify that the crop list screen loads.,@wp-ui|@wp-smoke,gukapriyanintuware-stack,1,the lane's worked example — not a real ticket

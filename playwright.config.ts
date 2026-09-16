@@ -67,6 +67,21 @@ const RESIDUE_TOOLS_ENABLED =
 if (RESIDUE_TOOLS_ENABLED) process.env.RESIDUE_SWEEP_STANDALONE = '1';
 
 /**
+ * The developer-contribution lane (tests/contrib) is opt-in the same way, so a
+ * normal run never collects it and a contributed spec can never reach the
+ * journey or web-pet suites by accident. It borrows `webpet-setup` for auth,
+ * which is why that project materializes for either flag below.
+ */
+const CONTRIB_ENABLED =
+    process.env.CONTRIB === '1' ||
+    process.argv.some(
+        (arg, i, argv) =>
+            arg.startsWith('--project=contrib') ||
+            (arg === '--project' && (argv[i + 1] ?? '').startsWith('contrib')),
+    );
+if (CONTRIB_ENABLED) process.env.CONTRIB = '1';
+
+/**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
  * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
  * so a run of the converted suite is still comparable with the source repo's
@@ -257,6 +272,7 @@ export default defineConfig({
             testIgnore: [
                 '**/tests/webpet/**',
                 '**/tests/tools/**',
+                '**/tests/contrib/**',
                 '**/tests/seed.spec.ts',
             ],
             use: {
@@ -290,7 +306,7 @@ export default defineConfig({
         // `locale` + `Accept-Language` are NOT parity pins: the suite asserts
         // English copy and the fixture pins pt.locale to match, so they survive
         // the flip. Same for the deliberate absence of storageState.
-        ...(WEBPET_ENABLED
+        ...(WEBPET_ENABLED || CONTRIB_ENABLED
             ? [
                   {
                       // Ports the source repo's globalSetup (admin API login →
@@ -309,6 +325,11 @@ export default defineConfig({
                           screenshot: 'off' as const,
                       },
                   },
+              ]
+            : []),
+
+        ...(WEBPET_ENABLED
+            ? [
                   {
                       name: 'webpet',
                       testDir: './tests/webpet',
@@ -351,6 +372,32 @@ export default defineConfig({
                           // own contexts from tests/webpet/.auth, and notifications.spec.ts's
                           // clean-context tests must start unauthenticated (matching
                           // the source config).
+                      },
+                  },
+              ]
+            : []),
+
+        // ── Developer-contribution lane (tests/contrib) — opt-in, see CONTRIB_ENABLED ──
+        // Dev-authored specs for their own features, kept out of the QA-owned
+        // regression and journey suites until QA promotes one (see
+        // docs/DEV-E2E-CONTRIBUTION.md). No parity pins: the lane has no lifted
+        // baseline to reproduce, so it simply inherits this file's globals.
+        ...(CONTRIB_ENABLED
+            ? [
+                  {
+                      name: 'contrib',
+                      testDir: './tests/contrib',
+                      // Same reason as the webpet project: the global fullyParallel
+                      // splits one file across workers and runs its beforeAll twice.
+                      fullyParallel: false,
+                      dependencies: ['webpet-setup'], // borrowed auth; no .auth/user.json
+                      use: {
+                          ...devices['Desktop Chrome'],
+                          locale: 'en-US',
+                          extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
+                          // NO storageState — src/fixtures/contrib.fixture.ts seeds
+                          // its own contexts from tests/webpet/.auth, exactly as the
+                          // web-pet fixture it extends does.
                       },
                   },
               ]

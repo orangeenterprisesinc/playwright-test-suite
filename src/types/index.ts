@@ -127,6 +127,27 @@ export interface WebpetTestCaseData extends TestCaseData {
 }
 
 /**
+ * One runner row for a developer-contributed spec (`tests/contrib/`).
+ *
+ * Narrower than {@link WebpetTestCaseData} on purpose. There is no structural
+ * `file::titlePath` key: the lifted suite needed one because it arrived with
+ * hundreds of unannotated tests, whereas every contrib spec is born with a
+ * `testCaseId`, so the id is the only identity and an unmatched test is a
+ * hard error rather than a fail-open.
+ *
+ * `owner` is the contributing developer's GitHub handle — the one column a
+ * human fills and the sync never rewrites. It is who QA asks when a contrib
+ * spec goes red in the nightly lane.
+ */
+export interface ContribTestCaseData extends TestCaseData {
+    /** Required here, optional on the base: a contrib spec exists because of a ticket. */
+    jira: string;
+    file: string;
+    owner: string;
+    notes?: string;
+}
+
+/**
  * Contract for reading test data from any supported source (currently JSON, CSV).
  *
  * All data reader implementations (e.g., {@link JsonDataReader}, {@link CsvDataReader})

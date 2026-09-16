@@ -181,6 +181,7 @@ class SlackReporter implements Reporter {
 function resolveSuiteName(): string {
     const configured = getConfigValue(ConfigProperties.SLACK_SUITE_NAME).trim();
     if (configured) return configured;
+    if (process.env.CONTRIB === '1') return 'Dev Contrib';
     return process.env.WEBPET === '1' ? 'WebPet' : 'User Journey';
 }
 
