@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import type { ImportDeadline } from './connectivityImportApi';
 
 /**
  * Reading back the time cards a device import created, and removing them again.
@@ -99,15 +100,18 @@ export async function listTimeCards(
 export async function findByReferences(
     request: APIRequestContext,
     references: string[],
-    opts: { from: string; to: string; cardType?: number; timeoutMs?: number },
+    opts: { from: string; to: string; cardType?: number; timeoutMs?: number; deadline?: ImportDeadline },
 ): Promise<OfficeTimeCard[]> {
     const wanted = new Set(references);
-    const deadline = Date.now() + (opts.timeoutMs ?? 30_000);
+    // `deadline` shares one budget across a delivery's whole wait chain when the
+    // caller has one (deliverAndVerifyCards, B5/B6/B7); otherwise fall back to
+    // this call's own timeoutMs, as every other caller of this function does.
+    const until = opts.deadline?.at ?? Date.now() + (opts.timeoutMs ?? 30_000);
     for (;;) {
         const found = (await listTimeCards(request, opts)).filter((c) =>
             wanted.has(String(c.reference ?? '')),
         );
-        if (found.length >= references.length || Date.now() > deadline) return found;
+        if (found.length >= references.length || Date.now() > until) return found;
         await new Promise((r) => setTimeout(r, 1_000));
     }
 }

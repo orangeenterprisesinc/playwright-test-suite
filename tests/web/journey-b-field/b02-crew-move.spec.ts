@@ -24,12 +24,13 @@ import { JOURNEY_B_FIXTURE as F } from '@data/journey-b/fixture';
 import {
     buildCrewTimeInEnvelope,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
 } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { verifyImportInOffice } from '@utils/api/officeVerification';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, () => {
     test('[Crew Move] Deliver a post-move export and verify movers and the member left behind.', {
@@ -39,11 +40,11 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
             { type: 'requirement', description: 'B2-R6|B2-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
         const office = await seedOfficeFixture(sessionApi);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         // B1 and B2 share crew members and run in parallel workers against the
         // same tenant; punching the same day would trip the office's
         // duplicate-Time-In rule and flip the rows from Warning to Blocking.
@@ -99,6 +100,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B2',
             punchDate,
             crewId: office.crew.id,

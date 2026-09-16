@@ -37,7 +37,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type CodeHistoryAssignment,
 } from '@utils/relay/exportEnvelope';
@@ -45,7 +45,12 @@ import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { getCodeHistory } from '@utils/api/stickerRollApi';
-import { pullFromRelayInternet } from '@utils/api/connectivityImportApi';
+import {
+    annotateIfImportCircuitOpen,
+    journeyBTestTimeoutMs,
+    newImportDeadline,
+    pullFromRelayInternet,
+} from '@utils/api/connectivityImportApi';
 import {
     CARD_TYPE,
     findByReferences,
@@ -73,11 +78,14 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             { type: 'requirement', description: 'B7-R1|B7-R2|B7-R3|B7-R4|B7-R5|B7-R6|B7-R7|B7-R8' },
         ],
     }, async ({ sessionApi }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         // ── Data — prefixes derived so the office's own extraction (empStartLoc=1,
         // rollStartLoc=8) reproduces the value this test sends, like-for-like ──
-        const runPrefix = newRunPrefix();
+        // Attempt-unique, not just run-unique: EmployeeCodeHistory has no DELETE,
+        // so a retry sharing a run-stable prefix would give the WEBPET-1410 join a
+        // second row for the same employee/day.
+        const runPrefix = lineagePrefix(`A${testInfo.retry}`);
         const assignedPrefix = `B7A${runPrefix}`;
         const unassignedPrefix = `B7U${runPrefix}`;
         const assignedRoll = `${assignedPrefix}0001`;
@@ -171,6 +179,11 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         let tiCards: OfficeTimeCard[] = [];
         let poCards: OfficeTimeCard[] = [];
         try {
+            // One deadline for the whole two-device flow — both relay pulls and
+            // both findByReferences polls below share it, instead of each device
+            // sync getting a full budget of its own.
+            const deadline = newImportDeadline();
+            annotateIfImportCircuitOpen(testInfo);
 
             // ── Seed ──
             const office = await seedOfficeFixture(sessionApi);
@@ -188,7 +201,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             // the real two-sync flow never has. Distinct reference prefixes stand in
             // for her two device ids (S31 / D31).
             const prefixA = runPrefix;
-            const prefixB = newRunPrefix(new Date(Date.now() + 3_600_000));
+            const prefixB = lineagePrefix(`B${testInfo.retry}`);
             expect(prefixB, 'the two devices must not share a reference prefix').not.toBe(prefixA);
 
             const deliverAndImport = async (label: string, prefix: string, xml: string) => {
@@ -210,7 +223,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 });
                 expect(sent.success, `relay rejected the ${label} export: ${sent.body}`).toBe(true);
 
-                const { pull, run } = await pullFromRelayInternet(sessionApi);
+                const { pull, run } = await pullFromRelayInternet(sessionApi, { deadline, testInfo });
                 await testInfo.attach(`import-run-${label}.json`, {
                     body: JSON.stringify({ pull, run }, null, 2),
                     contentType: 'application/json',
@@ -409,11 +422,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 ).toBe('completed');
             }
 
-            const pollOpts = {
-                from: day,
-                to: day,
-                timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
-            };
+            const pollOpts = { from: day, to: day, deadline };
 
             tiCards = await findByReferences(sessionApi, [deviceA.references[0]], {
                 ...pollOpts,

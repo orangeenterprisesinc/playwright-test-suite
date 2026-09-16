@@ -22,7 +22,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
@@ -30,6 +30,7 @@ import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { deliverAndVerifyCards, cleanupCards } from '@utils/api/officeVerification';
 import { CARD_TYPE } from '@utils/api/timeCardsApi';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] }, () => {
     test('[Meal] Deliver a meal start on the meal job and its return on the work job, and verify both punches.', {
@@ -39,12 +40,12 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
             { type: 'requirement', description: 'B10-R1|B10-R2|B10-R3|B10-R4|B10-R5|B10-R6|B10-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         const office = await seedOfficeFixture(sessionApi);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         // B10 owns day -3; sharing an employee-day with a sibling under
         // `workers=2` would trip the office's duplicate-Time-In rule.
         const punchDate = punchDay(DAY_OFFSET.B10);
@@ -134,6 +135,7 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B10',
             crewId: office.crew.id,
             ranchId: office.ranch.id,

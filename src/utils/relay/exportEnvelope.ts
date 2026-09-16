@@ -20,6 +20,9 @@
  * nothing asserts on it.
  */
 
+import { test } from '@playwright/test';
+import { RUN_ID } from '../cleanup/runToken';
+
 /** No XML prolog: the app's serializer never calls startDocument(). */
 const CARD_TYPE_TIME_IN = 'TimeIn';
 const LOOKUP_CONTENTS = 'Field:Code|Crew:Code|Employee:Code|Equipment:Code|Ranch:Code|Job:Code';
@@ -96,6 +99,48 @@ export function newRunPrefix(now = new Date()): string {
     const worker = Number(process.env['TEST_PARALLEL_INDEX'] ?? process.env['TEST_WORKER_INDEX'] ?? 0);
     const clock = Math.floor(now.getTime() / 1000).toString(36).slice(-3);
     return `${clock}${(worker % 36).toString(36)}`.toUpperCase();
+}
+
+/**
+ * One id per CI attempt (or per dev run): the GitHub run+attempt when present,
+ * else the same clock-derived `RUN_ID` the residue sweep already pins for the
+ * whole run (`global-setup.ts`). The basis {@link lineagePrefix} hashes so every
+ * retry of one test in one run mints the SAME reference prefix.
+ */
+export function runLineageId(): string {
+    const { GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT } = process.env;
+    return GITHUB_RUN_ID ? `${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT ?? '1'}` : RUN_ID;
+}
+
+/** FNV-1a, 32-bit — deterministic and dependency-free. */
+function fnv1a(input: string): number {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return hash >>> 0;
+}
+
+/**
+ * A retry-stable reference prefix: the same test, the same run/attempt and the
+ * same `salt` always hash to the same 4 base36 chars, so every retry of one
+ * test mints the SAME references — unlike {@link newRunPrefix}'s clock-based
+ * scheme, which mints a fresh set each time. That stability is what lets an
+ * earlier attempt's late-landing envelope resolve against the same rows
+ * instead of doubling the employee-day (see officeVerification's split
+ * ours/this-attempt handling). Falls back to `newRunPrefix()` outside a test
+ * context, where `test.info()` throws.
+ */
+export function lineagePrefix(salt = ''): string {
+    let testId: string;
+    try {
+        testId = test.info().testId;
+    } catch {
+        return newRunPrefix();
+    }
+    const hash = fnv1a(`${runLineageId()}-${testId}-${salt}`);
+    return hash.toString(36).slice(-4).padStart(4, '0').toUpperCase();
 }
 
 /**

@@ -21,10 +21,11 @@
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { JOURNEY_B_FIXTURE as F } from '@data/journey-b/fixture';
-import { buildCrewTimeInEnvelope, exportFileName, newRunPrefix } from '@utils/relay/exportEnvelope';
+import { buildCrewTimeInEnvelope, exportFileName, lineagePrefix } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { verifyImportInOffice } from '@utils/api/officeVerification';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
     test('[Crew Time In] Deliver a crew time-in export to the office and verify the punches.', {
@@ -37,15 +38,16 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         // Once the relay gates open, the Internet pull drains the whole mailbox
-        // inside one request — give the journey room beyond the global budget.
-        test.slow();
+        // inside one request — give the journey room beyond the global budget,
+        // sized to one import deadline on top of the project timeout.
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         // The envelope references records by code and the importer's FKs are
         // nullable, so without this the import "succeeds" while linking nothing.
         const office = await seedOfficeFixture(sessionApi);
 
         // ── The export the device would produce: the crew, minus the absentee ──
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         // Threaded explicitly into `expected[0]` below too — the GPS assertion
         // must not assume which card in the array happens to carry the fix.
         const gpsFix = '(34.970215,-120.453984)';
@@ -95,6 +97,7 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B1',
             crewId: office.crew.id,
             ranchId: office.ranch.id,

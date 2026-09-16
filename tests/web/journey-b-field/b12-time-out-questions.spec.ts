@@ -34,7 +34,7 @@ import {
     buildReference,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
@@ -45,6 +45,7 @@ import { CARD_TYPE, getTimeOutDetail, type OfficeTimeCard } from '@utils/api/tim
 import { ensureQuestion, unexpectedAnswer, type QuestionRecord } from '@utils/api/questionsApi';
 import { getCrew, setCrewNotifyUser } from '@utils/api/crewsApi';
 import { findNotifiableUser } from '@utils/api/usersApi';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', '@B12'] }, () => {
     test('[Time-Out Questions] Clock three crew members out with their clock-out question answers and a signature, and verify every answer — including the ones outside the expected response — imports against the right time-out card.', {
@@ -54,7 +55,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
             { type: 'requirement', description: 'B12-R3|B12-R4|B12-R5|B12-R6|B12-R8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         const office = await seedOfficeFixture(sessionApi);
 
@@ -69,7 +70,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         let cards: OfficeTimeCard[] = [];
         try {
             const punchDate = punchDay(DAY_OFFSET.B12);
-            const prefix = newRunPrefix();
+            const prefix = lineagePrefix();
             const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
             const gpsFix = '(36.8076963, -119.8348286)';
 
@@ -259,6 +260,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
                 pages,
                 testInfo,
                 xml,
+                fileName,
                 label: 'B12',
                 crewId: office.crew.id,
                 ranchId: office.ranch.id,
