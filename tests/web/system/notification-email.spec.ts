@@ -38,7 +38,6 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-005' },
-            { type: 'requirement', description: 'UI-R4' },
         ],
     }, async ({ sessionApi }, testInfo) => {
         test.slow();

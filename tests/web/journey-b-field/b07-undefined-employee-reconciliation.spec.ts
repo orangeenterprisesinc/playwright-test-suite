@@ -75,7 +75,6 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B7-001' },
-            { type: 'requirement', description: 'B7-R1|B7-R2|B7-R3|B7-R4|B7-R5|B7-R6|B7-R7|B7-R8' },
         ],
     }, async ({ sessionApi }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

@@ -36,7 +36,6 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         tag: ['@Smoke', '@HighLevel', '@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'A1-001' },
-            { type: 'requirement', description: 'A1-R1|A1-R2|A1-R7|A1-R8' },
         ],
     }, async ({ usersPage, sessionApi, cleanup }) => {
         // ── Create a new user with all fields ──

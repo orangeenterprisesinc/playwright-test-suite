@@ -34,7 +34,6 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         tag: ['@Regression', '@Demo'],
         annotation: [
             { type: 'testCaseId', description: 'B1-001' },
-            { type: 'requirement', description: 'B1-R5|B1-R7|B1-R8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         // Once the relay gates open, the Internet pull drains the whole mailbox

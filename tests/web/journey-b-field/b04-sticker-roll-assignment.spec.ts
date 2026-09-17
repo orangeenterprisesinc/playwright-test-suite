@@ -40,7 +40,6 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         tag: ['@Regression', '@Demo'],
         annotation: [
             { type: 'testCaseId', description: 'B4-001' },
-            { type: 'requirement', description: 'B4-R1|B4-R2|B4-R3|B4-R9' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

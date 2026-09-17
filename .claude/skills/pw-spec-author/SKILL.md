@@ -71,17 +71,12 @@ Every test needs a `testCaseId`; without a matching row the gate skips it.
 ```typescript
 test('[User Setup] Verify that …', {
     tag: ['@Smoke', '@HighLevel', '@Regression'],
-    annotation: [
-        { type: 'testCaseId', description: 'A1-001' },
-        { type: 'requirement', description: 'A1-R1|A1-R2' },
-    ],
+    annotation: { type: 'testCaseId', description: 'A1-001' },
 }, async ({ pages, cleanup }) => { /* … */ });
 ```
 
-- journey specs additionally need `requirement` — pipe-separated EARS ids that
-  **exist in a plan under `test-plans/`** and agree with the row's `req` column
-- web-pet specs need only `testCaseId` (`WP-####`), single-annotation form:
-  `annotation: { type: 'testCaseId', description: 'WP-0096' }`
+- journey specs bind by catalog id (`A1-001`), web-pet specs by `WP-####`; both
+  use the single-annotation form. No other annotation is required.
 
 ### 5. Titles and structure
 
@@ -144,8 +139,8 @@ npm run webpet:runner:sync && npm run webpet:runner:check && npm run webpet:ids:
 
 `runner:check` fails on: a `testCaseId` with no row, an enabled row no spec claims,
 a duplicate id, a category that disagrees with the folder, tier tags that disagree
-with the CSV, a second `@Smoke` in a file, an unknown segment/module, a requirement
-declared in no plan, and a drifted JSON mirror.
+with the CSV, a second `@Smoke` in a file, an unknown segment/module, and a
+drifted JSON mirror.
 
 Then actually run the spec — `npm test -- --grep @A1` or
 `npm run test:webpet -- --grep @wp-crop`.
@@ -164,7 +159,7 @@ Then actually run the spec — `npm test -- --grep @A1` or
 - [ ] fixture module matches the folder
 - [ ] describe tag = journey/workflow (or `@WebPet` + area); test tags = tier chain only
 - [ ] one `@Smoke` per file, and it is the happy path
-- [ ] `testCaseId` annotation present; `requirement` present for journey specs
+- [ ] `testCaseId` annotation present
 - [ ] tier tags equal the CSV row's `tags` column
 - [ ] data from a data module / factory / generator, not literals
 - [ ] no selectors in the spec, no `waitForTimeout`, everything awaited

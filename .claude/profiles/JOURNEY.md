@@ -29,8 +29,7 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
   here — the fixtures are not interchangeable.
 * Tags: `@Journey<X>` + `@<WF>` on describe; `@Smoke`/`@HighLevel`/`@Regression`
   tiers on tests (max one `@Smoke` per file; tier tags must equal the CSV row's
-  `tags`). Annotations: `testCaseId` (`A1-001`) plus pipe-separated EARS
-  `requirement` ids that must exist in the workflow's test-plan.
+  `tags`). Annotation: `testCaseId` (`A1-001`) only.
 * Runner CSVs are **authored by hand** (the opposite of webpet's discovered CSV):
   `npm run runner:sync` regenerates the JSON mirrors, `npm run runner:check`
   fails on drift, `npm run coverage:catalog` reports per-workflow state.

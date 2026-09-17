@@ -57,7 +57,6 @@ test.describe('B15 · Device sync and offline operation', { tag: ['@JourneyB', '
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B15-001' },
-            { type: 'requirement', description: 'B15-R1|B15-R4|B15-R5|B15-R6' },
         ],
     }, async ({ sessionApi, pages, cleanup }, testInfo) => {
         test.slow();

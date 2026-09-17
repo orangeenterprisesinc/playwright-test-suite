@@ -37,7 +37,6 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B2-001' },
-            { type: 'requirement', description: 'B2-R6|B2-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

@@ -61,7 +61,6 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B6-001' },
-            { type: 'requirement', description: 'B6-R1|B6-R2|B6-R3|B6-R4|B6-R5|B6-R6|B6-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

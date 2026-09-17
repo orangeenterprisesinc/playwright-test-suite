@@ -34,7 +34,6 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B3-001' },
-            { type: 'requirement', description: 'B3-R1|B3-R2' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

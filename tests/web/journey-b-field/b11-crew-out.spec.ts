@@ -42,7 +42,6 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B11-001' },
-            { type: 'requirement', description: 'B11-R4|B11-R5|B11-R6|B11-R7|B11-R8|B11-R9' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

@@ -52,7 +52,6 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         tag: ['@Regression', '@Demo'],
         annotation: [
             { type: 'testCaseId', description: 'B12-001' },
-            { type: 'requirement', description: 'B12-R3|B12-R4|B12-R5|B12-R6|B12-R8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

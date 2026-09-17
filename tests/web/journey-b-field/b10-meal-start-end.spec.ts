@@ -37,7 +37,6 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B10-001' },
-            { type: 'requirement', description: 'B10-R1|B10-R2|B10-R3|B10-R4|B10-R5|B10-R6|B10-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

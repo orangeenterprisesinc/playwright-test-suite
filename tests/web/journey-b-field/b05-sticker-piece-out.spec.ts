@@ -86,7 +86,6 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         tag: ['@Regression', '@Demo'],
         annotation: [
             { type: 'testCaseId', description: 'B5-001' },
-            { type: 'requirement', description: 'B5-R1|B5-R2|B5-R3|B5-R4|B5-R5|B5-R6|B5-R7' },
         ],
     }, async ({ sessionApi }, testInfo) => {
         test.setTimeout(journeyBTestTimeoutMs(testInfo));

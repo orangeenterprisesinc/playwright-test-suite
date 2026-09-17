@@ -24,7 +24,6 @@ test.describe('B1 · Relay transport', { tag: ['@JourneyB', '@B1'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'B1-002' },
-            { type: 'requirement', description: 'B1-R7' },
         ],
     }, async ({}, testInfo) => {
         const url = process.env.DEVICE_RELAY_URL;

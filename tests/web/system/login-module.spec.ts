@@ -68,7 +68,6 @@ test.describe('Login', { tag: ['@System'] }, () => {
         tag: ['@Smoke', '@HighLevel', '@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-001' },
-            { type: 'requirement', description: 'UI-R1' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage, leftNavigationPage }) => {
         await loginPage.loginPetTiger(validUserName(), validPassword());
@@ -80,7 +79,6 @@ test.describe('Login', { tag: ['@System'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-002' },
-            { type: 'requirement', description: 'UI-R2|UI-R3' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await expectLoginRejected(loginPage, validUserName(), loginModuleData.wrong_password);
@@ -90,7 +88,6 @@ test.describe('Login', { tag: ['@System'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-003' },
-            { type: 'requirement', description: 'UI-R2|UI-R3' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await expectLoginRejected(loginPage, loginModuleData.wrong_username, validPassword());
@@ -100,7 +97,6 @@ test.describe('Login', { tag: ['@System'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-004' },
-            { type: 'requirement', description: 'UI-R2|UI-R3' },
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
         await expectLoginRejected(loginPage, loginModuleData.wrong_username, loginModuleData.wrong_password);

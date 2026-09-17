@@ -20,12 +20,6 @@
                 "high-level",
                 "regression"
             ],
-            "req": [
-                "A1-R1",
-                "A1-R2",
-                "A1-R7",
-                "A1-R8"
-            ],
             "status": "automated",
             "enabled": true
         },
