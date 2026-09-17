@@ -276,7 +276,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         });
         expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
 
-        const pollOpts = { from: day, to: day, deadline };
+        const pollOpts = { from: day, to: day, deadline, testInfo };
         let tiCards: OfficeTimeCard[] = [];
         let poCards: OfficeTimeCard[] = [];
         try {

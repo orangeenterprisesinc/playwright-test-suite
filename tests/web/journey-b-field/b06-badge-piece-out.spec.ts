@@ -181,6 +181,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
                 to: day,
                 cardType: CARD_TYPE.timeOut,
                 deadline,
+                testInfo,
             });
             expect(cards, 'the imported piece-out card').toHaveLength(1);
             const card = cards[0];

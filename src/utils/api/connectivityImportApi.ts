@@ -18,45 +18,45 @@ import { ConfigProperties, getConfigValue } from '../../config/configProperties'
 
 const IMPORT_PATH = 'connectivity/import/single-folder';
 
-/**
- * The single reader of IMPORT_POLL_TIMEOUT_MS. The default matches what CI sets:
- * the observed worker claim latency is 3-7 minutes even at
- * serviceImportInterval=1 (see STUCK_AT_RECEIVED_REASON), so the old per-site
- * guesses (60_000/120_000) and even 180_000 lost to it — a local B4 run on
- * 2026-09-16 was still unclaimed at 5.5 minutes. The circuit breaker below is
- * what keeps a dead environment from spending this budget over and over.
- */
+/** Hard ceiling per delivery; default matches CI. The stall check below usually ends the wait first — the 3-7 min claim latency fits inside it, a 40-min outlier does not. */
 export function importPollTimeoutMs(): number {
-    return Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 420_000;
+    return Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 1_200_000;
 }
 
-/** A shared time budget for one delivery's whole wait chain. */
+/** Give up after this long with no observed change, well inside the ceiling. */
+export function importStallMs(): number {
+    return Number(process.env.IMPORT_STALL_MS) || 480_000;
+}
+
+export type ImportWaitVerdict = 'stalled' | 'ceiling';
+
+/** A shared, progress-aware time budget for one delivery's whole wait chain. */
 export interface ImportDeadline {
-    readonly at: number;
-    readonly totalMs: number;
+    readonly startedAt: number;
+    readonly ceilingAt: number;
+    readonly ceilingMs: number;
+    readonly totalMs: number; // == ceilingMs, kept for existing readers
+    readonly stallMs: number;
+    lastProgressAt: number;
+    touch(): void;
     remainingMs(): number;
+    verdict(): ImportWaitVerdict | null;
+    pollDelayMs(): number;
 }
 
-/**
- * Consecutive per-worker deliveries whose deadline was exhausted, reset by any
- * success. Backs the circuit breaker in {@link newImportDeadline} — worker-local
- * because each Playwright worker is its own process.
- */
-let consecutiveExhaustedDeliveries = 0;
+/** Consecutive per-worker stalls, reset by any success; worker-local (own process). */
+let consecutiveStalls = 0;
 const CIRCUIT_OPEN_AFTER = 2;
 const CIRCUIT_CAPPED_MS = 60_000;
 
 /** Recorded by the poll loops below on every delivery's outcome. */
-export function noteDeliveryOutcome(exhausted: boolean): void {
-    consecutiveExhaustedDeliveries = exhausted ? consecutiveExhaustedDeliveries + 1 : 0;
+export function noteDeliveryOutcome(verdict: ImportWaitVerdict | null): void {
+    consecutiveStalls = verdict === 'stalled' ? consecutiveStalls + 1 : verdict === null ? 0 : consecutiveStalls;
 }
 
-/** Whether this worker should shorten its next wait. */
-export function importCircuitBreakerState(): { open: boolean; consecutiveExhausted: number } {
-    return {
-        open: consecutiveExhaustedDeliveries >= CIRCUIT_OPEN_AFTER,
-        consecutiveExhausted: consecutiveExhaustedDeliveries,
-    };
+/** Whether this worker should cap its next deadline. */
+export function importCircuitBreakerState(): { open: boolean; consecutiveStalls: number } {
+    return { open: consecutiveStalls >= CIRCUIT_OPEN_AFTER, consecutiveStalls };
 }
 
 /** The one-line hook every delivery site uses to surface the breaker in the report. */
@@ -66,35 +66,64 @@ export function annotateIfImportCircuitOpen(testInfo: TestInfo): void {
         testInfo.annotations.push({
             type: 'import-circuit-open',
             description:
-                `${state.consecutiveExhausted} consecutive deliveries hit the import deadline in this ` +
-                'worker — shortening the wait so the run still reports.',
+                `${state.consecutiveStalls} consecutive deliveries stalled in this worker — capping the ` +
+                'wait ceiling at 60s so the run still reports.',
         });
     }
 }
 
-/**
- * One budget for a whole delivery's wait chain (upload/pull -> terminal ->
- * office read), so chained polls share it instead of each consuming a full one.
- * From the third consecutive worker-local exhaustion onward it caps at 60s so a
- * dead environment still reports inside the run's time budget — the failure
- * reason and every assertion stay exactly as they are; only the wait shortens.
- */
-export function newImportDeadline(totalMs = importPollTimeoutMs()): ImportDeadline {
-    const cappedMs =
-        consecutiveExhaustedDeliveries >= CIRCUIT_OPEN_AFTER ? Math.min(totalMs, CIRCUIT_CAPPED_MS) : totalMs;
-    const at = Date.now() + cappedMs;
-    return { at, totalMs: cappedMs, remainingMs: () => Math.max(0, at - Date.now()) };
+export interface ImportDeadlineOptions {
+    ceilingMs?: number;
+    stallMs?: number;
 }
 
 /**
- * A Journey B spec's overall timeout: the project timeout plus two full import
- * deadlines, since a delivery can wait out an import-run terminal status AND a
- * separate office-read poll on the same budget-sized wait. Explicit in the spec
- * (`test.setTimeout(journeyBTestTimeoutMs(testInfo))`) rather than `test.slow()`'s
- * flat 3x multiplier, which under-covers a single 180-420s import deadline.
+ * One progress-aware budget for a whole delivery's wait chain. After two
+ * consecutive worker-local stalls it caps the ceiling (and stall, if larger)
+ * at 60s so a dead environment still reports inside the run's time budget.
+ */
+export function newImportDeadline(opts: number | ImportDeadlineOptions = {}): ImportDeadline {
+    const given = typeof opts === 'number' ? { ceilingMs: opts } : opts;
+    let ceilingMs = given.ceilingMs ?? importPollTimeoutMs();
+    let stallMs = given.stallMs ?? importStallMs();
+    if (importCircuitBreakerState().open) {
+        ceilingMs = Math.min(ceilingMs, CIRCUIT_CAPPED_MS);
+        stallMs = Math.min(stallMs, ceilingMs);
+    }
+    const startedAt = Date.now();
+    const ceilingAt = startedAt + ceilingMs;
+    const deadline: ImportDeadline = {
+        startedAt,
+        ceilingAt,
+        ceilingMs,
+        totalMs: ceilingMs,
+        stallMs,
+        lastProgressAt: startedAt,
+        touch() {
+            deadline.lastProgressAt = Date.now();
+        },
+        remainingMs() {
+            return Math.max(0, Math.min(ceilingAt, deadline.lastProgressAt + stallMs) - Date.now());
+        },
+        verdict() {
+            if (deadline.remainingMs() > 0) return null;
+            return Date.now() - deadline.lastProgressAt >= stallMs ? 'stalled' : 'ceiling';
+        },
+        pollDelayMs() {
+            const elapsed = Date.now() - startedAt;
+            return elapsed < 60_000 ? 1_000 : elapsed < 180_000 ? 2_000 : 5_000;
+        },
+    };
+    return deadline;
+}
+
+/**
+ * A Journey B spec's overall timeout: project timeout plus one ceiling plus a
+ * 2-minute margin. Explicit (`test.setTimeout(journeyBTestTimeoutMs(testInfo))`)
+ * rather than `test.slow()`'s flat 3x multiplier, which under-covers the ceiling.
  */
 export function journeyBTestTimeoutMs(testInfo: TestInfo): number {
-    return testInfo.project.timeout + 2 * importPollTimeoutMs();
+    return testInfo.project.timeout + importPollTimeoutMs() + 120_000;
 }
 
 export interface ImportFileResult {
@@ -142,17 +171,14 @@ export const NO_STORAGE_REASON =
     'IaC-PetTiger-Web. The containerized stack boots MinIO and is unaffected.';
 
 /**
- * Why a stored file can sit at `received`. Two causes, indistinguishable at the
- * API — both look exactly like "queued" (200, `received`, empty message), which
- * is why this spells them out instead of surfacing a bare timeout.
+ * Why a stored file can sit at `received` — indistinguishable at the API from "queued".
  *
  * 1. The worker is off (`PT_IMPORT_WORKER_DISABLED=true`) — nothing ever claims
  *    the file. WEBPET-2137 / PET-12482; fixed on dev 2026-08-14.
  * 2. The worker is on and dev's `serviceImportInterval` preference already reads
  *    1 minute — yet claims have still been observed 3-7 minutes after upload
  *    (2026-09-16 journey-B triage, runs 2037/2046/2053/2054/2057/2058/2067/2068).
- *    That gap is a dev scheduler defect, not a preference to raise; the poll
- *    timeout below is sized to ride it out, not to fix it.
+ *    That gap is a dev scheduler defect, not a preference to raise.
  */
 export const STUCK_AT_RECEIVED_REASON =
     'The file was stored successfully but has not been parsed — the run is still at "received". ' +
@@ -162,8 +188,55 @@ export const STUCK_AT_RECEIVED_REASON =
     "absent). (b) More likely: dev's serviceImportInterval preference already reads 1 minute " +
     '(GET /api/preferences), yet the worker has been observed claiming a file 3-7 minutes after ' +
     'upload regardless — a dev scheduler defect, not a preference to raise (tracked once a WEBPET ' +
-    'ticket exists; see the 2026-09-16 journey-B triage). IMPORT_POLL_TIMEOUT_MS is a per-delivery ' +
-    'deadline sized to ride this out, not a fix for the underlying latency.';
+    'ticket exists; see the 2026-09-16 journey-B triage). IMPORT_STALL_MS is how long the suite ' +
+    'tolerates no change on an unclaimed file; IMPORT_POLL_TIMEOUT_MS is the hard ceiling.';
+
+/** Memoized per worker process — one GET, every later caller awaits the same promise. */
+let importIntervalNote: Promise<string> | undefined;
+
+export function importIntervalPreferenceNote(request: APIRequestContext): Promise<string> {
+    if (!importIntervalNote) {
+        importIntervalNote = request
+            .get('preferences')
+            .then(async (res) => {
+                if (!res.ok()) return `serviceImportInterval unreadable (GET preferences → ${res.status()})`;
+                const body = (await res.json()) as { serviceImportInterval?: unknown };
+                return `serviceImportInterval preference reads ${String(body.serviceImportInterval)} min`;
+            })
+            .catch((err: unknown) => `serviceImportInterval unreadable (GET preferences → ${String(err)})`);
+    }
+    return importIntervalNote;
+}
+
+/** Names which limit ended the wait, for the caller's failure message. */
+export async function describeImportWait(
+    request: APIRequestContext,
+    deadline: ImportDeadline,
+    verdict: ImportWaitVerdict,
+    lastStatus: string,
+): Promise<string> {
+    const pref = await importIntervalPreferenceNote(request);
+    const elapsed = Date.now() - deadline.startedAt;
+    if (verdict === 'stalled' && lastStatus === 'received') {
+        const m = Math.round(deadline.stallMs / 60_000);
+        return (
+            `stalled at "received" for ${m} min — stored but never claimed (worker latency). ` +
+            `${pref}; waited ${elapsed} ms in total. ${STUCK_AT_RECEIVED_REASON}`
+        );
+    }
+    if (verdict === 'stalled') {
+        const m = Math.round(deadline.stallMs / 60_000);
+        return (
+            `stalled at "${lastStatus}" for ${m} min — claimed, but no file/status change since ` +
+            `(parser hung). ${pref}; waited ${elapsed} ms.`
+        );
+    }
+    const s = Math.round((Date.now() - deadline.lastProgressAt) / 1_000);
+    return (
+        `ceiling of ${deadline.ceilingMs} ms reached while the run was still progressing ` +
+        `(last change ${s}s ago, status "${lastStatus}"). ${pref}.`
+    );
+}
 
 /**
  * A request context that can post multipart as the logged-in user.
@@ -231,7 +304,7 @@ export async function importDeviceExport(
     // hiding the real reason.
     const uploadFiles = created.files ?? [];
     if (uploadFiles.length && uploadFiles.every((f) => TERMINAL.includes(String(f.status)))) {
-        noteDeliveryOutcome(false);
+        noteDeliveryOutcome(null);
         return {
             runId,
             status: uploadFiles.every((f) => f.status === 'completed') ? 'completed' : 'failed',
@@ -254,10 +327,17 @@ export async function waitForImportRun(
     const startedAt = Date.now();
     let last: { status?: string; files?: ImportFileResult[] } = seed;
     let claimed = String(seed.status ?? 'received') !== 'received';
+    deadline.touch();
+    let fp = runFingerprint(seed);
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
             last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            const next = runFingerprint(last);
+            if (next !== fp) {
+                fp = next;
+                deadline.touch();
+            }
             if (!claimed && String(last.status) !== 'received') {
                 claimed = true;
                 testInfo?.annotations.push({
@@ -267,20 +347,20 @@ export async function waitForImportRun(
             }
             if (TERMINAL.includes(String(last.status))) break;
         }
-        if (deadline.remainingMs() <= 0) {
-            // 'received' specifically means stored-but-unclaimed, so name the cause
-            // instead of reporting a bare timeout.
-            const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
-            noteDeliveryOutcome(true);
-            throw new Error(
-                `Import run ${runId} did not reach a terminal status within ${deadline.totalMs}ms ` +
-                    `(last: ${String(last.status)}).${stuck}`,
-            );
+        const verdict = deadline.verdict();
+        if (verdict) {
+            noteDeliveryOutcome(verdict);
+            const why = await describeImportWait(request, deadline, verdict, String(last.status));
+            testInfo?.annotations.push({
+                type: 'import-wait-verdict',
+                description: `${verdict} — run ${runId} at "${String(last.status)}" after ${Date.now() - startedAt}ms`,
+            });
+            throw new Error(`Import run ${runId} did not reach a terminal status — ${why}`);
         }
-        await new Promise((r) => setTimeout(r, 1_000));
+        await new Promise((r) => setTimeout(r, deadline.pollDelayMs()));
     }
 
-    noteDeliveryOutcome(false);
+    noteDeliveryOutcome(null);
     testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
     return {
         runId,
@@ -301,6 +381,13 @@ export async function waitForImportRun(
  * peer's trigger drained it), so it can re-trigger instead of waiting out the
  * whole deadline on a run that cannot resolve.
  */
+function runFingerprint(run: { status?: string; files?: ImportFileResult[] }): string {
+    return JSON.stringify({
+        s: run.status,
+        f: (run.files ?? []).map((f) => [f.fileName ?? (f as { filename?: string }).filename, f.status, f.message]),
+    });
+}
+
 export async function waitForImportFiles(
     request: APIRequestContext,
     runId: number,
@@ -312,10 +399,17 @@ export async function waitForImportFiles(
     let last: { status?: string; files?: ImportFileResult[] } = {};
     let claimed = false;
     let emptySinceMs: number | null = null;
+    deadline.touch();
+    let fp = '';
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
             last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            const next = runFingerprint(last);
+            if (next !== fp) {
+                fp = next;
+                deadline.touch();
+            }
             if (!claimed && String(last.status) !== 'received') {
                 claimed = true;
                 testInfo?.annotations.push({
@@ -326,7 +420,7 @@ export async function waitForImportFiles(
             const allFiles = last.files ?? [];
             const ours = allFiles.filter(wanted);
             if (ours.length && ours.every((f) => TERMINAL.includes(String(f.status)))) {
-                noteDeliveryOutcome(false);
+                noteDeliveryOutcome(null);
                 testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
                 return { runId, status: String(last.status), files: allFiles, raw: last, oursPresent: true };
             }
@@ -343,21 +437,26 @@ export async function waitForImportFiles(
             }
             if (TERMINAL.includes(String(last.status))) break;
         }
-        if (deadline.remainingMs() <= 0) {
+        const verdict = deadline.verdict();
+        if (verdict) {
             const ours = (last.files ?? []).filter(wanted).map((f) => ({
                 file: f.fileName ?? (f as { filename?: string }).filename,
                 status: f.status,
             }));
-            const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
-            noteDeliveryOutcome(true);
+            noteDeliveryOutcome(verdict);
+            const why = await describeImportWait(request, deadline, verdict, String(last.status));
+            testInfo?.annotations.push({
+                type: 'import-wait-verdict',
+                description: `${verdict} — run ${runId} at "${String(last.status)}" after ${Date.now() - startedAt}ms`,
+            });
             throw new Error(
-                `Import run ${runId}: this run's file(s) did not reach a terminal status within ${deadline.totalMs}ms ` +
-                    `(ours: ${JSON.stringify(ours)}, run: ${String(last.status)}).${stuck}`,
+                `Import run ${runId}: this run's file(s) did not reach a terminal status — ${why} ` +
+                    `(ours: ${JSON.stringify(ours)})`,
             );
         }
-        await new Promise((r) => setTimeout(r, 1_000));
+        await new Promise((r) => setTimeout(r, deadline.pollDelayMs()));
     }
-    noteDeliveryOutcome(false);
+    noteDeliveryOutcome(null);
     testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
     const finalFiles = last.files ?? [];
     return { runId, status: String(last.status), files: finalFiles, raw: last, oursPresent: finalFiles.some(wanted) };

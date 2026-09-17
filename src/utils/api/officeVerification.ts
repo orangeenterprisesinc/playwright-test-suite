@@ -490,6 +490,7 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
         // the rows are still coming and this read would otherwise start with an
         // exhausted budget — observed 2026-09-16, B4 read 0 cards instantly.
         deadline: peerDrained ? newImportDeadline() : deadline,
+        testInfo,
     });
 
     // Deferred this-attempt assertion: correct whether the importer upserts

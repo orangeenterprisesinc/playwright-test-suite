@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { ImportDeadline } from './connectivityImportApi';
 
 /**
@@ -92,21 +92,55 @@ export async function listTimeCards(
 }
 
 /**
- * The rows whose reference is one of `references`.
+ * The rows whose reference is one of `references`. Polls, because the import
+ * worker persists asynchronously — a run can report `completed` a moment
+ * before every row is queryable.
  *
- * Polls, because the import worker persists asynchronously — a run can report
- * `completed` a moment before every row is queryable.
+ * With a shared `deadline` the wait is progress-aware: each new match touches
+ * it, and it gives up on the deadline's own verdict (stalled/ceiling) rather
+ * than a fixed timeout. Without one, falls back to `timeoutMs` as before.
  */
 export async function findByReferences(
     request: APIRequestContext,
     references: string[],
-    opts: { from: string; to: string; cardType?: number; timeoutMs?: number; deadline?: ImportDeadline },
+    opts: {
+        from: string;
+        to: string;
+        cardType?: number;
+        timeoutMs?: number;
+        deadline?: ImportDeadline;
+        testInfo?: TestInfo;
+    },
 ): Promise<OfficeTimeCard[]> {
     const wanted = new Set(references);
-    // `deadline` shares one budget across a delivery's whole wait chain when the
-    // caller has one (deliverAndVerifyCards, B5/B6/B7); otherwise fall back to
-    // this call's own timeoutMs, as every other caller of this function does.
-    const until = opts.deadline?.at ?? Date.now() + (opts.timeoutMs ?? 30_000);
+    const { deadline } = opts;
+    if (deadline) {
+        deadline.touch();
+        let matched = 0;
+        for (;;) {
+            const found = (await listTimeCards(request, opts)).filter((c) =>
+                wanted.has(String(c.reference ?? '')),
+            );
+            if (found.length > matched) {
+                matched = found.length;
+                deadline.touch();
+            }
+            if (found.length >= references.length) return found;
+            const v = deadline.verdict();
+            if (v) {
+                opts.testInfo?.annotations.push({
+                    type: 'import-wait-verdict',
+                    description:
+                        `${v} in reference poll — ${found.length}/${references.length} references present ` +
+                        `after ${Date.now() - deadline.startedAt}ms, none new for ` +
+                        `${Date.now() - deadline.lastProgressAt}ms`,
+                });
+                return found;
+            }
+            await new Promise((r) => setTimeout(r, deadline.pollDelayMs()));
+        }
+    }
+    const until = Date.now() + (opts.timeoutMs ?? 30_000);
     for (;;) {
         const found = (await listTimeCards(request, opts)).filter((c) =>
             wanted.has(String(c.reference ?? '')),

@@ -427,6 +427,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             tiCards = await findByReferences(sessionApi, [deviceA.references[0]], {
                 ...pollOpts,
                 cardType: CARD_TYPE.timeIn,
+                testInfo,
             });
             expect(tiCards, "the Time In card, keyed by device A's own reference").toHaveLength(1);
             const tiCard = tiCards[0];
@@ -464,6 +465,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
             poCards = await findByReferences(sessionApi, deviceB.references, {
                 ...pollOpts,
                 cardType: CARD_TYPE.timeOut,
+                testInfo,
             });
             expect(poCards, 'both piece-out cards').toHaveLength(2);
             const byReference = new Map(poCards.map((c) => [String(c.reference ?? ''), c]));
