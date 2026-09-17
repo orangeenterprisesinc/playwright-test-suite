@@ -24,6 +24,7 @@ import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
+import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
 
 /**
  * Every page object, lazily constructed.
@@ -40,6 +41,8 @@ export interface PageObjects {
     // ── File ▸ Administration ───────────────────────────────────────
     /** Users administration screen and New/Edit User form (A1). */
     readonly users: UsersPage;
+    /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
+    readonly scanDevice: ScanDevicePage;
 
     // ── Input ▸ processing ──────────────────────────────────────────
     /** Transfer to Job Card review screen (D2/D4; Journey B verification). */
@@ -69,6 +72,7 @@ export function createPageObjects(page: Page): PageObjects {
         get login() { return lazy('login', () => new LoginPage(page)); },
         get leftNav() { return lazy('leftNav', () => new LeftNavigationPage(page)); },
         get users() { return lazy('users', () => new UsersPage(page)); },
+        get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
     };

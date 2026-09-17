@@ -408,10 +408,10 @@
             "id": "B15-001",
             "workflow": "B15",
             "journey": "B",
-            "category": "api",
-            "testName": "deviceSyncAndOfflineOperation",
-            "testTitle": "Device sync and offline operation",
-            "testDescription": "Devices capture all day without connectivity and reconcile with the office by syncing, a core differentiator for low-coverage fields. End-of-day sync clears the device, so it is done only when recording is finished.",
+            "category": "workflow",
+            "testName": "scopedScanDevicePushesSetupToMailbox",
+            "testTitle": "A scoped scan device pushes its setup to the device mailbox",
+            "testDescription": "Scope a run-unique scan device with a crew and a ranch/field, save it, push it to the office export endpoint, then pull the envelope back off the device mailbox and assert its Ranch, Field and Crew record blocks are each marked Clear and carry exactly the entities assigned. Happy path only.",
             "segments": [
                 "all"
             ],
@@ -422,8 +422,15 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "req": [
+                "B15-R1",
+                "B15-R4",
+                "B15-R5",
+                "B15-R6"
+            ],
+            "jira": "WEBPET-1533",
+            "status": "automated",
+            "enabled": true
         }
     ]
 }
