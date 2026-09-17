@@ -61,6 +61,40 @@
         "playwright/no-networkidle": "warn",
         "playwright/prefer-web-first-assertions": "warn"
       }
+    },
+    {
+      "files": ["tests/web/**/*.spec.ts"],
+      "excludedFiles": [
+        "tests/web/journey-a-setup/a01-user-setup.spec.ts",
+        "tests/web/system/notification-email.spec.ts",
+        "tests/web/journey-b-field/b02-crew-move.spec.ts",
+        "tests/web/journey-b-field/b04-sticker-roll-assignment.spec.ts",
+        "tests/web/journey-b-field/b05-sticker-piece-out.spec.ts",
+        "tests/web/journey-b-field/b06-badge-piece-out.spec.ts",
+        "tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts",
+        "tests/web/journey-b-field/b10-meal-start-end.spec.ts",
+        "tests/web/journey-b-field/b11-crew-out.spec.ts",
+        "tests/web/journey-b-field/b12-time-out-questions.spec.ts",
+        "tests/web/journey-b-field/b15-device-sync.spec.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@utils/relay/exportEnvelope", "@utils/relay/relayClient", "**/utils/relay/exportEnvelope", "**/utils/relay/relayClient"],
+              "message": "A spec builds and sends no XML — go through @utils/journeys/*."
+            },
+            {
+              "group": ["@utils/api/connectivityImportApi", "@utils/api/officeVerification", "**/utils/api/connectivityImportApi", "**/utils/api/officeVerification"],
+              "message": "A spec imports and verifies nothing directly — go through @utils/journeys/*."
+            },
+            {
+              "group": ["@data/generated", "@data/generated/*", "**/data/generated", "**/data/generated/*"],
+              "message": "A spec mints no data — values come from src/data/<journey>/<spec-basename>.json via loadScenario()."
+            }
+          ]
+        }]
+      }
     }
   ]
 }

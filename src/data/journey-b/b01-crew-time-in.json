@@ -1,0 +1,56 @@
+{
+  "_notes": [
+    "B1 — Crew time-in (catalog B1, plan test-plans/journey-b/b01-crew-time-in.md): the office half (B1-001) and the relay transport on its own (B1-002). Transport, not simulation: the envelope is the OrangeExportFile PET Pocket serializes (src/utils/relay/exportEnvelope.ts), delivered through the real Post Office relay; everything downstream is the production path. The device half (capture UI, roster, serializer — B1-R1..R3) needs a device and is parked on feature/appium-journey-video-wip.",
+    "shared applies to both cases; a case's keys override it. punchTime 07:15 is the crew envelope's single punch moment (the serializer's default hour, now explicit). dayOffset 0: B1 punches today, B2 yesterday, B3 two days back — the office's duplicate-Time-In rule under workers=2.",
+    "B1-001: the present members only — the absentee 6004 must be absent from the export AND from the office cards (absentEmployees serves both). records[0] carries the GPS fix, as one real handheld card does; the flow threads it into expected.cards[0] by record index (B1-R6 is stored verbatim by the importer, not asserted office-side). expected.envelope.lookupContents is the crew section's full LookupContents (exportEnvelope.ts LOOKUP_CONTENTS) — the old assertion checked its prefix.",
+    "B1-002: the relay leg alone — the envelope goes to the scratch mailbox DEVICE_RELAY_SMOKE (never the office queue) and is pulled straight back; byte fidelity plus the sender, file name and subject the relay carries. Delivery is the leg that actually broke in the field (a missing destination made every export fail silently). Self-cleaning: the flow drains the mailbox first and acks the pulled message in cleanup(). Mailbox names come from env (src/config/relay.config.ts), never from here."
+  ],
+  "shared": {
+    "workflow": "B1",
+    "dayOffset": 0,
+    "envelope": "crew",
+    "punchTime": "07:15"
+  },
+  "cases": {
+    "B1-001": {
+      "label": "B1",
+      "transport": "relay-ui",
+      "verification": "office-ui",
+      "records": [
+        { "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "gps": "(34.970215,-120.453984)" },
+        { "employeeCode": "6002", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201" },
+        { "employeeCode": "6003", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201" }
+      ],
+      "absentEmployees": ["6004"],
+      "expected": {
+        "envelope": {
+          "lookupContents": ["Field:Code|Crew:Code|Employee:Code|Equipment:Code|Ranch:Code|Job:Code"],
+          "employees": ["6001", "6002", "6003"]
+        },
+        "cards": [
+          { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "panel": true },
+          { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4201" },
+          { "record": 2, "employeeCode": "6003", "fieldCode": "4101", "jobCode": "4201" }
+        ],
+        "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch" }
+      },
+      "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["6001", "6002", "6003", "6004"], "dayOffset": 0 }
+      ]
+    },
+    "B1-002": {
+      "label": "B1-relay",
+      "transport": "relay-echo",
+      "verification": "none",
+      "records": [
+        { "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201" }
+      ],
+      "expected": {
+        "envelope": {},
+        "cards": [],
+        "relay": { "subject": "Export" }
+      },
+      "cleanup": []
+    }
+  }
+}

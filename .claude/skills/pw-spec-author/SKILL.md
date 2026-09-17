@@ -91,8 +91,8 @@ test('[User Setup] Verify that …', {
 |---|---|---|
 | Journey run-control rows | `src/data/runner/journey-<x>.csv` (authored) + `.json` (generated mirror) | edit the **CSV**; `npm run runner:sync` regenerates the JSON |
 | web-pet run-control rows | `src/data/webpet/webpetRunnerManager.csv` + `.json` | same rule; human owns `enabled`/`module`/`notes`, script owns `file`/`titlePath`/`tags` |
-| Journey static values | `src/data/static/<journey>/<name>Data.ts` | typed TS module, imported directly: `@data/static/journey-a/userSetupData` |
-| Generated values | `src/data/generated` | `makeUser(...)`, `randomInitials()` — use these instead of literals |
+| Journey scenario values | `src/data/journey-<x>/<spec-basename>.json` + `src/data/schemas/<journey>Scenario.ts` | `const scenario = await loadScenario(JourneyBScenarioSchema, testInfo)`; codes, "HH:mm" times, record indexes — flows derive ids/dates/references; `cleanup: CleanupStep[]` declared here |
+| Generated values | `src/data/generated` | `makeUser(...)`, `randomInitials()` — for flows and fixtures; a spec may not import it (ESLint) |
 | web-pet API-seeded entities | `tests/webpet/data-factory.ts` | `ensureCrop(request)` in `beforeAll`, `deleteCrop` in `afterAll` |
 | web-pet id constants | `src/data/webpet/ids/*.ts` | **generated** by `webpet:runner:sync --ids`; never hand-edit |
 
@@ -101,6 +101,18 @@ overwrites it and `--check` fails in between.
 
 Do not hardcode credentials, URLs, or environment values. They come from
 `getConfigValue(ConfigProperties.…)` or `process.env`.
+
+**Only four kinds of inline literal are allowed in a spec:** the `testCaseId` annotation,
+the `tag:` arrays, the describe/test titles (all regex-read from source by
+`scripts/runner/check.js` and `src/reporting/generate/allure/labels.ts`) and the message
+argument of an `expect()`. Everything an assertion compares against comes from
+`scenario.expected`; everything a flow needs comes from the scenario. ESLint enforces the
+boundary: `tests/web/**/*.spec.ts` may not import `@utils/relay/exportEnvelope`,
+`@utils/relay/relayClient`, `@utils/api/connectivityImportApi`,
+`@utils/api/officeVerification` or `@data/generated` (`config/lint/.eslintrc.json`) — specs
+reach them through `@utils/journeys/*`. Journey B: `runJourneyBScenario` / `runRelayEcho` +
+`assertExpectedCards` / `assertTransferGrid` from `src/utils/journeys/journeyBFlow.ts`, then
+`try { …asserts… } finally { await run.cleanup(); }`.
 
 ### 7. Data-driven selection (journey suite only)
 
@@ -161,7 +173,7 @@ Then actually run the spec — `npm test -- --grep @A1` or
 - [ ] one `@Smoke` per file, and it is the happy path
 - [ ] `testCaseId` annotation present
 - [ ] tier tags equal the CSV row's `tags` column
-- [ ] data from a data module / factory / generator, not literals
+- [ ] no inline test value: only `testCaseId`, `tag:`, titles and `expect()` messages are literals; everything compared comes from `scenario.expected`; no banned import (lint)
 - [ ] no selectors in the spec, no `waitForTimeout`, everything awaited
 - [ ] created records cleaned up
 - [ ] typecheck, lint, runner check all clean; spec actually ran and passed

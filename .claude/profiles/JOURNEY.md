@@ -33,8 +33,7 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
 * Runner CSVs are **authored by hand** (the opposite of webpet's discovered CSV):
   `npm run runner:sync` regenerates the JSON mirrors, `npm run runner:check`
   fails on drift, `npm run coverage:catalog` reports per-workflow state.
-* Data: static value bags in `src/data/static/journey-<x>/`, generated factories
-  in `src/data/generated/`, cleanup via the `cleanup` fixture — API only, no DB.
+* Data: one JSON scenario file per spec, `src/data/journey-<x>/<spec-basename>.json`, loaded with `loadScenario(schema, testInfo)` (`src/utils/data/scenarioLoader.ts`) and validated by `src/data/schemas/`; shared fixture tables in `src/data/journey-<x>/fixture.json`; generated factories in `src/data/generated/` (flows only — specs may not import them); cleanup declared as `cleanup: CleanupStep[]` in the JSON and run by `runCleanup` — API only, no DB. The only inline literals in a spec: `testCaseId`, `tag:`, titles, `expect()` messages.
 * Conventions by path (agents Read on demand, never restated here):
   specs `.claude/skills/pw-spec-author/SKILL.md` · page objects
   `.claude/skills/pw-page-object/SKILL.md` · runner/gate mechanics
