@@ -9,7 +9,7 @@ import path from 'path';
 import { loadEnvFiles } from './envLoader';
 import type {DataSourceType} from '../types';
 
-loadEnvFiles({ cwd: path.resolve(__dirname, '..', '..') });
+loadEnvFiles({ cwd: path.resolve(__dirname, '..', '..'), warnOnMissing: false });
 
 /** Complete configuration for resolving test data sources. */
 export interface DataSourceConfig {
