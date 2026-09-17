@@ -27,7 +27,7 @@ import {
     deviceIso,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
@@ -35,6 +35,7 @@ import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { deliverAndVerifyCards, cleanupCards } from '@utils/api/officeVerification';
 import { CARD_TYPE } from '@utils/api/timeCardsApi';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@B11'] }, () => {
     test('[Crew Out] Record one crew-out for the crew and verify an individual time-out per still-active member, leaving the early leaver untouched.', {
@@ -44,12 +45,12 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
             { type: 'requirement', description: 'B11-R4|B11-R5|B11-R6|B11-R7|B11-R8|B11-R9' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         const office = await seedOfficeFixture(sessionApi);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         const punchDate = punchDay(DAY_OFFSET.B11);
         const gpsFix = '(36.8076576,-119.8347626)';
 
@@ -173,6 +174,7 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B11',
             crewId: office.crew.id,
             ranchId: office.ranch.id,

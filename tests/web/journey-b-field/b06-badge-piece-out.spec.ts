@@ -32,14 +32,20 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
-import { createUploadContext, importDeviceExport } from '@utils/api/connectivityImportApi';
+import {
+    annotateIfImportCircuitOpen,
+    createUploadContext,
+    importDeviceExport,
+    journeyBTestTimeoutMs,
+    newImportDeadline,
+} from '@utils/api/connectivityImportApi';
 import {
     CARD_TYPE,
     findByReferences,
@@ -58,7 +64,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
             { type: 'requirement', description: 'B6-R1|B6-R2|B6-R3|B6-R4|B6-R5|B6-R6|B6-R7' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         // The flag comes from PT_MODULES on the API task, which short-circuits the
         // TigerMaster query entirely (auth/modules.go:569-571) — TigerMaster already
@@ -81,7 +87,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
         const emp6005 = await ensureEmployee(sessionApi, F.sticker[0]);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         const punchDate = punchDay(DAY_OFFSET.B6);
         const day = isoDay(punchDate);
         const gpsFix = '(34.970215,-120.453984)';
@@ -147,10 +153,18 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
             });
         }
 
+        // One deadline for the whole delivery — the import-run wait and the
+        // findByReferences poll below share it instead of each getting a full one.
+        const deadline = newImportDeadline();
+        annotateIfImportCircuitOpen(testInfo);
         const upload = await createUploadContext();
         let run;
         try {
-            run = await importDeviceExport(upload, xml, { fileName: `FromDevice-B6-${Date.now()}.xml` });
+            run = await importDeviceExport(upload, xml, {
+                fileName: `FromDevice-B6-${Date.now()}.xml`,
+                deadline,
+                testInfo,
+            });
         } finally {
             await upload.dispose();
         }
@@ -166,7 +180,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
                 from: day,
                 to: day,
                 cardType: CARD_TYPE.timeOut,
-                timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000,
+                deadline,
             });
             expect(cards, 'the imported piece-out card').toHaveLength(1);
             const card = cards[0];

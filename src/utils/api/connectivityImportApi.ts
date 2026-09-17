@@ -1,4 +1,4 @@
-import { request as playwrightRequest, type APIRequestContext } from '@playwright/test';
+import { request as playwrightRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
 import { SESSION_STORAGE_STATE, csrfTokenFromStorageFile } from './sessionContext';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 
@@ -17,6 +17,85 @@ import { ConfigProperties, getConfigValue } from '../../config/configProperties'
  */
 
 const IMPORT_PATH = 'connectivity/import/single-folder';
+
+/**
+ * The single reader of IMPORT_POLL_TIMEOUT_MS. The default matches what CI sets:
+ * the observed worker claim latency is 3-7 minutes even at
+ * serviceImportInterval=1 (see STUCK_AT_RECEIVED_REASON), so the old per-site
+ * guesses (60_000/120_000) and even 180_000 lost to it — a local B4 run on
+ * 2026-09-16 was still unclaimed at 5.5 minutes. The circuit breaker below is
+ * what keeps a dead environment from spending this budget over and over.
+ */
+export function importPollTimeoutMs(): number {
+    return Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 420_000;
+}
+
+/** A shared time budget for one delivery's whole wait chain. */
+export interface ImportDeadline {
+    readonly at: number;
+    readonly totalMs: number;
+    remainingMs(): number;
+}
+
+/**
+ * Consecutive per-worker deliveries whose deadline was exhausted, reset by any
+ * success. Backs the circuit breaker in {@link newImportDeadline} — worker-local
+ * because each Playwright worker is its own process.
+ */
+let consecutiveExhaustedDeliveries = 0;
+const CIRCUIT_OPEN_AFTER = 2;
+const CIRCUIT_CAPPED_MS = 60_000;
+
+/** Recorded by the poll loops below on every delivery's outcome. */
+export function noteDeliveryOutcome(exhausted: boolean): void {
+    consecutiveExhaustedDeliveries = exhausted ? consecutiveExhaustedDeliveries + 1 : 0;
+}
+
+/** Whether this worker should shorten its next wait. */
+export function importCircuitBreakerState(): { open: boolean; consecutiveExhausted: number } {
+    return {
+        open: consecutiveExhaustedDeliveries >= CIRCUIT_OPEN_AFTER,
+        consecutiveExhausted: consecutiveExhaustedDeliveries,
+    };
+}
+
+/** The one-line hook every delivery site uses to surface the breaker in the report. */
+export function annotateIfImportCircuitOpen(testInfo: TestInfo): void {
+    const state = importCircuitBreakerState();
+    if (state.open) {
+        testInfo.annotations.push({
+            type: 'import-circuit-open',
+            description:
+                `${state.consecutiveExhausted} consecutive deliveries hit the import deadline in this ` +
+                'worker — shortening the wait so the run still reports.',
+        });
+    }
+}
+
+/**
+ * One budget for a whole delivery's wait chain (upload/pull -> terminal ->
+ * office read), so chained polls share it instead of each consuming a full one.
+ * From the third consecutive worker-local exhaustion onward it caps at 60s so a
+ * dead environment still reports inside the run's time budget — the failure
+ * reason and every assertion stay exactly as they are; only the wait shortens.
+ */
+export function newImportDeadline(totalMs = importPollTimeoutMs()): ImportDeadline {
+    const cappedMs =
+        consecutiveExhaustedDeliveries >= CIRCUIT_OPEN_AFTER ? Math.min(totalMs, CIRCUIT_CAPPED_MS) : totalMs;
+    const at = Date.now() + cappedMs;
+    return { at, totalMs: cappedMs, remainingMs: () => Math.max(0, at - Date.now()) };
+}
+
+/**
+ * A Journey B spec's overall timeout: the project timeout plus two full import
+ * deadlines, since a delivery can wait out an import-run terminal status AND a
+ * separate office-read poll on the same budget-sized wait. Explicit in the spec
+ * (`test.setTimeout(journeyBTestTimeoutMs(testInfo))`) rather than `test.slow()`'s
+ * flat 3x multiplier, which under-covers a single 180-420s import deadline.
+ */
+export function journeyBTestTimeoutMs(testInfo: TestInfo): number {
+    return testInfo.project.timeout + 2 * importPollTimeoutMs();
+}
 
 export interface ImportFileResult {
     status?: string;
@@ -69,20 +148,22 @@ export const NO_STORAGE_REASON =
  *
  * 1. The worker is off (`PT_IMPORT_WORKER_DISABLED=true`) — nothing ever claims
  *    the file. WEBPET-2137 / PET-12482; fixed on dev 2026-08-14.
- * 2. The worker is on but not due yet. It claims files per client on the cadence
- *    in that client's `SrvcRealTimeImportInterval` preference (minutes), so the
- *    wait is up to a full interval. This is the usual cause now.
+ * 2. The worker is on and dev's `serviceImportInterval` preference already reads
+ *    1 minute — yet claims have still been observed 3-7 minutes after upload
+ *    (2026-09-16 journey-B triage, runs 2037/2046/2053/2054/2057/2058/2067/2068).
+ *    That gap is a dev scheduler defect, not a preference to raise; the poll
+ *    timeout below is sized to ride it out, not to fix it.
  */
 export const STUCK_AT_RECEIVED_REASON =
     'The file was stored successfully but has not been parsed — the run is still at "received". ' +
     'Two causes look identical here. (a) The import worker is off: check CloudWatch ' +
     '/ecs/pettiger/dev/tigerden for "import-worker: disabled via PT_IMPORT_WORKER_DISABLED=true" ' +
     'at container start (WEBPET-2137 / PET-12482 — fixed on dev 2026-08-14, so this should be ' +
-    'absent). (b) More likely: the worker is running but this client is not due yet — it claims ' +
-    'queued files every SrvcRealTimeImportInterval minutes (GET /api/preferences → ' +
-    'serviceImportInterval). Raise IMPORT_POLL_TIMEOUT_MS above that interval, or ask for ' +
-    'PT_IMPORT_POLL_INTERVAL=10s on the dev task to make the tick immediate. Note a preference ' +
-    'change only applies from the NEXT due time, so one old interval must lapse first.';
+    "absent). (b) More likely: dev's serviceImportInterval preference already reads 1 minute " +
+    '(GET /api/preferences), yet the worker has been observed claiming a file 3-7 minutes after ' +
+    'upload regardless — a dev scheduler defect, not a preference to raise (tracked once a WEBPET ' +
+    'ticket exists; see the 2026-09-16 journey-B triage). IMPORT_POLL_TIMEOUT_MS is a per-delivery ' +
+    'deadline sized to ride this out, not a fix for the underlying latency.';
 
 /**
  * A request context that can post multipart as the logged-in user.
@@ -118,14 +199,13 @@ export async function createUploadContext(): Promise<APIRequestContext> {
 export async function importDeviceExport(
     upload: APIRequestContext,
     xml: string,
-    opts: { fileName?: string; timeoutMs?: number } = {},
+    opts: { fileName?: string; timeoutMs?: number; deadline?: ImportDeadline; testInfo?: TestInfo } = {},
 ): Promise<ImportRunResult> {
     const fileName = opts.fileName ?? `FromDevice-${Date.now()}.xml`;
-    // The worker claims queued files on a PER-CLIENT cadence read from the
-    // SrvcRealTimeImportInterval preference — 15 MINUTES on dev staging, not the
-    // legacy 2-minute default. 60s is fine wherever PT_IMPORT_POLL_INTERVAL sets
-    // a fast tick; raise it via IMPORT_POLL_TIMEOUT_MS to ride out a real cadence.
-    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 60_000);
+    // Share the caller's deadline when given (deliverAndVerifyCards, B5/B6's own
+    // mint) instead of minting a fresh one — a shared budget must not be renewed
+    // per call.
+    const deadline = opts.deadline ?? newImportDeadline(opts.timeoutMs);
 
     const res = await upload.post(IMPORT_PATH, {
         multipart: {
@@ -151,6 +231,7 @@ export async function importDeviceExport(
     // hiding the real reason.
     const uploadFiles = created.files ?? [];
     if (uploadFiles.length && uploadFiles.every((f) => TERMINAL.includes(String(f.status)))) {
+        noteDeliveryOutcome(false);
         return {
             runId,
             status: uploadFiles.every((f) => f.status === 'completed') ? 'completed' : 'failed',
@@ -159,36 +240,48 @@ export async function importDeviceExport(
         };
     }
 
-    return waitForImportRun(upload, runId, timeoutMs, created);
+    return waitForImportRun(upload, runId, deadline, created, opts.testInfo);
 }
 
 /** Poll one import run until it reaches a terminal status. */
 export async function waitForImportRun(
     request: APIRequestContext,
     runId: number,
-    timeoutMs: number,
+    deadline: ImportDeadline,
     seed: { status?: string; files?: ImportFileResult[] } = {},
+    testInfo?: TestInfo,
 ): Promise<ImportRunResult> {
-    const deadline = Date.now() + timeoutMs;
+    const startedAt = Date.now();
     let last: { status?: string; files?: ImportFileResult[] } = seed;
+    let claimed = String(seed.status ?? 'received') !== 'received';
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
             last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            if (!claimed && String(last.status) !== 'received') {
+                claimed = true;
+                testInfo?.annotations.push({
+                    type: 'import-claim-latency-ms',
+                    description: String(Date.now() - startedAt),
+                });
+            }
             if (TERMINAL.includes(String(last.status))) break;
         }
-        if (Date.now() > deadline) {
+        if (deadline.remainingMs() <= 0) {
             // 'received' specifically means stored-but-unclaimed, so name the cause
             // instead of reporting a bare timeout.
             const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
+            noteDeliveryOutcome(true);
             throw new Error(
-                `Import run ${runId} did not reach a terminal status within ${timeoutMs}ms ` +
+                `Import run ${runId} did not reach a terminal status within ${deadline.totalMs}ms ` +
                     `(last: ${String(last.status)}).${stuck}`,
             );
         }
         await new Promise((r) => setTimeout(r, 1_000));
     }
 
+    noteDeliveryOutcome(false);
+    testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
     return {
         runId,
         status: String(last.status),
@@ -202,37 +295,72 @@ export async function waitForImportRun(
  * rest. A drain of the shared mailbox can carry other runs' envelopes (re-served
  * stale ones, a peer worker's), and their processing time says nothing about ours.
  * Resolves with the latest run snapshot; throws only when our files never settle.
+ *
+ * `oursPresent: false` — the run lists files and none is ours, for at least 10s
+ * of polling — tells the caller this run was never going to carry our file (a
+ * peer's trigger drained it), so it can re-trigger instead of waiting out the
+ * whole deadline on a run that cannot resolve.
  */
 export async function waitForImportFiles(
     request: APIRequestContext,
     runId: number,
     wanted: (file: ImportFileResult) => boolean,
-    timeoutMs: number,
-): Promise<ImportRunResult> {
-    const deadline = Date.now() + timeoutMs;
+    deadline: ImportDeadline,
+    testInfo?: TestInfo,
+): Promise<ImportRunResult & { oursPresent: boolean }> {
+    const startedAt = Date.now();
     let last: { status?: string; files?: ImportFileResult[] } = {};
+    let claimed = false;
+    let emptySinceMs: number | null = null;
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
             last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
-            const ours = (last.files ?? []).filter(wanted);
-            if (ours.length && ours.every((f) => TERMINAL.includes(String(f.status)))) break;
+            if (!claimed && String(last.status) !== 'received') {
+                claimed = true;
+                testInfo?.annotations.push({
+                    type: 'import-claim-latency-ms',
+                    description: String(Date.now() - startedAt),
+                });
+            }
+            const allFiles = last.files ?? [];
+            const ours = allFiles.filter(wanted);
+            if (ours.length && ours.every((f) => TERMINAL.includes(String(f.status)))) {
+                noteDeliveryOutcome(false);
+                testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
+                return { runId, status: String(last.status), files: allFiles, raw: last, oursPresent: true };
+            }
+            // The relay pull lists files as they are stored, so one empty look is
+            // normal — only two consecutive empty looks spanning >=10s means the
+            // run was never going to carry our file.
+            if (allFiles.length && ours.length === 0) {
+                if (emptySinceMs === null) emptySinceMs = Date.now();
+                else if (Date.now() - emptySinceMs >= 10_000) {
+                    return { runId, status: String(last.status), files: allFiles, raw: last, oursPresent: false };
+                }
+            } else {
+                emptySinceMs = null;
+            }
             if (TERMINAL.includes(String(last.status))) break;
         }
-        if (Date.now() > deadline) {
+        if (deadline.remainingMs() <= 0) {
             const ours = (last.files ?? []).filter(wanted).map((f) => ({
                 file: f.fileName ?? (f as { filename?: string }).filename,
                 status: f.status,
             }));
             const stuck = String(last.status) === 'received' ? ` ${STUCK_AT_RECEIVED_REASON}` : '';
+            noteDeliveryOutcome(true);
             throw new Error(
-                `Import run ${runId}: this run's file(s) did not reach a terminal status within ${timeoutMs}ms ` +
+                `Import run ${runId}: this run's file(s) did not reach a terminal status within ${deadline.totalMs}ms ` +
                     `(ours: ${JSON.stringify(ours)}, run: ${String(last.status)}).${stuck}`,
             );
         }
         await new Promise((r) => setTimeout(r, 1_000));
     }
-    return { runId, status: String(last.status), files: last.files ?? [], raw: last };
+    noteDeliveryOutcome(false);
+    testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
+    const finalFiles = last.files ?? [];
+    return { runId, status: String(last.status), files: finalFiles, raw: last, oursPresent: finalFiles.some(wanted) };
 }
 
 /** What `POST connectivity/import/internet` reports about the pull itself. */
@@ -257,9 +385,10 @@ export interface InternetPullResult {
  */
 export async function pullFromRelayInternet(
     request: APIRequestContext,
-    opts: { timeoutMs?: number } = {},
+    opts: { timeoutMs?: number; deadline?: ImportDeadline; testInfo?: TestInfo } = {},
 ): Promise<{ pull: InternetPullResult; run?: ImportRunResult }> {
-    const timeoutMs = opts.timeoutMs ?? (Number(process.env.IMPORT_POLL_TIMEOUT_MS) || 120_000);
+    // Share the caller's deadline when given, exactly as importDeviceExport does.
+    const deadline = opts.deadline ?? newImportDeadline(opts.timeoutMs);
 
     const res = await request.post('connectivity/import/internet', {
         headers: { 'Content-Type': 'application/json' },
@@ -274,5 +403,5 @@ export async function pullFromRelayInternet(
     };
 
     if (!Number.isFinite(pull.runId) || pull.runId <= 0) return { pull };
-    return { pull, run: await waitForImportRun(request, pull.runId, timeoutMs) };
+    return { pull, run: await waitForImportRun(request, pull.runId, deadline, {}, opts.testInfo) };
 }

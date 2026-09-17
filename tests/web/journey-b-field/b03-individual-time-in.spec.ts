@@ -20,13 +20,14 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { verifyImportInOffice } from '@utils/api/officeVerification';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B3 · Individual time-in and duplicate-range correction', { tag: ['@JourneyB', '@B3'] }, () => {
     test('[Individual Time In] Deliver an individual time-in export with a corrected and a new record and verify both punches.', {
@@ -36,12 +37,12 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
             { type: 'requirement', description: 'B3-R1|B3-R2' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         const office = await seedOfficeFixture(sessionApi);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         // B1/B2/B3 must never share an employee-day under `workers=2`.
         const punchDate = punchDay(DAY_OFFSET.B3);
         const gpsFix = '(36.8076638,-119.8348287)';
@@ -114,6 +115,7 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B3',
             crewId: office.crew.id,
             ranchId: office.ranch.id,

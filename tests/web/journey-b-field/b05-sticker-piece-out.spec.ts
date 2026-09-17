@@ -30,14 +30,20 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
 import { sendToRelay } from '@utils/relay/relayClient';
 import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
-import { createUploadContext, importDeviceExport } from '@utils/api/connectivityImportApi';
+import {
+    annotateIfImportCircuitOpen,
+    createUploadContext,
+    importDeviceExport,
+    journeyBTestTimeoutMs,
+    newImportDeadline,
+} from '@utils/api/connectivityImportApi';
 import {
     CARD_TYPE,
     findByReferences,
@@ -82,7 +88,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
             { type: 'requirement', description: 'B5-R1|B5-R2|B5-R3|B5-R4|B5-R5|B5-R6|B5-R7' },
         ],
     }, async ({ sessionApi }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         // ── N6: module state, recorded then asserted at the level each module actually gates ──
         const meRes = await sessionApi.get('session/me');
@@ -138,7 +144,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         ).toBe(true);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         const punchDate = punchDay(DAY_OFFSET.B5);
         const day = isoDay(punchDate);
         // Run-unique, "B7" + digits (the recording's shape) — same rationale as
@@ -246,10 +252,19 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         }
 
         // ── Import via the single-folder transport (the importer-contract path) ──
+        // One deadline for the whole delivery: the import-run wait below and both
+        // findByReferences polls that follow share it, instead of each getting a
+        // full budget of its own.
+        const deadline = newImportDeadline();
+        annotateIfImportCircuitOpen(testInfo);
         const upload = await createUploadContext();
         let run;
         try {
-            run = await importDeviceExport(upload, xml, { fileName: `FromDevice-B5-${Date.now()}.xml` });
+            run = await importDeviceExport(upload, xml, {
+                fileName: `FromDevice-B5-${Date.now()}.xml`,
+                deadline,
+                testInfo,
+            });
         } finally {
             await upload.dispose();
         }
@@ -259,7 +274,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         });
         expect(run.status, `import run ${run.runId}: ${JSON.stringify(run.files)}`).toBe('completed');
 
-        const pollOpts = { from: day, to: day, timeoutMs: Number(process.env.IMPORT_POLL_TIMEOUT_MS ?? '') || 120_000 };
+        const pollOpts = { from: day, to: day, deadline };
         let tiCards: OfficeTimeCard[] = [];
         let poCards: OfficeTimeCard[] = [];
         try {

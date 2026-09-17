@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, test, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
 
@@ -47,6 +47,13 @@ export class TransferToJobCardsPage extends BasePage {
     readonly dateRangeFilter: Locator;
     /** Enabled once a range is committed; runs the analyze that fills the grid. */
     readonly analyzeButton: Locator;
+    /**
+     * Shown inside the grid when the analyze job is lost between processes (a
+     * per-process job store, WEBPET-1907 class — `GET …/analyze/{jobId}` 404s).
+     * No testid exists for this state; the button's accessible role is the
+     * repo-priority hook.
+     */
+    readonly analyzeRetryButton: Locator;
     /** "Includes N Time Cards of M initial selection" — the grid's own count. */
     readonly gridCaption: Locator;
     /** The "Warnings (n)" pill in {@link topStrip}. */
@@ -84,6 +91,12 @@ export class TransferToJobCardsPage extends BasePage {
      */
     readonly panelGpsValue: Locator;
 
+    /** `/transfer-to-job-cards/analyze` responses since the last {@link analyze} call. */
+    private analyzeResponses: Array<{ status: number; code?: string }> = [];
+    private analyzeResponseHandler?: (response: Response) => void;
+    /** How many times {@link tryWaitForCandidates} clicked "Try again" this call. */
+    private analyzeRetries = 0;
+
     constructor(page: Page) {
         super(page);
         this.pageRoot = page.getByTestId('transfer-v2-page');
@@ -96,6 +109,7 @@ export class TransferToJobCardsPage extends BasePage {
         this.pickRangePrompt = page.getByTestId('v2-grid-empty-pick-range');
         this.analyzeError = page.getByTestId('transfer-analyze-error-banner');
         this.analyzeButton = page.getByRole('button', { name: 'Analyze Transfer Candidates' });
+        this.analyzeRetryButton = page.getByRole('button', { name: 'Try again' });
         this.gridCaption = page.getByText(/^Includes \d+ Time Cards? of \d+ initial selection$/);
         // By accessible name, not the grid's `filter-<columnKey>` id: the date
         // column was renamed (dateTime → date) and the old id waited forever.
@@ -224,31 +238,131 @@ export class TransferToJobCardsPage extends BasePage {
      * date commit — it parks on "Ready to analyze." until this is clicked.
      */
     async analyze(): Promise<void> {
+        // Wire the analyze responses BEFORE the click so a per-process job-store
+        // 404 (GET …/analyze/{jobId} — WEBPET-1907 class, seen on multi-task dev)
+        // is captured for tryWaitForCandidates to diagnose, instead of surfacing
+        // as a bare locator timeout on the grid caption.
+        this.analyzeResponses = [];
+        this.analyzeRetries = 0;
+        this.detachAnalyzeResponseListener();
+        this.analyzeResponseHandler = (response) => {
+            if (!/\/transfer-to-job-cards\/analyze(\/|$)/.test(new URL(response.url()).pathname)) return;
+            void response
+                .json()
+                .catch(() => ({}))
+                .then((body: { code?: string }) => {
+                    this.analyzeResponses.push({ status: response.status(), code: body.code });
+                });
+        };
+        this.page.on('response', this.analyzeResponseHandler);
         await this.analyzeButton.click();
+    }
+
+    private detachAnalyzeResponseListener(): void {
+        if (this.analyzeResponseHandler) {
+            this.page.off('response', this.analyzeResponseHandler);
+            this.analyzeResponseHandler = undefined;
+        }
     }
 
     /**
      * Wait for the grid to finish analysing, then report its candidate count.
-     *
-     * Must poll: the grid caption reads "Includes 0 Time Cards of 0 initial
-     * selection" before and during analysis and is only rewritten when the
-     * response lands, so reading it once returns 0 from a grid that is merely
-     * still loading. The first number is the count after the grid's own
-     * filters — the rows actually shown.
+     * Throws when the grid never loads — including when the analyze job was lost
+     * between processes and every retry in {@link tryWaitForCandidates} still
+     * lost it. Kept returning a number: the webpet suite and B6/B10 consume it.
      */
     async waitForCandidates(atLeast = 1, timeout = 45_000): Promise<number> {
-        const heading = this.gridCaption;
-        await heading.waitFor({ state: 'visible', timeout });
+        const result = await this.tryWaitForCandidates(atLeast, timeout);
+        if (result === null) {
+            throw new Error(`grid never loaded at least ${atLeast} transfer candidate(s) (analyze job lost)`);
+        }
+        return result;
+    }
 
+    /**
+     * Like {@link waitForCandidates} but returns `null` instead of throwing when
+     * the grid never loads because the analyze job vanished — `GET
+     * …/transfer-to-job-cards/analyze/{jobId}` 404 `not_found`, a per-process job
+     * store (WEBPET-1907 class) on multi-task dev. Races the grid caption against
+     * {@link analyzeRetryButton}; on that exact 404 signature it clicks Try again
+     * (which restarts the job) up to 5 times inside a 60s cap. Any other failure
+     * shape (5xx, network) throws immediately with the captured statuses — only
+     * the proven infra signature is tolerated.
+     *
+     * Must poll the caption, not read it once: it reads "Includes 0 Time Cards of
+     * 0 initial selection" before and during analysis and is only rewritten when
+     * the response lands.
+     */
+    async tryWaitForCandidates(atLeast = 1, timeout = 45_000): Promise<number | null> {
+        const heading = this.gridCaption;
         const count = async () =>
             Number(/^Includes (\d+) /.exec(((await heading.textContent()) ?? '').trim())?.[1] ?? 0);
-        await expect
-            .poll(count, {
-                timeout,
-                message: `grid never loaded at least ${atLeast} transfer candidate(s)`,
-            })
-            .toBeGreaterThanOrEqual(atLeast);
-        return count();
+        const overallDeadline = Date.now() + Math.max(timeout, 60_000);
+
+        for (;;) {
+            const outcome = await Promise.race([
+                heading
+                    .waitFor({ state: 'visible', timeout })
+                    .then(() => 'ready' as const)
+                    .catch(() => 'timeout' as const),
+                this.analyzeRetryButton
+                    .waitFor({ state: 'visible', timeout })
+                    .then(() => 'retry' as const)
+                    .catch(() => 'timeout' as const),
+            ]);
+
+            if (outcome === 'ready') {
+                try {
+                    await expect
+                        .poll(count, {
+                            timeout,
+                            message: `grid never loaded at least ${atLeast} transfer candidate(s)`,
+                        })
+                        .toBeGreaterThanOrEqual(atLeast);
+                } catch {
+                    this.detachAnalyzeResponseListener();
+                    return null;
+                }
+                this.detachAnalyzeResponseListener();
+                return count();
+            }
+            if (outcome !== 'retry') {
+                this.detachAnalyzeResponseListener();
+                return null;
+            }
+
+            const knownSignature = this.analyzeResponses.some((r) => r.status === 404 && r.code === 'not_found');
+            const otherFailure = this.analyzeResponses.find((r) => !(r.status === 404 && r.code === 'not_found'));
+            if (otherFailure || !knownSignature) {
+                this.detachAnalyzeResponseListener();
+                throw new Error(
+                    `Transfer analyze failed with an unrecognised signature: ${JSON.stringify(this.analyzeResponses)}`,
+                );
+            }
+            if (this.analyzeRetries >= 5 || Date.now() > overallDeadline) {
+                this.detachAnalyzeResponseListener();
+                return null;
+            }
+
+            this.analyzeRetries += 1;
+            this.analyzeResponses = [];
+            try {
+                test.info().annotations.push({
+                    type: 'analyze-job-not-found-retried',
+                    description:
+                        `Retry ${this.analyzeRetries}: GET .../transfer-to-job-cards/analyze/{jobId} → ` +
+                        '404 not_found; clicked "Try again".',
+                });
+            } catch {
+                // Outside a test context — nothing to annotate.
+            }
+            await this.analyzeRetryButton.click();
+        }
+    }
+
+    /** How many times the last {@link tryWaitForCandidates} call clicked "Try again". */
+    get analyzeRetryCount(): number {
+        return this.analyzeRetries;
     }
 
     /**

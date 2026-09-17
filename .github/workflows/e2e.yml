@@ -193,9 +193,13 @@ jobs:
     # test ran (2026-08-19). 30 then proved too tight for a RED run: six Journey B
     # specs each failing at the 330s slow-test budget × 3 attempts hit the cap
     # (2026-09-06/07), and a cancelled job uploads no report, posts no Slack and
-    # looks like the suite never ran. 45 lets a fully red journey run still
-    # finish and report; a genuine hang still dies well inside it.
-    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 45 }}
+    # looks like the suite never ran. 45 let a fully red journey run report; 60
+    # keeps that true now a Journey B delivery may wait out IMPORT_POLL_TIMEOUT_MS
+    # below. The suite's own circuit breaker is what bounds the worst case — after
+    # two deliveries exhaust the deadline in a worker, the rest wait 60s (see
+    # src/utils/api/connectivityImportApi.ts) — so a dead import cannot walk this
+    # job to the cap the way it could before.
+    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 60 }}
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
@@ -263,10 +267,13 @@ jobs:
       # to the importer and exercises identical office-side assertions.
       IMPORT_TRANSPORT: 'internet'
       # The worker claims queued files on the client's SrvcRealTimeImportInterval
-      # cadence (minutes — GET /api/preferences → serviceImportInterval), NOT on
-      # arrival. Dev was 15 min and is now 1, so the 60s default is too tight to
-      # be reliable; this rides out a slow tick without hiding a real stall.
-      IMPORT_POLL_TIMEOUT_MS: '180000'
+      # cadence (GET /api/preferences -> serviceImportInterval), NOT on arrival.
+      # That preference is 1 minute on dev, yet the observed claim latency on
+      # 2026-09-16 was 3-7 minutes (runs 2037/2046/2053/2054/2057/2058/2067/2068
+      # all sat at "received" past the old 180s and completed later) - a server
+      # defect, not a cadence. This value is now a per-DELIVERY deadline shared by
+      # the run poll and the reference poll, not a fresh budget per stage.
+      IMPORT_POLL_TIMEOUT_MS: '420000'
       # OFFICE_TRANSPORT_SUBSTITUTE is deliberately NOT set: it would create the
       # punches through the office API when the import fails, turning a broken
       # pipeline green. Keep it unset so CI only passes on a real import.
@@ -492,6 +499,48 @@ jobs:
           echo "REPORT_S3_PREFIX=$PREFIX" >> "$GITHUB_ENV"
           echo "REPORT_S3_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/test-results/results.json" >> "$GITHUB_ENV"
           echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
+
+      # ── One journey run at a time against the shared dev tenant ──────────────
+      # Two runs of this workflow overlapped on 2026-09-16 (the 4 PM cron plus a
+      # workflow_dispatch from a feature branch) and collided on dev: each one's
+      # Trigger Import drained the OTHER's relay envelopes, so specs waited out
+      # their import budget on a run holding none of their files, and late imports
+      # from the loser doubled up employee-days into Blocking rows. Five specs
+      # flaked and two failed outright.
+      #
+      # This is a queue, not a concurrency group, on purpose. A single shared
+      # `concurrency.group` would serialize correctly but GitHub keeps only ONE
+      # pending run per group and cancels the rest — and a cancelled run concludes
+      # non-success, which web-pet's advisory helper reports as a failed check (see
+      # the `route` job above). Waiting inside the job keeps every dispatch alive.
+      #
+      # Only the journey leg waits: the relay mailbox and the Journey B fixture
+      # employee-days are what collide. Ordering is by run id, and a run only ever
+      # waits on LOWER ids, so two waiters can never deadlock on each other. The
+      # query is scoped to this workflow file; a workflow_call run is attributed to
+      # its caller instead, and nothing calls this workflow today.
+      - name: Wait for the dev tenant
+        if: matrix.suite != 'webpet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 60); do
+            blocker=""
+            for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/e2e.yml/runs?status=in_progress&per_page=50" \
+                          --jq ".workflow_runs[] | select(.id < $GITHUB_RUN_ID) | .id"); do
+              busy=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" \
+                       --jq '[.jobs[] | select((.name | endswith("Playwright E2E")) and .status != "completed")] | length')
+              if [ "${busy:-0}" -gt 0 ]; then blocker="$id"; break; fi
+            done
+            if [ -z "$blocker" ]; then
+              echo "Dev tenant is free (waited $((attempt - 1)) x 30s)."
+              exit 0
+            fi
+            echo "::notice::Waiting for run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$blocker to release the dev tenant ($attempt/60)."
+            sleep 30
+          done
+          echo "::error::Gave up after 30 minutes waiting for $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$blocker."
+          exit 1
 
       - name: Run Playwright tests
         if: matrix.suite != 'webpet'

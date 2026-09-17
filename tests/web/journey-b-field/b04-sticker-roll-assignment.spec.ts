@@ -23,7 +23,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
-    newRunPrefix,
+    lineagePrefix,
     punchMoment,
     type DeviceRecord,
 } from '@utils/relay/exportEnvelope';
@@ -32,6 +32,7 @@ import { seedOfficeFixture } from '@utils/api/officeFixture';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { verifyImportInOffice } from '@utils/api/officeVerification';
 import { getCodeHistory } from '@utils/api/stickerRollApi';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 
 test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB', '@B4'] }, () => {
     test('[Sticker Roll] Deliver individual time-in records carrying sticker-roll codes, verify each roll is stored against its own employee, and that the import writes no code-history row.', {
@@ -41,7 +42,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
             { type: 'requirement', description: 'B4-R1|B4-R2|B4-R3|B4-R9' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
+        test.setTimeout(journeyBTestTimeoutMs(testInfo));
 
         const office = await seedOfficeFixture(sessionApi);
         // seedOfficeFixture only ensures F.present/F.absentee — the sticker
@@ -50,7 +51,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         const emp6006 = await ensureEmployee(sessionApi, F.sticker[1]);
 
         const deviceAddress = process.env.DEVICE_RELAY_FROM ?? 'b1device@petb1';
-        const prefix = newRunPrefix();
+        const prefix = lineagePrefix();
         const punchDate = punchDay(DAY_OFFSET.B4);
         // Run-unique, in the shape the recording shows ("B7" + digits) — the
         // EmployeeCodeHistory identity has no delete endpoint, so a fixed code
@@ -133,6 +134,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
             pages,
             testInfo,
             xml,
+            fileName,
             label: 'B4',
             crewId: office.crew.id,
             ranchId: office.ranch.id,
