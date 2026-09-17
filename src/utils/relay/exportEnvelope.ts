@@ -133,14 +133,33 @@ function fnv1a(input: string): number {
  * context, where `test.info()` throws.
  */
 export function lineagePrefix(salt = ''): string {
-    let testId: string;
+    const basis = lineageBasis(salt);
+    if (basis === null) return newRunPrefix();
+    return fnv1a(basis).toString(36).slice(-4).padStart(4, '0').toUpperCase();
+}
+
+/** `run lineage - testId - salt`, or null outside a test where `test.info()` throws. */
+function lineageBasis(salt: string): string | null {
     try {
-        testId = test.info().testId;
+        return `${runLineageId()}-${test.info().testId}-${salt}`;
     } catch {
-        return newRunPrefix();
+        return null;
     }
-    const hash = fnv1a(`${runLineageId()}-${testId}-${salt}`);
-    return hash.toString(36).slice(-4).padStart(4, '0').toUpperCase();
+}
+
+/**
+ * Lineage-stable decimal digits for payload fields that must be run-unique yet
+ * identical across the retries of one test — B4's roll codes, B5's sticker
+ * codes. A clock-derived value there changes per attempt, and under
+ * lineage-stable References a late-landing earlier attempt upserts the same
+ * row with ITS value: that is exactly how B4/B5 read a stale code on
+ * 2026-09-17 (expected the attempt-3 code, got attempt-1's).
+ */
+export function lineageDigits(length: number, salt = ''): string {
+    const basis = lineageBasis(salt) ?? String(Date.now());
+    const a = fnv1a(`${basis}#a`).toString().padStart(10, '0');
+    const b = fnv1a(`${basis}#b`).toString().padStart(10, '0');
+    return (a + b).slice(0, length);
 }
 
 /**

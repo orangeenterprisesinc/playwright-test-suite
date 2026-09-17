@@ -198,7 +198,10 @@ jobs:
     # below. The suite's own circuit breaker is what bounds the worst case — after
     # two deliveries exhaust the deadline in a worker, the rest wait 60s (see
     # src/utils/api/connectivityImportApi.ts) — so a dead import cannot walk this
-    # job to the cap the way it could before.
+    # job to the cap the way it could before. PW_GLOBAL_TIMEOUT_MS (env block
+    # below) sits 5 minutes under this so Playwright, not the runner, ends a
+    # run that gets this far — a runner cancel force-kills the process and no
+    # html report, Slack post or email is ever produced.
     timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 60 }}
 
     env:
@@ -209,6 +212,11 @@ jobs:
       # /api/*). Applies to every trigger above, so the repository_dispatch the
       # app repo fires also targets dev staging.
       TEST_ENV: dev
+      # Playwright's own run cap, 5 minutes under `timeout-minutes` above, so a
+      # slow run ends gracefully and still writes artifacts/html, posts Slack
+      # and uploads — instead of being force-killed with no report (run
+      # 35206578922, 2026-09-17). Journey 55 min, webpet 85 min.
+      PW_GLOBAL_TIMEOUT_MS: ${{ matrix.suite == 'webpet' && '5100000' || '3300000' }}
       # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
       # secret. A login name is not a credential, and Actions masks every literal
       # occurrence of a secret's value — so storing a short value like 'su' as a

@@ -30,6 +30,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
+    lineageDigits,
     lineagePrefix,
     punchMoment,
     type DeviceRecord,
@@ -148,8 +149,9 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         const punchDate = punchDay(DAY_OFFSET.B5);
         const day = isoDay(punchDate);
         // Run-unique, "B7" + digits (the recording's shape) — same rationale as
-        // B4's roll codes: a fixed sticker would blur one run's rows into the next.
-        const stickerBase = Date.now().toString().slice(-8);
+        // B4's roll codes: a fixed sticker would blur one run's rows into the next,
+        // and a clock value would drift across retries under retry-stable References.
+        const stickerBase = lineageDigits(8, 'sticker');
         const stickerA = `B7${stickerBase}1`;
         const stickerB = `B7${stickerBase}2`;
         const stickerC = `B7${stickerBase}3`;
