@@ -5,6 +5,8 @@ import { JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
 import type { JourneyBScenario } from '@data/schemas/journeyBScenario';
 import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
+import { ensureEmployee } from '@utils/api/setupEntitiesApi';
+import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
 import {
     assertTransferGrid as assertTransferGridScreen,
     deliverAndVerifyCards,
@@ -18,6 +20,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
+    lineageDigits,
     lineagePrefix,
     punchMoment,
     type DeviceRecord,
@@ -54,6 +57,11 @@ export interface EnvelopeView {
     referenceParts: string[];
     /** `<GpsReading>` occurrences. */
     gpsFixes: number;
+    /** Distinct `<Field>` / `<Job>` code texts, document order. */
+    fields: string[];
+    jobs: string[];
+    /** Non-empty `<TraceabilityCode>` texts, record order (the serializer emits an empty one on every other row). */
+    traceabilityCodes: string[];
 }
 
 export function envelopeView(xml: string, references: string[], fileName: string, prefix: string): EnvelopeView {
@@ -73,23 +81,40 @@ export function envelopeView(xml: string, references: string[], fileName: string
         lookupContents: [...new Set([...xml.matchAll(new RegExp(`${DEVICE_SCHEMA.attributes.lookupContents}="([^"]*)"`, 'g'))].map((m) => m[1]))],
         referenceParts: references.map((r) => r.split('-')[2] ?? ''),
         gpsFixes: texts(T.gpsReading).length,
+        fields: [...new Set(texts(T.field))],
+        jobs: [...new Set(texts(T.job))],
+        traceabilityCodes: texts(T.traceabilityCode).filter((v) => v !== ''),
     };
 }
 
 export interface MintedRun {
     scenario: JourneyBScenario;
     prefix: string;
+    /** `codes.prefix + lineageDigits(codes.length, codes.salt) + codes.suffixes[i]` — `{code<i>}` in the scenario. */
+    codes: string[];
     punchDate: Date;
     deviceAddress: string;
     fileName: string;
 }
 
-/** Prefix, fixture day, device address, file name — and `{prefix}` substituted into every string of the scenario. */
+export function mintCodes(codes: JourneyBScenario['codes']): string[] {
+    if (!codes?.suffixes?.length) return [];
+    // From the lineage, not the clock: references are retry-stable, so a clock value would let an
+    // earlier attempt's late import overwrite this attempt's code (seen 2026-09-17). `length` is
+    // guaranteed by the schema's superRefine whenever suffixes are present.
+    const base = lineageDigits(codes.length!, codes.salt);
+    return codes.suffixes.map((suffix) => `${codes.prefix ?? ''}${base}${suffix}`);
+}
+
+/** Prefix, minted codes, fixture day, device address, file name — and `{prefix}` / `{code<i>}` substituted into every string of the scenario. */
 export function mintRun(scenario: JourneyBScenario): MintedRun {
     const prefix = lineagePrefix(scenario.codes?.salt ?? '');
+    const codes = mintCodes(scenario.codes);
+    const tokens = { prefix, ...Object.fromEntries(codes.map((code, i) => [`code${i}`, code])) };
     return {
-        scenario: substituteTokens(scenario, { prefix }),
+        scenario: substituteTokens(scenario, tokens),
         prefix,
+        codes,
         punchDate: punchDay(scenario.dayOffset),
         deviceAddress: relayConfig().from,
         fileName: exportFileName(prefix),
@@ -176,7 +201,7 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         [F.job2.code, { office: office.job2, name: F.job2.name }],
         [F.mealJob.code, { office: office.mealJob, name: F.mealJob.name }],
     ]);
-    const employeeNames = new Map([...F.present, F.absentee, ...F.sticker].map((e) => [e.code, e.name]));
+    const employeeNames = new Map([...F.present, F.absentee, ...F.sticker, ...(scenario.extraEmployees ?? [])].map((e) => [e.code, e.name]));
     const bound = <V>(kind: string, map: Map<string, V>, code: string): V => {
         const hit = map.get(code);
         if (!hit) throw new Error(`${scenario.label}: ${kind} code '${code}' is not in the seeded fixture`);
@@ -215,6 +240,13 @@ export interface JourneyBRunOptions {
     testInfo: TestInfo;
 }
 
+/** `hooks.beforeImport: codeHistorySnapshot` / `afterImport: codeHistoryDelta` — one row set per expected employee, before and after the import. */
+export interface CodeHistoryBracket {
+    employeeIds: number[];
+    before: CodeHistoryRow[][];
+    after: CodeHistoryRow[][];
+}
+
 export interface JourneyBRun extends MintedRun {
     office: OfficeFixture;
     envelope: EnvelopeView;
@@ -223,6 +255,8 @@ export interface JourneyBRun extends MintedRun {
     importRun: OfficeVerificationResult | null;
     cards: OfficeTimeCard[];
     expectedCards: ExpectedCard[];
+    /** `null` unless the scenario names both code-history hooks. */
+    codeHistory: CodeHistoryBracket | null;
     label: string;
     testInfo: TestInfo;
     /** The scenario's `cleanup` steps, 'after' phase. Call it in the spec's `finally`. */
@@ -239,6 +273,9 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     // The envelope references records by code and the importer's FKs are nullable, so
     // without this the import "succeeds" while linking nothing.
     const office = await seedOfficeFixture(sessionApi);
+    // seedOfficeFixture knows the crew's own members only; a workflow's extra employees join the same map
+    // so the cleanup sweep, the expected cards and the hooks resolve them like any other code.
+    for (const extra of scenario.extraEmployees ?? []) office.employees.set(extra.code, await ensureEmployee(sessionApi, extra));
     const run = mintRun(scenario);
     const snapshots = new Map<string, unknown>();
     let cards: OfficeTimeCard[] = [];
@@ -247,7 +284,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     await runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots });
     const { envelope, send } = await buildAndSend(run, relayConfig().office, testInfo);
     const base = { ...run, office, envelope, send, label: run.scenario.label, testInfo, cleanup };
-    if (!send.success) return { ...base, importRun: null, cards, expectedCards: [] };
+    if (!send.success) return { ...base, importRun: null, cards, expectedCards: [], codeHistory: null };
 
     const expectedCards = resolveExpectedCards(run.scenario, office, envelope.references);
     const absentEmployeeIds = (run.scenario.absentEmployees ?? []).map((code) => {
@@ -258,6 +295,10 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     if (!pages && (run.scenario.verification === 'office-ui' || process.env.IMPORT_TRANSPORT !== 'single-folder')) {
         throw new Error(`${run.scenario.label}: this scenario drives the office UI — destructure { pages } in the spec`);
     }
+    // The code-history bracket straddles the import: the JSON names the hooks, this is the code.
+    const hookEmployeeIds = [...new Set(expectedCards.map((c) => c.employeeId))];
+    const codeHistoryOf = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
+    const before = run.scenario.hooks?.beforeImport === 'codeHistorySnapshot' ? await codeHistoryOf() : null;
     const importRun = await deliverAndVerifyCards({
         sessionApi,
         pages,
@@ -275,7 +316,9 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         sweep: false,
     });
     cards = importRun.cards;
-    return { ...base, importRun, cards, expectedCards };
+    const after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistoryOf() : null;
+    const codeHistory = before && after ? { employeeIds: hookEmployeeIds, before, after } : null;
+    return { ...base, importRun, cards, expectedCards, codeHistory };
 }
 
 export function assertExpectedCards(run: JourneyBRun, expected: ExpectedCardJson[]): void {

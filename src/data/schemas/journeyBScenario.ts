@@ -6,7 +6,7 @@ import { CleanupStepSchema } from './cleanupStep';
 // definition. Codes, "HH:mm" times and record indexes only — journeyBFlow.ts derives
 // dates, references, ids and display names. `.strict()` everywhere: a misspelt key fails
 // at the first line of the test with its path, not as an undefined inside an assertion.
-// Fields marked 4b/4c/4d have no consumer yet; they are the shape the later parts fill.
+// Fields marked 4c/4d have no consumer yet; they are the shape the later parts fill.
 
 const HHMM = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'expected "HH:mm"');
 const Code = z.string().regex(/^[1-9]\d{3,}$/, 'a barcode code: 4+ digits, no leading zero');
@@ -28,7 +28,7 @@ export const DeviceRecordJsonSchema = z
         time: HHMM.optional(),
         gps: z.string().optional(),
         pieces: z.number().int().nonnegative().optional(), // 4d
-        traceabilityCode: z.string().optional(), // 4b
+        traceabilityCode: z.string().optional(), // a {code<i>} token or a literal
     })
     .strict();
 
@@ -58,6 +58,11 @@ export const ExpectedEnvelopeJsonSchema = z
         gpsFixes: z.number().int().optional(),
         lookupContents: z.array(z.string()).optional(),
         employees: z.array(Code).optional(),
+        /** Distinct `<Field>` / `<Job>` codes the envelope carries. */
+        fields: z.array(Code).optional(),
+        jobs: z.array(Code).optional(),
+        /** `{code<i>}` tokens — mintRun substitutes the run's minted codes before the spec compares. */
+        traceabilityCodes: z.array(z.string().min(1)).optional(),
     })
     .strict();
 
@@ -83,14 +88,14 @@ export const JourneyBScenarioSchema = z
                 attemptUnique: z.boolean().optional(),
             })
             .strict()
-            .optional(), // 4b/4d
-        // 4b — the `B<n> ` prefix keeps them out of the residue sweep (cleanupTargets.ts:44).
+            .optional(), // attemptUnique: 4d
+        // Seeded by the flow next to the crew; the `B<n> ` prefix keeps them out of the residue sweep (cleanupTargets.ts:44).
         extraEmployees: z.array(z.object({ code: Code, name: z.string().regex(/^B\d{1,2} /) }).strict()).optional(),
         preconditions: z.array(z.enum(['piecePaymentModule', 'undefinedEmployeeSet', 'requireJobInEmpPieceOut'])).optional(), // 4c/4d
         hooks: z
             .object({ beforeImport: z.enum(['codeHistorySnapshot']).optional(), afterImport: z.enum(['codeHistoryDelta']).optional() })
             .strict()
-            .optional(), // 4b
+            .optional(),
         records: z.array(DeviceRecordJsonSchema).min(1),
         absentEmployees: z.array(Code).optional(),
         expected: z
@@ -122,6 +127,8 @@ export const JourneyBScenarioSchema = z
         if (s.transport === 'relay-echo' && s.verification !== 'none') issue(['verification'], "relay-echo never reaches the office — use 'none'");
         if (s.transport === 'relay-echo' && !s.expected.relay) issue(['expected', 'relay'], 'relay-echo asserts the relay subject');
         if (s.verification === 'office-ui' && !s.expected.grid) issue(['expected', 'grid'], 'office-ui verification asserts the Transfer grid — add expected.grid');
+        if (s.codes?.suffixes?.length && !s.codes.length) issue(['codes', 'length'], 'minted codes need their digit length');
+        if (!!s.hooks?.beforeImport !== !!s.hooks?.afterImport) issue(['hooks'], 'codeHistorySnapshot and codeHistoryDelta bracket the import together');
     });
 
 export type JourneyBScenario = z.infer<typeof JourneyBScenarioSchema>;

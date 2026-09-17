@@ -67,8 +67,6 @@
       "excludedFiles": [
         "tests/web/journey-a-setup/a01-user-setup.spec.ts",
         "tests/web/system/notification-email.spec.ts",
-        "tests/web/journey-b-field/b02-crew-move.spec.ts",
-        "tests/web/journey-b-field/b04-sticker-roll-assignment.spec.ts",
         "tests/web/journey-b-field/b05-sticker-piece-out.spec.ts",
         "tests/web/journey-b-field/b06-badge-piece-out.spec.ts",
         "tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts",

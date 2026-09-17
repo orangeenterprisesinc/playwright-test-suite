@@ -1,0 +1,39 @@
+{
+  "_notes": [
+    "B2 — Crew move and job change, office half (catalog B2, plan test-plans/journey-b/b02-crew-move-and-job-change.md, recording docs/media/Journey B2 Crew Move and Job Change.mp4, runner row B2-001). After the supervisor moves the crew mid-day, the office must show each mover in the destination field/job and the member left behind still in the original.",
+    "Four rows, not seven: a move on the device is not a second punch — each mover's existing Time In is updated in place, same row and same reference, and no time-out is written. The device therefore exports the crew's FINAL state, which is what these records are: movers 6001/6002/6003 in field2 4102 / job2 4202, member 6004 left behind in field 4101 / job 4201. One punch per crew member — a move reassigns, it never adds.",
+    "Device-side proof of that behaviour needs the app itself and is parked with the mobile automation; this file covers the office side.",
+    "dayOffset -1: B1 and B2 share crew members and run in parallel workers against the same tenant; punching the same day would trip the office's duplicate-Time-In rule and flip the rows from Warning to Blocking, so B2 lives on yesterday and keeps both grids disjoint. punchTime 07:15 is the crew envelope's single punch moment.",
+    "expected.envelope.fields/jobs replace the old '<Field>4102</Field>' / '<Job>4202</Job>' string greps. expected.cards[0] (panel: true) is the Time In panel's candidate — the post-move destination display names come from fixture.json (field2 'B2 FIELD EAST', job2 'B2 PRUNING').",
+    "cleanup: the timeCards step sweeps the four crew members' fixture day before the import (what verifyImportInOffice's default sweep did) and deletes the imported cards after the test; the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B2",
+  "label": "B2",
+  "dayOffset": -1,
+  "punchTime": "07:15",
+  "envelope": "crew",
+  "transport": "relay-ui",
+  "verification": "office-ui",
+  "records": [
+    { "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4102", "jobCode": "4202" },
+    { "employeeCode": "6002", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4102", "jobCode": "4202" },
+    { "employeeCode": "6003", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4102", "jobCode": "4202" },
+    { "employeeCode": "6004", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201" }
+  ],
+  "expected": {
+    "envelope": {
+      "fields": ["4102"],
+      "jobs": ["4202"]
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4102", "jobCode": "4202", "panel": true },
+      { "record": 1, "employeeCode": "6002", "fieldCode": "4102", "jobCode": "4202" },
+      { "record": 2, "employeeCode": "6003", "fieldCode": "4102", "jobCode": "4202" },
+      { "record": 3, "employeeCode": "6004", "fieldCode": "4101", "jobCode": "4201" }
+    ],
+    "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch" }
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001", "6002", "6003", "6004"], "dayOffset": -1 }
+  ]
+}
