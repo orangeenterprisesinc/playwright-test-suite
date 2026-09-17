@@ -7,6 +7,7 @@ import { FullConfig, request } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { runResidueSweep } from '../../utils/cleanup/residueSweep';
+import { reconcileFixtureDays } from '../../utils/cleanup/fixtureReconcile';
 import fs from 'fs';
 import path from 'path';
 
@@ -103,6 +104,9 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     // itself, so it skips this one.
     if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
         await runResidueSweep({ phase: 'start' });
+        // Time cards are outside the name-prefix sweep; the reconcile waits out the
+        // previous run's imports and sweeps the fixture window.
+        await reconcileFixtureDays({ phase: 'start' });
     }
 
     logger.info('Global setup completed');

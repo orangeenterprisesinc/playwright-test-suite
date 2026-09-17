@@ -1,6 +1,7 @@
 import { request as playwrightRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
 import { SESSION_STORAGE_STATE, csrfTokenFromStorageFile } from './sessionContext';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
+import { recordImportRun } from '../cleanup/importRunRecorder';
 
 /**
  * Uploads a device export into web-pet's Connectivity import and follows the run
@@ -143,6 +144,7 @@ export interface ImportRunResult {
 }
 
 const TERMINAL = ['completed', 'failed', 'partial'];
+export const TERMINAL_IMPORT_STATUSES = TERMINAL;
 
 /**
  * The signature of an environment without object storage.
@@ -325,6 +327,7 @@ export async function waitForImportRun(
     testInfo?: TestInfo,
 ): Promise<ImportRunResult> {
     const startedAt = Date.now();
+    recordImportRun(runId, testInfo);
     let last: { status?: string; files?: ImportFileResult[] } = seed;
     let claimed = String(seed.status ?? 'received') !== 'received';
     deadline.touch();
@@ -381,7 +384,7 @@ export async function waitForImportRun(
  * peer's trigger drained it), so it can re-trigger instead of waiting out the
  * whole deadline on a run that cannot resolve.
  */
-function runFingerprint(run: { status?: string; files?: ImportFileResult[] }): string {
+export function runFingerprint(run: { status?: string; files?: ImportFileResult[] }): string {
     return JSON.stringify({
         s: run.status,
         f: (run.files ?? []).map((f) => [f.fileName ?? (f as { filename?: string }).filename, f.status, f.message]),
@@ -396,6 +399,7 @@ export async function waitForImportFiles(
     testInfo?: TestInfo,
 ): Promise<ImportRunResult & { oursPresent: boolean }> {
     const startedAt = Date.now();
+    recordImportRun(runId, testInfo);
     let last: { status?: string; files?: ImportFileResult[] } = {};
     let claimed = false;
     let emptySinceMs: number | null = null;

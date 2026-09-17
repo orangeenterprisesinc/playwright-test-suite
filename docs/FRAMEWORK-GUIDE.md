@@ -497,6 +497,10 @@ npm run residue:sweep       # standalone sweep (budget 15 min, cap 1000/entity)
 
 Env: `RESIDUE_SWEEP=0` disables both phases (`=dry` reports only),
 `RESIDUE_MIN_AGE_MIN`, `RESIDUE_CAP_PER_ENTITY` (default 250 per run),
-`RESIDUE_SWEEP_BUDGET_MS` (default 3 min in a run). Job cards and time cards have
-no name prefix and are out of scope here — the Journey B specs sweep them by
-employee and day (`sweepFixtureCards` / `cleanupCards`).
+`RESIDUE_SWEEP_BUDGET_MS` (default 3 min in a run). Job cards are out of scope.
+Time cards have no name prefix either; the fixture-day reconcile
+(`src/utils/cleanup/fixtureReconcile.ts`, both hooks) waits out the previous run's
+in-flight imports and sweeps the Journey B fixture employee-days over the whole
+`DAY_OFFSET` window, on top of the per-spec `sweepFixtureCards` / `cleanupCards`.
+Knobs: `FIXTURE_RECONCILE=0`, `RECONCILE_STALL_MS`, `RECONCILE_CEILING_MS`,
+`RECONCILE_BUDGET_MS`.
