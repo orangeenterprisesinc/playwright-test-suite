@@ -218,14 +218,14 @@ export async function describeImportWait(
     const pref = await importIntervalPreferenceNote(request);
     const elapsed = Date.now() - deadline.startedAt;
     if (verdict === 'stalled' && lastStatus === 'received') {
-        const m = Math.round(deadline.stallMs / 60_000);
+        const m = (deadline.stallMs / 60_000).toFixed(1);
         return (
             `stalled at "received" for ${m} min — stored but never claimed (worker latency). ` +
             `${pref}; waited ${elapsed} ms in total. ${STUCK_AT_RECEIVED_REASON}`
         );
     }
     if (verdict === 'stalled') {
-        const m = Math.round(deadline.stallMs / 60_000);
+        const m = (deadline.stallMs / 60_000).toFixed(1);
         return (
             `stalled at "${lastStatus}" for ${m} min — claimed, but no file/status change since ` +
             `(parser hung). ${pref}; waited ${elapsed} ms.`
