@@ -4,7 +4,14 @@ import type { CleanupStepSchema } from '../../data/schemas/cleanupStep';
 import { punchDay } from '../../data/journey-b/fixture';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
-import { getPreferences, putPreferences } from '../api/preferencesApi';
+import {
+    getPreferences,
+    putPreferences,
+    restorePreferences,
+    snapshotPreferences,
+    PIECE_OUT_PREFERENCE_KEYS,
+    type PreferencesSnapshot,
+} from '../api/preferencesApi';
 import type { OfficeFixture } from '../api/officeFixture';
 import { cleanupCards } from '../api/officeVerification';
 import { isoDay, sweepFixtureCards, type OfficeTimeCard } from '../api/timeCardsApi';
@@ -33,12 +40,14 @@ export interface CleanupContext {
 
 interface Restorer {
     snapshot(api: APIRequestContext, ctx: CleanupContext): Promise<unknown>;
-    restore(api: APIRequestContext, snapshot: unknown, ctx: CleanupContext): Promise<void>;
+    /** `testInfo` so a restorer can report what it could not put back (A9's null-valued keys). */
+    restore(api: APIRequestContext, snapshot: unknown, ctx: CleanupContext, testInfo: TestInfo): Promise<void>;
 }
 
 // `restore` targets — the JSON names one, this table owns the code.
 //   crewNotifyUser        → the fixture crew's userToNotifyBreakAndMeal (B12 points it at a notifiable user)
 //   stickerStartLocations → the two label-tracking preferences B7 arranges for its own extraction
+//   pieceOutPreferences   → the seven piece-out/sticker-roll preferences A9 writes through the UI
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
         snapshot: async (api, ctx) => (await getCrew(api, fixtureCrewId(ctx))).userToNotifyBreakAndMeal ?? null,
@@ -57,6 +66,20 @@ const RESTORERS: Record<string, Restorer> = {
         restore: async (api, snapshot) => {
             // Leaving them changed would alter sticker extraction for every other client user.
             await putPreferences(api, snapshot as Record<string, unknown>);
+        },
+    },
+    pieceOutPreferences: {
+        snapshot: async (api) => snapshotPreferences(api, PIECE_OUT_PREFERENCE_KEYS),
+        restore: async (api, snapshot, _ctx, testInfo) => {
+            const unset = await restorePreferences(api, snapshot as PreferencesSnapshot);
+            if (unset.length) {
+                testInfo.annotations.push({
+                    type: 'shared-state-drift',
+                    description:
+                        'These preferences were unset before this run and the API ignores a null write, so ' +
+                        `they keep the values written here: ${unset.join(', ')}.`,
+                });
+            }
         },
     },
 };
@@ -105,7 +128,7 @@ async function runStep(step: CleanupStep, api: APIRequestContext, testInfo: Test
             const restorer = RESTORERS[step.target];
             if (!restorer) throw new Error(`no restorer registered for '${step.target}'`);
             if (ctx.phase === 'before') ctx.snapshots?.set(step.target, await restorer.snapshot(api, ctx));
-            else if (ctx.snapshots?.has(step.target)) await restorer.restore(api, ctx.snapshots.get(step.target), ctx);
+            else if (ctx.snapshots?.has(step.target)) await restorer.restore(api, ctx.snapshots.get(step.target), ctx, testInfo);
             return;
         }
         case 'unremovable':
