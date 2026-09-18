@@ -9,14 +9,12 @@ const FIXTURE = JourneyBFixtureSchema.parse(
 );
 
 export const JOURNEY_B_FIXTURE = FIXTURE.entities;
-export const B12_QUESTIONS = FIXTURE.b12.questions;
-export const B12_SIGNATURE_PNG = FIXTURE.b12.signaturePng;
 export const B4_PACK_HOUSE_ROLL = FIXTURE.b4.packHouseRoll;
 
-// Transitional: the specs not yet on a scenario file (b05-b07, b10-b12) still read
-// their fixture day here. A converted spec carries `dayOffset` in its JSON instead, and
-// scenarioLoader asserts those stay pairwise distinct. Values must equal the JSON ones
-// (B1 0, B2 -1, B3 -2, B4 -8 today). Removed with 4d.
+// Transitional: the specs not yet on a scenario file (b05-b07) still read their fixture day
+// here. A converted spec carries `dayOffset` in its JSON instead, and scenarioLoader asserts
+// those stay pairwise distinct. Values must equal the JSON ones (B1 0, B2 -1, B3 -2, B10 -3,
+// B11 -4, B12 -5, B4 -8 today). Removed with 4d.
 export const DAY_OFFSET = {
     B1: 0,
     B2: -1,

@@ -65,15 +65,9 @@
     {
       "files": ["tests/web/**/*.spec.ts"],
       "excludedFiles": [
-        "tests/web/journey-a-setup/a01-user-setup.spec.ts",
-        "tests/web/system/notification-email.spec.ts",
         "tests/web/journey-b-field/b05-sticker-piece-out.spec.ts",
         "tests/web/journey-b-field/b06-badge-piece-out.spec.ts",
-        "tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts",
-        "tests/web/journey-b-field/b10-meal-start-end.spec.ts",
-        "tests/web/journey-b-field/b11-crew-out.spec.ts",
-        "tests/web/journey-b-field/b12-time-out-questions.spec.ts",
-        "tests/web/journey-b-field/b15-device-sync.spec.ts"
+        "tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts"
       ],
       "rules": {
         "no-restricted-imports": ["error", {

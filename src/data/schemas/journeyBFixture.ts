@@ -16,14 +16,7 @@ export const JourneyBFixtureSchema = z
                 sticker: z.array(Entity).min(1),
             })
             .strict(),
-        b12: z
-            .object({
-                questions: z
-                    .array(z.object({ name: z.string(), requiredResponse: z.string(), allowedResponses: z.string(), questionText: z.string() }).strict())
-                    .length(3),
-                signaturePng: z.string().min(1),
-            })
-            .strict(),
+
         b4: z.object({ packHouseRoll: z.object({ alternateCode: z.string(), firstCode: z.string() }).strict() }).strict(),
     })
     .strict();

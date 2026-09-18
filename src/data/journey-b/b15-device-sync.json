@@ -1,0 +1,24 @@
+{
+  "_notes": [
+    "B15 — Device sync and offline operation (catalog B15, plan test-plans/journey-b/b15-device-sync.md, WEBPET-1533 attachments 66971/66972, runner row B15-001). Happy path only, by decision: scope a device, save, push, and verify what the office actually sent. Only the office half of the recording is drivable; the device half (IMPORTAR/SINCRONIZAR) needs a handset.",
+    "The pipeline runs office → device here, so no envelope is built: the flow (src/utils/journeys/deviceSyncFlow.ts) creates run-unique setup rows, scopes a run-unique scan device to them through the UI, pushes, pulls the envelope back off the device's own mailbox (drained first) and parses it with src/utils/export/setupExportXml.ts. /connectivity/export/log has no evidence of existing on dev, so the run is asserted through the push result panel and the pulled envelope.",
+    "entities: prefixes are the residue sweep's own factory prefixes (cleanupTargets.ts) — the flow refuses a prefix the sweep could not reclaim. codeOffset is added to the run token so the three barcodes of one run never collide (>=4 digits, no leading zero — the journey-B barcode rule). section is the <X_Records> block the office serializes the entity into: each must carry Clear=\"True\" (the device replaces the table) and the assigned rows by name and code; the field block also names its ranch.",
+    "device: ZZTEST_SD_<RUN_TOKEN> — the sweep's `six` decoder expects exactly six base36 digits after the prefix; an undecodable name is one it can never reclaim. ReferencePrefix is nvarchar(3). Minted by src/data/generated/scanDeviceFactory.ts.",
+    "Deliberately not covered: B15-R2 (unsaved-changes bar), B15-R3 (whole-ranch assignment), B15-R7 (second push records a distinct run) — edge cases, not the happy path. B15-R8/R9 are device-side; R9 is contradicted by the recording and tracked in test-plans/journey-b/b15-field-after-import-finding.md.",
+    "cleanup: the minted names are substituted into the delete steps ({deviceName}, {fieldName}, {ranchName}, {crewName}); runCleanup orders them by cleanupTargets — the scan device first (its crew/ranch/field assignments point at the other three), then field, ranch, crew. The pulled relay message is acknowledged before that so nothing accumulates on the relay. A failure while scoping runs the same cleanup before rethrowing."
+  ],
+  "workflow": "B15",
+  "label": "B15",
+  "entities": {
+    "ranch": { "prefix": "E2ERanch_", "codeOffset": 1, "section": "Ranch_Records" },
+    "field": { "prefix": "E2EField_", "codeOffset": 2, "section": "Field_Records" },
+    "crew": { "prefix": "E2ECrew_", "codeOffset": 3, "section": "Crew_Records" }
+  },
+  "device": { "prefix": "ZZTEST_SD_" },
+  "cleanup": [
+    { "kind": "delete", "entity": "scanDevice", "name": "{deviceName}" },
+    { "kind": "delete", "entity": "field", "name": "{fieldName}" },
+    { "kind": "delete", "entity": "ranch", "name": "{ranchName}" },
+    { "kind": "delete", "entity": "crew", "name": "{crewName}" }
+  ]
+}

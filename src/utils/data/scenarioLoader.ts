@@ -58,6 +58,20 @@ function rel(file: string): string {
     return path.relative(PROJECT_ROOT, file).split(path.sep).join('/');
 }
 
+/** Every `{name}` in every string of `value` replaced from `tokens`; unknown tokens are left as written. */
+export function substituteTokens<T>(value: T, tokens: Record<string, string>): T {
+    if (typeof value === 'string') {
+        return value.replace(/\{(\w+)\}/g, (whole, key: string) => tokens[key] ?? whole) as unknown as T;
+    }
+    if (Array.isArray(value)) return value.map((v) => substituteTokens(v, tokens)) as unknown as T;
+    if (value !== null && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, substituteTokens(v, tokens)]),
+        ) as T;
+    }
+    return value;
+}
+
 // The fixture-day guard fixture.ts's DAY_OFFSET table used to give: two Journey B scenario
 // files sharing a dayOffset would collide on the office's duplicate-Time-In rule under
 // workers=2. Checked once per worker process; a rejected check stays rejected.

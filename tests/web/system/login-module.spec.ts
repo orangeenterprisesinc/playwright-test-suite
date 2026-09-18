@@ -1,34 +1,18 @@
 /**
- * Login — the gate every journey starts behind.
- *
- * | | |
- * |---|---|
- * | Plan | `test-plans/system/login.md` |
- * | Runner rows | `src/data/runner/system.csv` → `UI-001`…`UI-004` |
- *
- * Not a catalog workflow (it is catalog A1 step 5, "Verify login"), so it lives
- * under `tests/web/system/` with `UI-00X` ids and a `@System` describe tag rather
- * than a journey tag.
+ * Login — the gate every journey starts behind (UI-001…UI-004).
+ * Data: src/data/system/login-module.json · Plan: test-plans/system/login.md
  */
 import { expect, test } from '@fixtures/base.fixture';
-import { loginModuleData } from '@data/static/system/loginModuleData';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
+import { LoginCaseSchema, type LoginCase } from '@data/schemas/systemScenario';
 import type { LoginPage } from '@pages/shell/LoginPage';
+import { loadScenario } from '@utils/data/scenarioLoader';
 
-/**
- * The valid credentials, read through the config layer rather than `process.env`.
- *
- * `loginModuleData` deliberately holds only the INVALID inputs — the valid pair is
- * per-environment and comes from the env files / CI secrets.
- *
- * Read per test rather than at module scope so a `test.use` env override still
- * applies.
- */
+// The valid pair is environment (env files / CI secrets), read per test so a test.use override still applies.
 const validUserName = (): string => getConfigValue(ConfigProperties.USER_NAME);
 const validPassword = (): string => getConfigValue(ConfigProperties.PASSWORD);
 
-// The login module must always start from a logged-out state, so discard any
-// stored authentication for every test in this file.
+// The login module must always start from a logged-out state.
 test.use({
     storageState: {
         cookies: [],
@@ -36,29 +20,10 @@ test.use({
     }
 });
 
-/**
- * The whole of `UI-R2`/`UI-R3`: a rejected login shows the invalid-credentials
- * message and leaves the user on the form.
- *
- * `UI-002`, `UI-003` and `UI-004` are one requirement with three input
- * combinations, so the assertion lives here once. They stay three separate
- * `test()` calls rather than a loop because `runner:check` resolves a spec's
- * claim on a row by matching a **literal** id in the `testCaseId` annotation
- * (`scripts/lib/runner-data.js` → `specClaims`); a generated
- * `description: testCase.id` matches nothing and all three rows would be
- * reported as "enabled but no spec claims it".
- *
- * All three assert the *same* constant, which is what collectively proves
- * `UI-R3` — the app must not reveal which field was wrong.
- */
-async function expectLoginRejected(
-    loginPage: LoginPage,
-    username: string,
-    password: string,
-): Promise<void> {
+// UI-R2/UI-R3: a rejected login shows the one invalid-credentials message and leaves the user on the form.
+async function expectLoginRejected(loginPage: LoginPage, username: string, password: string, scenario: LoginCase): Promise<void> {
     await loginPage.loginPetTiger(username, password);
-    await expect(loginPage.invalidCredentialsErrorMessage)
-        .toHaveText(loginModuleData.invalid_credentials_error_message);
+    await expect(loginPage.invalidCredentialsErrorMessage).toHaveText(scenario.invalidCredentialsErrorMessage);
     await expect(loginPage.emailInput).toBeVisible();
 }
 
@@ -80,8 +45,9 @@ test.describe('Login', { tag: ['@System'] }, () => {
         annotation: [
             { type: 'testCaseId', description: 'UI-002' },
         ],
-    }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
-        await expectLoginRejected(loginPage, validUserName(), loginModuleData.wrong_password);
+    }, async ({ gotoUrl: _gotoUrl, loginPage }, testInfo) => {
+        const scenario = await loadScenario(LoginCaseSchema, testInfo);
+        await expectLoginRejected(loginPage, validUserName(), scenario.wrongPassword!, scenario);
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username.', {
@@ -89,8 +55,9 @@ test.describe('Login', { tag: ['@System'] }, () => {
         annotation: [
             { type: 'testCaseId', description: 'UI-003' },
         ],
-    }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
-        await expectLoginRejected(loginPage, loginModuleData.wrong_username, validPassword());
+    }, async ({ gotoUrl: _gotoUrl, loginPage }, testInfo) => {
+        const scenario = await loadScenario(LoginCaseSchema, testInfo);
+        await expectLoginRejected(loginPage, scenario.wrongUsername!, validPassword(), scenario);
     });
 
     test('[Login] Verify that the user cannot log on with an invalid username and password.', {
@@ -98,8 +65,9 @@ test.describe('Login', { tag: ['@System'] }, () => {
         annotation: [
             { type: 'testCaseId', description: 'UI-004' },
         ],
-    }, async ({ gotoUrl: _gotoUrl, loginPage }) => {
-        await expectLoginRejected(loginPage, loginModuleData.wrong_username, loginModuleData.wrong_password);
+    }, async ({ gotoUrl: _gotoUrl, loginPage }, testInfo) => {
+        const scenario = await loadScenario(LoginCaseSchema, testInfo);
+        await expectLoginRejected(loginPage, scenario.wrongUsername!, scenario.wrongPassword!, scenario);
     });
 
 });

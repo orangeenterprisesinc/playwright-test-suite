@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import type { CleanupStepSchema } from '../../data/schemas/cleanupStep';
 import { punchDay } from '../../data/journey-b/fixture';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
+import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
 import type { OfficeFixture } from '../api/officeFixture';
 import { cleanupCards } from '../api/officeVerification';
 import { isoDay, sweepFixtureCards, type OfficeTimeCard } from '../api/timeCardsApi';
@@ -11,7 +12,7 @@ import { deleteByName } from './cleanupRegistry';
 // One cleanup format, declared in the scenario JSON, executed here — API only.
 //   delete      → deleteByName over cleanupTargets, children first (residue sweep is the backstop)
 //   timeCards   → sweepFixtureCards BEFORE the import; cleanupCards(the cards found) AFTER the test
-//   restore     → snapshot before / restore after through a named restorer (4c/4d register the first)
+//   restore     → snapshot before / restore after through a named restorer (RESTORERS below)
 //   unremovable → annotate `cleanup-not-possible`, never fail
 //   ui-delete   → rule only — an entity with a UI delete and no API delete; zero instances today
 // 'after' never throws (a failed delete must not mask the test result); 'before' throws on a
@@ -30,10 +31,25 @@ export interface CleanupContext {
 }
 
 interface Restorer {
-    snapshot(api: APIRequestContext): Promise<unknown>;
-    restore(api: APIRequestContext, snapshot: unknown): Promise<void>;
+    snapshot(api: APIRequestContext, ctx: CleanupContext): Promise<unknown>;
+    restore(api: APIRequestContext, snapshot: unknown, ctx: CleanupContext): Promise<void>;
 }
-const RESTORERS: Record<string, Restorer> = {};
+
+// `restore` targets — the JSON names one, this table owns the code.
+//   crewNotifyUser → the fixture crew's userToNotifyBreakAndMeal (B12 points it at a notifiable user for the run)
+const RESTORERS: Record<string, Restorer> = {
+    crewNotifyUser: {
+        snapshot: async (api, ctx) => (await getCrew(api, fixtureCrewId(ctx))).userToNotifyBreakAndMeal ?? null,
+        restore: async (api, snapshot, ctx) => {
+            await setCrewNotifyUser(api, fixtureCrewId(ctx), snapshot as number | null);
+        },
+    },
+};
+
+function fixtureCrewId(ctx: CleanupContext): number {
+    if (!ctx.office) throw new Error("restore 'crewNotifyUser' needs the seeded office fixture in the cleanup context");
+    return ctx.office.crew.id;
+}
 
 export async function runCleanup(steps: CleanupStep[], api: APIRequestContext, testInfo: TestInfo, ctx: CleanupContext): Promise<void> {
     const ordered = ctx.phase === 'before' ? steps : [...steps].sort((a, b) => rank(a) - rank(b));
@@ -73,8 +89,8 @@ async function runStep(step: CleanupStep, api: APIRequestContext, testInfo: Test
         case 'restore': {
             const restorer = RESTORERS[step.target];
             if (!restorer) throw new Error(`no restorer registered for '${step.target}'`);
-            if (ctx.phase === 'before') ctx.snapshots?.set(step.target, await restorer.snapshot(api));
-            else if (ctx.snapshots?.has(step.target)) await restorer.restore(api, ctx.snapshots.get(step.target));
+            if (ctx.phase === 'before') ctx.snapshots?.set(step.target, await restorer.snapshot(api, ctx));
+            else if (ctx.snapshots?.has(step.target)) await restorer.restore(api, ctx.snapshots.get(step.target), ctx);
             return;
         }
         case 'unremovable':

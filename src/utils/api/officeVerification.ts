@@ -610,11 +610,17 @@ export interface TransferGridInput {
     grid?: { status?: string; issueGroup?: string };
 }
 
+export interface TransferGridResult {
+    /** Every issue group's text, or null when the grid could not be asserted (analyze flag off, or the analyze job lost). */
+    issueGroups: string[] | null;
+}
+
 /** The Transfer to Job Cards half of {@link verifyImportInOffice}: menus → date range → analyze → rows, panel, statuses, issue group, screenshot. */
-export async function assertTransferGrid(input: TransferGridInput): Promise<void> {
+export async function assertTransferGrid(input: TransferGridInput): Promise<TransferGridResult> {
     const { pages, testInfo, cards, expected, transport, punchDate, label } = input;
     const statusPattern = new RegExp(input.grid?.status ?? 'Warning', 'i');
     const issueGroupTitle = input.grid?.issueGroup ?? 'Time-In has no closing punch';
+    let issueGroups: string[] | null = null;
 
     // ── The screen Amy's recording ends on, reached the way she reaches it ──
     await pages.leftNav.navigate();
@@ -648,7 +654,8 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<void
             }
 
             // ── One row's Time In panel: display fields, GPS only on a real import ──
-            const panelExpected = expected[0];
+            // The card whose display names the scenario bound (`panel: true`); the first card when none did.
+            const panelExpected = expected.find((c) => c.ranchName || c.fieldName || c.jobName || c.employeeName || c.crewName) ?? expected[0];
             const byEmployee = new Map(cards.map((c) => [Number(c.employeeCounter), c]));
             const byReference = new Map(cards.map((c) => [String(c.reference ?? ''), c]));
             const panelCard = panelExpected.reference
@@ -712,6 +719,7 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<void
                 affected,
                 'issue group must count at least every imported employee',
             ).toBeGreaterThanOrEqual(affectedEmployees);
+            issueGroups = await transferPage.issueGroupTexts();
         }
     } else {
         // The grid is fed by an endpoint behind a server flag; without it no
@@ -728,6 +736,7 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<void
         body: await transferPage.screenshot(),
         contentType: 'image/png',
     });
+    return { issueGroups };
 }
 
 export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {
