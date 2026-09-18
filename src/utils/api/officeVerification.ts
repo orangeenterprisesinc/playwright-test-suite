@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
 import {
     annotateIfImportCircuitOpen,
@@ -63,8 +63,13 @@ export interface ExpectedCard {
      * skips those three asserts — it does not prove the nulls, so a spec whose
      * requirement is the nulls must assert them itself on the returned cards.
      */
-    fieldId?: number;
-    jobId?: number;
+    fieldId?: number | null;
+    jobId?: number | null;
+    /**
+     * The ranch the office must have linked. `null` asserts none — a record that carried no
+     * `<Ranch>` (B6's badge piece-out). Omitted keeps the derived rule below.
+     */
+    ranchId?: number | null;
     /**
      * The card's own `<Reference>`. Match by this when set instead of by
      * employee — needed when one employee has more than one expected card in
@@ -137,6 +142,8 @@ export type DeliverInput = Omit<OfficeVerificationInput, 'pages'> & {
     pages?: PageObjects;
     /** Pre-run sweep of leftover fixture punches. Defaults to true. */
     sweep?: boolean;
+    /** Forces the import route for this call; without it IMPORT_TRANSPORT decides (internet by default). */
+    via?: 'single-folder' | 'internet';
 };
 
 export interface OfficeVerificationResult {
@@ -157,7 +164,7 @@ function groupByContext(
     for (const card of expected) {
         // Unlinked punches (a time-out carries no field/job) have no context to
         // group by, and POST /time-cards/crew-time-in cannot create one anyway.
-        if (card.fieldId === undefined || card.jobId === undefined) continue;
+        if (card.fieldId == null || card.jobId == null) continue;
         const key = `${card.fieldId}:${card.jobId}`;
         const group = groups.get(key) ?? {
             fieldId: card.fieldId,
@@ -475,10 +482,10 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
     const deadline = newImportDeadline();
     annotateIfImportCircuitOpen(testInfo);
 
+    // The scenario's own transport wins; without one IMPORT_TRANSPORT decides, as before.
+    const via = input.via ?? (process.env.IMPORT_TRANSPORT === 'single-folder' ? 'single-folder' : 'internet');
     const { transport, references, thisAttemptFailures, peerDrained } =
-        process.env.IMPORT_TRANSPORT === 'single-folder'
-            ? await importViaSingleFolder(input, deadline)
-            : await importViaInternetUi(input, deadline);
+        via === 'single-folder' ? await importViaSingleFolder(input, deadline) : await importViaInternetUi(input, deadline);
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
 
@@ -540,8 +547,12 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
         if (want.jobId !== undefined) {
             expect(card!.jobCounter).toBe(want.jobId);
         }
-        if (want.fieldId !== undefined || want.jobId !== undefined) {
-            expect(card!.ranchCounter).toBe(ranchId);
+        // A stated ranch wins (null = the record carried none); otherwise a card with a work
+        // context carries the call's ranch, as every caller before B6 assumed.
+        const hasContext = (want.fieldId ?? undefined) !== undefined || (want.jobId ?? undefined) !== undefined;
+        const wantRanchId = want.ranchId === undefined ? (hasContext ? ranchId : undefined) : want.ranchId;
+        if (wantRanchId !== undefined) {
+            expect(card!.ranchCounter).toBe(wantRanchId);
         }
         // The device's GPS fix, proven to survive the import. Asserted on the
         // card rather than in the Time In panel: the deployed office build
@@ -737,6 +748,47 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
         contentType: 'image/png',
     });
     return { issueGroups };
+}
+
+export interface TransferGridRowInput {
+    pages: PageObjects;
+    testInfo: TestInfo;
+    cards: OfficeTimeCard[];
+    /** The card whose row the caller asserts on. */
+    card: OfficeTimeCard;
+    punchDate: Date;
+    label: string;
+}
+
+/**
+ * The narrow Transfer to Job Cards read: menus → date range → analyze → one card's row, returned
+ * for the caller to assert its cells on. `null` when the analyze flag is off (annotated exactly as
+ * {@link assertTransferGrid} does), so a caller can skip its row assertions without a second guard.
+ */
+export async function transferGridRowFor(input: TransferGridRowInput): Promise<Locator | null> {
+    const { pages, testInfo, cards, card, punchDate, label } = input;
+    await pages.leftNav.navigate();
+    await pages.leftNav.openViaMenu(['Transfer to Job Cards'], '/transfer-to-job-cards');
+    const transferPage = pages.transferToJobCards;
+    await transferPage.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+
+    let row: Locator | null = null;
+    if (await transferPage.analyzeEnabled()) {
+        await transferPage.applyDateRange(punchDate);
+        await transferPage.analyze();
+        await transferPage.waitForCandidates(cards.length);
+        row = transferPage.rowCells(card.timeCardCounter);
+    } else {
+        testInfo.annotations.push({
+            type: 'transfer-grid-not-asserted',
+            description:
+                'The Transfer to Job Cards grid is populated by POST /transfer-to-job-cards/analyze, ' +
+                'which is disabled on this server (PT_TRANSFER_ANALYZE_ENABLED). The API-level ' +
+                'assertions above still ran.',
+        });
+    }
+    await testInfo.attach(`transfer-to-job-cards-${label}.png`, { body: await transferPage.screenshot(), contentType: 'image/png' });
+    return row;
 }
 
 export async function verifyImportInOffice(input: OfficeVerificationInput): Promise<OfficeVerificationResult> {

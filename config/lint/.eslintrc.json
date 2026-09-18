@@ -64,11 +64,6 @@
     },
     {
       "files": ["tests/web/**/*.spec.ts"],
-      "excludedFiles": [
-        "tests/web/journey-b-field/b05-sticker-piece-out.spec.ts",
-        "tests/web/journey-b-field/b06-badge-piece-out.spec.ts",
-        "tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts"
-      ],
       "rules": {
         "no-restricted-imports": ["error", {
           "patterns": [

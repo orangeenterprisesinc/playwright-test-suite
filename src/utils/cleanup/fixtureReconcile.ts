@@ -19,7 +19,7 @@ import { Logger } from '../logger';
 
 // Run START waits out the previous run's in-flight imports (their rows land after this
 // run's per-spec sweep and flip a Transfer row Warning→Blocking), drains stale office
-// envelopes and sweeps the Journey B fixture employee-days over the whole DAY_OFFSET
+// envelopes and sweeps the Journey B fixture employee-days over the whole fixture-day
 // window. Run END does the same, best effort, from this run's recorded import ids.
 // Never throws; never creates entities; API only.
 

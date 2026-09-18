@@ -17,7 +17,7 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         try {
-            const want = scenario.expected.envelope;
+            const want = scenario.expected.envelope!;
             expect(run.envelope.sections).toEqual(want.sections);
             expect(run.envelope.employeeSources, 'two BarcodeBadge sources').toEqual(want.employeeSources);
             expect(run.envelope.referenceParts).toEqual(want.referenceParts);

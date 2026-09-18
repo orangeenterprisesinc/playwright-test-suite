@@ -17,7 +17,7 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         try {
-            const want = scenario.expected.envelope;
+            const want = scenario.expected.envelope!;
             // records: the morning crew-in (three rows), the early leaver's individual time-out, the crew-out fanned out into two rows.
             const [crewIn, , , timeOut, crewOut] = scenario.records;
             const parts = run.envelope.referenceParts;

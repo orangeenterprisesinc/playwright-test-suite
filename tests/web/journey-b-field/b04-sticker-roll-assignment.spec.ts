@@ -19,7 +19,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         try {
             // run.scenario is the loaded file with the minted roll codes substituted for {code0}/{code1}.
             const { records, expected } = run.scenario;
-            const want = expected.envelope;
+            const want = expected.envelope!;
             expect(run.envelope.sections).toEqual(want.sections);
             expect(run.envelope.employeeSources, 'one BarcodeBadge source per employee').toEqual(want.employeeSources);
             // Each roll code is present verbatim and distinct per employee.

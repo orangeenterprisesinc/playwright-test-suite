@@ -17,7 +17,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         try {
-            const want = scenario.expected.envelope;
+            const want = scenario.expected.envelope!;
             for (const code of want.fields!) {
                 expect(run.envelope.fields).toContain(code);
             }

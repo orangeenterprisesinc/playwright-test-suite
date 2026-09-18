@@ -17,7 +17,7 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         try {
-            const want = scenario.expected.envelope;
+            const want = scenario.expected.envelope!;
             // records: the clock-in, the meal start on the meal job, the return on the work job.
             const [, mealStart, mealReturn] = scenario.records;
             expect(run.envelope.sections).toEqual(want.sections);

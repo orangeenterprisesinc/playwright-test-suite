@@ -4,6 +4,7 @@ import type { CleanupStepSchema } from '../../data/schemas/cleanupStep';
 import { punchDay } from '../../data/journey-b/fixture';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
+import { getPreferences, putPreferences } from '../api/preferencesApi';
 import type { OfficeFixture } from '../api/officeFixture';
 import { cleanupCards } from '../api/officeVerification';
 import { isoDay, sweepFixtureCards, type OfficeTimeCard } from '../api/timeCardsApi';
@@ -36,12 +37,26 @@ interface Restorer {
 }
 
 // `restore` targets — the JSON names one, this table owns the code.
-//   crewNotifyUser → the fixture crew's userToNotifyBreakAndMeal (B12 points it at a notifiable user for the run)
+//   crewNotifyUser        → the fixture crew's userToNotifyBreakAndMeal (B12 points it at a notifiable user)
+//   stickerStartLocations → the two label-tracking preferences B7 arranges for its own extraction
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
         snapshot: async (api, ctx) => (await getCrew(api, fixtureCrewId(ctx))).userToNotifyBreakAndMeal ?? null,
         restore: async (api, snapshot, ctx) => {
             await setCrewNotifyUser(api, fixtureCrewId(ctx), snapshot as number | null);
+        },
+    },
+    stickerStartLocations: {
+        snapshot: async (api) => {
+            const preferences = await getPreferences(api);
+            return {
+                employeeCodeStartLocation: preferences.employeeCodeStartLocation,
+                rollCodeStartLocation: preferences.rollCodeStartLocation,
+            };
+        },
+        restore: async (api, snapshot) => {
+            // Leaving them changed would alter sticker extraction for every other client user.
+            await putPreferences(api, snapshot as Record<string, unknown>);
         },
     },
 };

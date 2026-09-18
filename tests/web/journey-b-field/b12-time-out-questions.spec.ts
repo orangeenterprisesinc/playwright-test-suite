@@ -27,7 +27,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         try {
             // run.scenario is the loaded file with {signaturePng} substituted.
             const { records, expected } = run.scenario;
-            const want = expected.envelope;
+            const want = expected.envelope!;
             // records: three time-ins, three time-outs (the clock-outs carry the signature), nine answer rows.
             const [timeIn, , , timeOut] = records;
             const parts = run.envelope.referenceParts;

@@ -1,22 +1,32 @@
 import { expect, type APIRequestContext, type TestInfo } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
 import { relayConfig, type RelayConfig } from '@config/relay.config';
 import { JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
-import type { JourneyBScenario } from '@data/schemas/journeyBScenario';
-import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
+import { UNDEFINED_EMPLOYEE, type JourneyBScenario } from '@data/schemas/journeyBScenario';
+import {
+    annotateIfImportCircuitOpen,
+    journeyBTestTimeoutMs,
+    newImportDeadline,
+    pullFromRelayInternet,
+    type ImportFileResult,
+} from '@utils/api/connectivityImportApi';
 import { getCrew, setCrewNotifyUser, type CrewRecord } from '@utils/api/crewsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import {
     assertTransferGrid as assertTransferGridScreen,
     deliverAndVerifyCards,
+    transferGridRowFor,
     type ExpectedCard,
     type OfficeVerificationResult,
     type TransferGridResult,
 } from '@utils/api/officeVerification';
+import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
-import { getTimeOutDetail, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
+import { findByReferences, getTimeOutDetail, isoDay, listTimeCards, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
+import { analyzeTransfer, type AnalyzeException, type AnalyzeResult } from '@utils/api/transferToJobCardsApi';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
@@ -39,7 +49,7 @@ import { ackRetrieved, drainMailbox, pullFromRelay, sendToRelay, type PulledMess
 // preconditions → build/attach/send → import + card asserts (deliverAndVerifyCards) → the spec
 // asserts and calls cleanup(). Nothing here belongs in a spec; specs reach the relay, the importer
 // and the office only through this module (ESLint enforces it). `pages` is optional: browserless
-// workflows (b05/b07, 4d) import through single-folder and never open the office UI.
+// workflows (b05/b07) import through single-folder / relay-internet and never open the office UI.
 
 type ExpectedCardJson = JourneyBScenario['expected']['cards'][number];
 type GridExpectation = NonNullable<JourneyBScenario['expected']['grid']>;
@@ -84,6 +94,10 @@ export interface EnvelopeView {
     signatures: string[];
     /** `<Response>` rows — one per answered question. */
     answerRows: number;
+    /** `<NumOfPieces>` text → occurrences. */
+    pieceCounts: Record<string, number>;
+    /** The code-history grid's `<AlternateCode>` texts, document order. */
+    alternateCodes: string[];
 }
 
 /** The capture-screen part of a reference (`0000001-260918-TI-ABCD-ui` → `TI`). */
@@ -101,10 +115,14 @@ export function envelopeView(xml: string, references: string[], fileName: string
     };
     const sectionTags: Record<string, string[]> = {};
     const sectionLookups: Record<string, string | null> = {};
-    const sectionRe = new RegExp(`<(\\w+)${DEVICE_SCHEMA.recordsSuffix}([^>]*)>([\\s\\S]*?)</\\1${DEVICE_SCHEMA.recordsSuffix}>`, 'g');
-    for (const [, node, attrs, body] of xml.matchAll(sectionRe)) {
-        sectionTags[node] = [...new Set([...body.matchAll(/<([A-Za-z_]\w*)[\s>]/g)].map((m) => m[1]))];
+    // Opens only: the body-matching scan below swallows a NESTED section (the code-history grid
+    // inside <Employee_Records>), and B7 asserts that grid's own LookupContents.
+    for (const [, node, attrs] of xml.matchAll(new RegExp(`<(\\w+)${DEVICE_SCHEMA.recordsSuffix}([^>]*)>`, 'g'))) {
         sectionLookups[node] = new RegExp(`${DEVICE_SCHEMA.attributes.lookupContents}="([^"]*)"`).exec(attrs)?.[1] ?? null;
+    }
+    const sectionRe = new RegExp(`<(\\w+)${DEVICE_SCHEMA.recordsSuffix}([^>]*)>([\\s\\S]*?)</\\1${DEVICE_SCHEMA.recordsSuffix}>`, 'g');
+    for (const [, node, , body] of xml.matchAll(sectionRe)) {
+        sectionTags[node] = [...new Set([...body.matchAll(/<([A-Za-z_]\w*)[\s>]/g)].map((m) => m[1]))];
     }
     const referenceParts = references.map(referencePart);
     return {
@@ -129,6 +147,8 @@ export function envelopeView(xml: string, references: string[], fileName: string
         traceabilityCodes: texts(T.traceabilityCode).filter((v) => v !== ''),
         signatures: texts(T.signature).filter((v) => v !== ''),
         answerRows: texts(T.response).length,
+        pieceCounts: tally(texts(T.numOfPieces)),
+        alternateCodes: texts(DEVICE_SCHEMA.grid.tags.alternateCode),
     };
 }
 
@@ -137,29 +157,40 @@ export interface MintedRun {
     prefix: string;
     /** `codes.prefix + lineageDigits(codes.length, codes.salt) + codes.suffixes[i]` — `{code<i>}` in the scenario. */
     codes: string[];
+    /** `testInfo.retry` — `codes.attemptUnique` salts it into every minted value. */
+    attempt: number;
     punchDate: Date;
     deviceAddress: string;
     fileName: string;
 }
 
-export function mintCodes(codes: JourneyBScenario['codes']): string[] {
-    if (!codes?.suffixes?.length) return [];
+/** `codes.attemptUnique` salts the attempt in, so a retry never reuses an undeletable row's identity (B7). */
+function saltOf(codes: JourneyBScenario['codes'], salt: string, attempt: number): string {
+    return codes?.attemptUnique ? `${salt}${attempt}` : salt;
+}
+
+export function mintCodes(codes: JourneyBScenario['codes'], attempt = 0): string[] {
+    const parts = codes?.parts ?? codes?.suffixes?.map((suffix) => ({ prefix: codes.prefix, suffix }));
+    if (!codes || !parts?.length) return [];
     // From the lineage, not the clock: references are retry-stable, so a clock value would let an
     // earlier attempt's late import overwrite this attempt's code (seen 2026-09-17). `length` is
-    // guaranteed by the schema's superRefine whenever suffixes are present.
-    const base = lineageDigits(codes.length!, codes.salt);
-    return codes.suffixes.map((suffix) => `${codes.prefix ?? ''}${base}${suffix}`);
+    // guaranteed by the schema's superRefine for the digit basis.
+    const salt = saltOf(codes, codes.salt, attempt);
+    const base = codes.basis === 'prefix' ? lineagePrefix(salt) : lineageDigits(codes.length!, salt);
+    return parts.map((part) => `${part.prefix ?? codes.prefix ?? ''}${base}${part.suffix ?? ''}`);
 }
 
 /** Prefix, minted codes, fixture day, device address, file name — and `{prefix}` / `{code<i>}` / `{constant}` substituted into every string of the scenario. */
-export function mintRun(scenario: JourneyBScenario): MintedRun {
-    const prefix = lineagePrefix(scenario.codes?.salt ?? '');
-    const codes = mintCodes(scenario.codes);
+export function mintRun(scenario: JourneyBScenario, testInfo?: TestInfo): MintedRun {
+    const attempt = testInfo?.retry ?? 0;
+    const prefix = lineagePrefix(saltOf(scenario.codes, scenario.codes?.salt ?? '', attempt));
+    const codes = mintCodes(scenario.codes, attempt);
     const tokens = { ...(scenario.constants ?? {}), prefix, ...Object.fromEntries(codes.map((code, i) => [`code${i}`, code])) };
     return {
         scenario: substituteTokens(scenario, tokens),
         prefix,
         codes,
+        attempt,
         punchDate: punchDay(scenario.dayOffset),
         deviceAddress: relayConfig().from,
         fileName: exportFileName(prefix),
@@ -241,28 +272,76 @@ function toCrewCards(scenario: JourneyBScenario): EnvelopeCard[] {
     }));
 }
 
+/** One device's envelope and the records it carries, by their index in `scenario.records`. */
+export interface BuiltEnvelope {
+    id: string;
+    envelope: EnvelopeView;
+    recordIndexes: number[];
+}
+
+function buildRecordsEnvelope(run: MintedRun, prefix: string, recordIndexes: number[]): EnvelopeView {
+    const { scenario, punchDate, deviceAddress } = run;
+    const at = scenario.punchTime ? hhmm(scenario.punchTime, punchDate) : undefined;
+    const subset = recordIndexes.map((i) => scenario.records[i]);
+    const { records, recordReferences } = toDeviceRecords({ ...scenario, records: subset }, punchDate, prefix);
+    // The roll assignment's StartDateTime is its Time In's own moment — what puts it inside the
+    // window the office's sticker rule searches (startOfDay(pieceOut) .. pieceOut).
+    const codeHistory = (scenario.codeHistory ?? [])
+        .filter((a) => recordIndexes.includes(a.record))
+        .map((a) => ({
+            employeeCode: a.employeeCode,
+            scannedCode: a.scannedCode,
+            alternateCode: a.alternateCode,
+            // The roll's own tail, the same split the office applies.
+            firstCode: a.scannedCode.slice(scenario.sticker!.rollCodeStartLocation - 1),
+            at: hhmm(scenario.records[a.record].time ?? scenario.punchTime!, punchDate),
+        }));
+    const built = buildEnvelope({ deviceAddress, prefix, records, at, ...(codeHistory.length ? { codeHistory } : {}) });
+    return envelopeView(built.xml, built.references, exportFileName(prefix), prefix, recordReferences);
+}
+
 export function buildScenarioEnvelope(run: MintedRun): EnvelopeView {
     const { scenario, prefix, punchDate, deviceAddress, fileName } = run;
-    const at = scenario.punchTime ? hhmm(scenario.punchTime, punchDate) : undefined;
     if (scenario.envelope === 'crew') {
+        const at = scenario.punchTime ? hhmm(scenario.punchTime, punchDate) : undefined;
         const built = buildCrewTimeInEnvelope({ deviceAddress, prefix, cards: toCrewCards(scenario), at });
         return envelopeView(built.xml, built.references, fileName, prefix);
     }
-    const { records, recordReferences } = toDeviceRecords(scenario, punchDate, prefix);
-    const built = buildEnvelope({ deviceAddress, prefix, records, at });
-    return envelopeView(built.xml, built.references, fileName, prefix, recordReferences);
+    return buildRecordsEnvelope(run, prefix, scenario.records.map((_, i) => i));
+}
+
+/** Every envelope this scenario sends: one per `devices` entry, in declaration order, else one for the whole record list. */
+export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
+    const { scenario } = run;
+    if (!scenario.devices) {
+        return [{ id: scenario.label, envelope: buildScenarioEnvelope(run), recordIndexes: scenario.records.map((_, i) => i) }];
+    }
+    return scenario.devices.map((device) => ({
+        id: device.id,
+        recordIndexes: scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
+        envelope: buildRecordsEnvelope(
+            run,
+            lineagePrefix(saltOf(scenario.codes, device.salt, run.attempt)),
+            scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
+        ),
+    }));
+}
+
+/** Attach the envelope, push it to `to`, attach the relay's answer. The caller asserts `send.success`. */
+export async function sendEnvelope(run: MintedRun, envelope: EnvelopeView, to: string, testInfo: TestInfo, suffix = ''): Promise<SendResult> {
+    await testInfo.attach(`device-export${suffix}.xml`, { body: envelope.xml, contentType: 'application/xml' });
+    const send = await sendToRelay({ url: relayConfig().url, from: run.deviceAddress, to, xml: envelope.xml, fileName: envelope.fileName });
+    await testInfo.attach(`relay-send${suffix}.txt`, {
+        body: `file: ${envelope.fileName}\nsuccess: ${send.success}\nstatus: ${send.status}\n${send.body}`,
+        contentType: 'text/plain',
+    });
+    return send;
 }
 
 /** Build, attach, push to `to`, attach the relay's answer. The caller asserts `send.success`. */
 export async function buildAndSend(run: MintedRun, to: string, testInfo: TestInfo): Promise<{ envelope: EnvelopeView; send: SendResult }> {
     const envelope = buildScenarioEnvelope(run);
-    await testInfo.attach('device-export.xml', { body: envelope.xml, contentType: 'application/xml' });
-    const send = await sendToRelay({ url: relayConfig().url, from: run.deviceAddress, to, xml: envelope.xml, fileName: envelope.fileName });
-    await testInfo.attach('relay-send.txt', {
-        body: `file: ${envelope.fileName}\nsuccess: ${send.success}\nstatus: ${send.status}\n${send.body}`,
-        contentType: 'text/plain',
-    });
-    return { envelope, send };
+    return { envelope, send: await sendEnvelope(run, envelope, to, testInfo) };
 }
 
 function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture, recordReferences: string[]): ExpectedCard[] {
@@ -275,6 +354,7 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         [F.job2.code, { office: office.job2, name: F.job2.name }],
         [F.mealJob.code, { office: office.mealJob, name: F.mealJob.name }],
     ]);
+    const ranches = new Map([[F.ranch.code, { office: office.ranch, name: F.ranch.name }]]);
     const employeeNames = new Map([...F.present, F.absentee, ...F.sticker, ...(scenario.extraEmployees ?? [])].map((e) => [e.code, e.name]));
     const bound = <V>(kind: string, map: Map<string, V>, code: string): V => {
         const hit = map.get(code);
@@ -286,24 +366,19 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         const record = scenario.records[want.record];
         const field = want.fieldCode ? bound('field', fields, want.fieldCode) : undefined;
         const job = want.jobCode ? bound('job', jobs, want.jobCode) : undefined;
+        const ranch = want.ranchCode ? bound('ranch', ranches, want.ranchCode) : undefined;
+        // `null` in the scenario means "the office must store none" and travels as null.
+        const contextId = (code: string | null | undefined, hit?: { office: { id: number } }) => (code === null ? null : hit?.office.id);
         return {
             employeeCode: want.employeeCode,
             employeeId: employee.id,
             reference: recordReferences[want.record],
-            fieldId: field?.office.id,
-            jobId: job?.office.id,
-            // Transport fidelity: what the device record carried must come back on the card.
+            fieldId: contextId(want.fieldCode, field),
+            jobId: contextId(want.jobCode, job),
+            ...(want.ranchCode !== undefined ? { ranchId: contextId(want.ranchCode, ranch) } : {}),
             gps: record.gps,
             traceabilityCode: record.traceabilityCode,
-            ...(want.panel
-                ? {
-                      ranchName: F.ranch.name,
-                      fieldName: field?.name,
-                      jobName: job?.name,
-                      employeeName: employeeNames.get(want.employeeCode),
-                      crewName: F.crew.name,
-                  }
-                : {}),
+            ...(want.panel ? { ranchName: F.ranch.name, fieldName: field?.name, jobName: job?.name, employeeName: employeeNames.get(want.employeeCode), crewName: F.crew.name } : {}),
         };
     });
 }
@@ -330,10 +405,85 @@ async function ensureQuestions(api: APIRequestContext, scenario: JourneyBScenari
     return live;
 }
 
+export interface ModuleGate {
+    key: string;
+    label: string;
+    /** The live value `GET session/me` reports. */
+    enabled: unknown;
+}
+
+/** What the environment must already be for the scenario to mean anything — read before anything is delivered. */
+export interface JourneyBGates {
+    /** One per `scenario.modules` entry, in declaration order. */
+    modules: ModuleGate[];
+    /** `GET preferences` verbatim when the scenario names a preference precondition, else null. */
+    preferences: Record<string, unknown> | null;
+    /** `preferences.undefinedEmployee` as a number — 0 when it is unset. */
+    undefinedEmployeeId: number;
+    /** The raw value, for the caller's remediation message. */
+    undefinedEmployeeRaw: unknown;
+    requireJobInEmpPieceOut: boolean;
+}
+
+const PREFERENCE_PRECONDITIONS = new Set(['undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations']);
+
+/**
+ * The module flags and preferences the scenario declares. Modules are annotated, never failed here:
+ * Piece Payment gates piece *payment*, not piece *capture*, and reads false on dev only because the
+ * API reads PT_MODULES instead of TigerMaster (PET-12689). A spec that must fail on a gate calls this
+ * itself and asserts — those assertions belong before the import, with their remediation prose.
+ * {@link runJourneyBScenario} resolves the same gates when the spec does not pass them.
+ */
+export async function journeyBPreconditions(
+    scenario: JourneyBScenario,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+): Promise<JourneyBGates> {
+    const { sessionApi, testInfo } = opts;
+    const modules: ModuleGate[] = [];
+    if (scenario.modules?.length) {
+        const meRes = await sessionApi.get('session/me');
+        expect(meRes.ok(), `GET session/me failed with ${meRes.status()}`).toBe(true);
+        const live = ((await meRes.json()) as { modules?: Record<string, unknown> }).modules ?? {};
+        for (const wanted of scenario.modules) modules.push({ key: wanted.key, label: wanted.label, enabled: live[wanted.key] });
+        testInfo.annotations.push({
+            type: 'module-gate-asserted',
+            description: `${modules.map((m) => `${m.label} → ${m.enabled}`).join(' · ')} (from PT_MODULES, not TigerMaster)`,
+        });
+        for (const [i, wanted] of scenario.modules.entries()) {
+            if (wanted.noteWhenOff && !modules[i].enabled) testInfo.annotations.push({ type: 'environment-gate', description: wanted.noteWhenOff });
+        }
+    }
+    if (!(scenario.preconditions ?? []).some((p) => PREFERENCE_PRECONDITIONS.has(p))) {
+        return { modules, preferences: null, undefinedEmployeeId: 0, undefinedEmployeeRaw: undefined, requireJobInEmpPieceOut: false };
+    }
+    const preferences = await getPreferences(sessionApi);
+    return {
+        modules,
+        preferences,
+        undefinedEmployeeId: Number(preferences.undefinedEmployee),
+        undefinedEmployeeRaw: preferences.undefinedEmployee,
+        requireJobInEmpPieceOut: preferences.requireJobInEmpPieceOut === true,
+    };
+}
+
+async function setStickerStartLocations(api: APIRequestContext, scenario: JourneyBScenario, gates: JourneyBGates, testInfo: TestInfo): Promise<void> {
+    const { employeeCodeStartLocation, rollCodeStartLocation } = scenario.sticker!;
+    const before = gates.preferences ?? {};
+    await putPreferences(api, { employeeCodeStartLocation, rollCodeStartLocation });
+    testInfo.annotations.push({
+        type: 'preferences-arranged',
+        description:
+            `employeeCodeStartLocation ${String(before.employeeCodeStartLocation)} → ${employeeCodeStartLocation}, ` +
+            `rollCodeStartLocation ${String(before.rollCodeStartLocation)} → ${rollCodeStartLocation}; ` +
+            'both restored after the run. assignRollsDaily is never sent.',
+    });
+}
+
 export interface JourneyBRunOptions {
     sessionApi: APIRequestContext;
     pages?: PageObjects;
     testInfo: TestInfo;
+    gates?: JourneyBGates;
 }
 
 /** `hooks.beforeImport: codeHistorySnapshot` / `afterImport: codeHistoryDelta` — one row set per expected employee, before and after the import. */
@@ -349,6 +499,17 @@ export interface CrewNotifyPrecondition {
     crew: CrewRecord;
 }
 
+/** One device's envelope and what became of it. */
+export interface DeviceDelivery {
+    id: string;
+    envelope: EnvelopeView;
+    send: SendResult;
+    /** The import run this device's file was pulled into; null when no pull carried it. */
+    runId: number | null;
+    /** This device's own file in that run, when it was pulled. */
+    file: ImportFileResult | null;
+}
+
 export interface JourneyBRun extends MintedRun {
     office: OfficeFixture;
     envelope: EnvelopeView;
@@ -361,6 +522,13 @@ export interface JourneyBRun extends MintedRun {
     codeHistory: CodeHistoryBracket | null;
     /** `null` unless the scenario names the crewNotifyUser precondition. */
     crewNotify: CrewNotifyPrecondition | null;
+    /** One per envelope sent; a single-envelope scenario has exactly one. */
+    deliveries: DeviceDelivery[];
+    /** Per scenario record: its reference across every device ('' for a grid row). */
+    recordReferences: string[];
+    /** The fixture day as `YYYY-MM-DD` — the window every office read uses. */
+    day: string;
+    gates: JourneyBGates;
     label: string;
     testInfo: TestInfo;
     sessionApi: APIRequestContext;
@@ -373,19 +541,20 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     // The Internet pull drains the whole mailbox in one request — one import deadline beyond the project timeout.
     testInfo.setTimeout(journeyBTestTimeoutMs(testInfo));
     if (scenario.transport === 'relay-echo') throw new Error(`${scenario.label}: transport 'relay-echo' runs through runRelayEcho`);
-    if (scenario.verification === 'none') throw new Error(`${scenario.label}: verification 'none' (import without office read) arrives with 4d`);
-    for (const precondition of scenario.preconditions ?? []) {
-        if (precondition !== 'crewNotifyUser') throw new Error(`${scenario.label}: precondition '${precondition}' arrives with 4d`);
-    }
 
     // The envelope references records by code and the importer's FKs are nullable, so
     // without this the import "succeeds" while linking nothing.
     const office = await seedOfficeFixture(sessionApi);
-    // seedOfficeFixture knows the crew's own members only; a workflow's extra employees join the same map
-    // so the cleanup sweep, the expected cards and the hooks resolve them like any other code.
     for (const extra of scenario.extraEmployees ?? []) office.employees.set(extra.code, await ensureEmployee(sessionApi, extra));
+    const gates = opts.gates ?? (await journeyBPreconditions(scenario, { sessionApi, testInfo }));
+    // The configured fallback owner joins the employee map under its own name, so a scenario names
+    // it exactly like a barcode — expected cards and the cleanup sweep both resolve it.
+    if (gates.undefinedEmployeeId > 0) {
+        office.employees.set(UNDEFINED_EMPLOYEE, { id: gates.undefinedEmployeeId, code: UNDEFINED_EMPLOYEE, name: UNDEFINED_EMPLOYEE, created: false });
+    }
     await ensureQuestions(sessionApi, scenario);
-    const run = mintRun(scenario);
+    const run = mintRun(scenario, testInfo);
+    const day = isoDay(run.punchDate);
     const snapshots = new Map<string, unknown>();
     let cards: OfficeTimeCard[] = [];
     const cleanup = () => runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'after', office, cards, snapshots });
@@ -394,53 +563,116 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     await runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots });
     const notifyUser = run.scenario.preconditions?.includes('crewNotifyUser') ? await findNotifiableUser(sessionApi) : null;
     if (notifyUser) await setCrewNotifyUser(sessionApi, office.crew.id, notifyUser.usersCounter);
+    if (run.scenario.preconditions?.includes('stickerStartLocations')) await setStickerStartLocations(sessionApi, run.scenario, gates, testInfo);
 
-    const { envelope, send } = await buildAndSend(run, relayConfig().office, testInfo);
-    const base = { ...run, office, envelope, send, label: run.scenario.label, testInfo, sessionApi, cleanup };
-    if (!send.success) return { ...base, importRun: null, cards, expectedCards: [], codeHistory: null, crewNotify: null };
-
-    const expectedCards = resolveExpectedCards(run.scenario, office, envelope.recordReferences);
+    const built = buildScenarioEnvelopes(run);
+    const recordReferences = run.scenario.records.map(() => '');
+    for (const device of built) {
+        device.recordIndexes.forEach((globalIndex, i) => {
+            recordReferences[globalIndex] = device.envelope.recordReferences[i];
+        });
+    }
+    const expectedCards = resolveExpectedCards(run.scenario, office, recordReferences);
+    const base = { ...run, office, envelope: built[0].envelope, gates, day, recordReferences, label: run.scenario.label, testInfo, sessionApi, cleanup };
     const absentEmployeeIds = (run.scenario.absentEmployees ?? []).map((code) => {
         const hit = office.employees.get(code);
         if (!hit) throw new Error(`${run.scenario.label}: absent employee code '${code}' is not seeded`);
         return hit.id;
     });
-    if (!pages && (run.scenario.verification === 'office-ui' || process.env.IMPORT_TRANSPORT !== 'single-folder')) {
-        throw new Error(`${run.scenario.label}: this scenario drives the office UI — destructure { pages } in the spec`);
-    }
-    // The code-history bracket straddles the import: the JSON names the hooks, this is the code.
+
+    let deliveries: DeviceDelivery[];
+    let importRun: OfficeVerificationResult | null = null;
+    let before: CodeHistoryRow[][] | null = null;
+    let after: CodeHistoryRow[][] | null = null;
     const hookEmployeeIds = [...new Set(expectedCards.map((c) => c.employeeId))];
-    const codeHistoryOf = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
-    const before = run.scenario.hooks?.beforeImport === 'codeHistorySnapshot' ? await codeHistoryOf() : null;
-    const importRun = await deliverAndVerifyCards({
-        sessionApi,
-        pages,
-        testInfo,
-        xml: envelope.xml,
-        fileName: envelope.fileName,
-        label: run.scenario.label,
-        crewId: office.crew.id,
-        ranchId: office.ranch.id,
-        expected: expectedCards,
-        absentEmployeeIds,
-        punchDate: run.punchDate,
-        ...(run.scenario.cardType !== undefined ? { cardType: run.scenario.cardType } : {}),
-        // The scenario's `timeCards` step already swept the fixture day — one live cleanup path.
-        sweep: false,
-    });
-    cards = importRun.cards;
-    const after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistoryOf() : null;
+    const codeHistorySnapshot = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
+
+    if (run.scenario.verification === 'none') {
+        // Every device in turn — one sync must land before the next, or the code-history grid and the
+        // piece-outs race inside a single import and the reconciliation fails on processing order alone.
+        // One deadline for the whole flow: both pulls and the reference poll share it.
+        const deadline = newImportDeadline();
+        annotateIfImportCircuitOpen(testInfo);
+        deliveries = [];
+        for (const device of built) {
+            const send = await sendEnvelope(run, device.envelope, relayConfig().office, testInfo, `-${device.id}`);
+            expect(send.success, `relay rejected the ${device.id} export: ${send.body}`).toBe(true);
+            const { pull, run: pulledRun } = await pullFromRelayInternet(sessionApi, { deadline, testInfo });
+            await testInfo.attach(`import-run-${device.id}.json`, { body: JSON.stringify({ pull, run: pulledRun }, null, 2), contentType: 'application/json' });
+            expect(['ok', 'no-data'], `relay pull could not run for ${device.id}: ${pull.status} ${pull.message}`).toContain(pull.status);
+            // Our file only, never the run: one office mailbox is shared by every worker, so a pull
+            // routinely drains sibling specs' envelopes too. An absent file means a peer's pull took
+            // it; the reference poll still proves ownership, exactly as importViaInternetUi does.
+            const file = pulledRun?.files?.find((f) => String((f as { filename?: string }).filename ?? '') === device.envelope.fileName) ?? null;
+            if (!file) {
+                testInfo.annotations.push({
+                    type: 'peer-drained',
+                    description:
+                        `${device.envelope.fileName} (${device.id}) was not in run ${pulledRun?.runId ?? 'n/a'} - a parallel ` +
+                        'worker pull drained it into that run instead.',
+                });
+            }
+            deliveries.push({ id: device.id, envelope: device.envelope, send, runId: pulledRun?.runId ?? null, file });
+        }
+        const references = built.flatMap((d) => d.envelope.references);
+        cards = await findByReferences(sessionApi, references, {
+            from: day,
+            to: day,
+            cardType: run.scenario.cardType ?? undefined,
+            deadline,
+            testInfo,
+        });
+        await testInfo.attach(`time-cards-${run.scenario.label}.json`, { body: JSON.stringify(cards, null, 2), contentType: 'application/json' });
+    } else {
+        const send = await sendEnvelope(run, built[0].envelope, relayConfig().office, testInfo);
+        deliveries = [{ id: built[0].id, envelope: built[0].envelope, send, runId: null, file: null }];
+        if (!send.success) {
+            return { ...base, deliveries, send, importRun: null, cards, expectedCards: [], codeHistory: null, crewNotify: null };
+        }
+        if (!pages && (run.scenario.verification === 'office-ui' || (run.scenario.transport === 'relay-ui' && process.env.IMPORT_TRANSPORT !== 'single-folder'))) {
+            throw new Error(`${run.scenario.label}: this scenario drives the office UI — destructure { pages } in the spec`);
+        }
+        before = run.scenario.hooks?.beforeImport === 'codeHistorySnapshot' ? await codeHistorySnapshot() : null;
+        importRun = await deliverAndVerifyCards({
+            sessionApi,
+            pages,
+            testInfo,
+            xml: built[0].envelope.xml,
+            fileName: built[0].envelope.fileName,
+            label: run.scenario.label,
+            crewId: office.crew.id,
+            ranchId: office.ranch.id,
+            expected: expectedCards,
+            absentEmployeeIds,
+            punchDate: run.punchDate,
+            ...(run.scenario.cardType !== undefined ? { cardType: run.scenario.cardType } : {}),
+            ...(run.scenario.transport === 'single-folder' ? { via: 'single-folder' as const } : {}),
+            // The scenario's `timeCards` step already swept the fixture day — one live cleanup path.
+            sweep: false,
+        });
+        cards = importRun.cards;
+        after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistorySnapshot() : null;
+    }
+
     const codeHistory = before && after ? { employeeIds: hookEmployeeIds, before, after } : null;
     const crewNotify = notifyUser ? { user: notifyUser, crew: await getCrew(sessionApi, office.crew.id) } : null;
     // Named gates: what the workflow proves it does NOT assert, recorded on every run that imported.
-    for (const gate of run.scenario.annotations ?? []) testInfo.annotations.push(gate);
-    return { ...base, importRun, cards, expectedCards, codeHistory, crewNotify };
+    for (const gate of run.scenario.annotations ?? []) {
+        const { whenDeviceFileMatches, ...annotation } = gate;
+        if (whenDeviceFileMatches) {
+            const delivery = deliveries.find((d) => d.id === whenDeviceFileMatches.device);
+            if (!delivery?.file || !new RegExp(whenDeviceFileMatches.pattern).test(JSON.stringify(delivery.file))) continue;
+        }
+        testInfo.annotations.push(annotation);
+    }
+    return { ...base, deliveries, send: deliveries[0].send, importRun, cards, expectedCards, codeHistory, crewNotify };
 }
+// (`JourneyBRun.send` keeps its meaning — the first envelope's relay answer — so b01–b04/b10–b12 are unchanged.)
 
 export function assertExpectedCards(run: JourneyBRun, expected: ExpectedCardJson[]): void {
     const byReference = new Map(run.cards.map((c) => [String(c.reference ?? ''), c]));
     for (const want of expected) {
-        const reference = run.envelope.recordReferences[want.record];
+        const reference = run.recordReferences[want.record];
         const card = byReference.get(reference);
         expect(card, `no imported card for record ${want.record} (${reference}, employee ${want.employeeCode})`).toBeDefined();
         expect(card!.employeeCounter, `record ${want.record} must bind to employee ${want.employeeCode}`).toBe(
@@ -464,7 +696,7 @@ export interface ImportedRecord {
 }
 
 export function cardOf(run: JourneyBRun, index: number): ImportedRecord {
-    const reference = run.envelope.recordReferences[index] ?? '';
+    const reference = run.recordReferences[index] ?? '';
     const card = run.cards.find((c) => String(c.reference ?? '') === reference);
     const expected = run.scenario.expected.cards.find((c) => c.record === index);
     const bound = run.expectedCards.find((c) => c.reference === reference);
@@ -495,6 +727,40 @@ export function timeOutDetailOf(run: JourneyBRun, index: number): Promise<Office
     return getTimeOutDetail(run.sessionApi, cardOf(run, index).card.timeCardCounter);
 }
 
+/** The code-history rows an employee carries — B7 reads them back after the import. */
+export function codeHistoryOf(run: JourneyBRun, employeeCode: string): Promise<CodeHistoryRow[]> {
+    const id = run.office.employees.get(employeeCode)?.id;
+    if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
+    return getCodeHistory(run.sessionApi, id);
+}
+
+/** Office cards of one type the fixture day holds for an employee — B6's WEBPET-1409 synthesis guard. */
+export async function cardsForEmployee(run: JourneyBRun, employeeCode: string, cardType: number): Promise<OfficeTimeCard[]> {
+    const id = run.office.employees.get(employeeCode)?.id;
+    if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
+    const cards = await listTimeCards(run.sessionApi, { from: run.day, to: run.day, cardType });
+    return cards.filter((c) => Number(c.employeeCounter) === id);
+}
+
+/** The Transfer analyze payload for the run's fixture day — the exceptions, and the body for the caller's message. */
+export async function analyzeTransferExceptions(run: JourneyBRun): Promise<AnalyzeResult> {
+    const analyze = await analyzeTransfer(run.sessionApi, { from: run.day, to: run.day });
+    expect(analyze.ok, `POST transfer-to-job-cards/analyze failed with ${analyze.status}`).toBe(true);
+    await testInfoAttach(run, `transfer-to-job-cards-analyze-${run.label}.json`, analyze.raw);
+    return analyze;
+}
+
+function testInfoAttach(run: JourneyBRun, name: string, body: unknown): Promise<void> {
+    return run.testInfo.attach(name, { body: JSON.stringify(body, null, 2), contentType: 'application/json' });
+}
+
+/** The Transfer grid row for record `index`, or `null` when the analyze flag is off (annotated). */
+export async function openTransferGridRow(pages: PageObjects, run: JourneyBRun, index: number): Promise<Locator | null> {
+    return transferGridRowFor({ pages, testInfo: run.testInfo, cards: run.cards, card: cardOf(run, index).card, punchDate: run.punchDate, label: run.label });
+}
+
+export type { AnalyzeException };
+
 export async function assertTransferGrid(pages: PageObjects, run: JourneyBRun, grid: GridExpectation): Promise<TransferGridResult> {
     if (!run.importRun) throw new Error(`${run.label}: nothing was imported — the relay answered: ${run.send.body}`);
     return assertTransferGridScreen({
@@ -523,7 +789,7 @@ export interface RelayEchoRun extends MintedRun {
 /** B1-002: push into the scratch mailbox and pull straight back. Drains first, acks in cleanup(). Never the office queue. */
 export async function runRelayEcho(scenario: JourneyBScenario, opts: { testInfo: TestInfo }): Promise<RelayEchoRun> {
     const relay = relayConfig();
-    const run = mintRun(scenario);
+    const run = mintRun(scenario, opts.testInfo);
     const envelope = buildScenarioEnvelope(run);
     if (!relay.url) return { ...run, relay, envelope, send: null, pulled: null, cleanup: async () => undefined };
 

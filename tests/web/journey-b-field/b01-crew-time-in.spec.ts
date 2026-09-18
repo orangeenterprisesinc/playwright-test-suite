@@ -17,7 +17,7 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         try {
-            const want = scenario.expected.envelope;
+            const want = scenario.expected.envelope!;
             for (const lookup of want.lookupContents!) {
                 expect(run.envelope.lookupContents).toContain(lookup);
             }

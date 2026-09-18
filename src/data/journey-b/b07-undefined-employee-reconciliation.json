@@ -1,0 +1,125 @@
+{
+  "_notes": [
+    "B7 — Undefined-employee reconciliation (catalog B7, plan test-plans/journey-b/b07-undefined-employee-reconciliation.md, recording docs/media/journey-b/b07-undefined-employee-reconciliation.mp4, PET-12645 automation / WEBPET-1526 manual, runner row B7-001).",
+    "Transport, not simulation — and the one workflow where the OFFICE does the attributing. In B5 the device resolves the sticker to its owner and exports an employee, so the office does nothing clever. In B7 the scanning device holds no roll assignment, so it exports the sticker PREFIX itself as <Employee>, and the office joins that prefix to EmployeeCodeHistory within the piece-out's own day (the WEBPET-1410 rule) — one prefix matches its assignment, the other falls back to the configured Undefined Employee.",
+    "Two devices, as the recording shows: Amy uses two checkers and syncs them separately. Device 1's Time In reaches the office first (Transfer shows '3 records - 0 Pieces', kf 128), and only then does device 2's sticker scanning arrive (kf 152 → 350). Collapsing both into one file would leave the code-history grid and the piece-outs racing inside a single import, so the reconciliation could fail purely on processing order — a hazard the real two-sync flow never has. The two salts stand in for her two device ids (S31 / D31) and give the two envelopes distinct reference prefixes.",
+    "codes.basis 'prefix' + attemptUnique: the prefixes are derived so the office's own extraction (empStartLoc 1, rollStartLoc 8) reproduces the value this test sends, like-for-like — an 11-char sticker yields the 7-char prefix the office joins on (B7288570926 → B728857). Attempt-unique, not just run-unique: EmployeeCodeHistory has no DELETE, so a retry sharing a run-stable prefix would give the WEBPET-1410 join a second row for the same employee/day. {code0} assigned prefix, {code1} unassigned prefix, {code2} assigned roll, {code3} assigned sticker, {code4} unassigned sticker.",
+    "sticker: RunTrackingEmpCodeStartLoc / RunTrackingRollCodeStartLoc, 1-based. The office extracts code[emp-1 .. roll-2] as the alternate code, so 1/8 turns an 11-char sticker into the 7-char prefix it joins on — the values Amy's instance ran with. Dev's registry defaults are 0/0, which extract an EMPTY prefix, fail the last conjunct of the WEBPET-1410 rule and leave the whole reconciliation inert, so B7's subject could not fire at all. These two keys are the only ones written and both are restored by the cleanup step. assignRollsDaily is deliberately never sent: flipping it true clears AlternateCode on EVERY Employee row and nothing puts that back.",
+    "codeHistory is the roll-to-employee link the Time In screen exports alongside its flat row when First Roll Code is filled; its StartDateTime is the Time In's own moment, which is what puts it inside the window the office's sticker rule searches (startOfDay(pieceOut) .. pieceOut). FirstCode is the roll's own tail, split at rollCodeStartLocation — the same split the office applies.",
+    "Device B's records carry NO crew, as the recording shows (Cuadrilla de Trabajo: Not Selected on every device-B record, kf 282) and Amy's QA comment states. Load-bearing: her two crew-selected variants (attachments 66917/66918) both come back with the employee CLEARED at import and '…removed, Distributed to entire Crew' appended — a crew would undo the reconciliation B7-R2/B7-R3 assert.",
+    "verification none: the flow delivers, imports and polls the references; the spec owns every assertion. B7 currently fails on a real importer defect and its B7-R1/B7-R2 assertions are deliberately SOFT, which no shared verifier can express, and its crew-less rows would trip the shared verifier's unconditional crew assertion.",
+    "The envelope is byte-faithful to what AndroidPET emits, deliberately: padding the file to dodge the defect would both break that fidelity and wipe the employee's demographics. tableMapper.bind (upsert.go:624-646) never sets boundColumn.Absent, so valueAssignments (:1063-1075) assigns every column on the UPDATE arm, including ones the file omits; PayPeriod is modelled nullable (specs.go:260) but NOT NULL on the client DB, so the parent <Employee> record dies with SQL 515 — and a parent failure is fatal to its nested grid (upsert.go:418-427), so the roll assignment never persists. Sending <PayPeriod> clears the 515, but the same UPDATE also writes FirstName, LastName, Rate, EmailAddress, HireDate and Password to NULL.",
+    "dayOffset -9 is B7's own fixture day. cleanup: the timeCards step sweeps 6007's and the Undefined Employee's day (both card types) before the first delivery — an orphan from an earlier run's late import would flip the office's duplicate-Time-In rule to Blocking for this one — and deletes every imported card after the test; restore puts the two label-tracking preferences back however the run ended; the EmployeeCodeHistory row itself is unremovable."
+  ],
+  "workflow": "B7",
+  "label": "B7",
+  "dayOffset": -9,
+  "envelope": "records",
+  "transport": "relay-internet",
+  "verification": "none",
+  "cardType": null,
+  "modules": [
+    { "key": "PiecePayment", "label": "Piece Payment" },
+    { "key": "LabelTraceability", "label": "Traceability - Stickers" }
+  ],
+  "preconditions": ["undefinedEmployeeSet", "stickerStartLocations"],
+  "sticker": { "employeeCodeStartLocation": 1, "rollCodeStartLocation": 8 },
+  "codes": {
+    "salt": "A",
+    "basis": "prefix",
+    "attemptUnique": true,
+    "parts": [
+      { "prefix": "B7A" },
+      { "prefix": "B7U" },
+      { "prefix": "B7A", "suffix": "0001" },
+      { "prefix": "B7A", "suffix": "0002" },
+      { "prefix": "B7U", "suffix": "0001" }
+    ]
+  },
+  "devices": [
+    { "id": "device-a", "salt": "A" },
+    { "id": "device-b", "salt": "B" }
+  ],
+  "extraEmployees": [{ "code": "6007", "name": "B7 STICKER SEVEN" }],
+  "codeHistory": [
+    { "device": "device-a", "record": 0, "employeeCode": "6007", "scannedCode": "{code2}", "alternateCode": "{code0}" }
+  ],
+  "records": [
+    {
+      "device": "device-a",
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6007",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4201",
+      "traceabilityCode": "{code2}",
+      "time": "06:30"
+    },
+    { "device": "device-b", "node": "PieceOut", "part": "PO", "employeeSource": "AlternateCode", "employeeCode": "{code1}", "pieces": 1, "traceabilityCode": "{code4}", "time": "12:16" },
+    { "device": "device-b", "node": "PieceOut", "part": "PO", "employeeSource": "AlternateCode", "employeeCode": "{code0}", "pieces": 1, "traceabilityCode": "{code3}", "time": "12:17" }
+  ],
+  "expected": {
+    "devices": [
+      {
+        "device": "device-a",
+        "envelope": {
+          "sections": ["TimeCard", "Employee", "EmployeeCodeHistory"],
+          "sectionLookups": {
+            "TimeCard": "Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code",
+            "Employee": "Employee:Code",
+            "EmployeeCodeHistory": "AddOnlyGrid"
+          },
+          "alternateCodes": ["{code0}"]
+        },
+        "importStatus": "completed"
+      },
+      {
+        "device": "device-b",
+        "envelope": {
+          "sections": ["PieceOut"],
+          "absentSections": ["Employee"],
+          "employees": ["{code1}", "{code0}"],
+          "employeeSources": { "AlternateCode": 2 },
+          "pieceCounts": { "1": 2 }
+        },
+        "importStatus": "completed"
+      }
+    ],
+    "cards": [
+      { "record": 0, "employeeCode": "6007", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      {
+        "record": 1,
+        "employeeCode": "undefinedEmployee",
+        "cardType": 0,
+        "employeeSourceText": "Sticker Code",
+        "pieces": 1,
+        "memoPattern": "^Assigning to Undefined Employee - Missing Code: {code1}"
+      },
+      { "record": 2, "employeeCode": "6007", "cardType": 0, "employeeSourceText": "Sticker Code", "pieces": 1 }
+    ],
+    "stickerPrefixes": [
+      { "prefix": "{code0}", "sticker": "{code2}" },
+      { "prefix": "{code0}", "sticker": "{code3}" },
+      { "prefix": "{code1}", "sticker": "{code4}" }
+    ]
+  },
+  "annotations": [
+    {
+      "type": "product-defect",
+      "whenDeviceFileMatches": { "device": "device-a", "pattern": "PayPeriod" },
+      "description": "Employee_Records parent UPDATE assigns every omitted column, so it fails SQL 515 on NOT NULL PayPeriod and the nested EmployeeCodeHistory grid is never written (upsert.go:418-427). Fix: set boundColumn.Absent in tableMapper.bind (upsert.go:645) and honour it in valueAssignments (:1066), as reference.go:1634 and gridmapper.go:666 already do."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6007", "undefinedEmployee"], "dayOffset": -9, "cardTypes": [0, 1] },
+    { "kind": "restore", "target": "stickerStartLocations" },
+    {
+      "kind": "unremovable",
+      "entity": "EmployeeCodeHistory",
+      "reason": "no DELETE endpoint anywhere in openapi.yaml (plan N5) — one row is left behind per calendar day this suite runs, on employee 6007"
+    }
+  ]
+}

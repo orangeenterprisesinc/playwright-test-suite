@@ -501,6 +501,6 @@ Env: `RESIDUE_SWEEP=0` disables both phases (`=dry` reports only),
 Time cards have no name prefix either; the fixture-day reconcile
 (`src/utils/cleanup/fixtureReconcile.ts`, both hooks) waits out the previous run's
 in-flight imports and sweeps the Journey B fixture employee-days over the whole
-`DAY_OFFSET` window, on top of the per-spec `sweepFixtureCards` / `cleanupCards`.
+fixture-day window, on top of the per-spec `sweepFixtureCards` / `cleanupCards`.
 Knobs: `FIXTURE_RECONCILE=0`, `RECONCILE_STALL_MS`, `RECONCILE_CEILING_MS`,
 `RECONCILE_BUDGET_MS`.
