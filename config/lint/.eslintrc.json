@@ -61,6 +61,27 @@
         "playwright/no-networkidle": "warn",
         "playwright/prefer-web-first-assertions": "warn"
       }
+    },
+    {
+      "files": ["tests/web/**/*.spec.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@utils/relay/exportEnvelope", "@utils/relay/relayClient", "**/utils/relay/exportEnvelope", "**/utils/relay/relayClient"],
+              "message": "A spec builds and sends no XML — go through @utils/journeys/*."
+            },
+            {
+              "group": ["@utils/api/connectivityImportApi", "@utils/api/officeVerification", "**/utils/api/connectivityImportApi", "**/utils/api/officeVerification"],
+              "message": "A spec imports and verifies nothing directly — go through @utils/journeys/*."
+            },
+            {
+              "group": ["@data/generated", "@data/generated/*", "**/data/generated", "**/data/generated/*"],
+              "message": "A spec mints no data — values come from src/data/<journey>/<spec-basename>.json via loadScenario()."
+            }
+          ]
+        }]
+      }
     }
   ]
 }

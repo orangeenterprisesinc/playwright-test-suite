@@ -27,15 +27,7 @@ const ARRAY_FIELDS = ['tags', 'segments', 'modules'] as const;
 /** Columns that hold booleans (`1`/`0`/`yes`/`true` in CSV). */
 const BOOLEAN_FIELDS = ['enabled', 'demo', 'shouldComplete'] as const;
 
-/**
- * Parsed rows shared across reader instances, keyed by directory + extension.
- *
- * `BaseDataReader` caches per instance, but `DataProvider` builds a fresh reader
- * on every lookup and `base.fixture` looks a row up in each test's `beforeEach`.
- * With one flat file that cost one read per test; with a file per journey it
- * would be seven. The row files are static for the life of a run, so cache them
- * process-wide and read each one once.
- */
+/** Parsed rows shared across reader instances, keyed by directory + extension. */
 const parsedCache = new Map<string, Record<string, unknown>[]>();
 
 /**
@@ -90,49 +82,49 @@ export class MultiFileDataReader extends BaseDataReader {
                     : new JsonDataReader(file, this.sheetName);
             const rows = await reader.readAll<Record<string, unknown>>();
             this.logger.debug(`${path.basename(file)}: ${rows.length} records`);
-            records.push(...rows.map((row) => MultiFileDataReader.normalize(row)));
+            records.push(...rows.map(normalizeRow));
         }
 
         parsedCache.set(cacheKey, records);
         return records as T[];
     }
 
-    /**
-     * Brings one raw record to the canonical row shape: multi-value fields become
-     * string arrays, boolean fields become real booleans, and the empty cells a
-     * CSV always produces (read as `null` or `''`) are dropped so an absent
-     * optional field is `undefined` rather than `null`.
-     */
-    private static normalize(row: Record<string, unknown>): Record<string, unknown> {
-        const out: Record<string, unknown> = {};
+}
 
-        for (const [key, value] of Object.entries(row)) {
-            if ((ARRAY_FIELDS as readonly string[]).includes(key)) {
-                const items = Array.isArray(value)
-                    ? value.map(String)
-                    : String(value ?? '').split('|');
-                const cleaned = items.map((item) => item.trim()).filter(Boolean);
-                if (cleaned.length) out[key] = cleaned;
-                continue;
-            }
+/**
+ * Brings one raw record to the canonical row shape: multi-value fields become
+ * string arrays, boolean fields become real booleans, and empty CSV cells
+ * (`null`/`''`) are dropped so an absent optional field is `undefined`.
+ */
+export function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
 
-            if ((BOOLEAN_FIELDS as readonly string[]).includes(key)) {
-                if (typeof value === 'boolean') out[key] = value;
-                else if (typeof value === 'number') out[key] = value === 1;
-                else {
-                    const text = String(value ?? '').trim().toLowerCase();
-                    out[key] = text === '1' || text === 'true' || text === 'yes';
-                }
-                continue;
-            }
-
-            // Drop empty cells rather than carrying null into an optional field.
-            if (value === null || value === undefined || value === '') continue;
-            out[key] = value;
+    for (const [key, value] of Object.entries(row)) {
+        if ((ARRAY_FIELDS as readonly string[]).includes(key)) {
+            const items = Array.isArray(value)
+                ? value.map(String)
+                : String(value ?? '').split('|');
+            const cleaned = items.map((item) => item.trim()).filter(Boolean);
+            if (cleaned.length) out[key] = cleaned;
+            continue;
         }
 
-        return out;
+        if ((BOOLEAN_FIELDS as readonly string[]).includes(key)) {
+            if (typeof value === 'boolean') out[key] = value;
+            else if (typeof value === 'number') out[key] = value === 1;
+            else {
+                const text = String(value ?? '').trim().toLowerCase();
+                out[key] = text === '1' || text === 'true' || text === 'yes';
+            }
+            continue;
+        }
+
+        // Drop empty cells rather than carrying null into an optional field.
+        if (value === null || value === undefined || value === '') continue;
+        out[key] = value;
     }
+
+    return out;
 }
 
 export default MultiFileDataReader;

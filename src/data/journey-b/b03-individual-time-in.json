@@ -1,0 +1,58 @@
+{
+  "_notes": [
+    "B3 — Individual time-in and duplicate-range correction (catalog B3, plan test-plans/journey-b/b03-individual-time-in.md, WEBPET-1522). Transport, not simulation, happy path only.",
+    "The duplicate-range correction itself happens on the device before sync — not automatable via XML — so the envelope carries only the two records the office ever receives: the corrected 10:37 punch and the new 10:40 punch, both BarcodeBadge Time In records for one employee.",
+    "dayOffset -2: B1/B2/B3 must never share an employee-day under workers=2.",
+    "expected.cards[].record is the 0-based index into records; the flow mints references in record order and copies the record's gps onto the expectation. panel: true marks the card whose Time In side panel is opened; its display names come from fixture.json.",
+    "expected.envelope: sections replaces the old '<TimeCard_Records' grep (exactly one section); employeeSources {BarcodeBadge: 2} is the old split-count; absentTags ['CardType'] is sample fidelity — TimeIn derives from DateIn+TimeIn, no CardType tag; gpsFixes 1 — exactly one record carries a fix.",
+    "cleanup: the timeCards step sweeps employee 6001's fixture day (all card types) before the import and deletes the imported cards after the test; the flow passes sweep:false to deliverAndVerifyCards so exactly one cleanup path is live."
+  ],
+  "workflow": "B3",
+  "label": "B3",
+  "dayOffset": -2,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "office-ui",
+  "records": [
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6001",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4201",
+      "time": "10:37",
+      "gps": "(36.8076638,-119.8348287)"
+    },
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6001",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4102",
+      "jobCode": "4202",
+      "time": "10:40"
+    }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard"],
+      "employeeSources": { "BarcodeBadge": 2 },
+      "referenceParts": ["TI", "TI"],
+      "absentTags": ["CardType"],
+      "gpsFixes": 1
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "panel": true },
+      { "record": 1, "employeeCode": "6001", "fieldCode": "4102", "jobCode": "4202" }
+    ],
+    "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch" }
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001"], "dayOffset": -2 }
+  ]
+}

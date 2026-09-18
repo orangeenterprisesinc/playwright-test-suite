@@ -1,6 +1,6 @@
 ---
 name: data-driven-testing
-description: Use when adding or modifying data-driven Playwright tests — per-journey runner rows, testCaseId/testCaseName fixtures, journey value-bag modules, customer scopes, or switching between JSON and CSV sources.
+description: Use when adding or modifying data-driven Playwright tests — per-journey runner rows, testCaseId/testCaseName fixtures, JSON scenario files (loadScenario + zod schemas), customer scopes, or switching between JSON and CSV sources.
 ---
 
 ## Data-driven testing in this framework
@@ -17,11 +17,18 @@ agree.)
    `journey-<x>.json` mirror. One record per test case, bound to a spec by `id`.
    One file per journey (`journey-a` … `journey-f`) plus `system` for non-catalog
    framework tests. Read as one combined set by `MultiFileDataReader`.
-2. **Journey value bags** — `src/data/journey-<x>/<name>Data.ts`, e.g.
-   `src/data/static/journey-a/userSetupData.ts`. Typed TS modules, not JSON: small value
-   bags (option lists, expected messages, defaults) imported directly by the spec.
-   TypeScript so a cross-cutting constant is compile-checked in every place that
-   depends on it.
+2. **Scenario files** — `src/data/journey-<x>/<spec-basename>.json` (journeys) and
+   `src/data/system/<spec-basename>.json`, one per spec file, read at runtime by
+   `loadScenario(schema, testInfo)` (`src/utils/data/scenarioLoader.ts`) through the same
+   `JsonDataReader` the runner rows use, and validated by the journey's zod schema in
+   `src/data/schemas/` (`JourneyBScenarioSchema` — the runtime check and the TS type are one
+   definition). Records, expected values and `cleanup: CleanupStep[]` live here and name
+   entities by **code**; flows bind codes to ids. Multi-case files hold `shared` + `cases`
+   keyed by `testCaseId`. JSON, not TypeScript: a scenario is nested (records[], expected[],
+   cleanup[]), so it is data read from a file, and a typo fails at the first line of the test
+   with its field path instead of as an `undefined` in an assertion. `SCENARIO_DATA_DIR`
+   overrides the root. Shared fixture tables (`src/data/journey-b/fixture.json`) follow the
+   same rule; `fixture.ts` is only their typed accessor.
 
 Plus two supporting data sets:
 
@@ -136,5 +143,5 @@ Rules:
   writing under `artifacts/results/converted/`.
 - No hand-editing `src/data/runner/*.json` — it is generated from the CSV.
 - No Excel or database readers — JSON and CSV only.
-- No test values hardcoded in specs when a journey value bag is the right home.
+- No test values hardcoded in specs. The only inline literals are the `testCaseId` annotation, `tag:` arrays, describe/test titles and `expect()` messages; everything an assertion compares against comes from `scenario.expected` (see `pw-spec-author` §6).
 - No new id prefix schemes. Catalog rows are `<workflow>-<nnn>`.

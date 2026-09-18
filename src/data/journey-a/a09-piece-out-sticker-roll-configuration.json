@@ -1,0 +1,73 @@
+{
+  "_notes": [
+    "A9 — piece-out and sticker-roll configuration (catalog A9, plan test-plans/journey-a/a09-piece-out-sticker-roll-configuration.md, runner row A9-001; PET-12637 automation / WEBPET-1446 manual, PASSED QA 2026-08-28). Office configuration only — the day-start sticker-roll assignment itself is a field action (B4, already automated).",
+    "Nothing is created, so nothing is deleted: A9 configures the single global Preferences record. Teardown is the 'restore' cleanup step — runCleanup's pieceOutPreferences restorer snapshots exactly the seven keys under 'write' before the test and puts them back after. The PUT is partial by design; echoing the whole GET body back is rejected 400 invalid_body.",
+    "Every value under 'write' differs from what dev stored on 2026-09-16 (stickerPrefix 'B', stickerBarcodeLength 11, pieceTraceabilityBarcodeFunction 'No', maximumNumberOfPieces/minimumNumberOfPieces/typicalDailyRollUsage null). That is the point: writing a value the record already holds would let the persistence assertions pass without the save having done anything. A key that was unset before the run cannot be cleared again — a null write is ignored — so the restorer annotates 'shared-state-drift' for those and the baseline shifts once.",
+    "The write keys are also the DOM field ids (PreferencesPage.field resolves '#<id>') and the API keys, so the spec types, re-reads and compares by iterating this block and holds no selector and no key of its own. typicalDailyRollUsage is informational — no journey spec reads it, which makes it the safest real change.",
+    "assignRollsDaily is never written and never restored: false to true clears AlternateCode from every Employee row in the tenant (WEBPET-1593), which Journey B's fixtures are built on. putPreferences refuses the key, restorePreferences drops it, and PreferencesPage has no accessor for it. That is why A9-R7's 409 guard is recorded as an annotation instead of being automated.",
+    "pieceTraceabilityBarcodeFunction persists as the wire value, which bears no resemblance to the label the Select shows, so asserting the label alone would pass against the wrong stored value. screen.barcodeFunctionLabels was read from the deployed dev bundle and confirmed against the live DOM on 2026-09-16, not guessed from labels.",
+    "device.pocketDeviceType 0 is deliberate. Measured across a whole export run: PocketPDA and FingerScanner files carry MaximumPieces/MinimumPieces/NumberOfPieces; WindowsStandAlone and HandPunchScanner files do not carry them at all. Picking merely the first ACTIVE device lands on a Windows file and the assertions pass by absence — expected.export.deviceTypeMarker is the guard that the selection landed on a pocket-class file.",
+    "expected.export.names are the legacy Preferen.Name keys the export writes, not the web field ids. expected.export.piecePaymentTypes are the payment types as the EXPORT spells them: a label, not the numeric paymentType the office API returns (1 Piece, 3 Time and Piece), with the ampersand XML-escaped in the raw file.",
+    "stickerPrefix, stickerBarcodeLength and pieceTraceabilityBarcodeFunction are read by b05/b06 while parsing sticker codes. A9 holds changed values for seconds and always restores them, so the exposure is bounded — but A9 and Journey B must not run concurrently, and there is no cross-file exclusion in the suite today. employeeCodeStartLocation/rollCodeStartLocation belong to b07 and are never touched here."
+  ],
+  "modules": {
+    "required": {
+      "key": "LabelTraceability",
+      "message": "Traceability - Stickers unlicensed on dev client — A9-R1 cannot be asserted"
+    },
+    "noteWhenOff": [
+      {
+        "key": "PiecePayment",
+        "description": "Piece Payment reads false on dev (PT_MODULES omits it — PET-12689). Piece jobs still export, so A9-R9 is asserted regardless."
+      }
+    ]
+  },
+  "screen": {
+    "pocketSection": "Pocket",
+    "stickerSection": "Traceability - Stickers",
+    "readOnlyField": "undefinedEmployee",
+    "barcodeFunctionField": "pieceTraceabilityBarcodeFunction",
+    "barcodeFunctionLabels": {
+      "No": "Identify Employee & Optional",
+      "Yes": "Identify Piece & Required",
+      "Optional": "Identify Piece & Optional"
+    }
+  },
+  "write": {
+    "pocket": {
+      "defaultNumberOfTimeCardPieces": 1,
+      "maximumNumberOfPieces": 5,
+      "minimumNumberOfPieces": 1
+    },
+    "stickers": {
+      "stickerPrefix": "A",
+      "stickerBarcodeLength": 12,
+      "typicalDailyRollUsage": 7,
+      "pieceTraceabilityBarcodeFunction": "Yes"
+    }
+  },
+  "device": {
+    "pocketDeviceType": 0,
+    "missingMessage": "A9-R9/R10 need an active pocket-class scan device — only those exports carry the piece section"
+  },
+  "expected": {
+    "savedStatuses": [200, 204],
+    "export": {
+      "deviceTypeMarker": "<DeviceType>PocketPDA</DeviceType>",
+      "names": {
+        "maximumPieces": "MaximumPieces",
+        "minimumPieces": "MinimumPieces",
+        "numberOfPieces": "NumberOfPieces"
+      },
+      "piecePaymentTypes": ["Piece", "Time & Piece"],
+      "jobSection": "Job_Records"
+    }
+  },
+  "annotations": [
+    {
+      "type": "environment-gate",
+      "description": "A9-R7 (assignRollsDaily false→true rejected with 409 confirm_clear_alternate_codes) is not exercisable on dev: the preference already reads true, and reaching false would require confirmClearAlternateCodes, which clears every Employee AlternateCode (WEBPET-1593). One-way door — deliberately not run, not silently skipped."
+    }
+  ],
+  "cleanup": [{ "kind": "restore", "target": "pieceOutPreferences" }]
+}

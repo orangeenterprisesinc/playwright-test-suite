@@ -18,11 +18,6 @@
             "tags": [
                 "regression"
             ],
-            "req": [
-                "B1-R5",
-                "B1-R7",
-                "B1-R8"
-            ],
             "demo": true,
             "status": "automated",
             "enabled": true
@@ -45,9 +40,6 @@
             "tags": [
                 "regression"
             ],
-            "req": [
-                "B1-R7"
-            ],
             "status": "automated",
             "enabled": true
         },
@@ -68,10 +60,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B2-R6",
-                "B2-R7"
             ],
             "status": "automated",
             "enabled": true
@@ -94,10 +82,6 @@
             "tags": [
                 "regression"
             ],
-            "req": [
-                "B3-R1",
-                "B3-R2"
-            ],
             "status": "automated",
             "enabled": true
         },
@@ -119,12 +103,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B4-R1",
-                "B4-R2",
-                "B4-R3",
-                "B4-R9"
             ],
             "demo": true,
             "status": "automated",
@@ -150,15 +128,6 @@
             "tags": [
                 "regression"
             ],
-            "req": [
-                "B5-R1",
-                "B5-R2",
-                "B5-R3",
-                "B5-R4",
-                "B5-R5",
-                "B5-R6",
-                "B5-R7"
-            ],
             "demo": true,
             "status": "automated",
             "enabled": true
@@ -180,15 +149,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B6-R1",
-                "B6-R2",
-                "B6-R3",
-                "B6-R4",
-                "B6-R5",
-                "B6-R6",
-                "B6-R7"
             ],
             "status": "automated",
             "enabled": true
@@ -212,16 +172,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B7-R1",
-                "B7-R2",
-                "B7-R3",
-                "B7-R4",
-                "B7-R5",
-                "B7-R6",
-                "B7-R7",
-                "B7-R8"
             ],
             "status": "automated",
             "enabled": true
@@ -286,15 +236,6 @@
             "tags": [
                 "regression"
             ],
-            "req": [
-                "B10-R1",
-                "B10-R2",
-                "B10-R3",
-                "B10-R4",
-                "B10-R5",
-                "B10-R6",
-                "B10-R7"
-            ],
             "status": "automated",
             "enabled": true
         },
@@ -315,14 +256,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B11-R4",
-                "B11-R5",
-                "B11-R6",
-                "B11-R7",
-                "B11-R8",
-                "B11-R9"
             ],
             "status": "automated",
             "enabled": true
@@ -347,13 +280,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B12-R3",
-                "B12-R4",
-                "B12-R5",
-                "B12-R6",
-                "B12-R8"
             ],
             "demo": true,
             "status": "automated",
@@ -421,12 +347,6 @@
             ],
             "tags": [
                 "regression"
-            ],
-            "req": [
-                "B15-R1",
-                "B15-R4",
-                "B15-R5",
-                "B15-R6"
             ],
             "jira": "WEBPET-1533",
             "status": "automated",

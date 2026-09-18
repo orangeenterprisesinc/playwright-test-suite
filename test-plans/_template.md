@@ -46,8 +46,9 @@ The catalog says what the operator *does*; this section says what the app must
 nothing left to interpret when the spec gets written — by a person or by
 `playwright-test-generator`.
 
-Requirement ids are `<WF>-R<n>` and are stable: renumbering breaks the `Cases`
-linkage both ways. Append, never re-sort.
+The ids are plan-local numbering for discussion only. Nothing in the suite reads
+them: the runner rows have no `req` column and specs carry no `requirement`
+annotation (removed 2026-09-17). Coverage is shown by the `Cases` column here.
 
 | id | Requirement | Cases |
 |---|---|---|
@@ -181,15 +182,10 @@ in the spec.
 One row per runner row. Add these to `src/data/runner/journey-<x>.csv`, then
 `npm run runner:sync && npm run runner:check`.
 
-`Req` is the other half of the acceptance-criteria linkage — the requirements
-this case covers, comma-separated. It mirrors the `Cases` column above; the two
-must agree. A case that cites no requirement is a test with no stated reason to
-exist, and is usually a sign the criterion was never written down.
-
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `<WF>-001` | … | `<WF>-R1` | `smoke\|regression` | 0 |
-| `<WF>-002` | … | `<WF>-R2`, `<WF>-R4` | `regression` | 0 |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `<WF>-001` | … | `smoke\|regression` | 0 |
+| `<WF>-002` | … | `regression` | 0 |
 
 The spec's describe carries the journey and workflow tags:
 

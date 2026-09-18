@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "Deterministic Journey B fixture — no random data. Codes follow the catalog barcode rule (>=4 digits, no leading zero, unique). These records exist on dev staging (discovered-not-recreated by src/utils/api/officeFixture.ts) and are the codes the XML import tests reference in their envelopes.",
+    "field2/job2 are B2's crew-move destinations. mealJob is B10's meal job — a meal punch is an ordinary Time In whose Job is this one (Amy's device shows it as '0 - LUNCH').",
+    "Sticker employees are one per workflow so they never share an employee-day under workers=2: 6005 -> B6, 6006 -> B5, 6007 -> B7.",
+    "b4.packHouseRoll (POST /scan/assign-barcode-roll) is deliberately FIXED: the write is an upsert, so one permanent code-history row on employee 6006 across every run — see the B4 plan's Cleanup section. The device-side roll codes in B4-001 are run-unique instead (EmployeeCodeHistory has no delete endpoint).",
+    "Each workflow's fixture day (DAY_OFFSET) is NOT here: every scenario file carries its own dayOffset and scenarioLoader asserts they stay pairwise distinct."
+  ],
+  "entities": {
+    "ranch": { "code": "4001", "name": "B1 RANCH" },
+    "field": { "code": "4101", "name": "B1 FIELD" },
+    "field2": { "code": "4102", "name": "B2 FIELD EAST" },
+    "job": { "code": "4201", "name": "B1 HARVEST", "paymentType": "Time" },
+    "job2": { "code": "4202", "name": "B2 PRUNING", "paymentType": "Time" },
+    "mealJob": { "code": "4203", "name": "B10 LUNCH", "paymentType": "Time" },
+    "crew": { "code": "5001", "name": "B1 CREW" },
+    "present": [
+      { "code": "6001", "name": "B1 PRESENT ONE" },
+      { "code": "6002", "name": "B1 PRESENT TWO" },
+      { "code": "6003", "name": "B1 PRESENT THREE" }
+    ],
+    "absentee": { "code": "6004", "name": "B1 ABSENTEE FOUR" },
+    "sticker": [
+      { "code": "6005", "name": "B5 STICKER FIVE" },
+      { "code": "6006", "name": "B5 STICKER SIX" },
+      { "code": "6007", "name": "B7 STICKER SEVEN" }
+    ]
+  },
+  "b4": {
+    "packHouseRoll": { "alternateCode": "B7999900006", "firstCode": "B7999900006" }
+  }
+}

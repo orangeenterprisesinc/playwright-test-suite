@@ -7,6 +7,7 @@ import { FullConfig } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { sweepLeftovers } from '../../utils/cleanup/cleanupRegistry';
+import { reconcileFixtureDays } from '../../utils/cleanup/fixtureReconcile';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -37,6 +38,37 @@ function residueSweepLines(): [string, string][] {
     return lines;
 }
 
+function fixtureReconcileLines(): [string, string][] {
+    const lines: [string, string][] = [];
+    for (const phase of ['start', 'end'] as const) {
+        const file = path.join('artifacts', 'results', `fixture-reconcile-${phase}.json`);
+        if (!fs.existsSync(file)) continue;
+        try {
+            const s = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+                enabled: boolean;
+                auth: string;
+                probe: { latestRunId: number | null };
+                quiesce: { inFlight: number[]; settled: number[]; unsettled: unknown[]; verdict: string | null };
+                mailbox: { drained: number };
+                sweep: { matched: number; deleted: number; skippedTransferred: number; failed: number };
+            };
+            lines.push([
+                `Fixture reconcile (${phase})`,
+                s.enabled
+                    ? `auth ${s.auth}, latest run ${String(s.probe.latestRunId ?? 'n/a')}, in-flight ${String(s.quiesce.inFlight.length)} ` +
+                      `(settled ${String(s.quiesce.settled.length)}, unsettled ${String(s.quiesce.unsettled.length)}` +
+                      `${s.quiesce.verdict ? `, ${s.quiesce.verdict}` : ''}), mailbox drained ${String(s.mailbox.drained)}, ` +
+                      `cards matched ${String(s.sweep.matched)} deleted ${String(s.sweep.deleted)} skipped(409) ` +
+                      `${String(s.sweep.skippedTransferred)} failed ${String(s.sweep.failed)}`
+                    : 'disabled (FIXTURE_RECONCILE=0)',
+            ]);
+        } catch {
+            /* a malformed summary is not worth failing teardown over */
+        }
+    }
+    return lines;
+}
+
 /**
  * Writes `artifacts/allure/results/environment.properties` — Allure reads this file
  * by convention and renders it as the report's "Environment" panel.
@@ -51,6 +83,7 @@ function writeAllureEnvironmentInfo(config: FullConfig): void {
         ['OS', process.platform],
         ['CI', process.env.CI ? 'yes' : 'no'],
         ...residueSweepLines(),
+        ...fixtureReconcileLines(),
     ];
 
     fs.mkdirSync(ALLURE_RESULTS_DIR, { recursive: true });
@@ -128,6 +161,7 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     // src/data/static/shared/cleanupTargets.ts; never throws, logs in for itself.
     // Before the Allure metadata so its summary can appear there.
     if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
+        await reconcileFixtureDays({ phase: 'end' });
         try {
             await sweepLeftovers();
         } catch (error) {

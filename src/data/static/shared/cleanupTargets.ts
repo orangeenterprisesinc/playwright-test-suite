@@ -106,7 +106,8 @@ const TARGETS: readonly CleanupTarget[] = [
     },
     { entity: 'documentType', listPath: 'document-types', idKey: 'documentTypeCounter', order: 55, prefixes: [factory('E2EDocType_')] },
     { entity: 'board', listPath: 'boards', idKey: 'deviceCounter', order: 56, prefixes: [factory('E2EBoard_')], note: 'boards live in the Device table' },
-    { entity: 'scanDevice', listPath: 'scan-devices', idKey: 'deviceCounter', order: 57, prefixes: [six('ZZTEST_SD_')], note: 'Device table' },
+    // A scoped device's crew/ranch/field assignments point at those rows, so it goes before them (B15).
+    { entity: 'scanDevice', listPath: 'scan-devices', idKey: 'deviceCounter', order: 15, prefixes: [six('ZZTEST_SD_')], note: 'Device table' },
     {
         entity: 'validation',
         listPath: 'validations',

@@ -80,6 +80,11 @@ async function findByCode(
     };
 }
 
+// Find-only, unlike ensureEmployee.
+export function findEmployeeByCode(request: APIRequestContext, code: string): Promise<EnsuredRecord | null> {
+    return findByCode(request, 'employees', code, 'employeeCounter');
+}
+
 async function ensureRecord(
     request: APIRequestContext,
     { path, idKey, code, name, extra = {} }: EnsureSpec,

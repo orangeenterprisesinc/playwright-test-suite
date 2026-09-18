@@ -1,0 +1,75 @@
+{
+  "_notes": [
+    "B12 — Time-out questions to notification (catalog B12, plan test-plans/journey-b/b12-time-out-questions.md, recording docs/media/journey-b/b12-time-out-questions.mp4, PET-12650 automation / WEBPET-1531 manual, runner row B12-001). Transport, not simulation, happy path only.",
+    "Three workers clock out with a clock-out question sheet and a signature: Raquel (6001) answers all three questions outside the expected response, Miguel (6002) answers all three as expected, Sergio (6003) flips only the lunch answer — the recording's own pattern. Answers ride as TimeCardQuestion grid rows addressed to their parent Time Out by parentRecord (the flow turns it into the parent's <Reference>) — a grid row mints no reference of its own and consumes no sequence number. Time-Ins keep the crew's order (seq 1-3); Time-Outs follow the recording (Miguel 10:39 = seq 4, Raquel 10:40 = seq 5, Sergio 10:40 = seq 6). punchTime 07:15 is the header time and the Time-In moment.",
+    "questions: the 'B12 ' prefix is load-bearing. Dev already holds a question named literally 'Break' referenced by a time card with a NULL requiredResponse — never flagged (clockout_answer_flag.go:72) and no longer correctable (setup/question.go:394-406). The importer resolves <Question> by Name, so Amy's literal names would bind B12's answers to a question that cannot express the workflow. questionText is the bilingual QuestionText column the device shows, not the Name; the office grid displays the short name. The flow ensures each by name and then checks every answer row against the LIVE required response: a row marked unexpected must fall outside it, any other row inside (the rule unexpectedAnswer() derived from) — Break requires Yes-Si (unexpected: No), Injury requires No (unexpected: Yes-Si), Lunch requires Yes-Si (unexpected: No).",
+    "constants.signaturePng: a 1x1 transparent PNG, base64 — stands in for the handwriting on the device's signature pad; referenced as {signaturePng} on the three clock-outs and in expected.envelope.signatures. The assertion is sample fidelity on the envelope only (annotation signature-not-bound-on-import), so it only has to be small and stable. No standalone SignatureCard row: Amy's signature rides on the Time Out card itself, which is why R7 is out of scope (see the plan).",
+    "cardType null: the envelope mixes cardType 1 (time-in) and 0 (time-out). absentEmployees: 6004 never appears. dayOffset -5 is B12's own fixture day. verification cards: no Transfer grid.",
+    "preconditions crewNotifyUser: the flow points the fixture crew's notification user at an active user with an email (R8) after the restore step has snapshotted the previous value; cleanup restores it. Proven: the answers import against the right card, joined by the parent's Reference, with the unexpected values stored verbatim (R3-R6), and the crew's notification user resolves to a real Users record with an email (R8). NOT proven — each named as a gate in `annotations`, never silently skipped: the clock-out answer flag detector never runs on the import path and the notification email has no observable channel (both halves of R10), and the importer leaves the Signature column unbound by design (R9).",
+    "cleanup: the timeCards step sweeps the four crew members' fixture day before the import and deletes the imported cards after the test; restore crewNotifyUser puts the crew's notification user back. The flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B12",
+  "label": "B12",
+  "dayOffset": -5,
+  "punchTime": "07:15",
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "cards",
+  "cardType": null,
+  "constants": {
+    "signaturePng": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYGD4DwABBAEAX+d1zQAAAABJRU5ErkJggg=="
+  },
+  "questions": [
+    { "name": "B12 Break", "requiredResponse": "Yes-Si", "allowedResponses": "Yes-Si, No", "questionText": "Were you allowed to take all your 10 minutes paid breaks today Se le permitio tomar todos sus 10 minutos de descansos pagados hoy?" },
+    { "name": "B12 Injury", "requiredResponse": "No", "allowedResponses": "Yes-Si, No", "questionText": "Have you been injured today Has sido lastimado hoy?" },
+    { "name": "B12 Lunch", "requiredResponse": "Yes-Si", "allowedResponses": "Yes-Si, No", "questionText": "Today, did you take a 30 minute lunch? Tomaste un lonche de 30 minutos hoy?" }
+  ],
+  "preconditions": ["crewNotifyUser"],
+  "records": [
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6002", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6003", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employeeCode": "6002", "crewCode": "5001", "time": "10:39", "gps": "(36.8076963, -119.8348286)", "signature": "{signaturePng}" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employeeCode": "6001", "crewCode": "5001", "time": "10:40", "gps": "(36.8076963, -119.8348286)", "signature": "{signaturePng}" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employeeCode": "6003", "crewCode": "5001", "time": "10:40", "gps": "(36.8076963, -119.8348286)", "signature": "{signaturePng}" },
+    { "node": "TimeCardQuestion", "parentRecord": 3, "question": "B12 Break", "response": "Yes-Si", "time": "10:39" },
+    { "node": "TimeCardQuestion", "parentRecord": 3, "question": "B12 Injury", "response": "No", "time": "10:39" },
+    { "node": "TimeCardQuestion", "parentRecord": 3, "question": "B12 Lunch", "response": "Yes-Si", "time": "10:39" },
+    { "node": "TimeCardQuestion", "parentRecord": 4, "question": "B12 Break", "response": "No", "unexpected": true, "time": "10:40" },
+    { "node": "TimeCardQuestion", "parentRecord": 4, "question": "B12 Injury", "response": "Yes-Si", "unexpected": true, "time": "10:40" },
+    { "node": "TimeCardQuestion", "parentRecord": 4, "question": "B12 Lunch", "response": "No", "unexpected": true, "time": "10:40" },
+    { "node": "TimeCardQuestion", "parentRecord": 5, "question": "B12 Break", "response": "Yes-Si", "time": "10:40" },
+    { "node": "TimeCardQuestion", "parentRecord": 5, "question": "B12 Injury", "response": "No", "time": "10:40" },
+    { "node": "TimeCardQuestion", "parentRecord": 5, "question": "B12 Lunch", "response": "No", "unexpected": true, "time": "10:40" }
+  ],
+  "absentEmployees": ["6004"],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard", "TimeOut", "TimeCardQuestion"],
+      "employeeSources": { "BarcodeBadge": 6 },
+      "referenceParts": ["TI", "TI", "TI", "TO", "TO", "TO"],
+      "referencePartCounts": { "TI": 3, "TO": 3 },
+      "absentInSection": { "TimeOut": ["Job", "Ranch", "Field"] },
+      "sectionsWithoutLookup": ["TimeCardQuestion"],
+      "answerRows": 9,
+      "signatures": ["{signaturePng}", "{signaturePng}", "{signaturePng}"]
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 2, "employeeCode": "6003", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 3, "employeeCode": "6002", "cardType": 0 },
+      { "record": 4, "employeeCode": "6001", "cardType": 0 },
+      { "record": 5, "employeeCode": "6003", "cardType": 0 }
+    ]
+  },
+  "annotations": [
+    { "type": "clockout-flag-not-run-on-import", "description": "B12-R10 is not asserted: DetectAndFlagClockOutAnswers and sendClockOutFlagNotifications are reachable only from POST/PUT /api/time-cards/time-out, never from the connectivity import path, so an imported unexpected answer raises no TimeCardQuestionFlag row. Verified manually in the legacy stack — see docs/media/journey-b/b12-notification-email.png, transcribed in the B12 plan." },
+    { "type": "notification-email-not-observable", "description": "B12-R10's email half has no observable channel: the sender falls back to LogEmailSender, there is no outbox table or notification-log endpoint, and TimeCardQuestionFlag.NotifiedAtUtc is exposed by no API. The email in the manual evidence was produced by the legacy real-time service, not web-pet." },
+    { "type": "signature-not-bound-on-import", "description": "B12-R9 is not asserted: the importer leaves the Signature column unbound by design — \"their populated encoding is unverified, so they are left unbound (they will simply be NULL) rather than guessing a decode\" (importmap/timecard.go:80-83), and timeCardSpec declares no Signature column. Confirmed live: a card whose envelope carried a signature came back with signature: null. The envelope still sends it (asserted above as sample fidelity), so this becomes assertable unchanged once the column is bound." }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001", "6002", "6003", "6004"], "dayOffset": -5 },
+    { "kind": "restore", "target": "crewNotifyUser" }
+  ]
+}

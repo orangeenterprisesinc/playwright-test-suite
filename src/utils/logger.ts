@@ -33,11 +33,11 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
 
 /** @private Numeric priority for each log level (higher = more severe) */
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
-    debug: 0,
-    info: 1,
-    warn: 2,
-    error: 3,
-    trace: 4,
+    trace: 0,
+    debug: 1,
+    info: 2,
+    warn: 3,
+    error: 4,
 };
 
 /** @private Directory for log files, configurable via `LOG_DIR` env var */
@@ -59,6 +59,12 @@ function getLogFilePath(): string {
 }
 
 
+/** Resolves the default minimum level from `LOG_LEVEL` (default `'info'`). */
+function envLogLevel(): LogLevel {
+    const raw = (process.env.LOG_LEVEL ?? 'info').toLowerCase();
+    return raw in LEVEL_PRIORITY ? (raw as LogLevel) : 'info';
+}
+
 /**
  * Structured logger with coloured console output and JSON file logging.
  */
@@ -69,7 +75,7 @@ export class Logger {
     private readonly minLevel: LogLevel;
 
     /** Creates a new Logger instance. */
-    constructor(context: string, minLevel: LogLevel = 'debug') {
+    constructor(context: string, minLevel: LogLevel = envLogLevel()) {
         this.context = context;
         this.minLevel = minLevel;
     }

@@ -1,0 +1,65 @@
+{
+  "_notes": [
+    "B4 — Sticker-roll assignment at day start (catalog B4, plan test-plans/journey-b/b04-sticker-roll-assignment.md, recording docs/media/journey-b/b04-sticker-roll-assignment.mp4, WEBPET-1523, runner row B4-001). Transport, not simulation, happy path only.",
+    "The recording never opens the catalog's dedicated 'assign the roll' screen — Amy sets the roll from the Time In screen's First Roll Code field, so what reaches the office is an ordinary individual Time In record whose TraceabilityCode is the roll's first sticker. Phase 1 = two such records, one per sticker employee, both BarcodeBadge Time In at 06:00.",
+    "codes: run-unique roll codes in the shape the recording shows ('B7' + digits) — the EmployeeCodeHistory identity has no delete endpoint, so a fixed code would collide across runs (unlike the phase-2 roll in fixture.json b4.packHouseRoll). Minted from the lineage, not the clock: the References are retry-stable, so a clock value would let an earlier attempt's late import overwrite this attempt's code (seen 2026-09-17). {code0} = B7 + lineageDigits(8,'roll') + '5' for 6005, {code1} = ... + '6' for 6006; the flow substitutes them into records[].traceabilityCode and expected.envelope.traceabilityCodes.",
+    "extraEmployees: seedOfficeFixture only ensures the crew's own members (present/absentee) — the sticker employees are B4's own and are copied here from fixture.json entities.sticker[0..1] so the flow ensures them (by code; the name is used only if the record is missing on dev). dayOffset -8 keeps 6005/6006's employee-day away from B5 (-7) and B6 (-6) under workers=2.",
+    "hooks: the code-history bracket straddles the import — the import must create or modify no code-history row; only phase 2 legitimately writes one, and that happens after this bracket closes. The JSON names the hooks, the flow owns the code (getCodeHistory per expected employee before and after deliverAndVerifyCards); the spec asserts after equals before.",
+    "expected.envelope: sections ['TimeCard'] replaces the old '<TimeCard_Records' grep; employeeSources {BarcodeBadge: 2} is the old split-count (one BarcodeBadge source per employee); traceabilityCodes are the two minted codes, present verbatim. expected.cards[0] (panel: true) opens the Time In panel — names from fixture.json; both cards carry their record's traceabilityCode through the flow and deliverAndVerifyCards proves it survives the import verbatim.",
+    "Phase 2 (the pack-house-line variation, fixture.json b4.packHouseRoll) is WITHHELD: dev proved POST /scan/assign-barcode-roll never takes its documented alreadyAssigned no-op branch — a repeat of an identical assignment inserts a duplicate row whose identifying columns match the first exactly. With no delete endpoint for EmployeeCodeHistory, running it would leak one undeletable row per run. Verified on dev 2026-08-26: two identical calls both returned 'inserted'. See the B4 plan's Cleanup section. Because it is withheld, B4-001 creates nothing but time cards, so cleanup has no unremovable step.",
+    "cleanup: the timeCards step sweeps 6005/6006's fixture day before the import and deletes the imported cards after the test (verifyImportInOffice used to do both in its own finally); the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B4",
+  "label": "B4",
+  "dayOffset": -8,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "office-ui",
+  "codes": { "salt": "roll", "length": 8, "prefix": "B7", "suffixes": ["5", "6"] },
+  "extraEmployees": [
+    { "code": "6005", "name": "B5 STICKER FIVE" },
+    { "code": "6006", "name": "B5 STICKER SIX" }
+  ],
+  "hooks": { "beforeImport": "codeHistorySnapshot", "afterImport": "codeHistoryDelta" },
+  "records": [
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6005",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4201",
+      "time": "06:00",
+      "traceabilityCode": "{code0}"
+    },
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6006",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4201",
+      "time": "06:00",
+      "traceabilityCode": "{code1}"
+    }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard"],
+      "employeeSources": { "BarcodeBadge": 2 },
+      "traceabilityCodes": ["{code0}", "{code1}"]
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6005", "fieldCode": "4101", "jobCode": "4201", "panel": true },
+      { "record": 1, "employeeCode": "6006", "fieldCode": "4101", "jobCode": "4201" }
+    ],
+    "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch" }
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6005", "6006"], "dayOffset": -8 }
+  ]
+}

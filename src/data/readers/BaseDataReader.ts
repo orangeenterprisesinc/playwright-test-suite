@@ -1,42 +1,22 @@
 /**
- * @fileoverview Abstract base class for all data readers in the framework.
- *
- * {@link BaseDataReader} implements the {@link IDataReader} interface and provides
- * shared logic for caching, filtering, availability checking, and cache management.
- * Concrete subclasses (JSON, CSV, Excel, Database) only need to implement
- * {@link BaseDataReader.parseData}.
+ * @fileoverview Abstract base for data readers: shared caching, filtering,
+ * and availability logic. Concrete subclasses only implement {@link BaseDataReader.parseData}.
  */
 import type {DataSourceType, IDataReader} from '../../types';
 import {Logger} from '../../utils/logger';
 import fs from 'fs';
 
-
-/**
- * Abstract base providing common caching, filtering, and availability logic
- * for all data source readers.
- *
- * @abstract
- * @implements {IDataReader}
- */
 export abstract class BaseDataReader implements IDataReader {
-
-    /** @protected Logger scoped to the concrete reader type */
     protected readonly logger: Logger;
-
-    /** @protected Absolute or relative path to the data source */
     protected readonly filePath: string;
-
-    /** @protected Data source type identifier (`'json'`, `'csv'`, `'excel'`, `'db'`) */
     protected readonly sourceType: DataSourceType;
-
-    /** @protected In-memory cache of parsed data; `null` when not yet loaded */
+    /** In-memory cache of parsed data; `null` when not yet loaded */
     protected cachedData: unknown[] | null = null;
-
 
     constructor(filePath: string, sourceType: DataSourceType) {
         this.filePath = filePath;
         this.sourceType = sourceType;
-        this.logger = new Logger(`${sourceType.toUpperCase()}DataReader`);
+        this.logger = new Logger(this.constructor.name);
     }
 
 
@@ -53,10 +33,10 @@ export abstract class BaseDataReader implements IDataReader {
                 return this.cachedData as T[];
             }
 
-            this.logger.info(`Reading data from: ${this.filePath}`);
+            this.logger.debug(`Reading data from: ${this.filePath}`);
             const data = await this.parseData<T>();
             this.cachedData = data;
-            this.logger.info(`Loaded ${data.length} records from ${this.sourceType}`);
+            this.logger.debug(`Loaded ${data.length} records from ${this.sourceType}`);
             return data;
         } catch (error) {
             this.logger.error(`Failed to read data: ${error}`);
@@ -111,12 +91,7 @@ export abstract class BaseDataReader implements IDataReader {
     }
 
 
-    /**
-     * Parses raw data from the underlying source. Must be implemented by subclasses.
-     *
-     * @abstract
-     * @template T - Record shape
-     */
+    /** Parses raw data from the underlying source. Implemented by subclasses. */
     protected abstract parseData<T>(): Promise<T[]>;
 }
 

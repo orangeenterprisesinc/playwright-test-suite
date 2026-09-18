@@ -40,7 +40,7 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
    per test) with the plan path, the JOURNEY profile, and
    `.claude/skills/pw-spec-author/SKILL.md`. Spec path from the workflow's
    `surface`: `ui` → `tests/web/journey-<x>-<area>/`, `calc` → same but tagged
-   `@Workflow`, `device` → same folder, category `api` (or `workflow` when it also verifies in the UI).
+   `@Workflow`, `device` → same folder, category `api` (or `workflow` when it also verifies in the UI). The Generator also writes the spec's scenario file `src/data/journey-<x>/<spec-basename>.json` (validated by `src/data/schemas/<journey>Scenario.ts`, loaded with `loadScenario`) — every value the spec uses lives there, never inline (`pw-spec-author` §6).
 
 6. **Run** — affected tests only: `npx playwright test --grep @<WF>`.
 

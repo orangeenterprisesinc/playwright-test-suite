@@ -22,6 +22,7 @@ import type { Page } from '@playwright/test';
 import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
+import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
@@ -41,6 +42,8 @@ export interface PageObjects {
     // ── File ▸ Administration ───────────────────────────────────────
     /** Users administration screen and New/Edit User form (A1). */
     readonly users: UsersPage;
+    /** Global Preferences — Pocket and Traceability - Stickers sections (A9). */
+    readonly preferences: PreferencesPage;
     /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
     readonly scanDevice: ScanDevicePage;
 
@@ -72,6 +75,7 @@ export function createPageObjects(page: Page): PageObjects {
         get login() { return lazy('login', () => new LoginPage(page)); },
         get leftNav() { return lazy('leftNav', () => new LeftNavigationPage(page)); },
         get users() { return lazy('users', () => new UsersPage(page)); },
+        get preferences() { return lazy('preferences', () => new PreferencesPage(page)); },
         get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },

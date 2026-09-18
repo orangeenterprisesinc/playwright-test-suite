@@ -1,0 +1,15 @@
+{
+  "_notes": [
+    "Login — the gate every journey starts behind (plan test-plans/system/login.md, runner rows UI-001…UI-004). Not a catalog workflow (catalog A1 step 5, 'Verify login'), so it lives under tests/web/system/ with UI-00X ids and a @System describe tag rather than a journey tag.",
+    "Only the INVALID inputs live here. The valid pair is per-environment (USER_NAME / PASSWORD through getConfigValue) — environment, not test data — which is why UI-001 has no case: it types nothing from this file.",
+    "shared.invalidCredentialsErrorMessage is deliberately the same string for a bad username, a bad password, or both: the app must not reveal which field was wrong, and UI-002/003/004 collectively prove UI-R3 by asserting exactly this text. They stay three test() calls rather than a loop because runner:check binds a spec to a row by a LITERAL testCaseId annotation."
+  ],
+  "shared": {
+    "invalidCredentialsErrorMessage": "Invalid username or password."
+  },
+  "cases": {
+    "UI-002": { "wrongPassword": "wrong-password-123" },
+    "UI-003": { "wrongUsername": "nouser@example.com" },
+    "UI-004": { "wrongUsername": "nouser@example.com", "wrongPassword": "wrong-password-123" }
+  }
+}

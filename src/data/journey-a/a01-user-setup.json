@@ -1,0 +1,48 @@
+{
+  "_notes": [
+    "A1 — License, serial number, and user setup, steps 4-5 (catalog A1, plan test-plans/journey-a/a01-user-setup.md, recording docs/media/journey-a/a01-user-setup.mp4, runner row A1-001): create an office user with a role and per-user permissions, verify it in the Users list, open it for edit, delete it. Runs logged in via .auth/user.json; the login half is tests/web/system/login-module.spec.ts.",
+    "cases are keyed by testCaseId; shared applies to every case. user holds the New User form values the case types; the run-unique Name/Initials/Email and the password come from src/data/generated (makeUser) through src/utils/journeys/journeyAFlow.ts — the name prefix is the residue sweep's own for users (cleanupTargets.ts, 'QA User '), so what the factory names the sweep can always find.",
+    "PET Tiger has no delete-user action in the UI, so users go through DELETE /users/{id} (WEBPET-1606). A1-001 deletes its user as a STEP (A1-R8) — the grid check is the proof it took effect — and the shared cleanup step is the safety net for a body that fails before reaching it: deleteByName finds no live row and does nothing.",
+    "screen.roles is every Role option the New User form offers, in the order the UI lists them (order-sensitive: a case asserting the dropdown with toHaveText(roles) doubles as a guard against an option being added, removed or reordered). screen.messages are the form's toasts. Reference data for the A1 cases still to be added — A1-001 uses neither."
+  ],
+  "shared": {
+    "screen": {
+      "roles": [
+        "Clerk",
+        "Administrator",
+        "Field Supervisor",
+        "Field Man",
+        "Time Card Clerk",
+        "Manager",
+        "Scan Screens Only",
+        "Report Viewer",
+        "Report Viewer Limited",
+        "Input Clerk",
+        "Crew Supervisor",
+        "Employee Setup Clerk",
+        "Analyst",
+        "Crew Reviewer",
+        "Warehouse Supervisor",
+        "Shortcuts Only",
+        "Device Administrator"
+      ],
+      "messages": { "userCreated": "User created", "initialsInUse": "Already in use", "fixErrors": "Fix errors to save" }
+    },
+    "cleanup": [
+      { "kind": "delete", "entity": "user", "name": "{userName}" }
+    ]
+  },
+  "cases": {
+    "A1-001": {
+      "user": {
+        "role": "Administrator",
+        "firstName": "Journey",
+        "middleName": "A1",
+        "lastName": "Tester",
+        "title": "HR Manager",
+        "additionalAccess": ["View Confidential Data", "View SSN"],
+        "accessToReverse": "All"
+      }
+    }
+  }
+}

@@ -81,7 +81,7 @@ type Row = Record<string, unknown>;
 
 const SUMMARY_DIR = path.join('artifacts', 'results');
 
-function envNumber(name: string, fallback: number): number {
+export function envNumber(name: string, fallback: number): number {
     const raw = process.env[name];
     const parsed = raw === undefined || raw === '' ? NaN : Number(raw);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;

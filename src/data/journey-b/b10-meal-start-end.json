@@ -1,0 +1,44 @@
+{
+  "_notes": [
+    "B10 — Meal start and end, field (catalog B10, plan test-plans/journey-b/b10-meal-start-end.md, recording docs/media/journey-b/b10-meal-start-end.mp4, PET-12648 automation / WEBPET-1529 manual, runner row B10-001). Transport, not simulation, happy path only.",
+    "A meal punch is an ordinary Time In whose Job is the meal job (fixture.json mealJob 4203 — Amy's device shows it as '0 - LUNCH'). The master plan's UnpaidBreakCard guess is superseded by the recording, which shows the meal start and its return both landing as plain TimeCard/TI records, never on a break-card table: expected.envelope.absentTags names both break-card sections so a refactor that reintroduces them fails. The 30-minute minimum is enforced on the device only, before any record exists, so it is not automatable via XML.",
+    "Three records for one employee (6001): 07:15 clock-in on the work job 4201, 12:00 meal start on the meal job 4203, 12:35 return to the work job. Only the meal-return record carries a GPS fix, as the plan specifies (gpsFixes 1). jobOccurrences: the meal job appears once, the work job twice. No header punchTime — the old envelope passed none.",
+    "dayOffset -3: B10 owns day -3 — sharing an employee-day with a sibling under workers=2 would trip the office's duplicate-Time-In rule.",
+    "expected.intervals: the stored meal-return instant minus the stored meal-start instant is 35 minutes (2100000 ms). A real sync has the device stamp its own seconds; this envelope controls them exactly, so each stored instant equals the sent one verbatim (B10-R4).",
+    "expected.cards[2] (panel: true) is the meal-return row whose Time In panel the grid check opens — Phase must read the WORK job, the worker having been returned to it, not the lunch job; display names come from fixture.json. The grid check also asserts each row's Warning status and the 'Time-In has no closing punch' group (B3 proves two open Time-Ins for one employee render so). grid.absentIssueGroupPattern: no meal/lunch/break issue group may ever appear (B10-R7); the spec compiles it case-insensitively.",
+    "cleanup: the timeCards step sweeps 6001's fixture day before the import and deletes the imported cards after the test; the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B10",
+  "label": "B10",
+  "dayOffset": -3,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "office-ui",
+  "records": [
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4203", "time": "12:00" },
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "12:35", "gps": "(36.80767,-119.8348178)" }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard"],
+      "employeeSources": { "BarcodeBadge": 3 },
+      "jobOccurrences": { "4203": 1, "4201": 2 },
+      "absentTags": ["UnpaidBreakCard_Records", "BreakCard_Records"],
+      "referenceParts": ["TI", "TI", "TI"],
+      "gpsFixes": 1
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 1, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4203", "cardType": 1 },
+      { "record": 2, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "cardType": 1, "panel": true }
+    ],
+    "intervals": [
+      { "from": 1, "to": 2, "ms": 2100000 }
+    ],
+    "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch", "absentIssueGroupPattern": "meal|lunch|break" }
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001"], "dayOffset": -3 }
+  ]
+}
