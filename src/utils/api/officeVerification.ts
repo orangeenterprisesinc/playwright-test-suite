@@ -658,19 +658,23 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
         // two steps Amy performs.
         await transferPage.applyDateRange(punchDate);
         await transferPage.analyze();
-        // Null means the analyze job was lost between processes (a 404
-        // not_found on GET .../analyze/{jobId}, WEBPET-1907 class) and every
-        // retry the page object attempted still lost it. Gate the whole grid
-        // block on it, exactly as the analyzeEnabled() === false branch does.
-        const candidateCount = await transferPage.tryWaitForCandidates(cards.length);
-        if (candidateCount === null) {
-            testInfo.annotations.push({
-                type: 'transfer-grid-not-asserted',
-                description:
-                    `analyze job lost between processes ×${transferPage.analyzeRetryCount} — ` +
-                    'GET …/transfer-to-job-cards/analyze/{jobId} → 404 not_found, per-process job ' +
-                    'store, WEBPET-1907 class; the API-level link assertions above still ran.',
-            });
+        // The grid block is gated on the wait, exactly as the analyzeEnabled()
+        // === false branch is. Every reason is tolerated here, but only the proven
+        // WEBPET-1907 signature gets that framing: a timeout or a short count is
+        // something else and the annotation has to say so, or the next triage
+        // chases a lost analyze job that never happened.
+        const result = await transferPage.waitForCandidatesResult(cards.length);
+        if (!result.ok) {
+            const description = result.sawAnalyze404
+                ? `analyze job lost between processes ×${transferPage.analyzeRetryCount} (${result.reason}) — ` +
+                  'GET …/transfer-to-job-cards/analyze/{jobId} → 404 not_found, per-process job ' +
+                  'store, WEBPET-1907 class; the API-level link assertions above still ran.'
+                : result.reason === 'timeout'
+                  ? 'neither the grid caption nor a retry button appeared within the wait window, and no ' +
+                    'analyze 404 was seen; the API-level link assertions above still ran.'
+                  : `the grid never reached ${cards.length} candidate(s) — saw only ${result.count}, with no ` +
+                    'analyze 404; the API-level link assertions above still ran.';
+            testInfo.annotations.push({ type: 'transfer-grid-not-asserted', description });
         } else {
             for (const card of cards) {
                 await expect(transferPage.rowFor(card.timeCardCounter)).toHaveText(
@@ -776,8 +780,11 @@ export interface TransferGridRowInput {
 
 /**
  * The narrow Transfer to Job Cards read: menus → date range → analyze → one card's row, returned
- * for the caller to assert its cells on. `null` when the analyze flag is off (annotated exactly as
- * {@link assertTransferGrid} does), so a caller can skip its row assertions without a second guard.
+ * for the caller to assert its cells on. `null` when the analyze flag is off, or when the analyze
+ * job was lost between processes (WEBPET-1907 class, annotated exactly as {@link assertTransferGrid}
+ * does) — both tolerated per ADR 0007, so a caller can skip its row assertions without a second
+ * guard. A timeout or a short candidate count still throws: that is a real regression, not infra
+ * noise, and B6 spent a triage cycle on the two being conflated.
  */
 export async function transferGridRowFor(input: TransferGridRowInput): Promise<Locator | null> {
     const { pages, testInfo, cards, card, punchDate, label } = input;
@@ -790,8 +797,29 @@ export async function transferGridRowFor(input: TransferGridRowInput): Promise<L
     if (await transferPage.analyzeEnabled()) {
         await transferPage.applyDateRange(punchDate);
         await transferPage.analyze();
-        await transferPage.waitForCandidates(cards.length);
-        row = transferPage.rowCells(card.timeCardCounter);
+        const result = await transferPage.waitForCandidatesResult(cards.length);
+        if (result.ok) {
+            row = transferPage.rowCells(card.timeCardCounter);
+        } else if (result.sawAnalyze404) {
+            // Tolerate the proven WEBPET-1907 signature whichever exit it surfaced
+            // through, per ADR 0007 — but nothing else. A grid that simply never
+            // loaded is a real regression and B6 must still fail on it.
+            testInfo.annotations.push({
+                type: 'transfer-grid-not-asserted',
+                description:
+                    `analyze job lost between processes ×${transferPage.analyzeRetryCount} (${result.reason}) — ` +
+                    'GET …/transfer-to-job-cards/analyze/{jobId} → 404 not_found, per-process job ' +
+                    'store, WEBPET-1907 class; the API-level link assertions above still ran.',
+            });
+        } else if (result.reason === 'timeout') {
+            throw new Error(
+                `${label}: neither the grid caption nor a retry button appeared within the wait window`,
+            );
+        } else {
+            throw new Error(
+                `${label}: the grid never reached ${cards.length} transfer candidate(s) — saw only ${result.count}`,
+            );
+        }
     } else {
         testInfo.annotations.push({
             type: 'transfer-grid-not-asserted',
