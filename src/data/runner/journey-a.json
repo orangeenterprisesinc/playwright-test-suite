@@ -20,12 +20,6 @@
                 "high-level",
                 "regression"
             ],
-            "req": [
-                "A1-R1",
-                "A1-R2",
-                "A1-R7",
-                "A1-R8"
-            ],
             "status": "automated",
             "enabled": true
         },
@@ -184,9 +178,9 @@
             "workflow": "A9",
             "journey": "A",
             "category": "ui",
-            "testName": "pieceOutAndStickerRollConfiguration",
-            "testTitle": "Piece-out and sticker-roll configuration",
-            "testDescription": "Configure the office-side settings that make field piece capture work: the piece method (sticker roll versus badge) and the piece-out preferences that bound each scan. The day-start sticker-roll assignment itself is a field action (see B4).",
+            "testName": "endToEndConfigurePieceOutAndVerifyDeviceExport",
+            "testTitle": "End-to-end: configure the piece-out and sticker-roll preferences, confirm they save, and confirm they reach a scan device setup export",
+            "testDescription": "Follow the manual A9 walkthrough: set the piece-out bounds and sticker-roll configuration in Preferences, confirm they persist and reload, then confirm the setup file a scan device receives carries those preferences and the piece-eligible jobs.",
             "segments": [
                 "grower",
                 "perennial-grower",
@@ -200,8 +194,8 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A10-001",

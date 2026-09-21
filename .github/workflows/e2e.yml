@@ -193,16 +193,17 @@ jobs:
     # test ran (2026-08-19). 30 then proved too tight for a RED run: six Journey B
     # specs each failing at the 330s slow-test budget × 3 attempts hit the cap
     # (2026-09-06/07), and a cancelled job uploads no report, posts no Slack and
-    # looks like the suite never ran. 45 let a fully red journey run report; 60
-    # keeps that true now a Journey B delivery may wait out IMPORT_POLL_TIMEOUT_MS
-    # below. The suite's own circuit breaker is what bounds the worst case — after
-    # two deliveries exhaust the deadline in a worker, the rest wait 60s (see
-    # src/utils/api/connectivityImportApi.ts) — so a dead import cannot walk this
-    # job to the cap the way it could before. PW_GLOBAL_TIMEOUT_MS (env block
-    # below) sits 5 minutes under this so Playwright, not the runner, ends a
-    # run that gets this far — a runner cancel force-kills the process and no
-    # html report, Slack post or email is ever produced.
-    timeout-minutes: ${{ matrix.suite == 'webpet' && 90 || 60 }}
+    # looks like the suite never ran. A Journey B delivery may now wait up to the
+    # IMPORT_POLL_TIMEOUT_MS ceiling (20 min) while the run keeps progressing
+    # (src/utils/api/connectivityImportApi.ts), so a spec's own timeout is
+    # project + ceiling + 2 min (~24 min) — 90 lets a fully red journey run still
+    # finish and report, where 15/30/45/60 were each cancelled mid-run in turn.
+    # The circuit breaker bounds the worst case after two consecutive stalls in a
+    # worker (60s ceiling). PW_GLOBAL_TIMEOUT_MS (env block below) sits 5 minutes
+    # under this so Playwright, not the runner, ends a run that gets this far — a
+    # runner cancel force-kills the process and no html report, Slack post or
+    # email is ever produced.
+    timeout-minutes: 90
 
     env:
       # Selects .env.dev (BASE_URL=https://app.ptdev.xyz,
@@ -212,11 +213,11 @@ jobs:
       # /api/*). Applies to every trigger above, so the repository_dispatch the
       # app repo fires also targets dev staging.
       TEST_ENV: dev
-      # Playwright's own run cap, 5 minutes under `timeout-minutes` above, so a
-      # slow run ends gracefully and still writes artifacts/html, posts Slack
-      # and uploads — instead of being force-killed with no report (run
-      # 35206578922, 2026-09-17). Journey 55 min, webpet 85 min.
-      PW_GLOBAL_TIMEOUT_MS: ${{ matrix.suite == 'webpet' && '5100000' || '3300000' }}
+      # Playwright's own run cap, 5 minutes under timeout-minutes above (90 for
+      # both suites now), so a slow run ends gracefully and still writes
+      # artifacts/html, posts Slack and uploads — instead of being force-killed
+      # with no report (run 35206578922, 2026-09-17). 85 min for both suites.
+      PW_GLOBAL_TIMEOUT_MS: '5100000'
       # USER_NAME comes from the DEV_USER_NAME repository *variable*, not a
       # secret. A login name is not a credential, and Actions masks every literal
       # occurrence of a secret's value — so storing a short value like 'su' as a
@@ -274,14 +275,17 @@ jobs:
       # set this back to 'single-folder', which posts the same envelope straight
       # to the importer and exercises identical office-side assertions.
       IMPORT_TRANSPORT: 'internet'
-      # The worker claims queued files on the client's SrvcRealTimeImportInterval
-      # cadence (GET /api/preferences -> serviceImportInterval), NOT on arrival.
-      # That preference is 1 minute on dev, yet the observed claim latency on
-      # 2026-09-16 was 3-7 minutes (runs 2037/2046/2053/2054/2057/2058/2067/2068
-      # all sat at "received" past the old 180s and completed later) - a server
-      # defect, not a cadence. This value is now a per-DELIVERY deadline shared by
-      # the run poll and the reference poll, not a fresh budget per stage.
-      IMPORT_POLL_TIMEOUT_MS: '420000'
+      # Import waits are dynamic (src/utils/api/connectivityImportApi.ts): the suite
+      # keeps waiting while GET connectivity/import/runs/{id} shows change (received
+      # -> processing, files appearing, per-file status/message) and stops after
+      # IMPORT_STALL_MS without any, or at the IMPORT_POLL_TIMEOUT_MS ceiling. Dev's
+      # worker claims files 3-7 min after upload, sometimes 40: a per-tenant relay
+      # drain never acks on timeout and starves the shared worker (2026-09-16/17
+      # triage, Datadog + import-run API). 8 min of stall rides out the common case
+      # and lets the outlier fail with a "stalled at received" verdict instead of a
+      # bare timeout. Both are per DELIVERY, shared by the run and reference polls.
+      IMPORT_POLL_TIMEOUT_MS: '1200000'
+      IMPORT_STALL_MS: '480000'
       # OFFICE_TRANSPORT_SUBSTITUTE is deliberately NOT set: it would create the
       # punches through the office API when the import fails, turning a broken
       # pipeline green. Keep it unset so CI only passes on a real import.

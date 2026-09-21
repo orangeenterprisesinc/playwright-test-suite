@@ -1,158 +1,60 @@
 /**
- * System check — **the Notification module actually delivers email**.
- *
- * | | |
- * |---|---|
- * | Plan | `test-plans/system/notification-email.md` |
- * | Runner rows | `src/data/runner/system.csv` → `UI-005` |
- *
- * This is the only email path in PET Tiger a test can assert. `notify-now`
- * returns a per-recipient outcome (`success` / `failed` / `skipped`) carrying the
- * transport's own error, so a broken mail configuration fails the build instead
- * of dropping messages silently — there is no outbox table to inspect anywhere in
- * the product.
- *
- * It is deliberately NOT a check that a human received something. The job result
- * is the assertion; the message landing in a mailbox is a side effect, useful for
- * eyeballing but not what makes this test pass or fail.
- *
- * Not to be confused with the **clock-out** notification (B12-R10), which is a
- * different code path: that one takes the process-wide sender chosen from the
- * API's environment at startup, which no test can configure, and reports nothing.
- * This one resolves SMTP from database preferences, which is why it is reachable.
+ * System check — the Notification module actually delivers email (UI-005).
+ * Data: src/data/system/notification-email.json · Plan: test-plans/system/notification-email.md
  */
 import { expect, test } from '@fixtures/base.fixture';
-import { ConfigProperties, getConfigValue } from '@config/configProperties';
-import {
-    ensureSmtpConfigured,
-    createNotification,
-    deleteNotification,
-    listFilterScripts,
-    notifyNow,
-} from '@utils/api/notificationsApi';
-import { createUser, deleteUserById } from '@utils/api/usersApi';
-import { makeUser, uid } from '@data/generated';
+import { NotificationEmailScenarioSchema } from '@data/schemas/systemScenario';
+import { loadScenario } from '@utils/data/scenarioLoader';
+import { dispatchNotification, prepareNotificationEmail } from '@utils/journeys/notificationEmailFlow';
 
 test.describe('Notification email', { tag: ['@System'] }, () => {
     test('[Notification] Send a notification and verify it is dispatched to its recipient.', {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-005' },
-            { type: 'requirement', description: 'UI-R4' },
         ],
     }, async ({ sessionApi }, testInfo) => {
-        test.slow();
-
-        // ── Mail settings, written when the deployment has none. The product
-        // stores this password in clear text and cannot be given an encrypted one;
-        // encryption is a later phase. Writing beats demanding, because dev resets
-        // wipe the preferences and a check-only run would leave CI red until
-        // someone re-ran a manual setup. NOTIFY_SMTP_WRITE=0 makes it read-only. ──
-        const allowWrite = process.env.NOTIFY_SMTP_WRITE !== '0';
-        const { configured, wrote, preferences: smtp } = await ensureSmtpConfigured(sessionApi, { allowWrite });
-        testInfo.annotations.push({
-            type: 'notification-smtp',
-            description:
-                `${wrote ? 'Wrote' : 'Read'} notification mail settings: host=${smtp.smtpServer || '(none)'} ` +
-                `port=${smtp.smtpPort} useSsl=${String(smtp.smtpUseSsl)} ` +
-                `passwordSet=${String(smtp.smtpPasswordSet)}. Port 465 with implicit TLS is mandatory — ` +
-                '587 fails "smtp auth: unencrypted connection" because the client will not ' +
-                'authenticate over a plaintext socket and does not negotiate STARTTLS.',
-        });
+        const scenario = await loadScenario(NotificationEmailScenarioSchema, testInfo);
+        const setup = await prepareNotificationEmail(scenario, sessionApi, testInfo);
         expect(
-            configured,
+            setup.smtp.configured,
             'This deployment has no notification mail settings and this run was told not to write them ' +
                 '(NOTIFY_SMTP_WRITE=0). Drop that variable to let the run configure them from ' +
                 'SMTP_HOST / SMTP_USER / SMTP_PASSWORD / EMAIL_FROM, or set them by hand. Prefer a ' +
                 'dedicated sending mailbox over a personal account.',
         ).toBe(true);
+        expect(setup.nominated, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
 
-        // The address the environment nominates — the same one the framework's own
-        // reporter would mail. Never a committed literal.
-        const nominated = (getConfigValue(ConfigProperties.EMAIL_TO) ?? '').split(',')[0].trim();
-        expect(nominated, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
-
-        // Plus-address it per run. A user is soft-deleted, never purged, and the
-        // email stays reserved — so reusing EMAIL_TO verbatim meant the second run
-        // ever got `409 userEmailInUse` at create and this test could pass exactly
-        // once per address. The tag routes to the same mailbox, so a human can still
-        // eyeball the mail.
-        const [localPart, domain] = nominated.split('@');
-        const recipientEmail = domain
-            ? `${localPart}+ui005-${Date.now().toString(36).slice(-6)}@${domain}`
-            : nominated;
-
-        const recipient = makeUser({ email: recipientEmail });
-        const userId = await createUser(sessionApi, {
-            name: recipient.name,
-            password: recipient.password,
-            userInitials: recipient.initials,
-            emailAddress: recipient.email,
-        });
-
-        let notificationId = 0;
+        const run = await dispatchNotification(setup, sessionApi, testInfo);
         try {
-            // The script has to produce a report: dispatch renders one and attaches
-            // it, so a script with executeReport=false comes back `failed` /
-            // "render failed" with nothing sent. Dev returns exactly such a row
-            // (DashBoardTimeInReviewOfCrewProductivity) FIRST, which is what made
-            // taking scripts[0] fail — the content still is not asserted, only that
-            // there is something to render.
-            const allScripts = await listFilterScripts(sessionApi);
-            expect(allScripts.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
-            const scripts = allScripts.filter((s) => s.executeReport !== false);
+            const want = scenario.expected;
+            expect(run.scripts.all.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
             expect(
-                scripts.length,
+                run.scripts.reporting.length,
                 `no filter script executes a report, so dispatch has nothing to render: ` +
-                    JSON.stringify(allScripts.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
+                    JSON.stringify(run.scripts.all.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
             ).toBeGreaterThan(0);
 
-            const subject = `PET Tiger notification check ${Date.now() % 1000000}`;
-            notificationId = await createNotification(sessionApi, {
-                // uid() carries the full clock, so the residue sweep can date a leftover.
-                name: `ZZ NOTIF CHECK ${uid()}`,
-                filterScriptCounter: scripts[0].filterScriptCounter,
-                emailSubject: subject,
-                usersCounter: userId,
-            });
-
-            const job = await notifyNow(sessionApi, notificationId);
-            await testInfo.attach('notify-now-job.json', {
-                body: JSON.stringify(job, null, 2),
-                contentType: 'application/json',
-            });
-
-            // ── UI-R4 — dispatched, and reported per recipient ──
-            expect(job.status, `notify-now did not settle: ${JSON.stringify(job)}`).toBe('complete');
+            // UI-R4 — dispatched, and reported per recipient
+            const job = run.job!;
+            expect(job.status, `notify-now did not settle: ${JSON.stringify(job)}`).toBe(want.jobStatus);
             const results = job.results ?? [];
-            expect(results, 'notify-now reported no recipient at all').toHaveLength(1);
-            // Assert the status before the counts: it carries the transport's own
-            // error message, which is the diagnostic worth reading on a failure.
+            expect(results, 'notify-now reported no recipient at all').toHaveLength(want.recipients);
+            // The status before the counts: it carries the transport's own error, the diagnostic worth reading on a failure.
             expect(
                 results[0].status,
-                `dispatch to ${recipientEmail} did not succeed: ${results[0].error ?? '(no error reported)'}`,
-            ).toBe('success');
-            expect(results[0].usersCounter).toBe(userId);
-            expect(job.failed ?? 0).toBe(0);
-            expect(job.successful ?? 0).toBeGreaterThanOrEqual(1);
+                `dispatch to ${run.recipient.email} did not succeed: ${results[0].error ?? '(no error reported)'}`,
+            ).toBe(want.recipientStatus);
+            expect(results[0].usersCounter).toBe(run.userId);
+            expect(job.failed ?? 0).toBe(want.failed);
+            expect(job.successful ?? 0).toBeGreaterThanOrEqual(want.minSuccessful);
 
             testInfo.annotations.push({
                 type: 'notification-delivered',
-                description: `Dispatched "${subject}" to ${recipientEmail} (from ${smtp.smtpFromAddress}).`,
+                description: `Dispatched "${run.subject}" to ${run.recipient.email} (from ${run.smtp.preferences.smtpFromAddress}).`,
             });
         } finally {
-            if (notificationId && !(await deleteNotification(sessionApi, notificationId))) {
-                await testInfo.attach(`cleanup-warning-notification-${notificationId}`, {
-                    body: `Could not delete notification ${notificationId}`,
-                    contentType: 'text/plain',
-                });
-            }
-            await deleteUserById(sessionApi, userId).catch(async (error: unknown) => {
-                await testInfo.attach(`cleanup-warning-user-${userId}`, {
-                    body: String(error),
-                    contentType: 'text/plain',
-                });
-            });
+            await run.cleanup();
         }
     });
 });

@@ -25,3 +25,14 @@ export function randomInitials(length = 3): string {
     }
     return out;
 }
+
+/** `local+<tag>-<6 base36 clock digits>@domain` — the same mailbox, a fresh address per run; unchanged when there is no domain. */
+export function plusAddressed(address: string, tag: string): string {
+    const [localPart, domain] = address.split('@');
+    return domain ? `${localPart}+${tag}-${Date.now().toString(36).slice(-6)}@${domain}` : address;
+}
+
+/** Six-digit clock stamp for a human-readable subject line. */
+export function shortClockStamp(): string {
+    return String(Date.now() % 1_000_000);
+}

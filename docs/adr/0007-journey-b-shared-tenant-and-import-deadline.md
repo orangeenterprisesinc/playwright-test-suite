@@ -57,7 +57,7 @@ is still identifiable.
 the `EmployeeCodeHistory` join key and that history row cannot be deleted, so a
 repeated prefix would give the WEBPET-1410 join two rows to choose from.
 
-**One deadline per delivery, with a breaker.** `IMPORT_POLL_TIMEOUT_MS` is now a
+**One deadline per delivery, with a breaker.** *(Revised 2026-09-17: the deadline is progress-aware — it extends while `GET connectivity/import/runs/{id}` keeps changing and ends after `IMPORT_STALL_MS` of no change or at the `IMPORT_POLL_TIMEOUT_MS` ceiling, and the failure names which. The breaker trips on consecutive stalls only.)* `IMPORT_POLL_TIMEOUT_MS` is now a
 deadline shared by the run poll and the reference poll of a single delivery, not a
 fresh budget for each. Each Journey B spec sets its own timeout from that value
 rather than `test.slow()`, so the budget is visible where it is spent. After two

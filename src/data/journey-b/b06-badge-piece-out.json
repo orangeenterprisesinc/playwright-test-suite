@@ -1,0 +1,59 @@
+{
+  "_notes": [
+    "B6 — Badge piece-out (catalog B6, plan test-plans/journey-b/b06-badge-piece-out.md, recording docs/media/journey-b/b06-badge-piece-out.mp4, PET-12644 automation / WEBPET-1525 manual, runner row B6-001). Transport, not simulation, happy path only.",
+    "The badge scan and the badge→employee resolution are device-side — the Piezas screen resolves the owner before the scan ever leaves the device (plan kf 9/13/21/93) — so what reaches the office is a PieceOut row already carrying its employee via EmployeeSource BarcodeBadge. The in-range duplicate suppression is device-side too and never reaches an envelope (B6-R8).",
+    "The record carries no Ranch and no Field, mirroring the recording (kf 173), which also rules out WEBPET-1409 Time-In synthesis structurally: that PostSave hook returns early without a bound Field. expected.cards[0] states both as null, so the office is now asserted to have stored neither — the old spec relied on the absence and never checked it.",
+    "transport single-folder: the envelope is pushed to the office mailbox (the relay leg the old spec asserted) and then uploaded through POST connectivity/import/single-folder, the importer-contract path — the shortest route to a proven import, and the one this workflow has always used.",
+    "modules: Piece Payment comes from PT_MODULES on the API task, which short-circuits the TigerMaster query entirely (auth/modules.go:569-571) — TigerMaster already licenses Piece Payment (moduleId 36), so /admin/tm cannot clear this gate. Documented on every run, never enforced: if false, that is expected until PT_MODULES is updated by DevOps (PET-12689), and piece CAPTURE is unaffected.",
+    "extraEmployees: seedOfficeFixture only ensures the crew's own members, so B6's sticker employee is ensured here, as B4/B5 do. dayOffset -6 keeps 6005's employee-day away from B5 (-7) and B4 (-8) under workers=2.",
+    "expected.absentCardType 1: after the import the fixture day must hold no Time In for the scanned employee — the WEBPET-1409 guard, asserted so a later preference or envelope change cannot leave an orphan behind.",
+    "expected.grid.texts are the two grid cells the recording shows (kf 127): the Type column and the Employee Selection column. The grid is fed by POST /transfer-to-job-cards/analyze; when that flag is off the helper annotates and returns no row, and the API assertions above still stand.",
+    "cleanup: the timeCards step sweeps 6005's fixture day (both card types — a stray Time-Out pairs with a Time-In and silently removes the warning) before the import and deletes the imported card after the test; the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B6",
+  "label": "B6",
+  "dayOffset": -6,
+  "envelope": "records",
+  "transport": "single-folder",
+  "verification": "cards",
+  "cardType": 0,
+  "modules": [{ "key": "PiecePayment", "label": "Piece Payment" }],
+  "extraEmployees": [{ "code": "6005", "name": "B5 STICKER FIVE" }],
+  "records": [
+    {
+      "node": "PieceOut",
+      "part": "PO",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6005",
+      "crewCode": "5001",
+      "jobCode": "4201",
+      "pieces": 1,
+      "gps": "(34.970215,-120.453984)",
+      "time": "10:13"
+    }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["PieceOut"],
+      "referenceParts": ["PO"],
+      "employeeSources": { "BarcodeBadge": 1 },
+      "pieceCounts": { "1": 1 },
+      "absentTags": ["CardType"]
+    },
+    "cards": [
+      {
+        "record": 0,
+        "employeeCode": "6005",
+        "jobCode": "4201",
+        "fieldCode": null,
+        "ranchCode": null,
+        "cardType": 0,
+        "employeeSourceText": "Barcode Badge",
+        "pieces": 1
+      }
+    ],
+    "absentCardType": 1,
+    "grid": { "texts": ["Piece Out", "Barcode Badge"] }
+  },
+  "cleanup": [{ "kind": "timeCards", "employeeCodes": ["6005"], "dayOffset": -6, "cardTypes": [0, 1] }]
+}

@@ -1,0 +1,46 @@
+{
+  "_notes": [
+    "B11 — Crew-out to individual time-outs (catalog B11, plan test-plans/journey-b/b11-crew-out.md, recording docs/media/journey-b/b11-crew-out.mp4, PET-12649 automation / WEBPET-1530 manual, runner row B11-001). Transport, not simulation, happy path only.",
+    "One crew-out fans out, device-side, into one TimeOut record per still-active crew member — the importer never mints a CO reference itself, so the envelope supplies it explicitly, exactly as B1's CI does. A time-out row (crew-out or individual) carries no Job, Ranch or Field: the device's LookupContents for it is Employee:Code|Crew:Code only (expected.envelope.absentInSection). The early leaver 6003 already timed out individually (TO, BarcodeBadge, 15:09) before the crew-out (CO, Crew, 15:10) and stays untouched by it.",
+    "Six records: the 07:15 crew-in for 6001/6002/6003 (CI, Crew, full work context), 6003's individual time-out, then the crew-out fanned out into two rows for 6001 and 6002 at the same instant — the three time-outs share one GPS fix. dayOffset -4 is B11's own fixture day (workers=2 duplicate-Time-In guard). No header punchTime — the old envelope passed none.",
+    "cardType null: the envelope mixes cardType 1 (crew-in) and 0 (time-out), so the office read queries every type. absentEmployees: 6004 never appears. verification cards: no Transfer grid — the office UI this exercises is the relay pull, and the one datum unique to View ▸ Time Cards (Employee Selection) is asserted on the API as employeeSource.",
+    "expected.cards[].employeeSourceCode is the raw EmployeeSource enum the API returns — 13 = Crew (the crew-out rows), 2 = BarcodeBadge (the individual time-out). It is on the response but not on the named OfficeTimeCard fields, so the spec reads it through the index signature. Residual risk (Planner-flagged): value 2 has no live precedent on dev — report, don't delete, if only that assert fails.",
+    "cleanup: the timeCards step sweeps the four crew members' fixture day before the import and deletes the imported cards after the test; the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B11",
+  "label": "B11",
+  "dayOffset": -4,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "cards",
+  "cardType": null,
+  "records": [
+    { "node": "TimeCard", "part": "CI", "employeeSource": "Crew", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeCard", "part": "CI", "employeeSource": "Crew", "employeeCode": "6002", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeCard", "part": "CI", "employeeSource": "Crew", "employeeCode": "6003", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:15" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employeeCode": "6003", "crewCode": "5001", "time": "15:09", "gps": "(36.8076576,-119.8347626)" },
+    { "node": "TimeOut", "part": "CO", "employeeSource": "Crew", "employeeCode": "6001", "crewCode": "5001", "time": "15:10", "gps": "(36.8076576,-119.8347626)" },
+    { "node": "TimeOut", "part": "CO", "employeeSource": "Crew", "employeeCode": "6002", "crewCode": "5001", "time": "15:10", "gps": "(36.8076576,-119.8347626)" }
+  ],
+  "absentEmployees": ["6004"],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard", "TimeOut"],
+      "employeeSources": { "Crew": 5, "BarcodeBadge": 1 },
+      "referenceParts": ["CI", "CI", "CI", "TO", "CO", "CO"],
+      "referencePartCounts": { "CI": 3, "TO": 1, "CO": 2 },
+      "absentInSection": { "TimeOut": ["Job", "Ranch", "Field"] }
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 2, "employeeCode": "6003", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 3, "employeeCode": "6003", "cardType": 0, "employeeSourceCode": 2 },
+      { "record": 4, "employeeCode": "6001", "cardType": 0, "employeeSourceCode": 13 },
+      { "record": 5, "employeeCode": "6002", "cardType": 0, "employeeSourceCode": 13 }
+    ]
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001", "6002", "6003", "6004"], "dayOffset": -4 }
+  ]
+}

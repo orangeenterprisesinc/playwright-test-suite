@@ -115,8 +115,8 @@ run the same gates, open the PR.
 
 ## 5. What QA checks in review
 
-Fixture module matches the folder; tags and `testCaseId`/requirement
-annotations present; locators follow the repo standard; runner row synced;
+Fixture module matches the folder; tags and the `testCaseId`
+annotation present; locators follow the repo standard; runner row synced;
 assertions faithful to the ticket's expected behavior; green re-run against
 dev staging; parallel-safe at 2 workers; no framework files touched.
 

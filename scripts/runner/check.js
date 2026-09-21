@@ -19,7 +19,7 @@
  * A row with `enabled: 0` and no spec is a **reservation** — the backlog entry
  * for a workflow not yet recorded — and is reported, not failed.
  *
- * It also owns the **tag and requirement contract**, because the CSV `tags`
+ * It also owns the **tag contract**, because the CSV `tags`
  * column and the tags Playwright actually greps are two different systems and
  * had silently drifted apart: nine rows claimed `regression` while `@Regression`
  * appeared in no spec at all, so `--grep=@Regression` selected nothing. The CSV
@@ -32,15 +32,12 @@
  *   - the tiers nest: every test is `@Regression`; `@Smoke` implies `@HighLevel`
  *   - a spec's tier tags must equal the ones its CSV row declares
  *   - at most one `@Smoke` per spec file — the happy path, and only it
- *   - a row a spec claims must cite at least one EARS requirement in `req`, that
- *     requirement must exist in a plan under `specs/`, and the spec's
- *     `requirement` annotation must agree with the row
  */
 'use strict';
 
 const {
     runnerFileNames, readCsv, readJson, toJsonText, allRows, loadCatalog, loadScopes,
-    specClaims, specTests, planRequirements,
+    specClaims, specTests,
 } = require('./lib/runner-data');
 
 const CATEGORIES = ['ui', 'api', 'workflow'];
@@ -164,12 +161,6 @@ function main() {
         if (tiers.includes('smoke') && !tiers.includes('high-level')) {
             fail(`${where}: 'smoke' implies 'high-level' — the tiers nest`);
         }
-
-        for (const id of row.req ?? []) {
-            if (!/^(?:[A-F]\d{1,2}|UI)-R\d+$/.test(id)) {
-                fail(`${where}: req '${id}' must look like 'A1-R4' or 'UI-R2'`);
-            }
-        }
     }
 
     // ── Row ⇄ spec binding ──────────────────────────────────────────────
@@ -210,10 +201,9 @@ function main() {
         }
     }
 
-    // ── Tags, tiers and requirements ────────────────────────────────────
+    // ── Tags and tiers ──────────────────────────────────────────────────
     // The CSV is the source of truth; the spec must agree with it. Without this
     // the two tag systems drift and a `--grep` silently selects nothing.
-    const requirements = planRequirements();
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     const smokeByFile = new Map();
     const suiteTagsChecked = new Set();
@@ -265,22 +255,6 @@ function main() {
 
         if (row.demo && !specTest.tags.includes('@Demo')) {
             fail(`[${row.id}]: row is demo=1, so the test must carry @Demo (${specTest.file})`);
-        }
-
-        const rowReqs = row.req ?? [];
-        if (!rowReqs.length) {
-            fail(`[${row.id}]: claimed by a spec but cites no requirement — fill the 'req' column`);
-        }
-        for (const id of rowReqs) {
-            if (!requirements.has(id)) {
-                fail(`[${row.id}]: requirement '${id}' is declared in no plan under specs/`);
-            }
-        }
-        if (sorted(rowReqs) !== sorted(specTest.requirements)) {
-            fail(
-                `[${row.id}]: requirement annotation '${specTest.requirements.join('|') || '(none)'}' ` +
-                `disagrees with the row's req '${rowReqs.join('|') || '(none)'}' (${specTest.file})`,
-            );
         }
     }
 

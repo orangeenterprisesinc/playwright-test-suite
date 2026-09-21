@@ -1,0 +1,67 @@
+{
+  "_notes": [
+    "B5 — Sticker piece-out (catalog B5, plan test-plans/journey-b/b05-sticker-piece-out.md, recording docs/media/journey-b/b05-sticker-piece-out.mp4, PET-12643 automation / WEBPET-1524 manual, runner row B5-001).",
+    "Transport, not simulation — the sticker-to-employee lookup is device-side (the Piezas screen resolves the owner before the scan ever leaves the device), so what reaches the office is a PieceOut row that already carries its employee via EmployeeSource AlternateCode. The plan's Planner resolution (N2) proved rung 1 of the importer's FK ladder accepts that value directly — no EmployeeCodeHistory seeding, no residue.",
+    "One envelope, four records: a seeding Time In at 06:00 for 6006, two of 6006's own sticker scans at 14:27/14:28, and one scan whose employee code resolves to nothing (9999999 — the anonymous-worker rungs are off on dev), which is what makes the office fall back to the configured Undefined Employee (B5-R6). cardType null: the envelope mixes cardType 1 (the Time In) and 0 (the three piece-outs), so the office read queries every type and expected.cards[] states each card's own type.",
+    "codes: run-unique sticker codes in the recording's shape ('B7' + digits). A fixed sticker would blur one run's rows into the next, and a clock value would drift across retries under retry-stable References. Minted from the lineage: {code0}/{code1} are 6006's two scans, {code2} the unresolvable one.",
+    "expected.cards[3].employeeCode 'undefinedEmployee' is the reserved name for preferences.undefinedEmployee — the flow puts that id in the employee map, so the expected card and the cleanup sweep both resolve it like any other code. The device record still sends 9999999: the office is what does the falling back.",
+    "modules: Piece Payment gates piece *payment*, not piece *capture* — the importer stores NumOfPieces and resolves the employee with the module off, which is everything B5-R1..R7 assert; dev reports it false only because the API reads PT_MODULES instead of TigerMaster, where it is licensed (PET-12689), so it is named, never silently skipped. Traceability - Stickers is different: without it the importer has no sticker path at all, so B5-R2's traceability assertions would be vacuous — the spec asserts that one.",
+    "preconditions undefinedEmployeeSet + requireJobInEmpPieceOut: both read GET preferences once. Which exception code a job-less piece-out draws depends on the tenant — with requireJobInEmpPieceOut on it is the blocking block.fk_missing ('… is missing Job'); off, the card can only fail to pair and is flagged warn.employee_piece_job_card_not_found_plain ('No corresponding Job-Card was found for Piece-Out record.'). WEBPET-2657 retired the interim 'JobCounter is required…' text. The test expects exactly one of the two, never either.",
+    "expected.analyze.undefinedEmployeeCode: one exception per card, the blocking one first — the sticker that fell to the Undefined Employee is flagged block.undefined_employee ('Cannot use Undefined Employee') instead of the missing-job code, because the fallback owner B5-R6 lands on is itself unusable, which supersedes the missing job.",
+    "dayOffset -7 keeps 6006's employee-day away from B4 (-8) and B6 (-6) under workers=2. cleanup: the timeCards step sweeps 6006's and the Undefined Employee's fixture day (both card types) before the import and deletes every imported card after the test — including the Undefined-Employee card; the flow passes sweep:false so exactly one cleanup path is live."
+  ],
+  "workflow": "B5",
+  "label": "B5",
+  "dayOffset": -7,
+  "envelope": "records",
+  "transport": "single-folder",
+  "verification": "cards",
+  "cardType": null,
+  "modules": [
+    {
+      "key": "PiecePayment",
+      "label": "Piece Payment",
+      "noteWhenOff": "Piece Payment reads false on dev (PT_MODULES omits it — PET-12689). Capture is unaffected, so B5-R1..R7 are asserted against the API regardless."
+    },
+    { "key": "LabelTraceability", "label": "Traceability - Stickers" }
+  ],
+  "preconditions": ["undefinedEmployeeSet", "requireJobInEmpPieceOut"],
+  "codes": { "salt": "sticker", "length": 8, "prefix": "B7", "suffixes": ["1", "2", "3"] },
+  "extraEmployees": [{ "code": "6006", "name": "B5 STICKER SIX" }],
+  "records": [
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6006",
+      "crewCode": "5001",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4201",
+      "time": "06:00"
+    },
+    { "node": "PieceOut", "part": "PO", "employeeSource": "AlternateCode", "employeeCode": "6006", "crewCode": "5001", "pieces": 1, "traceabilityCode": "{code0}", "time": "14:27" },
+    { "node": "PieceOut", "part": "PO", "employeeSource": "AlternateCode", "employeeCode": "6006", "crewCode": "5001", "pieces": 1, "traceabilityCode": "{code1}", "time": "14:28" },
+    { "node": "PieceOut", "part": "PO", "employeeSource": "AlternateCode", "employeeCode": "9999999", "crewCode": "5001", "pieces": 1, "traceabilityCode": "{code2}", "time": "14:28" }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard", "PieceOut"],
+      "employeeSources": { "BarcodeBadge": 1, "AlternateCode": 3 },
+      "pieceCounts": { "1": 3 },
+      "traceabilityCodes": ["{code0}", "{code1}", "{code2}"]
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6006", "fieldCode": "4101", "jobCode": "4201", "cardType": 1 },
+      { "record": 1, "employeeCode": "6006", "cardType": 0, "employeeSourceText": "Sticker Code", "pieces": 1 },
+      { "record": 2, "employeeCode": "6006", "cardType": 0, "employeeSourceText": "Sticker Code", "pieces": 1 },
+      { "record": 3, "employeeCode": "undefinedEmployee", "cardType": 0, "employeeSourceText": "Sticker Code", "pieces": 1 }
+    ],
+    "analyze": {
+      "blockingCode": "block.fk_missing",
+      "warningCode": "warn.employee_piece_job_card_not_found_plain",
+      "undefinedEmployeeCode": "block.undefined_employee"
+    }
+  },
+  "cleanup": [{ "kind": "timeCards", "employeeCodes": ["6006", "undefinedEmployee"], "dayOffset": -7, "cardTypes": [1, 0] }]
+}

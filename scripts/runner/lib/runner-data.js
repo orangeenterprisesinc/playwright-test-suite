@@ -22,11 +22,11 @@ const TESTS_DIR = path.join(ROOT, 'tests');
 /** Column order for the CSV files and the generated JSON. */
 const COLUMNS = [
     'id', 'workflow', 'journey', 'category', 'testName', 'testTitle', 'testDescription',
-    'segments', 'modules', 'tags', 'req', 'demo', 'jira', 'status', 'enabled',
+    'segments', 'modules', 'tags', 'demo', 'jira', 'status', 'enabled',
 ];
 
 /** Columns holding pipe-delimited multi-values. */
-const ARRAY_COLUMNS = ['segments', 'modules', 'tags', 'req'];
+const ARRAY_COLUMNS = ['segments', 'modules', 'tags'];
 
 /** Columns holding 1/0 booleans. */
 const BOOLEAN_COLUMNS = ['demo', 'enabled'];
@@ -207,7 +207,7 @@ function parseAnnotation(optionsBlock, type) {
  * calls instead of a loop — see `test-plans/system/login.md`.
  *
  * @returns {{file: string, title: string, tags: string[], suiteTags: string[],
- *            testCaseId: string|null, requirements: string[]}[]}
+ *            testCaseId: string|null}[]}
  */
 function specTests() {
     const found = [];
@@ -227,42 +227,16 @@ function specTests() {
         );
         for (const match of tests) {
             const [, title, options] = match;
-            const requirement = parseAnnotation(options, 'requirement');
             found.push({
                 file: relative,
                 title,
                 tags: parseTagArray(options),
                 suiteTags,
                 testCaseId: parseAnnotation(options, 'testCaseId'),
-                requirements: requirement ? requirement.split('|').map((r) => r.trim()).filter(Boolean) : [],
             });
         }
     }
     return found;
-}
-
-/**
- * Every EARS requirement id declared in a plan under `specs/` — `A1-R4`,
- * `UI-R2`, … `_template.md` is skipped: its worked example cites A1's ids, and
- * counting those would let a plan lose a requirement without the checker
- * noticing.
- */
-function planRequirements() {
-    const dir = path.join(ROOT, 'test-plans');
-    const ids = new Set();
-
-    const walk = (current) => {
-        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-            const full = path.join(current, entry.name);
-            if (entry.isDirectory()) walk(full);
-            else if (entry.name.endsWith('.md') && entry.name !== '_template.md') {
-                const source = fs.readFileSync(full, 'utf8');
-                for (const m of source.matchAll(/\b((?:[A-F]\d{1,2}|UI)-R\d+)\b/g)) ids.add(m[1]);
-            }
-        }
-    };
-    if (fs.existsSync(dir)) walk(dir);
-    return ids;
 }
 
 module.exports = {
@@ -278,6 +252,5 @@ module.exports = {
     specFiles,
     specClaims,
     specTests,
-    planRequirements,
     loadScopes,
 };
