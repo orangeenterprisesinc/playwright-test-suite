@@ -102,10 +102,13 @@ export function newRunPrefix(now = new Date()): string {
 }
 
 /**
- * One id per CI attempt (or per dev run): the GitHub run+attempt when present,
- * else the same clock-derived `RUN_ID` the residue sweep already pins for the
- * whole run (`global-setup.ts`). The basis {@link lineagePrefix} hashes so every
- * retry of one test in one run mints the SAME reference prefix.
+ * One id per CI job attempt (or per dev run): the GitHub run+job-attempt when
+ * present, else the same clock-derived `RUN_ID` the residue sweep already pins for
+ * the whole run (`global-setup.ts`). This is the GitHub Actions job attempt —
+ * constant across every Playwright test retry inside that job, it does NOT vary per
+ * retry. {@link lineagePrefix} hashes it with the test id and the caller's salt; a
+ * caller needing a fresh prefix per Playwright retry folds `testInfo.retry` into
+ * that salt itself (Journey B's `attemptSalt`, in `journeyBFlow.ts`).
  */
 export function runLineageId(): string {
     const { GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT } = process.env;
@@ -123,13 +126,18 @@ function fnv1a(input: string): number {
 }
 
 /**
- * A retry-stable reference prefix: the same test, the same run/attempt and the
- * same `salt` always hash to the same 4 base36 chars, so every retry of one
- * test mints the SAME references — unlike {@link newRunPrefix}'s clock-based
- * scheme, which mints a fresh set each time. That stability is what lets an
- * earlier attempt's late-landing envelope resolve against the same rows
- * instead of doubling the employee-day (see officeVerification's split
- * ours/this-attempt handling). Falls back to `newRunPrefix()` outside a test
+ * A deterministic reference prefix: the same run lineage, test id and `salt`
+ * always hash to the same 4 base36 chars — unlike {@link newRunPrefix}'s
+ * clock-based scheme, which mints a fresh set every call. Stability is per (run,
+ * test, salt); Journey B folds `testInfo.retry` into the salt (`attemptSalt`) so
+ * every Playwright retry mints its own prefix rather than reusing the previous
+ * attempt's. That matters because a soft-deleted row keeps its
+ * `TimeCard_Reference_Unique` name reserved: a retry sharing its predecessor's
+ * prefix mints a Reference its own insert can never claim (SQL 2627), so resolving
+ * a late sibling envelope against a prior attempt's rows is not merely unnecessary
+ * but unreachable — that envelope now gets its own insert (see
+ * officeVerification's ours/this-attempt split, widened by
+ * `lineagePrefixesThroughAttempt`). Falls back to `newRunPrefix()` outside a test
  * context, where `test.info()` throws.
  */
 export function lineagePrefix(salt = ''): string {
@@ -150,10 +158,13 @@ function lineageBasis(salt: string): string | null {
 /**
  * Lineage-stable decimal digits for payload fields that must be run-unique yet
  * identical across the retries of one test — B4's roll codes, B5's sticker
- * codes. A clock-derived value there changes per attempt, and under
- * lineage-stable References a late-landing earlier attempt upserts the same
- * row with ITS value: that is exactly how B4/B5 read a stale code on
- * 2026-09-17 (expected the attempt-3 code, got attempt-1's).
+ * codes. These stay retry-stable on purpose, unlike the reference prefix:
+ * `mintCodes` salts them through `saltOf`, not `attemptSalt`, so a code changes
+ * across retries only where the scenario opts in via `codes.attemptUnique` (B7).
+ * The overwrite this once guarded — an earlier attempt's late envelope upserting
+ * its stale code onto the retry's row, which is how B4/B5 read the attempt-1 code
+ * on 2026-09-17 — can no longer happen: references are attempt-scoped now, so a
+ * late sibling envelope writes its own rows and never the retry's.
  */
 export function lineageDigits(length: number, salt = ''): string {
     const basis = lineageBasis(salt) ?? String(Date.now());

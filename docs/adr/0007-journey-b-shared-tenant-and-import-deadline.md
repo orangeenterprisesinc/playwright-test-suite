@@ -44,18 +44,30 @@ pending run per group and cancels the rest, and a cancelled run concludes
 non-success, which web-pet's advisory dispatcher reports as a failed check.
 Waiting keeps every dispatch alive; ordering by run id makes deadlock impossible.
 
-**References are stable across the retries of one test.** `lineagePrefix()` hashes
-the run's lineage id (`GITHUB_RUN_ID`-`GITHUB_RUN_ATTEMPT`, else the pinned
-`RUN_ID`) together with `testInfo.testId`, so every attempt of a test in a run
-mints the same `<Reference>` values while two workers and two runs stay distinct.
-A late envelope from an earlier attempt therefore resolves against the rows the
-retry already owns instead of doubling the employee-day. `exportFileName()` keeps
-its per-second stamp, so the relay filenames stay unique and an attempt's own file
-is still identifiable.
+**References are attempt-scoped: every retry mints its own.** *(Revised
+2026-09-21 — this reverses the premise the decision first shipped with.)*
+`lineagePrefix()` hashes the run's lineage id (`GITHUB_RUN_ID`-`GITHUB_RUN_ATTEMPT`,
+else the pinned `RUN_ID`) together with `testInfo.testId` and the caller's salt, and
+Journey B folds `testInfo.retry` into that salt (`attemptSalt`) so every Playwright
+retry mints a fresh `<Reference>` prefix while two workers and two runs stay
+distinct. The original premise — that a late envelope from an earlier attempt
+should resolve against the rows the retry already owns — turned out to be
+unreachable: the spec's `finally { run.cleanup() }` soft-deletes those rows while
+`TimeCard_Reference_Unique` keeps the Reference reserved, so a retry sharing its
+predecessor's prefix inserted nothing (SQL 2627) and read back 0 cards (run
+35589360814, b02, attempts 1 and 2). A late sibling envelope now gets its own
+insert, and the import wait still recognises it as ours via
+`lineagePrefixesThroughAttempt`, bucketed `sibling-attempt-envelope-failed` if it
+fails. `exportFileName()` keeps its per-second stamp, so the relay filenames stay
+unique and an attempt's own file is still identifiable.
 
-**B7 is the exception** and keeps attempt-unique prefixes: its sticker codes are
-the `EmployeeCodeHistory` join key and that history row cannot be deleted, so a
-repeated prefix would give the WEBPET-1410 join two rows to choose from.
+**B7 is the precedent this generalises, no longer an exception.** Its sticker codes
+are the `EmployeeCodeHistory` join key and that history row cannot be deleted, so a
+repeated prefix would give the WEBPET-1410 join two rows to choose from — which is
+why `codes.attemptUnique` salted the attempt into B7's prefixes before the mechanism
+existed anywhere else. `mintCodes` still honours that flag for code values; the
+reference prefix now salts the attempt in for every scenario, B7 included. Both
+formulas yield `${salt}${attempt}`, so B7's minted prefixes are unchanged.
 
 **One deadline per delivery, with a breaker.** *(Revised 2026-09-17: the deadline is progress-aware — it extends while `GET connectivity/import/runs/{id}` keeps changing and ends after `IMPORT_STALL_MS` of no change or at the `IMPORT_POLL_TIMEOUT_MS` ceiling, and the failure names which. The breaker trips on consecutive stalls only.)* `IMPORT_POLL_TIMEOUT_MS` is now a
 deadline shared by the run poll and the reference poll of a single delivery, not a

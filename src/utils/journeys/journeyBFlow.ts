@@ -157,16 +157,21 @@ export interface MintedRun {
     prefix: string;
     /** `codes.prefix + lineageDigits(codes.length, codes.salt) + codes.suffixes[i]` — `{code<i>}` in the scenario. */
     codes: string[];
-    /** `testInfo.retry` — `codes.attemptUnique` salts it into every minted value. */
+    /** `testInfo.retry` — every attempt mints its own reference prefix (`attemptSalt`); `codes.attemptUnique` additionally salts `mintCodes`'s own values (B7). */
     attempt: number;
     punchDate: Date;
     deviceAddress: string;
     fileName: string;
 }
 
-/** `codes.attemptUnique` salts the attempt in, so a retry never reuses an undeletable row's identity (B7). */
+/** Only `mintCodes` needs this gate: `codes.attemptUnique` salts the attempt into every minted CODE value, so a retry never reuses an undeletable code-history row's identity (B7). Reference prefixes always salt the attempt in — see `attemptSalt`. */
 function saltOf(codes: JourneyBScenario['codes'], salt: string, attempt: number): string {
     return codes?.attemptUnique ? `${salt}${attempt}` : salt;
+}
+
+/** Unconditional attempt salt for reference prefixes: every Playwright retry mints a fresh one, so a soft-deleted attempt's Reference (still reserved by `TimeCard_Reference_Unique`) never blocks the next attempt's insert. */
+function attemptSalt(salt: string, attempt: number): string {
+    return `${salt}${attempt}`;
 }
 
 export function mintCodes(codes: JourneyBScenario['codes'], attempt = 0): string[] {
@@ -183,7 +188,7 @@ export function mintCodes(codes: JourneyBScenario['codes'], attempt = 0): string
 /** Prefix, minted codes, fixture day, device address, file name — and `{prefix}` / `{code<i>}` / `{constant}` substituted into every string of the scenario. */
 export function mintRun(scenario: JourneyBScenario, testInfo?: TestInfo): MintedRun {
     const attempt = testInfo?.retry ?? 0;
-    const prefix = lineagePrefix(saltOf(scenario.codes, scenario.codes?.salt ?? '', attempt));
+    const prefix = lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', attempt));
     const codes = mintCodes(scenario.codes, attempt);
     const tokens = { ...(scenario.constants ?? {}), prefix, ...Object.fromEntries(codes.map((code, i) => [`code${i}`, code])) };
     return {
@@ -321,10 +326,20 @@ export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
         recordIndexes: scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         envelope: buildRecordsEnvelope(
             run,
-            lineagePrefix(saltOf(scenario.codes, device.salt, run.attempt)),
+            lineagePrefix(attemptSalt(device.salt, run.attempt)),
             scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         ),
     }));
+}
+
+/** Every prefix any attempt 0..`attempt` could have minted for this scenario, so the import wait still recognises a late earlier-attempt envelope as ours — without reusing its (attempt-scoped, soft-deleted-but-reserved) rows. */
+export function lineagePrefixesThroughAttempt(scenario: JourneyBScenario, attempt: number): string[] {
+    const prefixes: string[] = [];
+    for (let a = 0; a <= attempt; a += 1) {
+        prefixes.push(lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', a)));
+        for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(attemptSalt(device.salt, a)));
+    }
+    return prefixes;
 }
 
 /** Attach the envelope, push it to `to`, attach the relay's answer. The caller asserts `send.success`. */
@@ -639,6 +654,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             testInfo,
             xml: built[0].envelope.xml,
             fileName: built[0].envelope.fileName,
+            lineagePrefixes: lineagePrefixesThroughAttempt(run.scenario, run.attempt),
             label: run.scenario.label,
             crewId: office.crew.id,
             ranchId: office.ranch.id,

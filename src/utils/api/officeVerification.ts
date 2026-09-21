@@ -116,11 +116,20 @@ export interface OfficeVerificationInput {
     /**
      * The exact device filename this attempt sent (`exportFileName(prefix)` at
      * the call site, already computed there for `sendToRelay`). Drives the
-     * this-attempt/sibling-attempt split in {@link importViaInternetUi} — a
-     * retry sharing a lineage-stable prefix (`lineagePrefix`) can see an earlier
-     * attempt's own envelope in the same mailbox drain.
+     * this-attempt/sibling-attempt split in {@link importViaInternetUi} — with
+     * `lineagePrefixes` widening lineage detection to every earlier attempt's own
+     * (now distinct) prefix, a retry can still see an earlier attempt's late
+     * envelope in the same mailbox drain and bucket it correctly.
      */
     fileName: string;
+    /**
+     * Every prefix an earlier attempt of this same test could have minted
+     * (`lineagePrefixesThroughAttempt`) — widens {@link importViaInternetUi}'s
+     * lineage match beyond this attempt's own prefix, since each attempt now mints
+     * its own. Optional: a caller outside `runJourneyBScenario` (a single envelope,
+     * attempt 0 only) falls back to the file's own prefix.
+     */
+    lineagePrefixes?: string[];
     /**
      * The day the punches belong to (defaults to today). B1 and B2 share
      * employees and run in parallel workers against the same tenant, so a spec
@@ -272,9 +281,10 @@ async function importViaSingleFolder(
  * Split one run's failed files into the three buckets `importViaInternetUi`
  * needs: not our lineage (existing `stale-envelopes-failed`, never asserted),
  * our lineage but an earlier attempt (`sibling-attempt-envelope-failed`, never
- * asserted — a retry under a lineage-stable prefix can see its own earlier
- * attempt in the same mailbox drain), and this attempt (returned, asserted by
- * the caller only after the office read).
+ * asserted — each attempt now mints its own prefix, so an earlier attempt's
+ * envelope is recognised as ours only because `lineagePrefixes` widens the match;
+ * it inserts, or fails, against its own rows and never this attempt's), and this
+ * attempt (returned, asserted by the caller only after the office read).
  */
 function collectFailures(
     run: ImportRunResult,
@@ -328,11 +338,13 @@ async function importViaInternetUi(
 
     const references = referencesInExport(input.xml);
     const prefix = references[0]?.split('-')[3] ?? '';
+    const prefixes = input.lineagePrefixes?.length ? input.lineagePrefixes : [prefix];
     const fileNameOf = (f: ImportFileResult) => String((f as { filename?: string }).filename ?? f.fileName ?? '');
-    // Drives WAITING: stable across retries of one test under `lineagePrefix()`,
-    // so an earlier attempt's late envelope still counts as ours for that purpose.
+    // Drives WAITING: each retry mints its own prefix, so this widens to every
+    // prefix any attempt through this one could have minted — an earlier attempt's
+    // late envelope still counts as ours for that purpose.
     const isOurLineage = (f: ImportFileResult) =>
-        (prefix !== '' && fileNameOf(f).endsWith(`-${prefix}.xml`)) ||
+        prefixes.some((p) => p !== '' && fileNameOf(f).endsWith(`-${p}.xml`)) ||
         references.some((r) => String(f.message ?? '').includes(r));
     // Drives the FAILURE assertion: only the exact file this attempt uploaded.
     const isThisAttempt = (f: ImportFileResult) => fileNameOf(f) === fileName;
@@ -504,9 +516,11 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
         testInfo,
     });
 
-    // Deferred this-attempt assertion: correct whether the importer upserts
-    // duplicate rows or rejects them outright — either is benign under a
-    // lineage-stable prefix, so this must not assume which happened.
+    // Deferred this-attempt assertion: each attempt mints its own prefix, so a
+    // rejection of THIS attempt's own file for a row that already exists means the
+    // file was delivered twice — e.g. a peer-drained re-trigger pulled it into two
+    // import runs — never a sibling attempt converging on this Reference. Still
+    // benign; the branch stays to guard that case.
     if (thisAttemptFailures.length) {
         if (cards.length >= expected.length) {
             testInfo.annotations.push({
@@ -514,8 +528,8 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
                 description:
                     "This attempt's own envelope was rejected by the importer " +
                     `(${thisAttemptFailures.map((f) => String(f.message ?? '').slice(0, 160)).join(' | ')}), but every ` +
-                    'expected row is already present — a sibling attempt under the same lineage-stable ' +
-                    'prefix delivered identical rows first.',
+                    'expected row is already present — this file reached two import runs ' +
+                    '(e.g. a peer-drained re-trigger), not a sibling attempt sharing this prefix.',
             });
         } else {
             expect(
