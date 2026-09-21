@@ -5,8 +5,10 @@
   "scripts": {
     "test": "node scripts/run-playwright.js dev",
     "test:dev": "node scripts/run-playwright.js dev",
+    "test:journey": "node scripts/run-playwright.js dev --project=chromium",
     "test:qa": "node scripts/run-playwright.js qa",
     "test:headed": "node scripts/run-playwright.js dev --project=chromium --headed",
+    "test:journey:headed": "node scripts/run-playwright.js dev --project=chromium --headed",
     "test:ui": "node scripts/run-playwright.js dev --ui",
     "test:debug": "node scripts/run-playwright.js dev --project=chromium --debug",
     "test:smoke": "node scripts/run-playwright.js dev --grep=@Smoke",

@@ -23,6 +23,7 @@ import {
     buildEnvelope,
     DEVICE_SCHEMA,
     exportFileName,
+    lineageDigits,
     lineagePrefix,
     punchMoment,
     type DeviceRecord,
@@ -55,8 +56,11 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         const punchDate = punchDay(DAY_OFFSET.B4);
         // Run-unique, in the shape the recording shows ("B7" + digits) — the
         // EmployeeCodeHistory identity has no delete endpoint, so a fixed code
-        // here would collide across runs (unlike the phase-2 roll, below).
-        const rollBase = Date.now().toString().slice(-8);
+        // here would collide across runs (unlike the phase-2 roll, below). From
+        // the lineage, not the clock: the References are retry-stable, so a
+        // clock value would let an earlier attempt's late import overwrite this
+        // attempt's code (seen 2026-09-17).
+        const rollBase = lineageDigits(8, 'roll');
         const roll6005 = `B7${rollBase}5`;
         const roll6006 = `B7${rollBase}6`;
 

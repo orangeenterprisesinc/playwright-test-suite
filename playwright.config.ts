@@ -173,6 +173,14 @@ export default defineConfig({
     // Optional fail-fast; set MAX_FAILURES to stop the run after N failures.
     maxFailures: process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined,
 
+    // End the run from INSIDE Playwright before the CI job cap kills it. A job
+    // cancelled by `timeout-minutes` force-kills the process one second later,
+    // and the html reporter, Slack post and email all run in onEnd — so a slow
+    // red run left no report at all (run 35206578922, 2026-09-17: only the
+    // per-test Allure results survived). e2e.yml sets this per leg a few
+    // minutes under the job cap; unset/0 means no cap, which is right locally.
+    globalTimeout: Number(process.env.PW_GLOBAL_TIMEOUT_MS) || 0,
+
     // Reporters: `list` for the console, `html`/`json`/`github` for inspection
     // and CI, and `allure-playwright` for the rich Allure report. The three
     // custom reporters are self-gating — each does nothing unless its `SEND_*`
