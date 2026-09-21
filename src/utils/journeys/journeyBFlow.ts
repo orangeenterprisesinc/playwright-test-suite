@@ -158,38 +158,29 @@ export interface MintedRun {
     prefix: string;
     /** `codes.prefix + lineageDigits(codes.length, codes.salt) + codes.suffixes[i]` — `{code<i>}` in the scenario. */
     codes: string[];
-    /** `testInfo.retry` — every attempt mints its own reference prefix (`attemptSalt`); `codes.attemptUnique` additionally salts `mintCodes`'s own values (B7). */
+    /** `testInfo.retry`. Every attempt mints its own reference prefix AND its own codes. */
     attempt: number;
     punchDate: Date;
     deviceAddress: string;
     fileName: string;
 }
 
-/** Only `mintCodes` needs this gate: `codes.attemptUnique` salts the attempt into every minted CODE value, so a retry never reuses an undeletable code-history row's identity (B7). Reference prefixes always salt the attempt in — see `attemptSalt`. */
-function saltOf(codes: JourneyBScenario['codes'], salt: string, attempt: number): string {
-    return codes?.attemptUnique ? `${salt}${attempt}` : salt;
-}
-
-/** Unconditional attempt salt for reference prefixes: every Playwright retry mints a fresh one, so a soft-deleted attempt's Reference (still reserved by `TimeCard_Reference_Unique`) never blocks the next attempt's insert. */
-function attemptSalt(salt: string, attempt: number): string {
-    return `${salt}${attempt}`;
-}
-
 export function mintCodes(codes: JourneyBScenario['codes'], attempt = 0): string[] {
     const parts = codes?.parts ?? codes?.suffixes?.map((suffix) => ({ prefix: codes.prefix, suffix }));
     if (!codes || !parts?.length) return [];
-    // From the lineage, not the clock: references are retry-stable, so a clock value would let an
-    // earlier attempt's late import overwrite this attempt's code (seen 2026-09-17). `length` is
-    // guaranteed by the schema's superRefine for the digit basis.
-    const salt = saltOf(codes, codes.salt, attempt);
-    const base = codes.basis === 'prefix' ? lineagePrefix(salt) : lineageDigits(codes.length!, salt);
+    // From the lineage, not the clock. `attempt` is folded in unconditionally: B4 and B5
+    // write these into EmployeeCodeHistory, which has no DELETE endpoint, so a retry that
+    // reused attempt 1's codes would stack a second permanent row on the same employee.
+    // `length` is guaranteed by the schema's superRefine for the digit basis.
+    const base =
+        codes.basis === 'prefix' ? lineagePrefix(codes.salt, attempt) : lineageDigits(codes.length!, codes.salt, attempt);
     return parts.map((part) => `${part.prefix ?? codes.prefix ?? ''}${base}${part.suffix ?? ''}`);
 }
 
 /** Prefix, minted codes, fixture day, device address, file name — and `{prefix}` / `{code<i>}` / `{constant}` substituted into every string of the scenario. */
 export function mintRun(scenario: JourneyBScenario, testInfo?: TestInfo): MintedRun {
     const attempt = testInfo?.retry ?? 0;
-    const prefix = lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', attempt));
+    const prefix = lineagePrefix(scenario.codes?.salt ?? '', attempt);
     const codes = mintCodes(scenario.codes, attempt);
     const tokens = { ...(scenario.constants ?? {}), prefix, ...Object.fromEntries(codes.map((code, i) => [`code${i}`, code])) };
     return {
@@ -327,7 +318,7 @@ export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
         recordIndexes: scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         envelope: buildRecordsEnvelope(
             run,
-            lineagePrefix(attemptSalt(device.salt, run.attempt)),
+            lineagePrefix(device.salt, run.attempt),
             scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         ),
     }));
@@ -337,8 +328,8 @@ export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
 export function lineagePrefixesThroughAttempt(scenario: JourneyBScenario, attempt: number): string[] {
     const prefixes: string[] = [];
     for (let a = 0; a <= attempt; a += 1) {
-        prefixes.push(lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', a)));
-        for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(attemptSalt(device.salt, a)));
+        prefixes.push(lineagePrefix(scenario.codes?.salt ?? '', a));
+        for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(device.salt, a));
     }
     return prefixes;
 }
