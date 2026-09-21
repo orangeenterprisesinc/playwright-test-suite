@@ -28,7 +28,8 @@ import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
 import { findByReferences, getTimeOutDetail, isoDay, listTimeCards, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
 import { analyzeTransfer, type AnalyzeException, type AnalyzeResult } from '@utils/api/transferToJobCardsApi';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
-import { runCleanup } from '@utils/cleanup/runCleanup';
+import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
+import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import {
     buildCrewTimeInEnvelope,
@@ -499,6 +500,8 @@ export interface JourneyBRunOptions {
     pages?: PageObjects;
     testInfo: TestInfo;
     gates?: JourneyBGates;
+    /** Override the ambient scope — for tests/tools, which run outside the fixture. */
+    scope?: CleanupScope;
 }
 
 /** `hooks.beforeImport: codeHistorySnapshot` / `afterImport: codeHistoryDelta` — one row set per expected employee, before and after the import. */
@@ -547,7 +550,7 @@ export interface JourneyBRun extends MintedRun {
     label: string;
     testInfo: TestInfo;
     sessionApi: APIRequestContext;
-    /** The scenario's `cleanup` steps, 'after' phase. Call it in the spec's `finally`. */
+    /** The scenario's `cleanup` steps, 'after' phase. The scope runs it in teardown; call it only to clean up early. */
     cleanup(): Promise<void>;
 }
 
@@ -557,9 +560,24 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     testInfo.setTimeout(journeyBTestTimeoutMs(testInfo));
     if (scenario.transport === 'relay-echo') throw new Error(`${scenario.label}: transport 'relay-echo' runs through runRelayEcho`);
 
+    // Minted and registered BEFORE anything is created. `mintRun` is pure over
+    // (scenario, testInfo), and `ctx` is mutable, so whatever has been filled in by
+    // the time a seed step throws is exactly what teardown sees.
+    const run = mintRun(scenario, testInfo);
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [] };
+    const cleanupSteps = run.scenario.cleanup;
+    const scope = opts.scope ?? currentScope(testInfo);
+    ctx.ui = scope?.ui;
+    const registration = scope?.add(`${run.scenario.label} cleanup`, () => runCleanup(cleanupSteps, sessionApi, testInfo, ctx));
+    const cleanup = async (): Promise<void> => {
+        await runCleanup(cleanupSteps, sessionApi, testInfo, ctx);
+        registration?.complete();
+    };
+
     // The envelope references records by code and the importer's FKs are nullable, so
     // without this the import "succeeds" while linking nothing.
     const office = await seedOfficeFixture(sessionApi);
+    ctx.office = office;
     for (const extra of scenario.extraEmployees ?? []) office.employees.set(extra.code, await ensureEmployee(sessionApi, extra));
     const gates = opts.gates ?? (await journeyBPreconditions(scenario, { sessionApi, testInfo }));
     // The configured fallback owner joins the employee map under its own name, so a scenario names
@@ -568,14 +586,12 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         office.employees.set(UNDEFINED_EMPLOYEE, { id: gates.undefinedEmployeeId, code: UNDEFINED_EMPLOYEE, name: UNDEFINED_EMPLOYEE, created: false });
     }
     await ensureQuestions(sessionApi, scenario);
-    const run = mintRun(scenario, testInfo);
     const day = isoDay(run.punchDate);
-    const snapshots = new Map<string, unknown>();
+    const snapshots = ctx.snapshots!;
     let cards: OfficeTimeCard[] = [];
-    const cleanup = () => runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'after', office, cards, snapshots });
 
     // `restore` steps snapshot here — before any precondition changes what they guard.
-    await runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots });
+    await runCleanup(cleanupSteps, sessionApi, testInfo, { phase: 'before', office, snapshots });
     const notifyUser = run.scenario.preconditions?.includes('crewNotifyUser') ? await findNotifiableUser(sessionApi) : null;
     if (notifyUser) await setCrewNotifyUser(sessionApi, office.crew.id, notifyUser.usersCounter);
     if (run.scenario.preconditions?.includes('stickerStartLocations')) await setStickerStartLocations(sessionApi, run.scenario, gates, testInfo);
@@ -630,7 +646,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             deliveries.push({ id: device.id, envelope: device.envelope, send, runId: pulledRun?.runId ?? null, file });
         }
         const references = built.flatMap((d) => d.envelope.references);
-        cards = await findByReferences(sessionApi, references, {
+        cards = ctx.cards = await findByReferences(sessionApi, references, {
             from: day,
             to: day,
             cardType: run.scenario.cardType ?? undefined,
@@ -666,7 +682,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             // The scenario's `timeCards` step already swept the fixture day — one live cleanup path.
             sweep: false,
         });
-        cards = importRun.cards;
+        cards = ctx.cards = importRun.cards;
         after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistorySnapshot() : null;
     }
 

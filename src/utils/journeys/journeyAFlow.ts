@@ -3,6 +3,7 @@ import { makeUser } from '@data/generated';
 import type { PieceOutConfigCase, UserSetupCase } from '@data/schemas/journeyAScenario';
 import type { NewUserData } from '@pages/admin/UsersPage';
 import { runCleanup } from '@utils/cleanup/runCleanup';
+import { register } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 
 // Journey A: the spec drives the setup screens itself; this layer mints what a case cannot hold
@@ -20,7 +21,10 @@ export interface UserSetupRun {
 export function mintUserSetup(scenario: UserSetupCase, sessionApi: APIRequestContext, testInfo: TestInfo): UserSetupRun {
     const user = makeUser(scenario.user);
     const substituted = substituteTokens(scenario, { userName: user.name });
-    return { scenario: substituted, user, cleanup: () => runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'after' }) };
+    const cleanup = register(testInfo, 'A1 user-setup cleanup', () =>
+        runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'after' }),
+    );
+    return { scenario: substituted, user, cleanup };
 }
 
 export interface PieceOutConfigRun {
@@ -44,6 +48,8 @@ export async function preparePieceOutConfig(
     await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'before', snapshots });
     return {
         scenario,
-        cleanup: () => runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'after', snapshots }),
+        cleanup: register(testInfo, 'A9 piece-out config cleanup', () =>
+            runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'after', snapshots }),
+        ),
     };
 }

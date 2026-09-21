@@ -18,25 +18,21 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     }, async ({ usersPage, sessionApi }, testInfo) => {
         const scenario = await loadScenario(UserSetupCaseSchema, testInfo);
         const run = mintUserSetup(scenario, sessionApi, testInfo);
-        try {
-            const user = await usersPage.createUser(run.user);
-            await expect(usersPage.userCreatedToast).toBeVisible();
+        const user = await usersPage.createUser(run.user);
+        await expect(usersPage.userCreatedToast).toBeVisible();
 
-            await usersPage.gotoUsersList();
-            await usersPage.expectListedWithDetails(user);
+        await usersPage.gotoUsersList();
+        await usersPage.expectListedWithDetails(user);
 
-            await usersPage.openEditUser(user.name);
-            await expect(usersPage.nameInput).toHaveValue(user.name);
+        await usersPage.openEditUser(user.name);
+        await expect(usersPage.nameInput).toHaveValue(user.name);
 
-            // Deleting is what A1-R8 asks for — a step, not teardown; the grid check is the proof it took effect.
-            const userId = await findUserIdByName(sessionApi, user.name);
-            expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
-            await deleteUserById(sessionApi, userId!);
+        // Deleting is what A1-R8 asks for — a step, not teardown; the grid check is the proof it took effect.
+        const userId = await findUserIdByName(sessionApi, user.name);
+        expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
+        await deleteUserById(sessionApi, userId!);
 
-            await usersPage.expectAbsentFromList(user.name);
-        } finally {
-            await run.cleanup();
-        }
+        await usersPage.expectAbsentFromList(user.name);
     });
 
 });

@@ -16,22 +16,18 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
-        try {
-            const want = scenario.expected.envelope!;
-            expect(run.envelope.sections).toEqual(want.sections);
-            expect(run.envelope.employeeSources, 'two BarcodeBadge sources').toEqual(want.employeeSources);
-            expect(run.envelope.referenceParts).toEqual(want.referenceParts);
-            for (const tag of want.absentTags!) {
-                expect(run.envelope.tagNames, 'sample fidelity: TimeIn derives from DateIn+TimeIn, no CardType tag').not.toContain(tag);
-            }
-            expect(run.envelope.gpsFixes, 'exactly one record carries a GPS fix').toBe(want.gpsFixes);
-            expect(run.envelope.references).toHaveLength(scenario.records.length);
-            expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
-            expect(run.cards).toHaveLength(scenario.expected.cards.length);
-            assertExpectedCards(run, scenario.expected.cards);
-            await assertTransferGrid(pages, run, scenario.expected.grid!);
-        } finally {
-            await run.cleanup();
+        const want = scenario.expected.envelope!;
+        expect(run.envelope.sections).toEqual(want.sections);
+        expect(run.envelope.employeeSources, 'two BarcodeBadge sources').toEqual(want.employeeSources);
+        expect(run.envelope.referenceParts).toEqual(want.referenceParts);
+        for (const tag of want.absentTags!) {
+            expect(run.envelope.tagNames, 'sample fidelity: TimeIn derives from DateIn+TimeIn, no CardType tag').not.toContain(tag);
         }
+        expect(run.envelope.gpsFixes, 'exactly one record carries a GPS fix').toBe(want.gpsFixes);
+        expect(run.envelope.references).toHaveLength(scenario.records.length);
+        expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
+        expect(run.cards).toHaveLength(scenario.expected.cards.length);
+        assertExpectedCards(run, scenario.expected.cards);
+        await assertTransferGrid(pages, run, scenario.expected.grid!);
     });
 });

@@ -161,9 +161,9 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     // src/data/static/shared/cleanupTargets.ts; never throws, logs in for itself.
     // Before the Allure metadata so its summary can appear there.
     if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
-        await reconcileFixtureDays({ phase: 'end' });
+        const reconcile = await reconcileFixtureDays({ phase: 'end' });
         try {
-            await sweepLeftovers();
+            await sweepLeftovers(reconcile.sweep.blockedEmployees);
         } catch (error) {
             logger.warn(`Leftover sweep failed: ${error instanceof Error ? error.message : String(error)}`);
         }

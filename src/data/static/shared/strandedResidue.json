@@ -1,0 +1,15 @@
+{
+  "_notes": [
+    "Rows on dev staging that no code in this repo can remove, with the evidence for each.",
+    "The residue sweep skips them instead of burning a DELETE per row per run — six failed deletes cost ~10s and buried the real 409s in warn noise for weeks (run 35589360814 reported candidates 3 / deleted 0 and nobody noticed).",
+    "They are inert: every identifier the suite mints is run- and attempt-unique, so a stranded row can never collide with a future run. Burn-down list, not a permanent excuse — delete an entry the moment the API can clear it.",
+    "A row whose blocker is a TRANSFERRED time card does not need an entry: the reconcile detects those at runtime and hands the ids to the sweep."
+  ],
+  "rows": [
+    { "entity": "employee", "name": "E2EReconEmp_7IMSU4_1, Test", "code": "fk_in_use", "reason": "2 related records; no transferred card found in a 30-day window, so the blocker is outside anything this suite can delete (EmployeeCodeHistory has no DELETE endpoint at all)", "ticket": "WEBPET-1798" },
+    { "entity": "ranch", "name": "E2ERanch_RTZQW7_1", "code": "fk_in_use", "reason": "1 related record held by a transferred card's job-card chain", "ticket": "WEBPET-1798" },
+    { "entity": "crop", "name": "E2EVarCrop_2HKQJ2_1", "code": "fk_in_use", "reason": "1 related record", "ticket": "WEBPET-1798" },
+    { "entity": "department", "name": "E2EDept_034AE2_18", "code": "fk_in_use", "reason": "3 related records", "ticket": "WEBPET-1798" },
+    { "entity": "documentType", "name": "E2EDocType_2HV2S1_2", "code": "fk_in_use", "reason": "8 related records", "ticket": "WEBPET-1798" }
+  ]
+}

@@ -16,27 +16,23 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
-        try {
-            // run.scenario is the loaded file with the minted roll codes substituted for {code0}/{code1}.
-            const { records, expected } = run.scenario;
-            const want = expected.envelope!;
-            expect(run.envelope.sections).toEqual(want.sections);
-            expect(run.envelope.employeeSources, 'one BarcodeBadge source per employee').toEqual(want.employeeSources);
-            // Each roll code is present verbatim and distinct per employee.
-            expect(records[0].traceabilityCode).not.toBe(records[1].traceabilityCode);
-            for (const roll of want.traceabilityCodes!) {
-                expect(run.envelope.traceabilityCodes).toContain(roll);
-            }
-            expect(run.envelope.references).toHaveLength(records.length);
-            expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
-            expect(run.cards).toHaveLength(expected.cards.length);
-            assertExpectedCards(run, expected.cards);
-            await assertTransferGrid(pages, run, expected.grid!);
-            // Only phase 2 legitimately writes a history row, and that happens after this bracket closes.
-            expect(run.codeHistory, 'the scenario hooks must bracket the import with code-history snapshots').not.toBeNull();
-            expect(run.codeHistory!.after, 'B4-R9: the import must not create or modify any code-history row').toEqual(run.codeHistory!.before);
-        } finally {
-            await run.cleanup();
+        // run.scenario is the loaded file with the minted roll codes substituted for {code0}/{code1}.
+        const { records, expected } = run.scenario;
+        const want = expected.envelope!;
+        expect(run.envelope.sections).toEqual(want.sections);
+        expect(run.envelope.employeeSources, 'one BarcodeBadge source per employee').toEqual(want.employeeSources);
+        // Each roll code is present verbatim and distinct per employee.
+        expect(records[0].traceabilityCode).not.toBe(records[1].traceabilityCode);
+        for (const roll of want.traceabilityCodes!) {
+            expect(run.envelope.traceabilityCodes).toContain(roll);
         }
+        expect(run.envelope.references).toHaveLength(records.length);
+        expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
+        expect(run.cards).toHaveLength(expected.cards.length);
+        assertExpectedCards(run, expected.cards);
+        await assertTransferGrid(pages, run, expected.grid!);
+        // Only phase 2 legitimately writes a history row, and that happens after this bracket closes.
+        expect(run.codeHistory, 'the scenario hooks must bracket the import with code-history snapshots').not.toBeNull();
+        expect(run.codeHistory!.after, 'B4-R9: the import must not create or modify any code-history row').toEqual(run.codeHistory!.before);
     });
 });
