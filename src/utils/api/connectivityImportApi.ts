@@ -1,7 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { request as playwrightRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
 import { SESSION_STORAGE_STATE, csrfTokenFromStorageFile } from './sessionContext';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { recordImportRun } from '../cleanup/importRunRecorder';
+import { WORKER_INDEX } from '../cleanup/runToken';
 
 /**
  * Uploads a device export into web-pet's Connectivity import and follows the run
@@ -45,18 +48,85 @@ export interface ImportDeadline {
     pollDelayMs(): number;
 }
 
-/** Consecutive per-worker stalls, reset by any success; worker-local (own process). */
-let consecutiveStalls = 0;
 const CIRCUIT_OPEN_AFTER = 2;
-const CIRCUIT_CAPPED_MS = 60_000;
+// Two separate caps, because the two deadline arms mean different things. The stall
+// arm is the real "environment is dead" signal — nothing changed for 60s, give up.
+// Capping the CEILING as tightly killed deliveries that were demonstrably still
+// progressing (B7, 2026-09-21: "ceiling of 60000 ms reached while the run was still
+// progressing, last change 53s ago"), turning a slow environment into a red one. A
+// progressing import keeps its own, more generous budget.
+const CIRCUIT_CAPPED_STALL_MS = 60_000;
+const CIRCUIT_CAPPED_CEILING_MS = 300_000;
+
+// Cross-process breaker state. Playwright replaces a worker's process on every test
+// failure, so the module-scope counter this replaces reset to 0 on exactly the
+// failures it exists to catch and could never reach CIRCUIT_OPEN_AFTER (run
+// 35608711388: 24 stalls, breaker never opened, 78 min). Mirrors importRunRecorder's
+// pattern — append-only JSONL per worker under artifacts/results, merged on read —
+// which Playwright clears before every run, so this needs no reset either.
+const OUTCOMES_DIR = path.join('artifacts', 'results');
+const OUTCOMES_FILE_RE = /^import-outcomes-w\d+\.jsonl$/;
+
+interface OutcomeRow {
+    verdict: ImportWaitVerdict | null;
+    at: string;
+}
+
+/** Fallback when the file layer throws — this process's own outcomes only. */
+let consecutiveStallsFallback = 0;
+
+function applyVerdict(count: number, verdict: ImportWaitVerdict | null): number {
+    return verdict === 'stalled' ? count + 1 : verdict === null ? 0 : count;
+}
 
 /** Recorded by the poll loops below on every delivery's outcome. */
 export function noteDeliveryOutcome(verdict: ImportWaitVerdict | null): void {
-    consecutiveStalls = verdict === 'stalled' ? consecutiveStalls + 1 : verdict === null ? 0 : consecutiveStalls;
+    consecutiveStallsFallback = applyVerdict(consecutiveStallsFallback, verdict);
+    try {
+        fs.mkdirSync(OUTCOMES_DIR, { recursive: true });
+        fs.appendFileSync(
+            path.join(OUTCOMES_DIR, `import-outcomes-w${WORKER_INDEX}.jsonl`),
+            JSON.stringify({ verdict, at: new Date().toISOString() } as OutcomeRow) + '\n',
+        );
+    } catch {
+        /* best effort — consecutiveStallsFallback still tracks this process */
+    }
 }
 
-/** Whether this worker should cap its next deadline. */
+/** Every worker's outcome file, merged in timestamp order, or null if unreadable. */
+function readOutcomeRows(): OutcomeRow[] | null {
+    let names: string[];
+    try {
+        names = fs.readdirSync(OUTCOMES_DIR).filter((n) => OUTCOMES_FILE_RE.test(n));
+    } catch {
+        return null;
+    }
+    const rows: OutcomeRow[] = [];
+    for (const name of names) {
+        let text: string;
+        try {
+            text = fs.readFileSync(path.join(OUTCOMES_DIR, name), 'utf-8');
+        } catch {
+            continue;
+        }
+        for (const line of text.split('\n')) {
+            if (!line.trim()) continue;
+            try {
+                rows.push(JSON.parse(line) as OutcomeRow);
+            } catch {
+                /* skip a malformed line */
+            }
+        }
+    }
+    rows.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    return rows;
+}
+
+/** Whether the run should cap its next deadline — cross-worker, cross-process. */
 export function importCircuitBreakerState(): { open: boolean; consecutiveStalls: number } {
+    const rows = readOutcomeRows();
+    const consecutiveStalls =
+        rows === null ? consecutiveStallsFallback : rows.reduce((count, row) => applyVerdict(count, row.verdict), 0);
     return { open: consecutiveStalls >= CIRCUIT_OPEN_AFTER, consecutiveStalls };
 }
 
@@ -67,8 +137,8 @@ export function annotateIfImportCircuitOpen(testInfo: TestInfo): void {
         testInfo.annotations.push({
             type: 'import-circuit-open',
             description:
-                `${state.consecutiveStalls} consecutive deliveries stalled in this worker — capping the ` +
-                'wait ceiling at 60s so the run still reports.',
+                `${state.consecutiveStalls} consecutive deliveries stalled across this run's workers — ` +
+                'giving up after 60s of no change (ceiling 5 min) so the run still reports.',
         });
     }
 }
@@ -80,16 +150,19 @@ export interface ImportDeadlineOptions {
 
 /**
  * One progress-aware budget for a whole delivery's wait chain. After two
- * consecutive worker-local stalls it caps the ceiling (and stall, if larger)
- * at 60s so a dead environment still reports inside the run's time budget.
+ * consecutive stalls anywhere in the run — any worker, any process, see
+ * importCircuitBreakerState above — it caps the ceiling (and stall, if larger)
+ * so a dead environment still reports inside the run's time budget: 60s of no
+ * change ends it, while a delivery that keeps progressing still gets 5 min. Any
+ * success resets the count, so a recovered environment reopens the full budget.
  */
 export function newImportDeadline(opts: number | ImportDeadlineOptions = {}): ImportDeadline {
     const given = typeof opts === 'number' ? { ceilingMs: opts } : opts;
     let ceilingMs = given.ceilingMs ?? importPollTimeoutMs();
     let stallMs = given.stallMs ?? importStallMs();
     if (importCircuitBreakerState().open) {
-        ceilingMs = Math.min(ceilingMs, CIRCUIT_CAPPED_MS);
-        stallMs = Math.min(stallMs, ceilingMs);
+        ceilingMs = Math.min(ceilingMs, CIRCUIT_CAPPED_CEILING_MS);
+        stallMs = Math.min(stallMs, CIRCUIT_CAPPED_STALL_MS, ceilingMs);
     }
     const startedAt = Date.now();
     const ceilingAt = startedAt + ceilingMs;
