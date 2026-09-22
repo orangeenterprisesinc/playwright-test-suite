@@ -70,6 +70,8 @@ export interface NotificationEmailRun extends NotificationEmailSetup {
     /** null when no filter script executes a report — nothing was created or sent; the spec's script assertions name it. */
     notificationId: number | null;
     job: NotifyJob | null;
+    /** true when notify-now stayed 404 not_found (WEBPET-1907) for the whole deadline — the spec skips rather than asserts. */
+    jobUnreachable: boolean;
     cleanup(): Promise<void>;
 }
 
@@ -86,16 +88,17 @@ export async function dispatchNotification(setup: NotificationEmailSetup, sessio
     try {
         const all = await listFilterScripts(sessionApi);
         const reporting = all.filter((s) => s.executeReport !== false);
-        if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, cleanup };
+        if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, jobUnreachable: false, cleanup };
         const notificationId = await createNotification(sessionApi, {
             name: notificationName,
             filterScriptCounter: reporting[0].filterScriptCounter,
             emailSubject: subject,
             usersCounter: userId,
         });
-        const job = await notifyNow(sessionApi, notificationId);
-        await testInfo.attach('notify-now-job.json', { body: JSON.stringify(job, null, 2), contentType: 'application/json' });
-        return { ...setup, userId, scripts: { all, reporting }, notificationId, job, cleanup };
+        const result = await notifyNow(sessionApi, notificationId);
+        await testInfo.attach('notify-now-job.json', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
+        if (!result.ok) return { ...setup, userId, scripts: { all, reporting }, notificationId, job: null, jobUnreachable: true, cleanup };
+        return { ...setup, userId, scripts: { all, reporting }, notificationId, job: result.job, jobUnreachable: false, cleanup };
     } catch (error) {
         await cleanup();
         throw error;

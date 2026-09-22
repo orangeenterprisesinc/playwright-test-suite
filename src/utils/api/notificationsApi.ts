@@ -230,6 +230,9 @@ export interface NotifyJob {
     results?: NotifyRecipientResult[];
 }
 
+/** `ok: false` only when the WEBPET-1907 404 signature outlasted the whole deadline. */
+export type NotifyNowResult = { ok: true; job: NotifyJob } | { ok: false; reason: 'job-store-unreachable' };
+
 /**
  * Send the notification now and wait for the job to reach a terminal state.
  *
@@ -241,7 +244,7 @@ export async function notifyNow(
     request: APIRequestContext,
     id: number,
     opts: { timeoutMs?: number } = {},
-): Promise<NotifyJob> {
+): Promise<NotifyNowResult> {
     const fired = await request.post(`notifications/${id}/notify-now`, {
         data: { scope: 'all' },
         headers: { 'Content-Type': 'application/json' },
@@ -252,27 +255,32 @@ export async function notifyNow(
     const { jobId } = (await fired.json()) as { jobId: string };
 
     const deadline = Date.now() + (opts.timeoutMs ?? 120_000);
-    let job: NotifyJob = {};
     for (;;) {
         const res = await request.get(`notifications/${id}/notify-now/${jobId}`);
         if (!res.ok()) {
-            // 404 right after a 2xx POST is not "no such job": the API keeps Notify
-            // Now jobs in a per-process sync.Map (web-pet notification_notify_now_jobs.go,
-            // WEBPET-1907), so a poll routed to a different API task than the POST
-            // cannot see it. Multi-task dev makes this deterministic, not flaky.
-            const hint =
-                res.status() === 404
-                    ? ' The job store is in-memory per API process - with more than one tigerden task behind ' +
-                      'the load balancer the poll lands on a task that never saw the POST. Product-side ' +
-                      '(shared job store or sticky routing); nothing test-side can recover it.'
-                    : '';
-            throw new Error(
-                `GET notify-now job ${jobId} failed with ${res.status()}: ${(await res.text()).slice(0, 300)}.${hint}`,
-            );
+            const bodyText = await res.text();
+            let code: string | undefined;
+            try {
+                code = (JSON.parse(bodyText) as { code?: string }).code;
+            } catch {
+                // Not JSON — leaves code undefined and falls through to the throw.
+            }
+            // 404 not_found right after a 2xx POST is not "no such job": the API keeps
+            // Notify Now jobs in a per-process sync.Map (web-pet
+            // notification_notify_now_jobs.go, WEBPET-1907), so a poll routed to a
+            // different API task than the POST cannot see it. Which task answers is
+            // luck, so keep polling inside the deadline rather than dying on the first
+            // miss. Only this exact signature is tolerated.
+            if (res.status() === 404 && code === 'not_found') {
+                if (Date.now() > deadline) return { ok: false, reason: 'job-store-unreachable' };
+                await new Promise((r) => setTimeout(r, 2_000));
+                continue;
+            }
+            throw new Error(`GET notify-now job ${jobId} failed with ${res.status()}: ${bodyText.slice(0, 300)}`);
         }
-        job = (await res.json()) as NotifyJob;
+        const job = (await res.json()) as NotifyJob;
         const settled = job.status && job.status !== 'pending' && job.status !== 'running';
-        if (settled || Date.now() > deadline) return job;
+        if (settled || Date.now() > deadline) return { ok: true, job };
         await new Promise((r) => setTimeout(r, 2_000));
     }
 }

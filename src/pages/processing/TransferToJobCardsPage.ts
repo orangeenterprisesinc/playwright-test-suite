@@ -24,6 +24,23 @@ import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMu
  *
  * Journey B uses this screen read-only; running the transfer itself is D4.
  */
+/** Why the grid never reached `atLeast` candidates. Only `analyze-lost` is infra noise. */
+export type CandidateWaitReason = 'analyze-lost' | 'timeout' | 'short-count';
+export type CandidateWaitResult =
+    | { ok: true; count: number }
+    | {
+          ok: false;
+          reason: CandidateWaitReason;
+          count: number;
+          /**
+           * A GET .../analyze/{jobId} answered 404 not_found at some point. This, not
+           * `reason`, is the proven WEBPET-1907 signature: the same 404 surfaces as
+           * `analyze-lost` when the page offers "Try again" and as `short-count` when
+           * it renders an empty caption instead, so callers key tolerance on this.
+           */
+          sawAnalyze404: boolean;
+      };
+
 export class TransferToJobCardsPage extends BasePage {
     readonly pageUrl: string = '/transfer-to-job-cards';
     readonly pageTitle: string | RegExp = /Transfer to Job Cards/i;
@@ -93,6 +110,8 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** `/transfer-to-job-cards/analyze` responses since the last {@link analyze} call. */
     private analyzeResponses: Array<{ status: number; code?: string }> = [];
+    /** Sticky across retries (which clear analyzeResponses): did ANY analyze poll 404 not_found? */
+    private analyzeSaw404 = false;
     private analyzeResponseHandler?: (response: Response) => void;
     /** How many times {@link tryWaitForCandidates} clicked "Try again" this call. */
     private analyzeRetries = 0;
@@ -244,6 +263,7 @@ export class TransferToJobCardsPage extends BasePage {
         // as a bare locator timeout on the grid caption.
         this.analyzeResponses = [];
         this.analyzeRetries = 0;
+        this.analyzeSaw404 = false;
         this.detachAnalyzeResponseListener();
         this.analyzeResponseHandler = (response) => {
             if (!/\/transfer-to-job-cards\/analyze(\/|$)/.test(new URL(response.url()).pathname)) return;
@@ -251,6 +271,7 @@ export class TransferToJobCardsPage extends BasePage {
                 .json()
                 .catch(() => ({}))
                 .then((body: { code?: string }) => {
+                    if (response.status() === 404 && body.code === 'not_found') this.analyzeSaw404 = true;
                     this.analyzeResponses.push({ status: response.status(), code: body.code });
                 });
         };
@@ -267,16 +288,25 @@ export class TransferToJobCardsPage extends BasePage {
 
     /**
      * Wait for the grid to finish analysing, then report its candidate count.
-     * Throws when the grid never loads — including when the analyze job was lost
-     * between processes and every retry in {@link tryWaitForCandidates} still
-     * lost it. Kept returning a number: the webpet suite and B6/B10 consume it.
+     * Throws when the grid never loads, naming the true reason — the old message
+     * blamed a lost analyze job for all three exits, which sent a B6 triage down
+     * the wrong path entirely.
      */
-    async waitForCandidates(atLeast = 1, timeout = 45_000): Promise<number> {
-        const result = await this.tryWaitForCandidates(atLeast, timeout);
-        if (result === null) {
+    async waitForCandidates(atLeast = 1, timeout = 90_000): Promise<number> {
+        const result = await this.waitForCandidatesResult(atLeast, timeout);
+        if (result.ok) return result.count;
+        if (result.reason === 'analyze-lost') {
             throw new Error(`grid never loaded at least ${atLeast} transfer candidate(s) (analyze job lost)`);
         }
-        return result;
+        if (result.reason === 'timeout') {
+            throw new Error(
+                `grid never loaded at least ${atLeast} transfer candidate(s) ` +
+                    `(neither caption nor retry appeared within ${timeout}ms)`,
+            );
+        }
+        throw new Error(
+            `grid never loaded at least ${atLeast} transfer candidate(s) (saw only ${result.count})`,
+        );
     }
 
     /**
@@ -293,10 +323,24 @@ export class TransferToJobCardsPage extends BasePage {
      * 0 initial selection" before and during analysis and is only rewritten when
      * the response lands.
      */
-    async tryWaitForCandidates(atLeast = 1, timeout = 45_000): Promise<number | null> {
+    async tryWaitForCandidates(atLeast = 1, timeout = 90_000): Promise<number | null> {
+        const result = await this.waitForCandidatesResult(atLeast, timeout);
+        return result.ok ? result.count : null;
+    }
+
+    /**
+     * As {@link tryWaitForCandidates}, but says WHY it gave up. `timeout` is 90s,
+     * not 45s: B6 watched analyze return 15 candidates just past the old cut-off
+     * on a loaded dev, and the miss was reported as a lost analyze job.
+     */
+    async waitForCandidatesResult(atLeast = 1, timeout = 90_000): Promise<CandidateWaitResult> {
         const heading = this.gridCaption;
-        const count = async () =>
-            Number(/^Includes (\d+) /.exec(((await heading.textContent()) ?? '').trim())?.[1] ?? 0);
+        // Never block: on the timeout exit the caption does not exist at all, and a
+        // bare textContent() waits the full test timeout before reporting the reason.
+        const count = async () => {
+            const text = await heading.textContent({ timeout: 1_000 }).catch(() => '');
+            return Number(/^Includes (\d+) /.exec((text ?? '').trim())?.[1] ?? 0);
+        };
         const overallDeadline = Date.now() + Math.max(timeout, 60_000);
 
         for (;;) {
@@ -321,14 +365,14 @@ export class TransferToJobCardsPage extends BasePage {
                         .toBeGreaterThanOrEqual(atLeast);
                 } catch {
                     this.detachAnalyzeResponseListener();
-                    return null;
+                    return { ok: false, reason: 'short-count', count: await count(), sawAnalyze404: this.analyzeSaw404 };
                 }
                 this.detachAnalyzeResponseListener();
-                return count();
+                return { ok: true, count: await count() };
             }
             if (outcome !== 'retry') {
                 this.detachAnalyzeResponseListener();
-                return null;
+                return { ok: false, reason: 'timeout', count: await count(), sawAnalyze404: this.analyzeSaw404 };
             }
 
             const knownSignature = this.analyzeResponses.some((r) => r.status === 404 && r.code === 'not_found');
@@ -341,7 +385,7 @@ export class TransferToJobCardsPage extends BasePage {
             }
             if (this.analyzeRetries >= 5 || Date.now() > overallDeadline) {
                 this.detachAnalyzeResponseListener();
-                return null;
+                return { ok: false, reason: 'analyze-lost', count: await count(), sawAnalyze404: this.analyzeSaw404 };
             }
 
             this.analyzeRetries += 1;
