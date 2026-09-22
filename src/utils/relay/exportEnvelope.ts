@@ -107,8 +107,8 @@ export function newRunPrefix(now = new Date()): string {
  * the whole run (`global-setup.ts`). This is the GitHub Actions job attempt —
  * constant across every Playwright test retry inside that job, it does NOT vary per
  * retry. {@link lineagePrefix} hashes it with the test id and the caller's salt; a
- * caller needing a fresh prefix per Playwright retry folds `testInfo.retry` into
- * that salt itself (Journey B's `attemptSalt`, in `journeyBFlow.ts`).
+ * every minted value is scoped to the Playwright attempt by `lineageBasis`, which
+ * callers pass explicitly — see `lineagePrefix`.
  */
 export function runLineageId(): string {
     const { GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT } = process.env;
@@ -129,9 +129,10 @@ function fnv1a(input: string): number {
  * A deterministic reference prefix: the same run lineage, test id and `salt`
  * always hash to the same 4 base36 chars — unlike {@link newRunPrefix}'s
  * clock-based scheme, which mints a fresh set every call. Stability is per (run,
- * test, salt); Journey B folds `testInfo.retry` into the salt (`attemptSalt`) so
- * every Playwright retry mints its own prefix rather than reusing the previous
- * attempt's. That matters because a soft-deleted row keeps its
+ * test, salt, ATTEMPT): `attempt` is a required argument, so a new minter cannot
+ * compile without deciding what it should be, and every Playwright retry mints its
+ * own prefix rather than reusing the previous attempt's. That matters because a
+ * soft-deleted row keeps its
  * `TimeCard_Reference_Unique` name reserved: a retry sharing its predecessor's
  * prefix mints a Reference its own insert can never claim (SQL 2627), so resolving
  * a late sibling envelope against a prior attempt's rows is not merely unnecessary
@@ -140,34 +141,31 @@ function fnv1a(input: string): number {
  * `lineagePrefixesThroughAttempt`). Falls back to `newRunPrefix()` outside a test
  * context, where `test.info()` throws.
  */
-export function lineagePrefix(salt = ''): string {
-    const basis = lineageBasis(salt);
+export function lineagePrefix(salt: string, attempt: number): string {
+    const basis = lineageBasis(salt, attempt);
     if (basis === null) return newRunPrefix();
     return fnv1a(basis).toString(36).slice(-4).padStart(4, '0').toUpperCase();
 }
 
-/** `run lineage - testId - salt`, or null outside a test where `test.info()` throws. */
-function lineageBasis(salt: string): string | null {
+/** `run lineage - testId - salt - attempt`, or null outside a test where `test.info()` throws. */
+function lineageBasis(salt: string, attempt: number): string | null {
     try {
-        return `${runLineageId()}-${test.info().testId}-${salt}`;
+        return `${runLineageId()}-${test.info().testId}-${salt}-a${String(attempt)}`;
     } catch {
         return null;
     }
 }
 
 /**
- * Lineage-stable decimal digits for payload fields that must be run-unique yet
- * identical across the retries of one test — B4's roll codes, B5's sticker
- * codes. These stay retry-stable on purpose, unlike the reference prefix:
- * `mintCodes` salts them through `saltOf`, not `attemptSalt`, so a code changes
- * across retries only where the scenario opts in via `codes.attemptUnique` (B7).
- * The overwrite this once guarded — an earlier attempt's late envelope upserting
- * its stale code onto the retry's row, which is how B4/B5 read the attempt-1 code
- * on 2026-09-17 — can no longer happen: references are attempt-scoped now, so a
- * late sibling envelope writes its own rows and never the retry's.
+ * Lineage-scoped decimal digits for payload fields that must be unique per run —
+ * B4's roll codes, B5's sticker codes. These used to be retry-STABLE unless a
+ * scenario opted in via `codes.attemptUnique`, which only B7 did. B4 and B5 write
+ * theirs into EmployeeCodeHistory, a table with no DELETE endpoint, so a retry
+ * minted byte-identical codes on top of attempt 1's permanent rows. Opt-in was the
+ * defect: `attempt` is required now and always folded in.
  */
-export function lineageDigits(length: number, salt = ''): string {
-    const basis = lineageBasis(salt) ?? String(Date.now());
+export function lineageDigits(length: number, salt: string, attempt: number): string {
+    const basis = lineageBasis(salt, attempt) ?? String(Date.now());
     const a = fnv1a(`${basis}#a`).toString().padStart(10, '0');
     const b = fnv1a(`${basis}#b`).toString().padStart(10, '0');
     return (a + b).slice(0, length);

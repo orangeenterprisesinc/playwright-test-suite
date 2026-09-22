@@ -47,7 +47,8 @@
     "report:allure": "node scripts/report/allure-generate.js",
     "report:allure:open": "node scripts/report/allure-open.js",
     "video:annotate": "node scripts/annotate-video.js",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "cleanup:gate": "node scripts/runner/cleanup-gate.js"
   },
   "keywords": [],
   "license": "ISC",

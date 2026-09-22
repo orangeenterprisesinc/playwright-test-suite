@@ -103,10 +103,12 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     // Other runs' leftovers, age-gated. The standalone tool project sweeps for
     // itself, so it skips this one.
     if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
-        await runResidueSweep({ phase: 'start' });
-        // Time cards are outside the name-prefix sweep; the reconcile waits out the
-        // previous run's imports and sweeps the fixture window.
-        await reconcileFixtureDays({ phase: 'start' });
+        // Cards first, then the rows they point at: a setup row whose time cards are
+        // still live 409s on DELETE, so sweeping parents first strands both. Teardown
+        // has always run in this order; startup had it inverted, which is why run
+        // 35589360814 reported candidates 2/3 and deleted 0 in both phases.
+        const reconcile = await reconcileFixtureDays({ phase: 'start' });
+        await runResidueSweep({ phase: 'start', blockedEmployeeIds: reconcile.sweep.blockedEmployees });
     }
 
     logger.info('Global setup completed');

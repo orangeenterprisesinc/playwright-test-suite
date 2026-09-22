@@ -28,7 +28,8 @@ import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
 import { findByReferences, getTimeOutDetail, isoDay, listTimeCards, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
 import { analyzeTransfer, type AnalyzeException, type AnalyzeResult } from '@utils/api/transferToJobCardsApi';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
-import { runCleanup } from '@utils/cleanup/runCleanup';
+import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
+import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import {
     buildCrewTimeInEnvelope,
@@ -157,38 +158,29 @@ export interface MintedRun {
     prefix: string;
     /** `codes.prefix + lineageDigits(codes.length, codes.salt) + codes.suffixes[i]` — `{code<i>}` in the scenario. */
     codes: string[];
-    /** `testInfo.retry` — every attempt mints its own reference prefix (`attemptSalt`); `codes.attemptUnique` additionally salts `mintCodes`'s own values (B7). */
+    /** `testInfo.retry`. Every attempt mints its own reference prefix AND its own codes. */
     attempt: number;
     punchDate: Date;
     deviceAddress: string;
     fileName: string;
 }
 
-/** Only `mintCodes` needs this gate: `codes.attemptUnique` salts the attempt into every minted CODE value, so a retry never reuses an undeletable code-history row's identity (B7). Reference prefixes always salt the attempt in — see `attemptSalt`. */
-function saltOf(codes: JourneyBScenario['codes'], salt: string, attempt: number): string {
-    return codes?.attemptUnique ? `${salt}${attempt}` : salt;
-}
-
-/** Unconditional attempt salt for reference prefixes: every Playwright retry mints a fresh one, so a soft-deleted attempt's Reference (still reserved by `TimeCard_Reference_Unique`) never blocks the next attempt's insert. */
-function attemptSalt(salt: string, attempt: number): string {
-    return `${salt}${attempt}`;
-}
-
 export function mintCodes(codes: JourneyBScenario['codes'], attempt = 0): string[] {
     const parts = codes?.parts ?? codes?.suffixes?.map((suffix) => ({ prefix: codes.prefix, suffix }));
     if (!codes || !parts?.length) return [];
-    // From the lineage, not the clock: references are retry-stable, so a clock value would let an
-    // earlier attempt's late import overwrite this attempt's code (seen 2026-09-17). `length` is
-    // guaranteed by the schema's superRefine for the digit basis.
-    const salt = saltOf(codes, codes.salt, attempt);
-    const base = codes.basis === 'prefix' ? lineagePrefix(salt) : lineageDigits(codes.length!, salt);
+    // From the lineage, not the clock. `attempt` is folded in unconditionally: B4 and B5
+    // write these into EmployeeCodeHistory, which has no DELETE endpoint, so a retry that
+    // reused attempt 1's codes would stack a second permanent row on the same employee.
+    // `length` is guaranteed by the schema's superRefine for the digit basis.
+    const base =
+        codes.basis === 'prefix' ? lineagePrefix(codes.salt, attempt) : lineageDigits(codes.length!, codes.salt, attempt);
     return parts.map((part) => `${part.prefix ?? codes.prefix ?? ''}${base}${part.suffix ?? ''}`);
 }
 
 /** Prefix, minted codes, fixture day, device address, file name — and `{prefix}` / `{code<i>}` / `{constant}` substituted into every string of the scenario. */
 export function mintRun(scenario: JourneyBScenario, testInfo?: TestInfo): MintedRun {
     const attempt = testInfo?.retry ?? 0;
-    const prefix = lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', attempt));
+    const prefix = lineagePrefix(scenario.codes?.salt ?? '', attempt);
     const codes = mintCodes(scenario.codes, attempt);
     const tokens = { ...(scenario.constants ?? {}), prefix, ...Object.fromEntries(codes.map((code, i) => [`code${i}`, code])) };
     return {
@@ -326,7 +318,7 @@ export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
         recordIndexes: scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         envelope: buildRecordsEnvelope(
             run,
-            lineagePrefix(attemptSalt(device.salt, run.attempt)),
+            lineagePrefix(device.salt, run.attempt),
             scenario.records.flatMap((r, i) => (r.device === device.id ? [i] : [])),
         ),
     }));
@@ -336,8 +328,8 @@ export function buildScenarioEnvelopes(run: MintedRun): BuiltEnvelope[] {
 export function lineagePrefixesThroughAttempt(scenario: JourneyBScenario, attempt: number): string[] {
     const prefixes: string[] = [];
     for (let a = 0; a <= attempt; a += 1) {
-        prefixes.push(lineagePrefix(attemptSalt(scenario.codes?.salt ?? '', a)));
-        for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(attemptSalt(device.salt, a)));
+        prefixes.push(lineagePrefix(scenario.codes?.salt ?? '', a));
+        for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(device.salt, a));
     }
     return prefixes;
 }
@@ -499,6 +491,8 @@ export interface JourneyBRunOptions {
     pages?: PageObjects;
     testInfo: TestInfo;
     gates?: JourneyBGates;
+    /** Override the ambient scope — for tests/tools, which run outside the fixture. */
+    scope?: CleanupScope;
 }
 
 /** `hooks.beforeImport: codeHistorySnapshot` / `afterImport: codeHistoryDelta` — one row set per expected employee, before and after the import. */
@@ -547,7 +541,7 @@ export interface JourneyBRun extends MintedRun {
     label: string;
     testInfo: TestInfo;
     sessionApi: APIRequestContext;
-    /** The scenario's `cleanup` steps, 'after' phase. Call it in the spec's `finally`. */
+    /** The scenario's `cleanup` steps, 'after' phase. The scope runs it in teardown; call it only to clean up early. */
     cleanup(): Promise<void>;
 }
 
@@ -557,9 +551,24 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     testInfo.setTimeout(journeyBTestTimeoutMs(testInfo));
     if (scenario.transport === 'relay-echo') throw new Error(`${scenario.label}: transport 'relay-echo' runs through runRelayEcho`);
 
+    // Minted and registered BEFORE anything is created. `mintRun` is pure over
+    // (scenario, testInfo), and `ctx` is mutable, so whatever has been filled in by
+    // the time a seed step throws is exactly what teardown sees.
+    const run = mintRun(scenario, testInfo);
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [] };
+    const cleanupSteps = run.scenario.cleanup;
+    const scope = opts.scope ?? currentScope(testInfo);
+    ctx.ui = scope?.ui;
+    const registration = scope?.add(`${run.scenario.label} cleanup`, () => runCleanup(cleanupSteps, sessionApi, testInfo, ctx));
+    const cleanup = async (): Promise<void> => {
+        await runCleanup(cleanupSteps, sessionApi, testInfo, ctx);
+        registration?.complete();
+    };
+
     // The envelope references records by code and the importer's FKs are nullable, so
     // without this the import "succeeds" while linking nothing.
     const office = await seedOfficeFixture(sessionApi);
+    ctx.office = office;
     for (const extra of scenario.extraEmployees ?? []) office.employees.set(extra.code, await ensureEmployee(sessionApi, extra));
     const gates = opts.gates ?? (await journeyBPreconditions(scenario, { sessionApi, testInfo }));
     // The configured fallback owner joins the employee map under its own name, so a scenario names
@@ -568,14 +577,12 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         office.employees.set(UNDEFINED_EMPLOYEE, { id: gates.undefinedEmployeeId, code: UNDEFINED_EMPLOYEE, name: UNDEFINED_EMPLOYEE, created: false });
     }
     await ensureQuestions(sessionApi, scenario);
-    const run = mintRun(scenario, testInfo);
     const day = isoDay(run.punchDate);
-    const snapshots = new Map<string, unknown>();
+    const snapshots = ctx.snapshots!;
     let cards: OfficeTimeCard[] = [];
-    const cleanup = () => runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'after', office, cards, snapshots });
 
     // `restore` steps snapshot here — before any precondition changes what they guard.
-    await runCleanup(run.scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots });
+    await runCleanup(cleanupSteps, sessionApi, testInfo, { phase: 'before', office, snapshots });
     const notifyUser = run.scenario.preconditions?.includes('crewNotifyUser') ? await findNotifiableUser(sessionApi) : null;
     if (notifyUser) await setCrewNotifyUser(sessionApi, office.crew.id, notifyUser.usersCounter);
     if (run.scenario.preconditions?.includes('stickerStartLocations')) await setStickerStartLocations(sessionApi, run.scenario, gates, testInfo);
@@ -630,7 +637,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             deliveries.push({ id: device.id, envelope: device.envelope, send, runId: pulledRun?.runId ?? null, file });
         }
         const references = built.flatMap((d) => d.envelope.references);
-        cards = await findByReferences(sessionApi, references, {
+        cards = ctx.cards = await findByReferences(sessionApi, references, {
             from: day,
             to: day,
             cardType: run.scenario.cardType ?? undefined,
@@ -666,7 +673,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             // The scenario's `timeCards` step already swept the fixture day — one live cleanup path.
             sweep: false,
         });
-        cards = importRun.cards;
+        cards = ctx.cards = importRun.cards;
         after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistorySnapshot() : null;
     }
 

@@ -26,44 +26,40 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         expect(setup.nominated, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
 
         const run = await dispatchNotification(setup, sessionApi, testInfo);
-        try {
-            if (run.jobUnreachable) {
-                testInfo.annotations.push({
-                    type: 'notify-now-job-store-unreachable',
-                    description:
-                        'notify-now answered 404 not_found for the whole deadline (WEBPET-1907, per-process ' +
-                        'job store) — this run asserted NOTHING about delivery.',
-                });
-                test.skip(true, 'WEBPET-1907: notify-now job store unreachable for the full deadline');
-            }
-            const want = scenario.expected;
-            expect(run.scripts.all.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
-            expect(
-                run.scripts.reporting.length,
-                `no filter script executes a report, so dispatch has nothing to render: ` +
-                    JSON.stringify(run.scripts.all.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
-            ).toBeGreaterThan(0);
-
-            // UI-R4 — dispatched, and reported per recipient
-            const job = run.job!;
-            expect(job.status, `notify-now did not settle: ${JSON.stringify(job)}`).toBe(want.jobStatus);
-            const results = job.results ?? [];
-            expect(results, 'notify-now reported no recipient at all').toHaveLength(want.recipients);
-            // The status before the counts: it carries the transport's own error, the diagnostic worth reading on a failure.
-            expect(
-                results[0].status,
-                `dispatch to ${run.recipient.email} did not succeed: ${results[0].error ?? '(no error reported)'}`,
-            ).toBe(want.recipientStatus);
-            expect(results[0].usersCounter).toBe(run.userId);
-            expect(job.failed ?? 0).toBe(want.failed);
-            expect(job.successful ?? 0).toBeGreaterThanOrEqual(want.minSuccessful);
-
+        if (run.jobUnreachable) {
             testInfo.annotations.push({
-                type: 'notification-delivered',
-                description: `Dispatched "${run.subject}" to ${run.recipient.email} (from ${run.smtp.preferences.smtpFromAddress}).`,
+                type: 'notify-now-job-store-unreachable',
+                description:
+                    'notify-now answered 404 not_found for the whole deadline (WEBPET-1907, per-process ' +
+                    'job store) — this run asserted NOTHING about delivery.',
             });
-        } finally {
-            await run.cleanup();
+            test.skip(true, 'WEBPET-1907: notify-now job store unreachable for the full deadline');
         }
+        const want = scenario.expected;
+        expect(run.scripts.all.length, 'no filter script exists to build a notification on').toBeGreaterThan(0);
+        expect(
+            run.scripts.reporting.length,
+            `no filter script executes a report, so dispatch has nothing to render: ` +
+                JSON.stringify(run.scripts.all.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
+        ).toBeGreaterThan(0);
+
+        // UI-R4 — dispatched, and reported per recipient
+        const job = run.job!;
+        expect(job.status, `notify-now did not settle: ${JSON.stringify(job)}`).toBe(want.jobStatus);
+        const results = job.results ?? [];
+        expect(results, 'notify-now reported no recipient at all').toHaveLength(want.recipients);
+        // The status before the counts: it carries the transport's own error, the diagnostic worth reading on a failure.
+        expect(
+            results[0].status,
+            `dispatch to ${run.recipient.email} did not succeed: ${results[0].error ?? '(no error reported)'}`,
+        ).toBe(want.recipientStatus);
+        expect(results[0].usersCounter).toBe(run.userId);
+        expect(job.failed ?? 0).toBe(want.failed);
+        expect(job.successful ?? 0).toBeGreaterThanOrEqual(want.minSuccessful);
+
+        testInfo.annotations.push({
+            type: 'notification-delivered',
+            description: `Dispatched "${run.subject}" to ${run.recipient.email} (from ${run.smtp.preferences.smtpFromAddress}).`,
+        });
     });
 });
