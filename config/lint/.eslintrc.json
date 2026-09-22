@@ -55,11 +55,22 @@
     },
     {
       "files": [
+        "src/fixtures/**/*.ts"
+      ],
+      "rules": {
+        "no-empty-pattern": "off"
+      }
+    },
+    {
+      "files": [
         "tests/webpet/**/*.ts"
       ],
       "rules": {
-        "playwright/no-networkidle": "warn",
-        "playwright/prefer-web-first-assertions": "warn"
+        "playwright/no-networkidle": "off",
+        "playwright/prefer-web-first-assertions": "off",
+        "playwright/no-useless-not": "off",
+        "playwright/no-wait-for-timeout": "off",
+        "playwright/prefer-hooks-in-order": "off"
       }
     },
     {

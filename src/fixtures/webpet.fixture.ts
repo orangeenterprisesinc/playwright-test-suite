@@ -40,6 +40,7 @@
  * silently changes what the API sees.
  */
 import { expect, test as base } from '@playwright/test';
+import type { PlaywrightWorkerArgs, TestInfo } from '@playwright/test';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { API_BASE_URL } from '../config/webpetEnv';
@@ -99,6 +100,68 @@ function csrfTokenFromStorageFile(path: string): string | undefined {
     return undefined;
 }
 
+/**
+ * Mid-run admin-session probe with self-heal, throttled to once per 30s per
+ * worker.
+ *
+ * 2026-08-12: dev's in-memory session store dropped the admin session ~42s into
+ * a run and everything after that point failed as unauthenticated garbage
+ * (~350 tests). Concurrent sessions are allowed, so re-logging in mid-run is
+ * safe; the throttle keeps the happy-path cost near zero. A beforeAll that
+ * straddles the death still loses its one file — accepted, versus losing the
+ * rest of the run.
+ *
+ * Exported because the contrib lane's gate needs the identical behaviour: it
+ * drives the same application with the same storage state, so a session death
+ * costs it the same way. One implementation, so the two lanes cannot drift.
+ */
+export async function probeAdminSession(
+    playwright: PlaywrightWorkerArgs['playwright'],
+    testInfo: TestInfo,
+): Promise<void> {
+    if (Date.now() - lastSessionOkAt <= 30_000) return;
+
+    const probeCtx = await playwright.request.newContext({
+        baseURL: API_BASE_URL,
+        storageState: WEBPET_ADMIN_STORAGE,
+    });
+    let retryCtx: typeof probeCtx | undefined;
+    try {
+        const meRes = await probeCtx.get('/api/session/me');
+        if (meRes.ok()) {
+            lastSessionOkAt = Date.now();
+        } else if (meRes.status() === 401) {
+            await healAdminSession();
+
+            // APIRequestContext reads storageState once, at creation — probeCtx
+            // still carries the dead cookie, so a fresh context is required to
+            // see the file healAdminSession just rewrote.
+            retryCtx = await playwright.request.newContext({
+                baseURL: API_BASE_URL,
+                storageState: WEBPET_ADMIN_STORAGE,
+            });
+            const retryRes = await retryCtx.get('/api/session/me');
+            if (retryRes.ok()) {
+                lastSessionOkAt = Date.now();
+                testInfo.annotations.push({
+                    type: 'session-heal',
+                    description: 'admin session was dead (401 session_expired); re-logged-in mid-run',
+                });
+            } else {
+                throw new Error(
+                    `webpet gate: re-login after mid-run session loss failed (HTTP ${retryRes.status()}) ` +
+                        `against ${API_BASE_URL} — this is an environment problem, not a test defect.`,
+                );
+            }
+        }
+        // Any other non-ok status (e.g. transient 5xx): don't heal, don't throw,
+        // and leave lastSessionOkAt unstamped so the next test re-probes.
+    } finally {
+        await probeCtx.dispose();
+        await retryCtx?.dispose();
+    }
+}
+
 export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
     /**
      * Every web-pet page object, lazily built — `pages.cropForm`, `pages.cropList`, …
@@ -121,50 +184,7 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
             // the happy-path cost near zero. A beforeAll that straddles the
             // death still loses its one file — accepted, versus losing the rest
             // of the run.
-            if (Date.now() - lastSessionOkAt > 30_000) {
-                const probeCtx = await playwright.request.newContext({
-                    baseURL: API_BASE_URL,
-                    storageState: WEBPET_ADMIN_STORAGE,
-                });
-                let retryCtx: typeof probeCtx | undefined;
-                try {
-                    const meRes = await probeCtx.get('/api/session/me');
-                    if (meRes.ok()) {
-                        lastSessionOkAt = Date.now();
-                    } else if (meRes.status() === 401) {
-                        await healAdminSession();
-
-                        // APIRequestContext reads storageState once, at creation
-                        // — probeCtx still carries the dead cookie, so a fresh
-                        // context is required to see the file healAdminSession
-                        // just rewrote.
-                        retryCtx = await playwright.request.newContext({
-                            baseURL: API_BASE_URL,
-                            storageState: WEBPET_ADMIN_STORAGE,
-                        });
-                        const retryRes = await retryCtx.get('/api/session/me');
-                        if (retryRes.ok()) {
-                            lastSessionOkAt = Date.now();
-                            testInfo.annotations.push({
-                                type: 'session-heal',
-                                description:
-                                    'admin session was dead (401 session_expired); re-logged-in mid-run',
-                            });
-                        } else {
-                            throw new Error(
-                                `webpet gate: re-login after mid-run session loss failed (HTTP ${retryRes.status()}) ` +
-                                    `against ${API_BASE_URL} — this is an environment problem, not a test defect.`,
-                            );
-                        }
-                    }
-                    // Any other non-ok status (e.g. transient 5xx): don't heal,
-                    // don't throw, and leave lastSessionOkAt unstamped so the
-                    // next test re-probes.
-                } finally {
-                    await probeCtx.dispose();
-                    await retryCtx?.dispose();
-                }
-            }
+            await probeAdminSession(playwright, testInfo);
 
             await use();
             onTestEnd(testInfo);

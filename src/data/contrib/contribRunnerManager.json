@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "generatedAt": "2026-09-16T10:29:15.273Z",
+    "total": 1,
+    "generator": "scripts/contrib/runner-sync.js",
+    "authoredFile": "contribRunnerManager.csv"
+  },
+  "contribRunnerManager": [
+    {
+      "id": "WEBPET-0000-01",
+      "jira": "WEBPET-0000",
+      "file": "WEBPET-0000-lane-example.spec.ts",
+      "category": "ui",
+      "testName": "verifyThatTheCropListScreenLoads",
+      "testTitle": "[Crop] Verify that the crop list screen loads.",
+      "tags": [
+        "@wp-ui",
+        "@wp-smoke"
+      ],
+      "owner": "gukapriyanintuware-stack",
+      "enabled": true,
+      "notes": "the lane's worked example — not a real ticket"
+    }
+  ]
+}
