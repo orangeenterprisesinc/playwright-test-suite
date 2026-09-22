@@ -16,6 +16,7 @@ import { JOURNEY_B_FIXTURE, punchDay } from '../../data/journey-b/fixture';
 import { cleanupTarget, isProtectedName } from '../../data/static/shared/cleanupTargets';
 import { readRecordedImportRuns } from './importRunRecorder';
 import { envNumber } from './residueSweep';
+import { decodeNameAge } from './runToken';
 import { Logger } from '../logger';
 
 // Run START waits out the previous run's in-flight imports (their rows land after this
@@ -40,7 +41,7 @@ const FIXTURE_EMPLOYEE_CODES = [...JOURNEY_B_FIXTURE.present, JOURNEY_B_FIXTURE.
     (e) => e.code,
 );
 /** Name prefixes the residue sweep reclaims — their cards must go first or it 409s. */
-const CREATED_EMPLOYEE_PREFIXES = cleanupTarget('employee').prefixes.map((p) => p.prefix);
+const CREATED_EMPLOYEE_PREFIXES = cleanupTarget('employee').prefixes;
 
 const logger = new Logger('FixtureReconcile');
 
@@ -271,10 +272,22 @@ async function resolveFixtureEmployees(
     }
     // Employees this suite created. Their cards block the residue sweep's DELETE, and
     // the fixture-code list above will never contain them.
+    //
+    // Age-gated, unlike the fixture employees: those are a fixed, known set, but this one
+    // matches anything carrying a factory prefix — including an employee a CONCURRENTLY
+    // running suite made moments ago. Card deletion has no age gate of its own, so without
+    // this a local run would delete a live CI run's punches out from under it. Same default
+    // window as the residue sweep (RESIDUE_MIN_AGE_MIN, 120 min); an undecodable name is
+    // legacy residue and counts as old, matching how the sweep treats it.
+    const minAgeMs = envNumber('RESIDUE_MIN_AGE_MIN', 120) * 60_000;
+    const now = Date.now();
     for (const row of rows) {
         const name = String((row as { name?: unknown }).name ?? '');
         if (!name || isProtectedName(name)) continue;
-        if (!CREATED_EMPLOYEE_PREFIXES.some((prefix) => name.startsWith(prefix))) continue;
+        const hit = CREATED_EMPLOYEE_PREFIXES.find((prefix) => name.startsWith(prefix.prefix));
+        if (!hit) continue;
+        const age = decodeNameAge(name, hit.prefix, hit.token, now);
+        if (age.decodable && (age.ageMs ?? 0) < minAgeMs) continue;
         const id = Number(row.employeeCounter);
         if (Number.isFinite(id)) created[name] = id;
     }
