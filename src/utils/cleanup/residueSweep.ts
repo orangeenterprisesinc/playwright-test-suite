@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
 import { CLEANUP_TARGETS, isProtectedName, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
+import STRANDED_RESIDUE from '../../data/static/shared/strandedResidue.json';
 import { createLoginRequestContext } from '../api/apiLogin';
 import { Logger } from '../logger';
 import { decodeNameAge } from './runToken';
@@ -40,6 +41,12 @@ export interface SweepOptions {
     targets?: readonly CleanupTarget[];
     /** An already-authenticated context; otherwise the sweep logs in itself. */
     context?: APIRequestContext;
+    /**
+     * Employee ids the reconcile has just proven unclearable (a transferred card holds
+     * them). Skipped without a DELETE attempt — the API and the UI both refuse, so
+     * retrying only costs a round trip per run and buries the real 409s in noise.
+     */
+    blockedEmployeeIds?: readonly number[];
 }
 
 export interface EntitySummary {
@@ -53,6 +60,8 @@ export interface EntitySummary {
     notFound: number;
     conflict: number;
     other: number;
+    /** Refused for a reason the product will never let us clear. Expected, not a failure. */
+    stranded: number;
     capped: boolean;
     attempted: boolean;
     samples: string[];
@@ -68,7 +77,10 @@ export interface SweepSummary {
     auth: 'ok' | 'failed' | 'skipped';
     budgetExhausted: boolean;
     entities: EntitySummary[];
-    totals: { matched: number; candidates: number; deleted: number; conflict: number; other: number };
+    /** `carriedOver` = what this sweep tried and failed to remove, i.e. the next run's inheritance. */
+    totals: { matched: number; candidates: number; deleted: number; conflict: number; other: number; notFound: number; skippedYoung: number; carriedOver: number; stranded: number };
+    /** The refusal bodies. Previously only logged (and capped at 5), so they never reached the artifact. */
+    conflictSamples: Array<{ entity: string; name: string; id: number; status: number; body: string }>;
 }
 
 export type DeleteOutcome =
@@ -80,6 +92,26 @@ export type DeleteOutcome =
 type Row = Record<string, unknown>;
 
 const SUMMARY_DIR = path.join('artifacts', 'results');
+
+// A transferred time card cannot be deleted (record.transferred_delete) and the UI
+// enforces the same rule, so a row held by one is stranded rather than merely in
+// conflict. Reported separately so a genuine, clearable 409 stays visible.
+const STRANDED_CODES = ['record.transferred_delete', 'record.used_by_time_card'];
+
+function isStranded(body: string): boolean {
+    return STRANDED_CODES.some((code) => body.includes(code));
+}
+
+// Rows a 409 cannot self-describe: `fk_in_use` reports only a count, so whether the
+// blocker is clearable has to be established once, by hand, and recorded. Same shape
+// as tests/webpet/skip-allowlist.json — an explicit burn-down list, not a silent skip.
+const STRANDED_ROWS: ReadonlySet<string> = new Set(
+    (STRANDED_RESIDUE.rows as Array<{ entity: string; name: string }>).map((r) => `${r.entity}::${r.name}`),
+);
+
+function isKnownStranded(entity: string, name: string): boolean {
+    return STRANDED_ROWS.has(`${entity}::${name.trim()}`);
+}
 
 export function envNumber(name: string, fallback: number): number {
     const raw = process.env[name];
@@ -140,6 +172,7 @@ function emptySummary(entity: string): EntitySummary {
         notFound: 0,
         conflict: 0,
         other: 0,
+        stranded: 0,
         capped: false,
         attempted: false,
         samples: [],
@@ -154,10 +187,11 @@ export function formatSweepSummary(summary: SweepSummary): string {
             (e) =>
                 `  ${e.entity.padEnd(14)} matched ${String(e.matched).padStart(4)}  candidates ${String(e.candidates).padStart(4)}  ` +
                 `deleted ${String(e.deleted).padStart(4)}  young ${String(e.skippedYoung).padStart(3)}  409 ${String(e.conflict).padStart(3)}  ` +
+                `stranded ${String(e.stranded).padStart(3)}  ` +
                 `other ${String(e.other).padStart(3)}${e.capped ? '  CAPPED' : ''}${e.attempted ? '' : '  NOT ATTEMPTED'}${e.error ? `  ERROR ${e.error}` : ''}`,
         );
     const t = summary.totals;
-    return [header, ...rows, `  totals: matched ${String(t.matched)} candidates ${String(t.candidates)} deleted ${String(t.deleted)} 409 ${String(t.conflict)} other ${String(t.other)}`].join('\n');
+    return [header, ...rows, `  totals: matched ${String(t.matched)} candidates ${String(t.candidates)} deleted ${String(t.deleted)} 409 ${String(t.conflict)} other ${String(t.other)} stranded ${String(t.stranded)} carried-over ${String(t.carriedOver)}`].join('\n');
 }
 
 /** Remove other runs' (start) or this run's (end) residue. Never throws. */
@@ -180,7 +214,8 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
         auth: 'skipped',
         budgetExhausted: false,
         entities: targets.map((t) => emptySummary(t.entity)),
-        totals: { matched: 0, candidates: 0, deleted: 0, conflict: 0, other: 0 },
+        totals: { matched: 0, candidates: 0, deleted: 0, conflict: 0, other: 0, notFound: 0, skippedYoung: 0, carriedOver: 0, stranded: 0 },
+        conflictSamples: [],
     };
     const finish = (): SweepSummary => {
         summary.durationMs = Date.now() - startedAt.getTime();
@@ -190,7 +225,12 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
             summary.totals.deleted += e.deleted;
             summary.totals.conflict += e.conflict;
             summary.totals.other += e.other;
+            summary.totals.notFound += e.notFound;
+            summary.totals.skippedYoung += e.skippedYoung;
+            summary.totals.stranded += e.stranded;
         }
+        // What the NEXT run inherits — stranded rows are excluded: nothing can clear them.
+        summary.totals.carriedOver = summary.totals.candidates - summary.totals.deleted - summary.totals.stranded;
         logger.info(formatSweepSummary(summary));
         try {
             fs.mkdirSync(SUMMARY_DIR, { recursive: true });
@@ -269,16 +309,32 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
                 entry.samples = batch.slice(0, 3).map((c) => c.name);
                 if (dryRun) continue;
 
+                const blocked = new Set(target.entity === 'employee' ? (opts.blockedEmployeeIds ?? []) : []);
                 for (const candidate of batch) {
                     if (Date.now() > deadline) {
                         summary.budgetExhausted = true;
                         break;
                     }
+                    if (blocked.has(candidate.id) || isKnownStranded(target.entity, candidate.name)) {
+                        entry.stranded += 1;
+                        continue;
+                    }
                     const result = await deleteById(context, target, candidate.id);
                     if (result.outcome === 'deleted') entry.deleted += 1;
                     else if (result.outcome === 'notFound') entry.notFound += 1;
-                    else {
+                    else if (result.outcome === 'conflict' && isStranded(result.body)) {
+                        entry.stranded += 1;
+                    } else {
                         entry[result.outcome] += 1;
+                        if (summary.conflictSamples.length < 20) {
+                            summary.conflictSamples.push({
+                                entity: target.entity,
+                                name: candidate.name,
+                                id: candidate.id,
+                                status: result.status,
+                                body: result.body,
+                            });
+                        }
                         if (entry.conflict + entry.other <= 5) {
                             logger.warn(
                                 `residue sweep: ${target.entity} '${candidate.name}' #${String(candidate.id)} → ${String(result.status)} ${result.body}`,

@@ -16,6 +16,7 @@ import type { OfficeFixture } from '../api/officeFixture';
 import { cleanupCards } from '../api/officeVerification';
 import { isoDay, sweepFixtureCards, type OfficeTimeCard } from '../api/timeCardsApi';
 import { deleteByName } from './cleanupRegistry';
+import type { ScopeUi } from './cleanupScope';
 
 // One cleanup format, declared in the scenario JSON, executed here — API only.
 //   delete      → deleteByName over cleanupTargets, children first (residue sweep is the backstop)
@@ -36,6 +37,8 @@ export interface CleanupContext {
     cards?: OfficeTimeCard[];
     /** Shared between the two phases so `restore` finds its snapshot. */
     snapshots?: Map<string, unknown>;
+    /** Opens a page for the UI delete fallback. Undefined outside a test — the path stays API-only. */
+    ui?: ScopeUi;
 }
 
 interface Restorer {

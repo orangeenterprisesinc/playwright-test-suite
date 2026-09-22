@@ -10,11 +10,13 @@ import {
     type ImportFileResult,
     type ImportWaitVerdict,
 } from '../api/connectivityImportApi';
-import { deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '../api/timeCardsApi';
+import { deleteTimeCard, isoDay, listTimeCardsWithMeta, type OfficeTimeCard } from '../api/timeCardsApi';
 import { drainMailbox } from '../relay/relayClient';
 import { JOURNEY_B_FIXTURE, punchDay } from '../../data/journey-b/fixture';
+import { cleanupTarget, isProtectedName } from '../../data/static/shared/cleanupTargets';
 import { readRecordedImportRuns } from './importRunRecorder';
 import { envNumber } from './residueSweep';
+import { decodeNameAge } from './runToken';
 import { Logger } from '../logger';
 
 // Run START waits out the previous run's in-flight imports (their rows land after this
@@ -25,7 +27,11 @@ import { Logger } from '../logger';
 
 const SUMMARY_DIR = path.join('artifacts', 'results');
 const SUITE_REFERENCE = /^\d{7}-\d{6}-[A-Z]{2}-[0-9A-Z]{4}-ui$/;
-const WINDOW_FROM_OFFSET = -10;
+// -10 covers the Journey B fixture days. Suite-CREATED employees (E2E*) can hold
+// cards far older than that, and while one survives the residue sweep can never
+// delete the employee (409 record.used_by_time_card / fk_in_use), so the two halves
+// deadlock forever — dev carried the same six rows for weeks. RECONCILE_WINDOW_DAYS
+// widens the lookback for exactly that case.
 const WINDOW_TO_OFFSET = 0;
 const LOOKBACK = 40;
 const CONFIRM_GAP = 5;
@@ -34,6 +40,8 @@ const SWEEP_BUDGET_MS = 120_000;
 const FIXTURE_EMPLOYEE_CODES = [...JOURNEY_B_FIXTURE.present, JOURNEY_B_FIXTURE.absentee, ...JOURNEY_B_FIXTURE.sticker].map(
     (e) => e.code,
 );
+/** Name prefixes the residue sweep reclaims — their cards must go first or it 409s. */
+const CREATED_EMPLOYEE_PREFIXES = cleanupTarget('employee').prefixes;
 
 const logger = new Logger('FixtureReconcile');
 
@@ -66,7 +74,11 @@ export interface ReconcileSummary {
         from: string;
         to: string;
         employees: Record<string, number | null>;
+        /** Suite-created employees whose cards must go before the residue sweep can delete them. */
+        createdEmployees: Record<string, number>;
         undefinedEmployeeId: number | null;
+        /** `resolved/total` — a mostly-null map makes every match fail silently. */
+        employeesResolved: string;
         listed: number;
         matched: number;
         deleted: number;
@@ -74,7 +86,22 @@ export interface ReconcileSummary {
         notFound: number;
         failed: number;
         budgetExhausted: boolean;
+        /** References of rows that MATCHED. Empty when matched is 0 — see listedSamples. */
         samples: string[];
+        perDay: Record<string, { listed: number; matched: number; deleted: number }>;
+        /** A day that lands exactly on the page size was probably truncated. */
+        capSuspected: boolean;
+        /** First few rows the API RETURNED, matched or not — the only field that can explain matched=0. */
+        listedSamples: Array<{ reference: string; employeeCounter: number | null; dateTime: string | null }>;
+        /** Keys on the raw list body; a paging envelope here means asArray dropped the count. */
+        rawBodyKeys: string[];
+        /**
+         * Employees the sweep could not clear because a card is transferred. The product
+         * refuses `DELETE /time-cards/{id}` on a transferred row (record.transferred_delete)
+         * and the UI enforces the same rule, so these are stranded for good — the residue
+         * sweep skips them rather than burning a failed DELETE on each one every run.
+         */
+        blockedEmployees: number[];
         error?: string;
     };
     error?: string;
@@ -229,17 +256,42 @@ function employeeRows(body: unknown): EmployeeListRow[] {
 }
 
 // Find-only: one GET employees for all fixture codes — never ensureEmployee.
-async function resolveFixtureEmployees(request: APIRequestContext): Promise<Record<string, number | null>> {
-    const result: Record<string, number | null> = {};
-    for (const code of FIXTURE_EMPLOYEE_CODES) result[code] = null;
+async function resolveFixtureEmployees(
+    request: APIRequestContext,
+): Promise<{ fixture: Record<string, number | null>; created: Record<string, number> }> {
+    const fixture: Record<string, number | null> = {};
+    for (const code of FIXTURE_EMPLOYEE_CODES) fixture[code] = null;
+    const created: Record<string, number> = {};
+
     const res = await request.get('employees');
-    if (!res.ok()) return result;
+    if (!res.ok()) return { fixture, created };
     const rows = employeeRows(await res.json().catch(() => null));
     for (const code of FIXTURE_EMPLOYEE_CODES) {
         const match = rows.find((r) => String(r.code ?? '') === code);
-        if (match) result[code] = Number(match.employeeCounter);
+        if (match) fixture[code] = Number(match.employeeCounter);
     }
-    return result;
+    // Employees this suite created. Their cards block the residue sweep's DELETE, and
+    // the fixture-code list above will never contain them.
+    //
+    // Age-gated, unlike the fixture employees: those are a fixed, known set, but this one
+    // matches anything carrying a factory prefix — including an employee a CONCURRENTLY
+    // running suite made moments ago. Card deletion has no age gate of its own, so without
+    // this a local run would delete a live CI run's punches out from under it. Same default
+    // window as the residue sweep (RESIDUE_MIN_AGE_MIN, 120 min); an undecodable name is
+    // legacy residue and counts as old, matching how the sweep treats it.
+    const minAgeMs = envNumber('RESIDUE_MIN_AGE_MIN', 120) * 60_000;
+    const now = Date.now();
+    for (const row of rows) {
+        const name = String((row as { name?: unknown }).name ?? '');
+        if (!name || isProtectedName(name)) continue;
+        const hit = CREATED_EMPLOYEE_PREFIXES.find((prefix) => name.startsWith(prefix.prefix));
+        if (!hit) continue;
+        const age = decodeNameAge(name, hit.prefix, hit.token, now);
+        if (age.decodable && (age.ageMs ?? 0) < minAgeMs) continue;
+        const id = Number(row.employeeCounter);
+        if (Number.isFinite(id)) created[name] = id;
+    }
+    return { fixture, created };
 }
 
 // An employee COUNTER, not a code (mirrors b05/b07); null/unset (WEBPET-2843) is a valid answer.
@@ -251,6 +303,13 @@ async function readUndefinedEmployeeId(request: APIRequestContext): Promise<numb
     return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+// One request per day, not one for the whole window. Every other caller of
+// listTimeCards in this repo asks for a single day; this was the only multi-day
+// caller and the only one that found nothing (run 35589360814: listed 50, matched 0).
+// A capped page would be invisible — asArray drops the paging envelope — so a day
+// landing exactly on PAGE_SIZE_HINT is flagged rather than trusted.
+const PAGE_SIZE_HINT = 50;
+
 async function sweepWindow(
     request: APIRequestContext,
     ids: Set<number>,
@@ -258,43 +317,76 @@ async function sweepWindow(
     budgetEndAt: number,
     out: ReconcileSummary['sweep'],
 ): Promise<void> {
-    out.from = isoDay(punchDay(WINDOW_FROM_OFFSET));
+    const fromOffset = -Math.abs(envNumber('RECONCILE_WINDOW_DAYS', 30));
+    out.from = isoDay(punchDay(fromOffset));
     out.to = isoDay(punchDay(WINDOW_TO_OFFSET));
-    let cards: OfficeTimeCard[];
-    try {
-        cards = await listTimeCards(request, { from: out.from, to: out.to });
-    } catch (error) {
-        out.error = error instanceof Error ? error.message : String(error);
-        return;
-    }
-    out.listed = cards.length;
-    const matched = cards.filter(
-        (c) =>
-            ids.has(Number(c.employeeCounter)) ||
-            (undefinedId !== null && Number(c.employeeCounter) === undefinedId && SUITE_REFERENCE.test(String(c.reference ?? ''))),
-    );
-    out.matched = matched.length;
-    out.samples = matched.slice(0, 3).map((c) => String(c.reference ?? ''));
 
     let warned = 0;
-    for (const card of matched) {
+    for (let offset = fromOffset; offset <= WINDOW_TO_OFFSET; offset += 1) {
         if (Date.now() > budgetEndAt) {
             out.budgetExhausted = true;
             break;
         }
-        if (card.transferred === true) {
-            out.skippedTransferred += 1;
-            continue;
+        const day = isoDay(punchDay(offset));
+        let cards: OfficeTimeCard[];
+        try {
+            const page = await listTimeCardsWithMeta(request, { from: day, to: day });
+            cards = page.cards;
+            if (!out.rawBodyKeys.length) out.rawBodyKeys = page.bodyKeys;
+        } catch (error) {
+            out.error = error instanceof Error ? error.message : String(error);
+            return;
         }
-        const { deleted, status } = await deleteTimeCard(request, card.timeCardCounter);
-        if (deleted) out.deleted += 1;
-        else if (status === 409) out.skippedTransferred += 1;
-        else if (status === 404) out.notFound += 1;
-        else {
-            out.failed += 1;
-            if (warned < 5) {
-                warned += 1;
-                logger.warn(`fixture reconcile: time card #${String(card.timeCardCounter)} delete → ${String(status)}`);
+
+        if (cards.length >= PAGE_SIZE_HINT) out.capSuspected = true;
+        out.listed += cards.length;
+        for (const card of cards.slice(0, Math.max(0, 3 - out.listedSamples.length))) {
+            out.listedSamples.push({
+                reference: String(card.reference ?? ''),
+                employeeCounter: Number.isFinite(Number(card.employeeCounter)) ? Number(card.employeeCounter) : null,
+                dateTime: card.dateTime === undefined ? null : String(card.dateTime),
+            });
+        }
+
+        const matched = cards.filter(
+            (c) =>
+                ids.has(Number(c.employeeCounter)) ||
+                (undefinedId !== null && Number(c.employeeCounter) === undefinedId && SUITE_REFERENCE.test(String(c.reference ?? ''))),
+        );
+        out.matched += matched.length;
+        for (const card of matched.slice(0, Math.max(0, 3 - out.samples.length))) {
+            out.samples.push(String(card.reference ?? ''));
+        }
+
+        const perDay = { listed: cards.length, matched: matched.length, deleted: 0 };
+        out.perDay[day] = perDay;
+
+        for (const card of matched) {
+            if (Date.now() > budgetEndAt) {
+                out.budgetExhausted = true;
+                break;
+            }
+            const employeeId = Number(card.employeeCounter);
+            const strand = (): void => {
+                out.skippedTransferred += 1;
+                if (Number.isFinite(employeeId) && !out.blockedEmployees.includes(employeeId)) out.blockedEmployees.push(employeeId);
+            };
+            if (card.transferred === true) {
+                strand();
+                continue;
+            }
+            const { deleted, status } = await deleteTimeCard(request, card.timeCardCounter);
+            if (deleted) {
+                out.deleted += 1;
+                perDay.deleted += 1;
+            } else if (status === 409) strand();
+            else if (status === 404) out.notFound += 1;
+            else {
+                out.failed += 1;
+                if (warned < 5) {
+                    warned += 1;
+                    logger.warn(`fixture reconcile: time card #${String(card.timeCardCounter)} delete -> ${String(status)}`);
+                }
             }
         }
     }
@@ -311,8 +403,17 @@ export function formatReconcileSummary(s: ReconcileSummary): string {
     const sweepLine =
         `  sweep ${s.sweep.from}..${s.sweep.to} listed=${String(s.sweep.listed)} matched=${String(s.sweep.matched)} ` +
         `deleted=${String(s.sweep.deleted)} skipped409=${String(s.sweep.skippedTransferred)} notFound=${String(s.sweep.notFound)} ` +
-        `failed=${String(s.sweep.failed)}${s.sweep.budgetExhausted ? '  BUDGET EXHAUSTED' : ''}${s.sweep.error ? `  ERROR ${s.sweep.error}` : ''}`;
-    return [header, probeLine, quiesceLine, mailboxLine, sweepLine].join('\n');
+        `failed=${String(s.sweep.failed)} employees=${s.sweep.employeesResolved}` +
+        `${s.sweep.blockedEmployees.length ? ` blockedEmployees=${s.sweep.blockedEmployees.join(',')}` : ''}` +
+        `${s.sweep.capSuspected ? '  CAP SUSPECTED' : ''}${s.sweep.budgetExhausted ? '  BUDGET EXHAUSTED' : ''}` +
+        `${s.sweep.error ? `  ERROR ${s.sweep.error}` : ''}`;
+    // matched=0 is unexplainable from the artifact without a sample of what WAS returned.
+    const listedLine =
+        s.sweep.matched === 0 && s.sweep.listed > 0
+            ? `  listed samples: ${s.sweep.listedSamples.map((r) => `${r.reference || '(no ref)'}#${String(r.employeeCounter ?? '?')}`).join(', ')}` +
+              `${s.sweep.rawBodyKeys.length ? `  bodyKeys=${s.sweep.rawBodyKeys.join(',')}` : ''}`
+            : null;
+    return [header, probeLine, quiesceLine, mailboxLine, sweepLine, listedLine].filter((l) => l !== null).join('\n');
 }
 
 export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<ReconcileSummary> {
@@ -335,7 +436,9 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
             from: '',
             to: '',
             employees: {},
+            createdEmployees: {},
             undefinedEmployeeId: null,
+            employeesResolved: '0/0',
             listed: 0,
             matched: 0,
             deleted: 0,
@@ -344,6 +447,11 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
             failed: 0,
             budgetExhausted: false,
             samples: [],
+            perDay: {},
+            capSuspected: false,
+            listedSamples: [],
+            rawBodyKeys: [],
+            blockedEmployees: [],
         },
     };
 
@@ -437,11 +545,14 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
         }
 
         try {
-            const employees = await resolveFixtureEmployees(context);
-            summary.sweep.employees = employees;
-            const ids = new Set(Object.values(employees).filter((v): v is number => v !== null));
+            const { fixture, created } = await resolveFixtureEmployees(context);
+            summary.sweep.employees = fixture;
+            summary.sweep.createdEmployees = created;
+            const fixtureIds = new Set(Object.values(fixture).filter((v): v is number => v !== null));
+            const ids = new Set([...fixtureIds, ...Object.values(created)]);
+            summary.sweep.employeesResolved = `${String(fixtureIds.size)}/${String(Object.keys(fixture).length)}+${String(Object.keys(created).length)} created`;
             summary.sweep.undefinedEmployeeId = await readUndefinedEmployeeId(context);
-            if (!ids.size) {
+            if (!fixtureIds.size) {
                 summary.sweep.error = 'no fixture employee resolved';
             } else {
                 await sweepWindow(context, ids, summary.sweep.undefinedEmployeeId, Date.now() + SWEEP_BUDGET_MS, summary.sweep);

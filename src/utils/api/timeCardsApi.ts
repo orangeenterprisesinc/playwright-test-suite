@@ -81,6 +81,18 @@ export async function listTimeCards(
     request: APIRequestContext,
     opts: { from: string; to: string; cardType?: number },
 ): Promise<OfficeTimeCard[]> {
+    return (await listTimeCardsWithMeta(request, opts)).cards;
+}
+
+/**
+ * As {@link listTimeCards}, but also reports the keys on the raw body. `asArray`
+ * unwraps `items`/`data` and discards every sibling, so a truncated page reads
+ * exactly like a complete one — the reconcile needs to see `total`/`hasMore`.
+ */
+export async function listTimeCardsWithMeta(
+    request: APIRequestContext,
+    opts: { from: string; to: string; cardType?: number },
+): Promise<{ cards: OfficeTimeCard[]; bodyKeys: string[] }> {
     const params: Record<string, string> = { from: opts.from, to: opts.to };
     if (opts.cardType !== undefined) params.cardType = String(opts.cardType);
 
@@ -88,7 +100,9 @@ export async function listTimeCards(
     if (!res.ok()) {
         throw new Error(`GET time-cards failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
     }
-    return asArray(await res.json());
+    const body: unknown = await res.json();
+    const bodyKeys = Array.isArray(body) ? [] : Object.keys((body ?? {}) as Record<string, unknown>);
+    return { cards: asArray(body), bodyKeys };
 }
 
 /**

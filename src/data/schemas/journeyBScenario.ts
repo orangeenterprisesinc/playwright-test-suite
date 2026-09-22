@@ -139,6 +139,7 @@ export const JourneyBScenarioSchema = z
                 /** One code per entry — `prefix + base + suffix` — exposed as `{code<i>}` in declaration order. */
                 parts: z.array(z.object({ prefix: z.string().optional(), suffix: z.string().optional() }).strict()).optional(),
                 /** Salt the attempt in: a retry must not reuse an undeletable row's identity (B7's EmployeeCodeHistory has no DELETE). */
+                /** @deprecated Inert — every mint is attempt-scoped now. Accepted so existing scenarios validate; remove after one release. */
                 attemptUnique: z.boolean().optional(),
             })
             .strict()

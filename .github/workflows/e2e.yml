@@ -680,6 +680,15 @@ jobs:
           name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
           path: artifacts/allure/report
 
+      # Reads what the sweeps reported and fails on evidence that cleanup is broken —
+      # candidates found, none deleted. That is exactly what run 35589360814 showed,
+      # and the job went green on it because nothing read the numbers. A step rather
+      # than a test, so a red gate reads as hygiene and not as a product defect.
+      # `always()`: a failed suite is when leftovers matter most.
+      - name: Gate on cleanup health
+        if: always()
+        run: npm run cleanup:gate
+
       # What the start/end residue sweeps found and deleted (also summarised in the
       # Allure Environment panel and the [ResidueSweep] log lines).
       - name: Upload residue-sweep summaries

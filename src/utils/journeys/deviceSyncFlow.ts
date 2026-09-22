@@ -7,6 +7,7 @@ import { cleanupTarget } from '@data/static/shared/cleanupTargets';
 import type { ScanDeviceGeneral } from '@pages/setup/ScanDevicePage';
 import { ensureCrew, ensureField, ensureRanch, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
+import { register } from '@utils/cleanup/cleanupScope';
 import { uniqueName } from '@utils/cleanup/runToken';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import { setupExportView, type SetupExportView } from '@utils/export/setupExportXml';
@@ -78,34 +79,29 @@ export interface DeviceScopeOptions {
     testInfo: TestInfo;
 }
 
-/** Creates the setup rows, then the device through the UI, scopes it to the crew and the ranch/field, saves. On failure, removes what it made before rethrowing. */
+/** Creates the setup rows, then the device through the UI, scopes it to the crew and the ranch/field, saves. Cleanup is registered with the scope up front, so a mid-way failure still unwinds. */
 export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOptions): Promise<DeviceScopeRun> {
     const { sessionApi, pages, testInfo } = opts;
     const { scenario, relay, device } = minted;
     testInfo.slow();
     const mailbox: DeviceScopeRun['mailbox'] = { address: device.webMailAddress, pulled: null };
-    const cleanup = async () => {
+    const cleanup = register(testInfo, `${scenario.label ?? 'B15'} cleanup`, async () => {
         // Acknowledge first so nothing accumulates on the relay; the delete steps follow in cleanupTargets order.
         if (mailbox.pulled) await ackRetrieved(relay.url, mailbox.address, mailbox.pulled.messageId);
         await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'after' });
-    };
+    });
     const section = (key: EntityKey) => scenario.entities[key].section;
-    try {
-        const ranch: ScopedEntity = { ...(await ensureRanch(sessionApi, minted.minted.ranch)), section: section('ranch') };
-        const crew: ScopedEntity = { ...(await ensureCrew(sessionApi, minted.minted.crew)), section: section('crew') };
-        const field: ScopedEntity = { ...(await ensureField(sessionApi, { ...minted.minted.field, ranchCounter: ranch.id })), section: section('field') };
+    const ranch: ScopedEntity = { ...(await ensureRanch(sessionApi, minted.minted.ranch)), section: section('ranch') };
+    const crew: ScopedEntity = { ...(await ensureCrew(sessionApi, minted.minted.crew)), section: section('crew') };
+    const field: ScopedEntity = { ...(await ensureField(sessionApi, { ...minted.minted.field, ranchCounter: ranch.id })), section: section('field') };
 
-        const deviceId = await pages.scanDevice.createDevice(device);
-        await pages.scanDevice.gotoEdit(deviceId);
-        await pages.scanDevice.waitForEditReady();
-        await pages.scanDevice.addCrew(crew.id);
-        await pages.scanDevice.addRanch(ranch.name, field.name);
-        await pages.scanDevice.save(deviceId);
-        return { ...minted, entities: { ranch, field, crew }, deviceId, mailbox, cleanup };
-    } catch (error) {
-        await cleanup();
-        throw error;
-    }
+    const deviceId = await pages.scanDevice.createDevice(device);
+    await pages.scanDevice.gotoEdit(deviceId);
+    await pages.scanDevice.waitForEditReady();
+    await pages.scanDevice.addCrew(crew.id);
+    await pages.scanDevice.addRanch(ranch.name, field.name);
+    await pages.scanDevice.save(deviceId);
+    return { ...minted, entities: { ranch, field, crew }, deviceId, mailbox, cleanup };
 }
 
 /** Drains the device mailbox, pushes, pulls the envelope back and attaches it. */

@@ -15,6 +15,7 @@ import {
 } from '@utils/api/notificationsApi';
 import { createUser } from '@utils/api/usersApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
+import { register } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 
 // UI-005: the one email path PET Tiger reports on. Two stages so the spec asserts the deployment's
@@ -75,32 +76,29 @@ export interface NotificationEmailRun extends NotificationEmailSetup {
     cleanup(): Promise<void>;
 }
 
-/** Creates the recipient user and, when a reporting script exists, the notification; fires Notify Now and attaches the job. Cleans up before rethrowing. */
+/** Creates the recipient user and, when a reporting script exists, the notification; fires Notify Now and attaches the job. Cleanup is registered with the scope up front. */
 export async function dispatchNotification(setup: NotificationEmailSetup, sessionApi: APIRequestContext, testInfo: TestInfo): Promise<NotificationEmailRun> {
     const { recipient, notificationName, subject } = setup;
-    const cleanup = () => runCleanup(setup.scenario.cleanup, sessionApi, testInfo, { phase: 'after' });
+    const cleanup = register(testInfo, 'notification-email cleanup', () =>
+        runCleanup(setup.scenario.cleanup, sessionApi, testInfo, { phase: 'after' }),
+    );
     const userId = await createUser(sessionApi, {
         name: recipient.name,
         password: recipient.password,
         userInitials: recipient.initials,
         emailAddress: recipient.email,
     });
-    try {
-        const all = await listFilterScripts(sessionApi);
-        const reporting = all.filter((s) => s.executeReport !== false);
-        if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, jobUnreachable: false, cleanup };
-        const notificationId = await createNotification(sessionApi, {
-            name: notificationName,
-            filterScriptCounter: reporting[0].filterScriptCounter,
-            emailSubject: subject,
-            usersCounter: userId,
-        });
-        const result = await notifyNow(sessionApi, notificationId);
-        await testInfo.attach('notify-now-job.json', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
-        if (!result.ok) return { ...setup, userId, scripts: { all, reporting }, notificationId, job: null, jobUnreachable: true, cleanup };
-        return { ...setup, userId, scripts: { all, reporting }, notificationId, job: result.job, jobUnreachable: false, cleanup };
-    } catch (error) {
-        await cleanup();
-        throw error;
-    }
+    const all = await listFilterScripts(sessionApi);
+    const reporting = all.filter((s) => s.executeReport !== false);
+    if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, jobUnreachable: false, cleanup };
+    const notificationId = await createNotification(sessionApi, {
+        name: notificationName,
+        filterScriptCounter: reporting[0].filterScriptCounter,
+        emailSubject: subject,
+        usersCounter: userId,
+    });
+    const result = await notifyNow(sessionApi, notificationId);
+    await testInfo.attach('notify-now-job.json', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
+    if (!result.ok) return { ...setup, userId, scripts: { all, reporting }, notificationId, job: null, jobUnreachable: true, cleanup };
+    return { ...setup, userId, scripts: { all, reporting }, notificationId, job: result.job, jobUnreachable: false, cleanup };
 }
