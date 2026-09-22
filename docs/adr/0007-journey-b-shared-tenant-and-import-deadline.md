@@ -47,12 +47,15 @@ Waiting keeps every dispatch alive; ordering by run id makes deadlock impossible
 **References are attempt-scoped: every retry mints its own.** *(Revised
 2026-09-21 — this reverses the premise the decision first shipped with.)*
 `lineagePrefix()` hashes the run's lineage id (`GITHUB_RUN_ID`-`GITHUB_RUN_ATTEMPT`,
-else the pinned `RUN_ID`) together with `testInfo.testId` and the caller's salt, and
-Journey B folds `testInfo.retry` into that salt (`attemptSalt`) so every Playwright
-retry mints a fresh `<Reference>` prefix while two workers and two runs stay
-distinct. The original premise — that a late envelope from an earlier attempt
+else the pinned `RUN_ID`) together with `testInfo.testId`, the caller's salt and the
+Playwright attempt, so every retry mints a fresh `<Reference>` prefix while two workers
+and two runs stay distinct. *(Revised 2026-09-22: the attempt used to be folded in by
+the caller, through Journey B's `attemptSalt`. It is now a required argument of
+`lineagePrefix`/`lineageDigits`, so a new minter cannot compile without it. The CODE
+minters had never opted in — b04 and b05 write theirs into EmployeeCodeHistory, which
+has no DELETE endpoint, so a retry stacked a second permanent row.)* The original premise — that a late envelope from an earlier attempt
 should resolve against the rows the retry already owns — turned out to be
-unreachable: the spec's `finally { run.cleanup() }` soft-deletes those rows while
+unreachable: cleanup soft-deletes those rows while
 `TimeCard_Reference_Unique` keeps the Reference reserved, so a retry sharing its
 predecessor's prefix inserted nothing (SQL 2627) and read back 0 cards (run
 35589360814, b02, attempts 1 and 2). A late sibling envelope now gets its own
