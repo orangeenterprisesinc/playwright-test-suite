@@ -476,9 +476,9 @@ Some rows can never be removed: `DELETE` on a **transferred** time card returns
 cards hold are stuck behind them. Those are counted as `stranded` rather than
 `conflict`, listed in `src/data/static/shared/strandedResidue.json` where a bare
 `fk_in_use` cannot say so at runtime, and skipped instead of retried. They are inert
-because every minted identifier is run- and attempt-unique — see
-`tests/tools/identity-uniqueness.spec.ts`, which fails the build if that stops being
-true.
+because every minted identifier is run- and attempt-unique: `attempt` is a required
+argument of `lineagePrefix` / `lineageDigits`, so a new minter cannot compile without
+deciding what it should be.
 
 The residue sweep (`src/utils/cleanup/residueSweep.ts`) closes that gap without
 any database access:
