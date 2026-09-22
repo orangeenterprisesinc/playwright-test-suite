@@ -130,13 +130,17 @@ export class TransferToJobCardsPage extends BasePage {
         this.analyzeButton = page.getByRole('button', { name: 'Analyze Transfer Candidates' });
         this.analyzeRetryButton = page.getByRole('button', { name: 'Try again' });
         this.gridCaption = page.getByText(/^Includes \d+ Time Cards? of \d+ initial selection$/);
-        // By accessible name, not the grid's `filter-<columnKey>` id: the date
-        // column was renamed (dateTime → date) and the old id waited forever.
-        // Scoped to its column header and matched exactly — the empty-state
-        // prompt below the grid is also a button named "date range".
-        this.dateRangeFilter = this.pageRoot
-            .getByRole('columnheader', { name: 'Date range' })
-            .getByRole('button', { name: 'Date range', exact: true });
+        // The top-section date scope (`#transfer-date-scope`, aria-label "Dates"),
+        // not a column filter. There used to be a "Date range" column header with its
+        // own button; it is gone — the grid now carries separate "date" and "time"
+        // columns and no header by that name exists even once rows are loaded. The
+        // column-header button was also unreachable by construction: the page opens
+        // with no range selected, so the grid is empty and renders no headers at all,
+        // and the control needed to pick a range only appeared once a range had
+        // already been picked. This one is always present. Matched by accessible name
+        // and exact, to keep it off the empty-state prompt below the grid
+        // (`v2-grid-empty-pick-range`), whose text is also "date range".
+        this.dateRangeFilter = this.pageRoot.getByRole('button', { name: 'Dates', exact: true });
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
 

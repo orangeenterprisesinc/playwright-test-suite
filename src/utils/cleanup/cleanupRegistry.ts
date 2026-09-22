@@ -144,7 +144,8 @@ export class CleanupRegistry {
  * process; it logs in for itself.
  */
 export async function sweepLeftovers(
+    blockedEmployeeIds: readonly number[] = [],
     targets: readonly CleanupTarget[] = CLEANUP_TARGETS,
 ): Promise<SweepSummary> {
-    return runResidueSweep({ phase: 'end', targets, ownRunId: process.env.RESIDUE_RUN_ID });
+    return runResidueSweep({ phase: 'end', targets, ownRunId: process.env.RESIDUE_RUN_ID, blockedEmployeeIds });
 }

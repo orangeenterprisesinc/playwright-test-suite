@@ -24,6 +24,8 @@ import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { createPageObjects, type PageObjects } from './pages.fixture';
 import { CleanupRegistry } from '../utils/cleanup/cleanupRegistry';
+import { bindScope, CleanupScope } from '../utils/cleanup/cleanupScope';
+import { envNumber } from '../utils/cleanup/residueSweep';
 import { createSessionRequestContext } from '../utils/api/sessionContext';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
@@ -75,6 +77,13 @@ type CustomFixtures = {
      * when it fails. See `src/utils/cleanup/cleanupRegistry.ts`.
      */
     cleanup: CleanupRegistry;
+
+    /**
+     * Cleanup that Playwright drains in teardown, so it still runs when the test
+     * timed out. Auto-applied — flows reach it through `currentScope(testInfo)`,
+     * so no spec needs to declare it.
+     */
+    cleanupScope: CleanupScope;
 
     /**
      * Test case ID for data-driven lookup (e.g. `'TC-AUTH-001'`).
@@ -237,6 +246,26 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         await use(registry);
         await registry.drain();
     },
+
+    // `openSessionApi` is a dependency, not a convenience: a fixture's dependencies are
+    // torn down AFTER it, and without it Playwright disposed the API context first —
+    // every cleanup then failed with "Target page, context or browser has been closed".
+    // It stays lazy, so a test that opens no session still opens none.
+    // Deliberately NOT `page`/`browser`: the browserless specs must not pay a Chromium
+    // launch, and depending on `pages` would tear the page down before this teardown.
+    cleanupScope: [
+        async ({ playwright, openSessionApi }, use, testInfo) => {
+            void openSessionApi;
+            const scope = new CleanupScope({
+                openBrowser: () => playwright.chromium.launch(),
+                budgetMs: envNumber('CLEANUP_SCOPE_BUDGET_MS', 60_000),
+            });
+            bindScope(testInfo, scope);
+            await use(scope);
+            await scope.runAll(testInfo);
+        },
+        { auto: true },
+    ],
 
     // ── Data-driven test case fixture ───────────────────────────────
     testCaseData: async ({ testCaseId, testCaseName, logger }, use) => {

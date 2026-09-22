@@ -200,6 +200,7 @@ env/executor files and run a safety-net SQL sweep of leftover test users.
 | [`allureHelper.ts`](../src/reporting/generate/allure/report.ts) | generate Allure reports via JS API; `acquireLeanReport` (screenshot-only single file, built once per run and shared by the email + Slack channels) |
 | [`allureLabels.ts`](../src/reporting/generate/allure/labels.ts) | `resolveCaseId`, `applyAllureLabels`; derives Epic→Feature→Story from spec path |
 | [`cleanup/cleanupRegistry.ts`](../src/utils/cleanup/cleanupRegistry.ts) | `CleanupRegistry` (the `cleanup` fixture) + `sweepLeftovers` — deletes the records a test created through the app's API |
+| [`cleanup/cleanupScope.ts`](../src/utils/cleanup/cleanupScope.ts) | `CleanupScope` (the auto `cleanupScope` fixture) — cleanup that Playwright drains in teardown, so it still runs when the test timed out |
 | [`api/sessionContext.ts`](../src/utils/api/sessionContext.ts) | `createSessionRequestContext` — an `APIRequestContext` carrying `.auth/user.json`'s session plus the `Origin` / `X-CSRF-Token` the API demands |
 | [`api/usersApi.ts`](../src/utils/api/usersApi.ts) | `listUsers`, `findUserIdByName`, `deleteUserById`, `deleteUserByName` — the rowversion-guarded `DELETE /users/{id}` |
 | [`testData/`](../src/data/generated/) | `makeUser`, `uid`, `randomInitials`, `randomEmail`, `pickRandom` |
@@ -456,11 +457,28 @@ Full documentation: [tests/webpet/README.md](../tests/webpet/README.md) and
 
 ## 10. Residue sweep (self-healing test data)
 
-Every record a spec creates should be deleted by that spec, but two failure modes
-defeat that: a **test timeout** aborts the body before its `finally`, and a
-**cancelled or killed run** never reaches `afterAll` or global teardown. Left
-alone, the leftovers accumulate until lists cross the 100-row picker cap and the
-suite starts failing on its own residue (dev held ~1,470 such rows on 2026-09-14).
+Every record a spec creates should be deleted by that spec. Journey specs used to
+do that from a `finally` in the test body, which a **test timeout** skips entirely —
+Playwright kills the test where it stands. Cleanup now registers with a
+`CleanupScope` (`src/utils/cleanup/cleanupScope.ts`) the moment a flow starts
+creating rows, and Playwright drains it in fixture teardown, which still runs after
+a timeout. A **cancelled or killed run** reaches neither, so the sweep remains the
+backstop. Left alone, leftovers accumulate until lists cross the 100-row picker cap
+and the suite starts failing on its own residue (dev held ~1,470 such rows on
+2026-09-14).
+
+Order matters in both phases: time cards first, then the rows they point at. A setup
+row whose cards are still live returns 409, so sweeping parents first strands both —
+which is what run 35589360814 did (`candidates 3 / deleted 0`, unnoticed).
+
+Some rows can never be removed: `DELETE` on a **transferred** time card returns
+`record.transferred_delete`, the UI enforces the same rule, and the setup rows those
+cards hold are stuck behind them. Those are counted as `stranded` rather than
+`conflict`, listed in `src/data/static/shared/strandedResidue.json` where a bare
+`fk_in_use` cannot say so at runtime, and skipped instead of retried. They are inert
+because every minted identifier is run- and attempt-unique — see
+`tests/tools/identity-uniqueness.spec.ts`, which fails the build if that stops being
+true.
 
 The residue sweep (`src/utils/cleanup/residueSweep.ts`) closes that gap without
 any database access:
