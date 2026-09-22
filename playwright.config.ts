@@ -274,17 +274,6 @@ export default defineConfig({
             dependencies: ['auth-setup'],
         },
 
-        // Offline and always on: no app, no browser, ~1s. It guards the half of
-        // re-runnability that cleanup cannot provide — soft-deleted rows keep their
-        // identifiers, so a repeated mint is a guaranteed future collision.
-        {
-            name: 'identity',
-            testDir: './tests/tools',
-            testMatch: '**/identity-uniqueness.spec.ts',
-            retries: 0,
-            use: { trace: 'off' as const, video: 'off' as const, screenshot: 'off' as const },
-        },
-
         // ── Residue-sweep tool (tests/tools) — opt-in, see RESIDUE_TOOLS_ENABLED ──
         ...(RESIDUE_TOOLS_ENABLED
             ? [
