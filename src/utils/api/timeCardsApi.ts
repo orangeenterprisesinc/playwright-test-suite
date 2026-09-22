@@ -1,5 +1,5 @@
 import type { APIRequestContext, TestInfo } from '@playwright/test';
-import type { ImportDeadline } from './connectivityImportApi';
+import { noteDeliveryOutcome, type ImportDeadline } from './connectivityImportApi';
 
 /**
  * Reading back the time cards a device import created, and removing them again.
@@ -125,9 +125,13 @@ export async function findByReferences(
                 matched = found.length;
                 deadline.touch();
             }
-            if (found.length >= references.length) return found;
+            if (found.length >= references.length) {
+                noteDeliveryOutcome(null);
+                return found;
+            }
             const v = deadline.verdict();
             if (v) {
+                noteDeliveryOutcome(v);
                 opts.testInfo?.annotations.push({
                     type: 'import-wait-verdict',
                     description:

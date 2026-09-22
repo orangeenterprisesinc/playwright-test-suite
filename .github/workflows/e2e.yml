@@ -198,8 +198,14 @@ jobs:
     # (src/utils/api/connectivityImportApi.ts), so a spec's own timeout is
     # project + ceiling + 2 min (~24 min) — 90 lets a fully red journey run still
     # finish and report, where 15/30/45/60 were each cancelled mid-run in turn.
-    # The circuit breaker bounds the worst case after two consecutive stalls in a
-    # worker (60s ceiling). PW_GLOBAL_TIMEOUT_MS (env block below) sits 5 minutes
+    # The circuit breaker bounds the worst case after two consecutive stalls
+    # anywhere in the run — cross-worker via artifacts/results JSONL
+    # (src/utils/api/connectivityImportApi.ts), not the old per-worker in-memory
+    # counter that a retried test's fresh process reset to 0 before it could ever
+    # open (run 35608711388, 2026-09-21: 24 stalls, breaker never opened, 78 min).
+    # 60s ceiling once open; any success reopens the full budget, so a merely slow
+    # environment is not capped. MAX_FAILURES (env block below) is the backstop.
+    # PW_GLOBAL_TIMEOUT_MS (env block below) sits 5 minutes
     # under this so Playwright, not the runner, ends a run that gets this far — a
     # runner cancel force-kills the process and no html report, Slack post or
     # email is ever produced.
@@ -286,6 +292,13 @@ jobs:
       # bare timeout. Both are per DELIVERY, shared by the run and reference polls.
       IMPORT_POLL_TIMEOUT_MS: '1200000'
       IMPORT_STALL_MS: '480000'
+      # Fail-fast backstop (playwright.config.ts reads MAX_FAILURES). Stops the job
+      # once too many journey tests have failed outright, instead of all 20 each
+      # riding their own stall/ceiling out to the same environmental red. 6 sits
+      # above a normal bad day (2-3 real failures) so it cannot fire on ordinary
+      # flake, and well under 20 so a dev-wide outage is still cut short. Journey
+      # only — webpet does not deliver imports.
+      MAX_FAILURES: ${{ matrix.suite == 'journey' && '6' || '' }}
       # OFFICE_TRANSPORT_SUBSTITUTE is deliberately NOT set: it would create the
       # punches through the office API when the import fails, turning a broken
       # pipeline green. Keep it unset so CI only passes on a real import.
