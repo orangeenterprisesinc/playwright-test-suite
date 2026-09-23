@@ -706,7 +706,18 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
                 await expect(transferPage.panelPhaseValue).toHaveValue(panelExpected.jobName);
             }
             if (panelExpected.employeeName) {
-                await expect(transferPage.panelEmployeeValue).toHaveValue(panelExpected.employeeName);
+                // The employee lookup renders whatever the tenant-wide
+                // `employeeLookupContents` preference says: the bare name,
+                // `<exportIdentifier> : <name>`, or `<name> : <exportIdentifier>`.
+                // Someone flipped it to ExportID_Name on dev on 2026-09-22 and b04 failed
+                // all three attempts on an employee that had carried an export identifier
+                // all along. The identifier is not what this asserts — the employee is —
+                // so compare the parts. A different employee still fails.
+                await expect
+                    .poll(async () => (await transferPage.panelEmployeeValue.inputValue()).split(' : ').map((part) => part.trim()), {
+                        message: 'panel Employee lookup should name the expected employee, whatever employeeLookupContents decorates it with',
+                    })
+                    .toContain(panelExpected.employeeName);
             }
             if (panelExpected.crewName) {
                 await expect(transferPage.panelWorkCrewValue).toHaveValue(panelExpected.crewName);
