@@ -1,9 +1,13 @@
 /**
- * @fileoverview Transfer to Job Cards ▸ More actions ▸ Multi-Edit dialog.
+ * @fileoverview Transfer to Job Cards ▸ "Multi Update" toolbar button ▸ Multi-Edit dialog.
+ *
+ * Relocated from a "More actions ▸ Multi-Edit" menu item to its own top-level
+ * toolbar button (verified live 2026-09-24) — the entry point moved, this
+ * dialog and its testids did not.
  *
  * Distinct from the Input grids' Multi Update bar (WebpetDataGridComponent): that
- * bar edits six Select-only fields, this dialog edits eighteen. web-pet's 4 → 19
- * field expansion landed here, not there.
+ * bar edits six Select-only fields, this dialog edits nineteen (GPS Reading is
+ * module-gated, useModule('GPS')).
  *
  * Flow: fieldSelect → a Value control → Continue (a dryRun POST) → review stage →
  * Apply. There is no bulk-fix-undo endpoint, so Apply is irreversible.
@@ -27,6 +31,8 @@ export type MultiEditFieldValue =
     | 'timeOnly'
     | 'traceabilityCode'
     | 'memo'
+    /** Module-gated (useModule('GPS') → TigerMaster Mapping) — absent when the module is off. */
+    | 'gpsReading'
     | 'cardType'
     | 'transferred'
     | 'numOfPieces'
@@ -144,6 +150,7 @@ export class WebpetMultiEditDialogComponent extends BaseComponent {
                 return this.timeInput;
             case 'traceabilityCode':
             case 'memo':
+            case 'gpsReading':
                 return this.textControl;
             case 'cardType':
             case 'transferred':

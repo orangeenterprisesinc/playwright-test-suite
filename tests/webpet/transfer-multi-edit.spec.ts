@@ -83,12 +83,12 @@ async function openMultiEditOnPopulatedDay(
     const rowA = dataRows.nth(0);
     const rowB = dataRows.nth(1);
 
-    // Reference is column index 12 (plan Finding 3) — read it back rather than assume a
-    // counter, then select through the page object's own by-reference lookup.
-    const referenceA = ((await transfer.cellAt(rowA, 12).textContent()) ?? '').trim();
-    const referenceB = ((await transfer.cellAt(rowB, 12).textContent()) ?? '').trim();
-    await transfer.selectRowByReference(referenceA);
-    await transfer.selectRowByReference(referenceB);
+    // Select the already-located rows directly — no column index or reference text
+    // involved, so a future grid-column shuffle cannot break selection the way
+    // scraping the Reference cell by a magic index once did (cellAt's own map was
+    // re-verified live on 2026-09-24 and is accurate).
+    await transfer.selectRow(rowA);
+    await transfer.selectRow(rowB);
 
     await transfer.openMultiEdit();
     return true;
@@ -114,6 +114,9 @@ const FIELD_MATRIX: {
     { value: 'timeOnly', label: 'Time', kind: 'timeOnly' },
     { value: 'traceabilityCode', label: 'Traceability', kind: 'text' },
     { value: 'memo', label: 'Memo', kind: 'text' },
+    // Module-gated (useModule('GPS') → TigerMaster Mapping); dev's PT_MODULES has it
+    // on, so it renders here — filtered out below on an environment without it.
+    { value: 'gpsReading', label: 'GPS Reading', kind: 'text' },
     { value: 'cardType', label: 'Type', kind: 'choice' },
     { value: 'transferred', label: 'Transferred', kind: 'choice' },
     { value: 'numOfPieces', label: 'Number of Pieces', kind: 'number' },
@@ -132,6 +135,7 @@ const BLANK_ENABLED_FIELDS: MultiEditFieldValue[] = [
     'agRowCounter',
     'traceabilityCode',
     'memo',
+    'gpsReading',
     'numOfPieces',
     'breakTime',
 ];
@@ -155,7 +159,7 @@ test.describe('Transfer to Job Cards — Multi-Edit field matrix', { tag: ['@Web
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0412' },
     }, async ({ page, request }) => {
-        // Date-range + Analyze + an 18-way field walk comfortably exceeds the parity
+        // Date-range + Analyze + a 19-way field walk comfortably exceeds the parity
         // project's 30s test budget (plan's Implementation approach item 1).
         test.setTimeout(90_000);
 
@@ -175,10 +179,10 @@ test.describe('Transfer to Job Cards — Multi-Edit field matrix', { tag: ['@Web
                     "GPS Reading is absent — useModule('GPS') is off (dev reads PT_MODULES; the admin panel cannot enable it). The label assertion below self-enables if it is ever licensed.",
             });
         }
-        const actualLabels = options.map((o) => o.label).filter((label) => label !== 'GPS Reading');
-        expect(actualLabels).toEqual(FIELD_MATRIX.map((f) => f.label));
+        const expectedMatrix = gpsPresent ? FIELD_MATRIX : FIELD_MATRIX.filter((f) => f.value !== 'gpsReading');
+        expect(options.map((o) => o.label)).toEqual(expectedMatrix.map((f) => f.label));
 
-        for (const entry of FIELD_MATRIX) {
+        for (const entry of expectedMatrix) {
             await multiEdit.selectField(entry.value);
 
             switch (entry.kind) {
@@ -201,12 +205,15 @@ test.describe('Transfer to Job Cards — Multi-Edit field matrix', { tag: ['@Web
                     await expect(multiEdit.timeInput).toHaveAttribute('type', 'time');
                     break;
                 case 'text':
-                    if (entry.value === 'traceabilityCode') {
-                        await expect(multiEdit.textInputControl).toBeVisible();
-                        await expect(multiEdit.textInputControl).toHaveAttribute('maxlength', '100');
-                    } else {
+                    // Memo alone is a textarea; Traceability and GPS Reading (same
+                    // testid, input maxlength 100 — verified live 2026-09-24) share
+                    // the single-line input.
+                    if (entry.value === 'memo') {
                         await expect(multiEdit.textAreaControl).toBeVisible();
                         await expect(multiEdit.textAreaControl).toHaveAttribute('maxlength', '4000');
+                    } else {
+                        await expect(multiEdit.textInputControl).toBeVisible();
+                        await expect(multiEdit.textInputControl).toHaveAttribute('maxlength', '100');
                     }
                     break;
                 case 'choice': {
@@ -251,7 +258,14 @@ test.describe('Transfer to Job Cards — Multi-Edit field matrix', { tag: ['@Web
 
         const multiEdit = transfer.multiEdit;
 
-        for (const field of BLANK_ENABLED_FIELDS) {
+        // GPS Reading is module-gated (useModule('GPS')) — drop it on an environment
+        // where the field select never offers it, same guard as WP-0412.
+        const gpsPresent = (await multiEdit.fieldOptions()).some((o) => o.label === 'GPS Reading');
+        const blankEnabledFields = gpsPresent
+            ? BLANK_ENABLED_FIELDS
+            : BLANK_ENABLED_FIELDS.filter((f) => f !== 'gpsReading');
+
+        for (const field of blankEnabledFields) {
             await multiEdit.selectField(field);
             await expect(multiEdit.continueButton, `${field} should allow a blank value (relaxed guard)`).toBeEnabled();
         }

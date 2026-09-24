@@ -10,7 +10,7 @@ import { apiUrl } from '@config/webpetEnv';
  */
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureJob, deleteJob, type EnsuredJob } from './data-factory';
+import { ensureJob, deleteJob, lockIdentifierGate, type EnsuredJob } from './data-factory';
 
 // This file owns its own Job, created fresh via the API (no dependency on a
 // seeded "0 - PISCA" / "0-Boxing" row). Assert against `job.*`, never a literal
@@ -179,15 +179,40 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
         await expect(form.codeInput).toHaveValue(job.code);
     });
 
-    test('[Job] Verify that the name, alias, code and export identifier are read-only.', {
+    test('[Job] Verify that the name, code and export identifier lock under the WEBPET-2006 gate and Alias never does.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0235' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // The WEBPET-2006 gate (readonly = !isNew && !(isSU || <flag>)) reads
+        // /api/setup-identifier-preferences, not /api/preferences (measured
+        // 2026-09-24). As su every flag is satisfied, so all four fields are
+        // editable — this diverges from WEBPET-2682's "generated code locks on
+        // edit" and is a trip-wire: if the app re-locks them for su this reds.
         const form = pages.jobForm;
         await form.gotoEdit(job.id);
         await form.waitForForm();
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.aliasInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        // Non-SU with all three flags closed: Name/Code/Export Identifier lock,
+        // Alias stays editable in every combination tested — no flag gates it.
+        await page.route('**/api/session/me', async (route) => {
+            const response = await route.fetch();
+            const body = await response.json().catch(() => null);
+            if (body?.user) body.user.isSU = false;
+            await route.fulfill({ response, json: body });
+        });
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordBarcodeModification: false,
+            allowRecordExportIdModify: false,
+        });
+        await form.gotoEdit(job.id);
+        await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
-        await expect(form.aliasInput).toHaveAttribute('readonly', '');
+        await expect(form.aliasInput).not.toHaveAttribute('readonly', '');
         await expect(form.codeInput).toHaveAttribute('readonly', '');
         await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
     });
