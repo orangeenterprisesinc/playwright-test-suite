@@ -30,7 +30,7 @@
  * row" problem (soft-deleted rows still occupy the name) — every run uses a new
  * name, mirroring variety-equivalence-cucumbers-european.spec.ts's RUN_TOKEN.
  */
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { Logger } from '@utils/logger'
 // The token scheme lives with its decoder so the residue sweep can date every
 // record this factory makes; `uniqueName` is re-exported unchanged for the specs.
@@ -57,6 +57,30 @@ export function uniqueCode(): string {
 
 async function bodyText(res: { text: () => Promise<string> }): Promise<string> {
   return res.text().catch(() => '<unreadable body>')
+}
+
+// ── WEBPET-2006 identifier gate ──────────────────────────────────────────────
+
+export interface IdentifierGateFlags {
+  allowRecordNameModification?: boolean
+  allowRecordBarcodeModification?: boolean
+  allowRecordExportIdModify?: boolean
+}
+
+/**
+ * Closes the WEBPET-2006 identifier gate client-side by rewriting
+ * `GET /api/setup-identifier-preferences` — the flags moved off `/api/preferences`
+ * (measured 2026-09-24; rewriting `/api/preferences*` now has no effect on the
+ * gate). Only the flags passed are overridden; the rest of the response is
+ * forwarded unchanged.
+ */
+export async function lockIdentifierGate(page: Page, flags: IdentifierGateFlags): Promise<void> {
+  await page.route('**/api/setup-identifier-preferences*', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json().catch(() => null)
+    if (body) Object.assign(body, flags)
+    await route.fulfill({ response, json: body })
+  })
 }
 
 // ── Crew ────────────────────────────────────────────────────────────────────

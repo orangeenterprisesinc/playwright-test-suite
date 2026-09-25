@@ -16,6 +16,7 @@ import {
     deleteDepartment,
     ensureEmployee,
     deleteEmployee,
+    lockIdentifierGate,
     type EnsuredCrew,
     type EnsuredDepartment,
     type EnsuredEmployee,
@@ -230,19 +231,14 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
             if (body?.user) body.user.isSU = false;
             await route.fulfill({ response, json: body });
         });
-        await page.route('**/api/preferences*', async (route) => {
-            const response = await route.fetch();
-            const body = await response.json().catch(() => null);
-            if (body) body.allowRecordNameModification = false;
-            await route.fulfill({ response, json: body });
-        });
+        // The gate flag lives on /api/setup-identifier-preferences, not
+        // /api/preferences (measured 2026-09-24). Only Name's flag is closed here,
+        // so Code stays editable via its own untouched allowRecordBarcodeModification.
+        await lockIdentifierGate(page, { allowRecordNameModification: false });
         const form = pages.employeeForm;
         await form.gotoEdit(emp.id);
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
-        // Rewriting isSU reaches the Name gate but not Code's — Code stays editable
-        // here even though WP-0408's real non-SU session sees it locked, so whatever
-        // now gates it is server-side, not the session/me body.
         await expect(form.codeInput).not.toHaveAttribute('readonly', '');
     });
 
@@ -290,11 +286,11 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
             // No /api/session/me rewrite here (unlike WP-0407): the non-SU
             // account already answers isSU=false truthfully server-side, so
             // patching the response would duplicate a real signal, not add one.
-            await nonSuPage.route('**/api/preferences*', async (route) => {
-                const response = await route.fetch();
-                const body = await response.json().catch(() => null);
-                if (body) body.allowRecordNameModification = false;
-                await route.fulfill({ response, json: body });
+            // Both flags close: Code must be genuinely locked so the editable
+            // Name below is attributable only to the temp-name escape hatch.
+            await lockIdentifierGate(nonSuPage, {
+                allowRecordNameModification: false,
+                allowRecordBarcodeModification: false,
             });
 
             // No locale pin (unlike the fixture's `context` override) — these

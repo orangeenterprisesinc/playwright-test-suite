@@ -12,7 +12,10 @@
  * propagation test does not cover this — Field keys options by name.
  *
  * The date filters narrow the grid to a populated day so the first data rows are
- * reliably in the DOM, below the 100-row virtualization threshold.
+ * reliably in the DOM, below the 100-row virtualization threshold. Since the
+ * screen started deferring loads behind an Apply button (measured 2026-09-24:
+ * filling both inputs alone still loads zero rows — "Choose a date range and
+ * click Apply to load records."), {@link filterToDay} must click it too.
  */
 import { Locator, Page } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
@@ -25,12 +28,15 @@ export class TimeInListPage extends WebpetListPage {
     readonly filterFrom: Locator;
     /** End of the date window. */
     readonly filterTo: Locator;
+    /** Commits the date window — the grid loads nothing until this is clicked. */
+    readonly applyButton: Locator;
 
     constructor(page: Page) {
         super(page, '/input/time-in', /time in/i);
 
         this.filterFrom = page.locator('#filter-from');
         this.filterTo = page.locator('#filter-to');
+        this.applyButton = page.getByRole('button', { name: /^apply$/i });
     }
 
     /**
@@ -44,10 +50,11 @@ export class TimeInListPage extends WebpetListPage {
      */
     static readonly RANCH_CELL_INDEX = 5;
 
-    /** Narrow the grid to a single day, so the first data rows are present. */
+    /** Narrow the grid to a single day and load it — filling the inputs alone loads nothing. */
     async filterToDay(day: string): Promise<void> {
         await this.filterFrom.fill(day);
         await this.filterTo.fill(day);
+        await this.applyButton.click();
     }
 
     /** The Ranch cell's editable control for a given row. */

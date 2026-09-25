@@ -78,10 +78,14 @@ export class TransferToJobCardsPage extends BasePage {
     /** The Issues breakdown panel below the grid. */
     readonly issuesRegion: Locator;
 
-    // ── Multi-Edit (More actions ▸ Multi-Edit) ──────────────────────
-    /** Role-based, not a testid: only the dialog's own multi-edit-* testids were DOM-verified. */
-    readonly moreActionsButton: Locator;
-    readonly multiEditMenuItem: Locator;
+    // ── Multi-Edit (top-level "Multi Update" toolbar button) ──────────────────────
+    /**
+     * Role-based, not a testid. Relocated from a "More actions ▸ Multi-Edit" menu
+     * item to its own top-level toolbar button (verified live 2026-09-24, mirroring
+     * the same rework Time In's Multi Update bar already got) — the "More actions"
+     * menu now holds only "Set crew" and "Delete Time Cards".
+     */
+    readonly multiUpdateButton: Locator;
     readonly multiEdit: WebpetMultiEditDialogComponent;
 
     /**
@@ -144,8 +148,7 @@ export class TransferToJobCardsPage extends BasePage {
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
 
-        this.moreActionsButton = page.getByRole('button', { name: /more actions/i });
-        this.multiEditMenuItem = page.getByRole('menuitem', { name: /^Multi-Edit$/i });
+        this.multiUpdateButton = page.getByRole('button', { name: /^Multi Update$/i });
         this.multiEdit = new WebpetMultiEditDialogComponent(page);
 
         this.timeInPanel = page
@@ -454,10 +457,14 @@ export class TransferToJobCardsPage extends BasePage {
         await row.getByRole('checkbox').first().check();
     }
 
-    /** Opens More actions ▸ Multi-Edit on the currently selected rows. */
+    /** Selects an already-located row (e.g. from {@link rows}) — no reference text or index needed. */
+    async selectRow(row: Locator): Promise<void> {
+        await row.getByRole('checkbox').first().check();
+    }
+
+    /** Opens Multi-Edit on the currently selected rows via the "Multi Update" toolbar button. */
     async openMultiEdit(): Promise<void> {
-        await this.moreActionsButton.click();
-        await this.multiEditMenuItem.click();
+        await this.multiUpdateButton.click();
         await this.multiEdit.waitForOpen();
     }
 
