@@ -682,6 +682,11 @@ export interface EnsuredJob {
  * field and reads like a duplicate name. Measured on dev 2026-09-25: with a
  * `code` any name creates 201, without one every name 409s, including names no
  * row has ever held. `uniqueCode`'s 99* namespace stays clear of the counter.
+ *
+ * Dev's counter was reset the same day (fieldJobNextBarCode 33966 → 41000, past
+ * the 40613 in use). The explicit code stays regardless: the counter drifts
+ * behind again every time codes are imported, and the suite should not depend
+ * on someone having noticed.
  */
 export async function ensureJob(
   request: APIRequestContext,
