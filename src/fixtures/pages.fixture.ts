@@ -26,6 +26,7 @@ import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
+import { CrewTablePage } from '../pages/setup/CrewTablePage';
 
 /**
  * Every page object, lazily constructed.
@@ -46,6 +47,8 @@ export interface PageObjects {
     readonly preferences: PreferencesPage;
     /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
     readonly scanDevice: ScanDevicePage;
+    /** Setup ▸ Table — pack-house sub-crew tables, `/setup/crew-tables` (C6). */
+    readonly crewTable: CrewTablePage;
 
     // ── Input ▸ processing ──────────────────────────────────────────
     /** Transfer to Job Card review screen (D2/D4; Journey B verification). */
@@ -77,6 +80,7 @@ export function createPageObjects(page: Page): PageObjects {
         get users() { return lazy('users', () => new UsersPage(page)); },
         get preferences() { return lazy('preferences', () => new PreferencesPage(page)); },
         get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
+        get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
     };

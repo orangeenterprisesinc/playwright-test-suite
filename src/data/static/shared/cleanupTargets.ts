@@ -42,6 +42,7 @@ const uid = (prefix: string): SweepPrefix => ({ prefix, token: 'uid' });
 /** Names that must never be swept, whatever prefix they might one day share. */
 export const PROTECTED_NAME_PATTERNS: readonly RegExp[] = [
     /^B\d{1,2} /, // Journey B fixture: B1 RANCH, B5 STICKER SIX, B12 Break …
+    /^C\d{1,2} /, // Journey C fixture: C6 CREW, C6 TABLE ONE …
     /^RestrictedTest/, // reused webpet non-SU login
     /^(ADP 5|Crew 01|DFV|Forklift|su|Admin)$/, // seed rows and logins
 ];
@@ -79,6 +80,8 @@ const TARGETS: readonly CleanupTarget[] = [
         order: 31,
         prefixes: [factory('E2ECrop_'), factory('E2EPickCropV_'), factory('E2EPickCropN_'), factory('E2EVarCrop_')],
     },
+    // A table's FK points at its crew (and employees may point at the table), so it sits between them.
+    { entity: 'crewTable', listPath: 'crew-tables', idKey: 'crewTableCounter', order: 38, prefixes: [factory('E2ECrewTable_')] },
     { entity: 'crew', listPath: 'crews', idKey: 'crewCounter', order: 40, prefixes: [factory('E2ECrew_')] },
     {
         entity: 'department',
