@@ -3,7 +3,11 @@
     "Rows on dev staging that no code in this repo can remove, with the evidence for each.",
     "The residue sweep skips them instead of burning a DELETE per row per run — six failed deletes cost ~10s and buried the real 409s in warn noise for weeks (run 35589360814 reported candidates 3 / deleted 0 and nobody noticed).",
     "They are inert: every identifier the suite mints is run- and attempt-unique, so a stranded row can never collide with a future run. Burn-down list, not a permanent excuse — delete an entry the moment the API can clear it.",
-    "A row whose blocker is a TRANSFERRED time card does not need an entry: the reconcile detects those at runtime and hands the ids to the sweep."
+    "A row whose blocker is a TRANSFERRED time card does not need an entry: the reconcile detects those at runtime and hands the ids to the sweep.",
+    "entities: a whole kind of record the API cannot delete today, for rows whose names change every run and so cannot be listed one by one. Same burn-down rule: delete the entry the moment the API can clear them."
+  ],
+  "entities": [
+    { "entity": "crewTable", "code": "invalid_version", "reason": "GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so the rowversion DELETE needs is unobtainable and every delete answers 400 invalid_version; C6-001 leaves one E2ECrewTable_ row per run", "ticket": "PET-12656", "since": "2026-09-25" }
   ],
   "rows": [
     { "entity": "employee", "name": "E2EReconEmp_7IMSU4_1, Test", "code": "fk_in_use", "reason": "2 related records; no transferred card found in a 30-day window, so the blocker is outside anything this suite can delete (EmployeeCodeHistory has no DELETE endpoint at all)", "ticket": "WEBPET-1798" },
