@@ -1,0 +1,35 @@
+{
+  "_notes": [
+    "Deterministic Journey C fixture — no random data. Codes follow the catalog barcode rule (>=4 digits, no leading zero, unique) and sit in the 7000 block so they never collide with Journey B's 4000-6000 block. Discovered-not-recreated on dev staging by src/utils/journeys/journeyCFlow.ts (ensureCrew/ensureEmployee), never deleted.",
+    "Ranch 4001 / field 4101 / job 4201 are Journey B's fixture rows, reused read-only for the punch context — a table is a reporting grouping inside a crew, so C6 needs no rows of its own beyond the crew and its workers.",
+    "Names start with 'C6 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^C[0-9]{1,2} / so the residue sweep can never reclaim them. The crew table itself is run-unique (E2ECrewTable_ prefix) and IS swept.",
+    "table is the fixed pack-house table C6-002 clocks in against: discovered-not-recreated by ensureCrewTable, never deleted. It exists because GET /crew-tables/{id} answers 500 on dev (2026-09-25, mssql: Invalid object name 'ct.TimeStamp'), which makes every crew table undeletable (DELETE needs the rowversion only the detail carries) - a run-unique table would leak one row per run. C6-001 still creates a run-unique table on screen and declares it unremovable until that is fixed."
+  ],
+  "entities": {
+    "crew": {
+      "code": "7001",
+      "name": "C6 CREW"
+    },
+    "tableWorkers": [
+      {
+        "code": "7002",
+        "name": "C6 TABLE ONE"
+      },
+      {
+        "code": "7003",
+        "name": "C6 TABLE TWO"
+      },
+      {
+        "code": "7004",
+        "name": "C6 TABLE THREE"
+      }
+    ],
+    "supervisor": {
+      "code": "7005",
+      "name": "C6 SUPERVISOR"
+    },
+    "table": {
+      "name": "C6 TABLE A"
+    }
+  }
+}

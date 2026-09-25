@@ -62,3 +62,37 @@ export function punchTime(hour = 7, minute = 15, date = new Date()): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hour)}:${pad(minute)}:00`;
 }
+
+/**
+ * One row per punch the crew time-in wrote, as `GET time-cards/crew-time-in?from&to` lists them.
+ * This is the only read that carries the table: the generic `GET time-cards` omits
+ * `crewTableCounter` (verified on dev 2026-09-25).
+ */
+export interface CrewTimeInRow {
+    timeCardCounter: number;
+    reference?: string;
+    dateTime?: string;
+    employeeCounter?: number | null;
+    employeeCode?: string | null;
+    crewCounter?: number | null;
+    crewName?: string | null;
+    crewTableCounter?: number | null;
+    crewTableName?: string | null;
+    ranchCounter?: number | null;
+    fieldCounter?: number | null;
+    jobCounter?: number | null;
+    version?: string;
+    [key: string]: unknown;
+}
+
+export async function listCrewTimeIns(
+    request: APIRequestContext,
+    opts: { from: string; to: string },
+): Promise<CrewTimeInRow[]> {
+    const res = await request.get('time-cards/crew-time-in', { params: { from: opts.from, to: opts.to } });
+    if (!res.ok()) {
+        throw new Error(`GET time-cards/crew-time-in failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
+    }
+    const body = (await res.json()) as CrewTimeInRow[] | { items?: CrewTimeInRow[]; data?: CrewTimeInRow[] };
+    return Array.isArray(body) ? body : (body.items ?? body.data ?? []);
+}

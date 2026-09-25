@@ -109,8 +109,14 @@ const STRANDED_ROWS: ReadonlySet<string> = new Set(
     (STRANDED_RESIDUE.rows as Array<{ entity: string; name: string }>).map((r) => `${r.entity}::${r.name}`),
 );
 
+// A kind whose rows the API cannot delete at all today (crew tables: the detail GET 500s, so
+// no rowversion) — the names are run-unique, so the burn-down entry is per entity, not per row.
+const STRANDED_ENTITIES: ReadonlySet<string> = new Set(
+    ((STRANDED_RESIDUE as { entities?: Array<{ entity: string }> }).entities ?? []).map((e) => e.entity),
+);
+
 function isKnownStranded(entity: string, name: string): boolean {
-    return STRANDED_ROWS.has(`${entity}::${name.trim()}`);
+    return STRANDED_ENTITIES.has(entity) || STRANDED_ROWS.has(`${entity}::${name.trim()}`);
 }
 
 export function envNumber(name: string, fallback: number): number {

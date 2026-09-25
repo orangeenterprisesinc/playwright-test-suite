@@ -1,0 +1,51 @@
+{
+  "_notes": [
+    "C6 - Sub-crew ('tables') capture, office half (catalog C6, plan test-plans/journey-c/c06-sub-crew-tables-capture.md, runner rows C6-001/C6-002). dayOffset -10 is Journey C's own fixture day, distinct from Journey B's 0...-9 block, so the two suites never collide on the same day's cards.",
+    "table.source 'fixture' (C6-002) targets the fixed 'C6 TABLE A' row from src/data/journey-c/fixture.json, ensured through the API and never deleted: GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so DELETE has no rowversion to send and a run-unique table would leak one row per run. C6-001 still mints a run-unique table on screen - that IS the workflow step - and declares it unremovable until the defect is fixed, then its cleanup step switches to 'delete'.",
+    "C6-002's capture clocks the three fixture table workers (7002-7004) in against the table and the fixture supervisor (7005) in with no table, so the roll-up partitions a non-trivial 3 on-table + 1 off-table = 4, not a trivial 3 = 3 / 0 off.",
+    "C6-003 (reopen a saved table from the grid, C6-R6) is not in this file: GET /crew-tables/{id} 500s on dev today, so the Edit page cannot be exercised. It is tracked in the runner CSV with enabled=0 until the defect is fixed."
+  ],
+  "shared": {
+    "workflow": "C6",
+    "dayOffset": -10,
+    "punch": { "hour": 7, "minute": 15 },
+    "screen": {
+      "messages": {
+        "tableCreated": "Table created",
+        "duplicateName": "A table with this name already exists for this crew."
+      }
+    },
+    "annotations": [
+      {
+        "type": "not-automatable",
+        "description": "C6-R4 report by table / roll up to crew: reports are not on the web yet (PET-12682); the roll-up is asserted at data level over GET time-cards/crew-time-in."
+      },
+      {
+        "type": "not-automatable",
+        "description": "C6-R5 kiosk capture is device-only; the office receives the punches."
+      }
+    ]
+  },
+  "cases": {
+    "C6-001": {
+      "label": "c06-table-setup",
+      "table": { "source": "minted", "withSupervisor": true },
+      "cleanup": [
+        {
+          "kind": "unremovable",
+          "entity": "crewTable",
+          "reason": "GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name ct.TimeStamp), so no rowversion is obtainable and DELETE answers 400 invalid_version; one run-unique table is left per run until the API is fixed, then switch this step to kind delete with name {tableName}"
+        }
+      ]
+    },
+    "C6-002": {
+      "label": "c06-capture-by-table",
+      "table": { "source": "fixture", "withSupervisor": true },
+      "capture": { "workerCodes": ["7002", "7003", "7004"], "offTableCodes": ["7005"] },
+      "expected": { "cardType": 1, "cardsOnTable": 3, "cardsOffTable": 1 },
+      "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["7002", "7003", "7004", "7005"], "dayOffset": -10, "cardTypes": [1] }
+      ]
+    }
+  }
+}

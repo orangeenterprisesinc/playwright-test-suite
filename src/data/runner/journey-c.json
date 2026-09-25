@@ -111,10 +111,10 @@
             "id": "C6-001",
             "workflow": "C6",
             "journey": "C",
-            "category": "api",
-            "testName": "subCrewTablesCapture",
-            "testTitle": "Sub-crew (\"tables\") capture",
-            "testDescription": "Workers in a large crew are grouped into tables of three to five under a shared supervisor, and output can be reported per table or rolled to the crew. A table is a reporting grouping, not a separate data structure.",
+            "category": "ui",
+            "testName": "crewTableSetup",
+            "testTitle": "Sub-crew (\"tables\") capture - table setup",
+            "testDescription": "Create a table under a crew with a supervisor on Setup > Table and verify it is listed under that crew and present on the API (office-side half of C6).",
             "segments": [
                 "pack-house"
             ],
@@ -124,6 +124,49 @@
             "tags": [
                 "regression"
             ],
+            "jira": "PET-12656",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "C6-002",
+            "workflow": "C6",
+            "journey": "C",
+            "category": "workflow",
+            "testName": "captureByTableRollUp",
+            "testTitle": "Sub-crew (\"tables\") capture - capture and roll-up",
+            "testDescription": "Clock a table of three in against the table, verify each Time In card carries the table and the crew, the day rolls up from table to crew, and the office Crew Time In form shows the Table.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12656",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "C6-003",
+            "workflow": "C6",
+            "journey": "C",
+            "category": "ui",
+            "testName": "crewTableReopen",
+            "testTitle": "Sub-crew (\"tables\") capture - reopen a saved table",
+            "testDescription": "Open a saved table from the Tables grid and see its record in the Edit Table form. Disabled: GET /crew-tables/{id} answers 500 on dev (Invalid object name ct.TimeStamp), so the Edit page shows Table not found - product defect, not a suite gap.",
+            "segments": [
+                "pack-house"
+            ],
+            "modules": [
+                "Windows"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12656",
             "status": "draft",
             "enabled": false
         },
