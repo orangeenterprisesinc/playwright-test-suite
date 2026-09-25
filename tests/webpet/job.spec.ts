@@ -104,9 +104,8 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         // This file's own job name triggers a server 409 on submit.
         //
         // No dialog handler: the 409 has not surfaced via a native alert() since the
-        // toast migration — it renders as a sonner error toast, asserted below.
-        // Playwright auto-dismisses any dialog when no handler is registered, so
-        // dropping it cannot hang the test.
+        // toast migration. Playwright auto-dismisses any dialog when no handler is
+        // registered, so dropping it cannot hang the test.
         await form.gotoNew();
         await form.fillName(job.name);
         await form.pickFirstOvertimeRule();
@@ -126,13 +125,18 @@ test.describe('New job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPBa
         // "Saving..." forever, and the old two assertions below still held (Save was
         // eventually re-enabled and the URL never changed). The message is the point
         // of a negative test, so it is what gets asserted.
-        await expect(pages.toasts.errorToasts.first()).toBeVisible({ timeout: 10000 });
-        await expect(
-            pages.toasts.message(/Failed to create job: (Already in use|A job with this Name already exists)/i),
-        ).toBeVisible();
+        //
+        // The surface is inline, not a toast: the create 409 is field-scoped
+        // (`errors:[{field:"name",errorCode:"unique"}]`), and the SPA routes that
+        // into formState.errors.name — same mapping crop.spec.ts asserts in WP-0102.
+        // `.first()` because with "Allow Duplicate Job Export ID" off the
+        // auto-populated Export Identifier raises a second copy of the message.
+        await expect(form.duplicateError.first()).toBeVisible({ timeout: 10000 });
+        await expect(form.footer.errorSummaryButton).toBeVisible();
 
-        // …and the user is left able to correct it, still on the create form.
-        await expect(form.footer.saveButton).toBeEnabled({ timeout: 10000 });
+        // …and the user is held on the create form until they correct it: an
+        // inline field error keeps Save shut ("Fix errors to save").
+        await expect(form.footer.saveButton).toBeDisabled({ timeout: 10000 });
         await expect(page).toHaveURL(/\/setup\/jobs\/new/);
     });
 

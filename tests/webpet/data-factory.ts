@@ -674,6 +674,14 @@ export interface EnsuredJob {
  * (e.g. 8 = Non-Labor, 15 = Extra Wages, both required for includeIdleTime).
  * This is enough to open the JobFormPage; specs assert against the returned
  * id/name/code, never a hardcoded /setup/jobs/1 or a seeded "0 - PISCA".
+ *
+ * `code` is sent explicitly for the same reason `ensureEmployee` sends one: left
+ * out, the server hands out the next JobNextBarCode, and once that counter falls
+ * behind the highest code already in the table EVERY code-less create fails —
+ * as 409 `{"code":"unique","errors":[{"field":"name"}]}`, which names the wrong
+ * field and reads like a duplicate name. Measured on dev 2026-09-25: with a
+ * `code` any name creates 201, without one every name 409s, including names no
+ * row has ever held. `uniqueCode`'s 99* namespace stays clear of the counter.
  */
 export async function ensureJob(
   request: APIRequestContext,
@@ -686,10 +694,18 @@ export async function ensureJob(
   )
   const name = uniqueName(opts.namePrefix ?? 'E2EJob')
   const res = await request.post('/api/jobs', {
-    data: { name, active: true, paymentType: opts.paymentType ?? 0, overtimeRulesCounter },
+    data: {
+      name,
+      code: uniqueCode(),
+      active: true,
+      paymentType: opts.paymentType ?? 0,
+      overtimeRulesCounter,
+    },
   })
   if (!res.ok()) {
-    throw new Error(`ensureJob: POST /api/jobs failed (${res.status()}): ${await bodyText(res)}`)
+    throw new Error(
+      `ensureJob: POST /api/jobs (name=${name}) failed (${res.status()}): ${await bodyText(res)}`
+    )
   }
   const { jobCounter } = (await res.json()) as { jobCounter: number }
   if (!jobCounter) throw new Error('ensureJob: response missing jobCounter')

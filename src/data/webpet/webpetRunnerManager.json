@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-14T10:32:21.243Z",
+    "generatedAt": "2026-09-25T11:28:46.974Z",
     "total": 411,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -3764,7 +3764,7 @@
       "jira": "WEBPET-1831",
       "status": "automated",
       "enabled": true,
-      "notes": "Fixed 2026-08-07 and passing on dev; ported from dry-run to main 2026-08-12 after CI run 31587447655 red-flagged it (main never had the fix). Two changes. (1) Racy click: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. (2) Added the missing assertion: the test now asserts the 409 is actually REPORTED (error toast + 'A job with this Name already exists') instead of only checking Save came back and the URL held — those two alone also describe a form where the user was shown nothing, which is exactly what happened during a transient API stall on 2026-08-07 (see bug-ticket-BUG-24.txt; the stall itself did not recur and is not a product defect). The stale native-alert dialog handler was dropped: the conflict renders as a sonner toast now."
+      "notes": "Fixed 2026-08-07 and passing on dev; ported from dry-run to main 2026-08-12 after CI run 31587447655 red-flagged it (main never had the fix). Two changes. (1) Racy click: the test filled Hourly Rate without blurring, and since WEBPET-1831 validation runs on blur, Save stayed disabled unless an unrelated async re-validation happened to land after the fill — it did locally (~1.5s) and did not in CI, so the click burned the 30s timeout. Now blurs and waits via toBeEnabled before clicking, matching WP-0229. (2) Added the missing assertion: the test now asserts the 409 is actually REPORTED (error toast + 'A job with this Name already exists') instead of only checking Save came back and the URL held — those two alone also describe a form where the user was shown nothing, which is exactly what happened during a transient API stall on 2026-08-07 (see bug-ticket-BUG-24.txt; the stall itself did not recur and is not a product defect). The stale native-alert dialog handler was dropped: the conflict renders as a sonner toast now. Realigned 2026-09-25 after CI run 36124662543: the create 409 is field-scoped and the SPA now maps it to an inline Name error (\"Already in use\" + the footer \"1 error\" chip) with Save held disabled, so no error toast is raised at all. The test now asserts the inline pair, matching crop.spec.ts WP-0102, and expects Save disabled rather than re-enabled."
     },
     {
       "id": "WP-0233",
@@ -3801,12 +3801,12 @@
     {
       "id": "WP-0235",
       "file": "job.spec.ts",
-      "titlePath": "Edit job form > [Job] Verify that the name, alias, code and export identifier are read-only.",
+      "titlePath": "Edit job form > [Job] Verify that the name, code and export identifier lock under the WEBPET-2006 gate and Alias never does.",
       "caseKey": "",
       "module": "job",
       "category": "ui",
       "testName": "nameAliasCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Job] Verify that the name, alias, code and export identifier are read-only.",
+      "testTitle": "[Job] Verify that the name, code and export identifier lock under the WEBPET-2006 gate and Alias never does.",
       "testDescription": "Name, Alias, Code and Export Identifier are all readonly once the job exists — the widest read-only set of the setup forms.",
       "tags": "@WebPet|@wp-setup|@wp-jobs|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "",
