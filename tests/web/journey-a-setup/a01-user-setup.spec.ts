@@ -13,7 +13,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
     test('[User Setup] End-to-end: create a user, verify it in the Users list, edit it, then delete it.', {
         tag: ['@Smoke', '@HighLevel', '@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'A1-001' },
+            { type: 'testCaseId', description: 'A1' },
         ],
     }, async ({ usersPage, sessionApi }, testInfo) => {
         const scenario = await loadScenario(UserSetupCaseSchema, testInfo);
@@ -27,7 +27,7 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         await usersPage.openEditUser(user.name);
         await expect(usersPage.nameInput).toHaveValue(user.name);
 
-        // Deleting is what A1-R8 asks for — a step, not teardown; the grid check is the proof it took effect.
+        // Deleting is part of the workflow — a step, not teardown; the grid check is the proof it took effect.
         const userId = await findUserIdByName(sessionApi, user.name);
         expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
         await deleteUserById(sessionApi, userId!);

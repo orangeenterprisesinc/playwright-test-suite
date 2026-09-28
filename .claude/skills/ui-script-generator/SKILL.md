@@ -61,7 +61,7 @@ the licence modules.
 | Catalog entry | `src/data/catalog/workflow-catalog.json` → `A1` |
 | Plan | `test-plans/journey-a/a01-user-setup.md` |
 | Spec | `tests/web/journey-a-setup/a01-user-setup.spec.ts` |
-| Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
+| Runner rows | `src/data/runner/journey-a.csv` → `A1`… |
 
 **Folder** — there is only **one**, `tests/web/` (a spec that never destructures `page`
 opens no browser). Category comes from the catalog entry's `surface`; three categories
@@ -79,7 +79,7 @@ Existing folders: `tests/web/{system,journey-a-setup,journey-b-field,journey-d-o
 `npm run runner:check` enforces this mapping (`CATEGORY_FOLDER` in
 `scripts/runner/check.js`), so a spec in the wrong folder fails immediately.
 
-**Ids** — `<workflow>-<nnn>`: `A1-001`, `D4-002`. Never invent a new prefix scheme.
+**Ids** — `<workflow>`: `A1`, `D4`. Never invent a new prefix scheme.
 Non-catalog framework tests (login, auth) use `UI-00X` in `src/data/runner/system.csv`.
 
 **Tags** — one describe per workflow, named for it, carrying both selection tags:
@@ -88,7 +88,7 @@ Non-catalog framework tests (login, auth) use `UI-00X` in `src/data/runner/syste
 test.describe('A2 · Ranch, field, crop, and variety setup', { tag: ['@JourneyA', '@A2'] }, () => {
     test('[Ranch] Verify that …', {
         tag: ['@UI', '@Regression'],
-        annotation: { type: 'testCaseId', description: 'A2-001' },
+        annotation: { type: 'testCaseId', description: 'A2' },
     }, async ({ pages, cleanup }) => { /* … */ });
 });
 ```

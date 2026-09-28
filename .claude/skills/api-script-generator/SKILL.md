@@ -35,7 +35,7 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
   category. The category comes from the catalog entry's `surface`:
   `ui` → `ui`, `calc` → `workflow` (tagged `@Workflow`), `device` → `api`.
   API specs carry `category: api` and sit in the same folder as the UI specs.
-- **Ids**: `<workflow>-<nnn>` (`A1-001`, `D4-002`), in `src/data/runner/journey-<x>.csv`.
+- **Ids**: `<workflow>` (`A1`, `D4`), in `src/data/runner/journey-<x>.csv`.
   Copy `segments` and `modules` onto the row from the catalog entry — they drive
   `TEST_SCOPE` filtering.
 - **Tags**: one describe per workflow, named for it, tagged `['@Journey<X>', '@<WF>']`.

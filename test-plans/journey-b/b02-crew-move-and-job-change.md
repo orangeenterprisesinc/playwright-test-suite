@@ -1,9 +1,9 @@
 # `B2` · Crew move and job change
 
-> **Transport change, 2026-08-12.** `B2-001` no longer drives a device: it builds the envelope a
+> **Transport change, 2026-08-12.** `B2` no longer drives a device: it builds the envelope a
 > device exports *after* a move — movers in the destination, the member left behind unchanged, one
-> punch each — and delivers it through the relay. Device-side requirements (`B2-R1`, `B2-R2`,
-> `B2-R3`, `B2-R5`) are deferred with the mobile automation; the row now claims `B2-R6|B2-R7`.
+> punch each — and delivers it through the relay. Device-side requirements (`B2`,
+> `B2`) are deferred with the mobile automation; the row now claims `B2`|`B2`.
 > The office half drives the web UI like the recording: sidebar ▸ Connectivity ▸ Import ▸ Internet
 > (the relay pull — red on dev until the relay gates + WEBPET-1830 open), then Transfer to Job
 > Cards with the date range. `IMPORT_TRANSPORT=single-folder` keeps the direct importer-API path.
@@ -14,7 +14,7 @@
 | Recording | `docs/media/Journey B2 Crew Move and Job Change.mp4` |
 | This plan | `test-plans/journey-b/b02-crew-move-and-job-change.md` |
 | Spec | `tests/web/journey-b-field/b02-crew-move.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B2-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B2` |
 
 ## Catalog entry
 
@@ -71,17 +71,15 @@ So this plan asserts the device's real contribution (a second Crew In for the mo
 period-closure to the journey that owns it. Asserting it here would test a behaviour the device does
 not have.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B2-R1` | When a crew time-in is saved against a different field and job, PET Pocket shall update each selected member's existing Time In to the new field and job. | `B2-001` |
-| `B2-R2` | If a member is unchecked when the crew moves, then PET Pocket shall leave that member's existing Time In unchanged. | `B2-001` |
-| `B2-R5` | PET Pocket shall keep exactly one open Time In per crew member across a move. | `B2-001` |
-| `B2-R3` | While more than one field or job exists, PET Pocket shall leave the field and job slots empty until a barcode selects one. | `B2-001` |
-| `B2-R4` | When a crew move is imported, PET Tiger shall close the prior job for the moved members. | — not automatable here: the device writes no time-out; office-side behaviour, see above |
-| `B2-R6` | When the post-move punches reach the office, PET Tiger shall link each moved member's time card to the destination field and job, and the member left behind to the original. | `B2-001` — transport substitution as in [b01](b01-crew-time-in.md) |
-| `B2-R7` | When the punch day is loaded on Transfer to Job Cards, PET Tiger shall list one row per punch carrying its reference. | `B2-001` |
+- When a crew time-in is saved against a different field and job, PET Pocket shall update each selected member's existing Time In to the new field and job.
+- If a member is unchecked when the crew moves, then PET Pocket shall leave that member's existing Time In unchanged.
+- PET Pocket shall keep exactly one open Time In per crew member across a move.
+- While more than one field or job exists, PET Pocket shall leave the field and job slots empty until a barcode selects one.
+- When a crew move is imported, PET Tiger shall close the prior job for the moved members. _not automatable here: the device writes no time-out; office-side behaviour, see above_
+- When the post-move punches reach the office, PET Tiger shall link each moved member's time card to the destination field and job, and the member left behind to the original. _transport substitution as in [b01](b01-crew-time-in.md)_
+- When the punch day is loaded on Transfer to Job Cards, PET Tiger shall list one row per punch carrying its reference.
 
 ## Screens and page objects
 
@@ -104,11 +102,11 @@ preference keys).
 
 None: the device is re-seeded from the golden database at the start of every run.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B2-001` | Move the crew to a new field and job, leaving one member behind | `B2-R1`, `B2-R2`, `B2-R3`, `B2-R5`, `B2-R6`, `B2-R7` | `regression` | 1 |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B2` | Move the crew to a new field and job, leaving one member behind | `regression` | 1 |
 
 One export happens, **after** the move: the app only sends records it has not exported, and a move
 rewrites the existing rows rather than adding any, so a single envelope carries the four cards in
@@ -118,7 +116,7 @@ described in [`b01-crew-time-in.md`](b01-crew-time-in.md).
 ## Open questions for the tester
 
 - [ ] Does the office close the prior period at import, or only when D4 transfer runs? That answer
-      decides which journey owns `B2-R4`.
+      decides which journey owns `B2`.
 - [x] **Answered by the recording (watched 2026-08-11):** Amy uses **Crew In** (*Hora de Entrada de
       la Cuadrilla*) with the same Employee Selection dialog — 4 of 5 members checked — confirming
       the no-crew-move-screen finding. One nuance her rig adds: her punches were already **exported**

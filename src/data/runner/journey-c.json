@@ -1,7 +1,7 @@
 {
     "runnerManager": [
         {
-            "id": "C1-001",
+            "id": "C1",
             "workflow": "C1",
             "journey": "C",
             "category": "api",
@@ -23,7 +23,7 @@
             "enabled": false
         },
         {
-            "id": "C2-001",
+            "id": "C2",
             "workflow": "C2",
             "journey": "C",
             "category": "api",
@@ -44,7 +44,7 @@
             "enabled": false
         },
         {
-            "id": "C3-001",
+            "id": "C3",
             "workflow": "C3",
             "journey": "C",
             "category": "api",
@@ -66,7 +66,7 @@
             "enabled": false
         },
         {
-            "id": "C4-001",
+            "id": "C4",
             "workflow": "C4",
             "journey": "C",
             "category": "api",
@@ -87,7 +87,7 @@
             "enabled": false
         },
         {
-            "id": "C5-001",
+            "id": "C5",
             "workflow": "C5",
             "journey": "C",
             "category": "api",
@@ -108,28 +108,7 @@
             "enabled": false
         },
         {
-            "id": "C6-001",
-            "workflow": "C6",
-            "journey": "C",
-            "category": "ui",
-            "testName": "crewTableSetup",
-            "testTitle": "Sub-crew (\"tables\") capture - table setup",
-            "testDescription": "Create a table under a crew with a supervisor on Setup > Table and verify it is listed under that crew and present on the API (office-side half of C6).",
-            "segments": [
-                "pack-house"
-            ],
-            "modules": [
-                "Windows"
-            ],
-            "tags": [
-                "regression"
-            ],
-            "jira": "PET-12656",
-            "status": "automated",
-            "enabled": true
-        },
-        {
-            "id": "C6-002",
+            "id": "C6",
             "workflow": "C6",
             "journey": "C",
             "category": "workflow",
@@ -150,28 +129,7 @@
             "enabled": true
         },
         {
-            "id": "C6-003",
-            "workflow": "C6",
-            "journey": "C",
-            "category": "ui",
-            "testName": "crewTableReopen",
-            "testTitle": "Sub-crew (\"tables\") capture - reopen a saved table",
-            "testDescription": "Open a saved table from the Tables grid and see its record in the Edit Table form. Disabled: GET /crew-tables/{id} answers 500 on dev (Invalid object name ct.TimeStamp), so the Edit page shows Table not found - product defect, not a suite gap.",
-            "segments": [
-                "pack-house"
-            ],
-            "modules": [
-                "Windows"
-            ],
-            "tags": [
-                "regression"
-            ],
-            "jira": "PET-12656",
-            "status": "draft",
-            "enabled": false
-        },
-        {
-            "id": "C7-001",
+            "id": "C7",
             "workflow": "C7",
             "journey": "C",
             "category": "api",
@@ -192,7 +150,7 @@
             "enabled": false
         },
         {
-            "id": "C8-001",
+            "id": "C8",
             "workflow": "C8",
             "journey": "C",
             "category": "api",
@@ -212,7 +170,7 @@
             "enabled": false
         },
         {
-            "id": "C9-001",
+            "id": "C9",
             "workflow": "C9",
             "journey": "C",
             "category": "api",
@@ -234,7 +192,7 @@
             "enabled": false
         },
         {
-            "id": "C10-001",
+            "id": "C10",
             "workflow": "C10",
             "journey": "C",
             "category": "api",

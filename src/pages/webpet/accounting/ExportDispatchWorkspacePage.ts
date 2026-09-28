@@ -27,7 +27,7 @@ export class ExportDispatchWorkspacePage extends BasePage {
     readonly pageUrl: string = '/export-to-accounting';
     readonly pageTitle: string | RegExp = /.*/;
 
-    /** The grid's date-range column filter — what actually fires the analyze. */
+    /** The page-level date scope — what actually fires the analyze (WEBPET-3342). */
     readonly dateRange: DateRangeFilterComponent;
 
     // ── Chrome ──────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ export class ExportDispatchWorkspacePage extends BasePage {
     constructor(page: Page) {
         super(page);
 
-        this.dateRange = new DateRangeFilterComponent(page);
+        this.dateRange = new DateRangeFilterComponent(page, 'dateTimeIn', '[data-testid="export-date-scope"]');
 
         this.pageRoot = page.getByTestId('export-v2-page');
         this.topStrip = page.getByTestId('export-v2-top-strip');

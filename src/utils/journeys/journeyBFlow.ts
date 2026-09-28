@@ -809,7 +809,7 @@ export interface RelayEchoRun extends MintedRun {
     cleanup(): Promise<void>;
 }
 
-/** B1-002: push into the scratch mailbox and pull straight back. Drains first, acks in cleanup(). Never the office queue. */
+/** B1: push into the scratch mailbox and pull straight back. Drains first, acks in cleanup(). Never the office queue. */
 export async function runRelayEcho(scenario: JourneyBScenario, opts: { testInfo: TestInfo }): Promise<RelayEchoRun> {
     const relay = relayConfig();
     const run = mintRun(scenario, opts.testInfo);

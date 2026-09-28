@@ -47,7 +47,7 @@ Route by input, per the orchestration workflow (§3 of
   features load `.claude/profiles/JOURNEY.md`. Never both.
 
 Conventions are enforced by the existing skills — `pw-spec-author` (fixture
-module, tags, testCaseId/requirement annotations), `pw-page-object` (new
+module, tags, the testCaseId annotation), `pw-page-object` (new
 screens + registry), `data-driven-testing` (runner rows via the CSV only).
 
 ### 4. Contribution boundary (hard rule)

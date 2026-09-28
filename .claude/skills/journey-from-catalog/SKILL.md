@@ -33,11 +33,11 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
 3. **Checkpoint** — if the plan's "Open questions" section is non-empty, stop and
    ask the human before generating.
 
-4. **Rows** — add one runner row per test case to
-   `src/data/runner/journey-<x>.csv` with `enabled=0`, then `npm run runner:sync`.
+4. **Row** — add **one** runner row to `src/data/runner/journey-<x>.csv`, id = the
+   workflow id (`C6`, never `C6-001`), `enabled=0`, then `npm run runner:sync`.
 
-5. **Generate** — invoke the `playwright-test-generator` agent once per plan (not
-   per test) with the plan path, the JOURNEY profile, and
+5. **Generate** — invoke the `playwright-test-generator` agent once per plan —
+   **one happy-path test, no negative or edge cases** — with the plan path, the JOURNEY profile, and
    `.claude/skills/pw-spec-author/SKILL.md`. Spec path from the workflow's
    `surface`: `ui` → `tests/web/journey-<x>-<area>/`, `calc` → same but tagged
    `@Workflow`, `device` → same folder, category `api` (or `workflow` when it also verifies in the UI). The Generator also writes the spec's scenario file `src/data/journey-<x>/<spec-basename>.json` (validated by `src/data/schemas/<journey>Scenario.ts`, loaded with `loadScenario`) — every value the spec uses lives there, never inline (`pw-spec-author` §6).
@@ -45,10 +45,10 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
 6. **Run** — affected tests only: `npx playwright test --grep @<WF>`.
 
 7. **Heal** — on failures, invoke the `playwright-test-healer` agent with the
-   artifact paths. Healing must not weaken an assertion tied to an EARS
-   requirement — if the app contradicts the requirement, report a potential
+   artifact paths. Healing must not weaken an assertion tied to an expected
+   outcome in the plan — if the app contradicts the plan, report a potential
    product bug instead of healing around it.
 
-8. **Finalize** — set the rows to `status=automated`, `enabled=1`, re-sync, then
+8. **Finalize** — set the row to `status=automated`, `enabled=1`, re-sync, then
    `npm run runner:check`, `npm run typecheck`, `npm run lint`. Report the
-   `coverage:catalog` delta and which requirements are covered vs not (and why).
+   `coverage:catalog` delta and which expected outcomes are covered vs not (and why).

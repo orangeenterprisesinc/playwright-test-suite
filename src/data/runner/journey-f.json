@@ -1,7 +1,7 @@
 {
     "runnerManager": [
         {
-            "id": "F1-001",
+            "id": "F1",
             "workflow": "F1",
             "journey": "F",
             "category": "ui",
@@ -23,7 +23,7 @@
             "enabled": false
         },
         {
-            "id": "F2-001",
+            "id": "F2",
             "workflow": "F2",
             "journey": "F",
             "category": "ui",
@@ -46,7 +46,7 @@
             "enabled": false
         },
         {
-            "id": "F3-001",
+            "id": "F3",
             "workflow": "F3",
             "journey": "F",
             "category": "ui",
@@ -67,7 +67,7 @@
             "enabled": false
         },
         {
-            "id": "F4-001",
+            "id": "F4",
             "workflow": "F4",
             "journey": "F",
             "category": "ui",
@@ -87,7 +87,7 @@
             "enabled": false
         },
         {
-            "id": "F5-001",
+            "id": "F5",
             "workflow": "F5",
             "journey": "F",
             "category": "ui",
@@ -107,7 +107,7 @@
             "enabled": false
         },
         {
-            "id": "F6-001",
+            "id": "F6",
             "workflow": "F6",
             "journey": "F",
             "category": "ui",
@@ -128,7 +128,7 @@
             "enabled": false
         },
         {
-            "id": "F7-001",
+            "id": "F7",
             "workflow": "F7",
             "journey": "F",
             "category": "ui",

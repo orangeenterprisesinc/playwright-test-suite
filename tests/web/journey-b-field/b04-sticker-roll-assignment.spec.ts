@@ -11,7 +11,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
     test('[Sticker Roll] Deliver individual time-in records carrying sticker-roll codes, verify each roll is stored against its own employee, and that the import writes no code-history row.', {
         tag: ['@Regression', '@Demo'],
         annotation: [
-            { type: 'testCaseId', description: 'B4-001' },
+            { type: 'testCaseId', description: 'B4' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
@@ -33,6 +33,6 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         await assertTransferGrid(pages, run, expected.grid!);
         // Only phase 2 legitimately writes a history row, and that happens after this bracket closes.
         expect(run.codeHistory, 'the scenario hooks must bracket the import with code-history snapshots').not.toBeNull();
-        expect(run.codeHistory!.after, 'B4-R9: the import must not create or modify any code-history row').toEqual(run.codeHistory!.before);
+        expect(run.codeHistory!.after, 'the import must not create or modify any code-history row').toEqual(run.codeHistory!.before);
     });
 });

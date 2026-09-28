@@ -1,7 +1,7 @@
 {
     "runnerManager": [
         {
-            "id": "D1-001",
+            "id": "D1",
             "workflow": "D1",
             "journey": "D",
             "category": "ui",
@@ -22,7 +22,7 @@
             "enabled": false
         },
         {
-            "id": "D2-001",
+            "id": "D2",
             "workflow": "D2",
             "journey": "D",
             "category": "ui",
@@ -43,7 +43,7 @@
             "enabled": false
         },
         {
-            "id": "D3-001",
+            "id": "D3",
             "workflow": "D3",
             "journey": "D",
             "category": "ui",
@@ -64,7 +64,7 @@
             "enabled": false
         },
         {
-            "id": "D4-001",
+            "id": "D4",
             "workflow": "D4",
             "journey": "D",
             "category": "ui",
@@ -85,7 +85,7 @@
             "enabled": false
         },
         {
-            "id": "D5-001",
+            "id": "D5",
             "workflow": "D5",
             "journey": "D",
             "category": "ui",
@@ -105,7 +105,7 @@
             "enabled": false
         },
         {
-            "id": "D6-001",
+            "id": "D6",
             "workflow": "D6",
             "journey": "D",
             "category": "ui",
@@ -125,7 +125,7 @@
             "enabled": false
         },
         {
-            "id": "D7-001",
+            "id": "D7",
             "workflow": "D7",
             "journey": "D",
             "category": "ui",
@@ -145,7 +145,7 @@
             "enabled": false
         },
         {
-            "id": "D8-001",
+            "id": "D8",
             "workflow": "D8",
             "journey": "D",
             "category": "ui",
@@ -165,7 +165,7 @@
             "enabled": false
         },
         {
-            "id": "D9-001",
+            "id": "D9",
             "workflow": "D9",
             "journey": "D",
             "category": "workflow",
@@ -187,7 +187,7 @@
             "enabled": false
         },
         {
-            "id": "D10-001",
+            "id": "D10",
             "workflow": "D10",
             "journey": "D",
             "category": "workflow",

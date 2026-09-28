@@ -122,6 +122,15 @@ const ATTACHMENT_FILE_PATTERN = /-attachment\.([a-z0-9]+)$/i;
  */
 const KEPT_ATTACHMENT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'md']);
 
+/**
+ * Per-action screenshots belong to the interactive report, not the mailed one: a
+ * journey emits dozens per test, and the single-file report base64-inlines every
+ * one of them, straight past EMAIL_MAX_ATTACHMENT_MB / SLACK_MAX_UPLOAD_MB. Only
+ * this prefix is dropped — the screenshots the flows raise by hand
+ * (transfer-to-job-cards-B4.png) still ship.
+ */
+const LEAN_DROP_NAME_PREFIX = 'action-';
+
 /** Whether an attachment file (`<uuid>-attachment.<ext>`) should be copied into the lean report. */
 function isKeptAttachmentFile(name: string): boolean {
     const match = name.match(ATTACHMENT_FILE_PATTERN);
@@ -132,7 +141,9 @@ function isKeptAttachmentFile(name: string): boolean {
 /** Whether a single `attachments[]` entry in a result JSON should be kept. */
 function isKeptAttachment(attachment: unknown): boolean {
     if (!attachment || typeof attachment !== 'object') return false;
-    const { source, type } = attachment as { source?: string; type?: string };
+    const { source, type, name } = attachment as { source?: string; type?: string; name?: string };
+
+    if (name?.startsWith(LEAN_DROP_NAME_PREFIX)) return false;
 
     // Drop video and Playwright trace by mime type first (most reliable signal).
     if (type && (type.startsWith('video/') || type.includes('playwright-trace') || type === 'application/zip')) {

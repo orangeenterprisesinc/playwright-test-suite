@@ -73,12 +73,12 @@ Plans live at `test-plans/journey-<x>/<wf>-<slug>.md`, copied from
   the *Catalog entry* and *Catalog steps* sections.
 - Fill "What the recording shows" per catalog step from the keyframes, with the
   keyframe indexes you drew it from (`kf 12–15`), so a reviewer can check.
-- Requirements go in the *Acceptance criteria (EARS)* table as `<WF>-R<n>`.
-  Every row states **what happens** and **what the system does about it** —
-  *"Initials and Email filled"* states neither and cannot be tested. Context
-  lines are notes, not numbered rows.
-- **Negative coverage is the part that gets skipped.** Aim for 4–5 failure /
-  edge rows, each naming the wrong input and the observed response.
+- Expected behaviour goes in *Expected outcomes* as plain bullets — no ids, no
+  EARS. Every bullet states **what happens** and **what the system does about
+  it**; *"Initials and Email filled"* states neither and cannot be tested.
+- **Happy path only.** One workflow, one test. Do not add negative, edge,
+  boundary or additional-positive rows — if the recording shows a failure path,
+  note it as an outcome the spec does not assert, with the reason.
 - **Never write an outcome the recording did not show.** A recording shows one
   path. Anything not demonstrated goes in a **Not established** table with a
   note on why it matters — the Planner agent discovers it live in step 5.
@@ -99,14 +99,13 @@ the main session orchestrates, it does not implement:
 
 1. **Planner** (`playwright-test-planner`): handoff = the plan file path +
    JOURNEY profile. It resolves every *Not established* row against the live
-   app and appends the answers as new `<WF>-R<n>` rows. Do not skip to a test
+   app and folds the answers into *Expected outcomes*. Do not skip to a test
    for something the plan lists as unknown.
-2. **Runner rows** in `src/data/runner/journey-<x>.csv` (one per test case,
-   `enabled=0`), then `npm run runner:sync`.
-3. **Generator** (`playwright-test-generator`): one test per requirement, the
-   requirement id in the `testCaseId` annotation or a comment. Spec path
-   `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` (`tests/api/` for
-   `surface: device`). Locators come from the live accessibility tree the
+2. **Runner row** in `src/data/runner/journey-<x>.csv` — exactly one, id = the
+   workflow id, `enabled=0`, then `npm run runner:sync`.
+3. **Generator** (`playwright-test-generator`): **one happy-path test**, with the
+   workflow id in the `testCaseId` annotation. Spec path
+   `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts` (`tests/web/` for every surface). Locators come from the live accessibility tree the
    generator reads — never from pixel coordinates.
 4. **Run**: `npm run test:dev -- tests/web/<dir>/<wf>-<slug>.spec.ts`.
 5. **Healer** (`playwright-test-healer`) on failure. It may fix locators and
@@ -119,11 +118,11 @@ the main session orchestrates, it does not implement:
 
 `npm run typecheck`, `npm run lint`, `npm run runner:check` clean. Plus:
 
-- Every `<WF>-R<n>` maps to exactly one test and no test lacks one.
-- Every numbered row states both an action and an expected result.
-- ≥4 negative/edge cases, each naming what the system does about the wrong input.
-- Every *Not established* row is resolved into a requirement or still listed
-  as open — never silently dropped.
+- Exactly one `test()` in the spec, and its `testCaseId` is the workflow id.
+- Every outcome bullet states both an action and an expected result.
+- Anything not asserted is listed with its reason — `not automatable`,
+  `deferred` or `(POM)` — never silently dropped.
+- Every *Not established* row is resolved or still listed as open.
 
 Report the real outcome — if tests still fail after healing, say so with output.
 

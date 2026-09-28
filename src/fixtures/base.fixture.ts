@@ -30,6 +30,13 @@ import { createSessionRequestContext } from '../utils/api/sessionContext';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
+import {
+    actionShotsEnabled,
+    beginSession,
+    endSession,
+    installActionShots,
+    uninstallActionShots,
+} from './instrumentation/actionShots';
 
 /** Per-test fixture types. */
 type CustomFixtures = {
@@ -111,6 +118,14 @@ type CustomFixtures = {
      * implementation for why it must be a fixture and not a `beforeEach`.
      */
     gate: void;
+
+    /**
+     * Auto fixture arming the per-action screenshot capture. Depends on nothing
+     * on purpose: several tests/web specs are browserless, and a `page`
+     * dependency here would launch Chromium for every one of them. The patch
+     * itself goes on in the `page` override.
+     */
+    actionShots: void;
 };
 
 /** Worker-scoped fixture types. */
@@ -177,6 +192,27 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         },
         { auto: true },
     ],
+
+    actionShots: [
+        async ({}, use, testInfo) => {
+            if (actionShotsEnabled()) beginSession(testInfo);
+            await use();
+            endSession();
+        },
+        { auto: true },
+    ],
+
+    // Playwright's stock `page`, with the Page/Locator prototypes patched for the
+    // duration of the test. An override rather than an auto fixture so it stays
+    // lazy: the browserless specs still never open a browser. `actionShots` is
+    // declared only for ordering — its session must exist before the patch goes
+    // on, and outlive the restore.
+    page: async ({ page, actionShots }, use) => {
+        void actionShots;
+        if (actionShotsEnabled()) installActionShots(page);
+        await use(page);
+        uninstallActionShots();
+    },
 
     // ── Page Object fixtures ────────────────────────────────────────
     // `pages` is the general accessor — one fixture for every screen, each built

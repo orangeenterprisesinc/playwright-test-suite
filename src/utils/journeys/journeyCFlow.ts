@@ -3,7 +3,7 @@ import { makeCrewTableName } from '@data/generated';
 import { JOURNEY_C_FIXTURE } from '@data/journey-c/fixture';
 import { punchDay } from '@data/journey-b/fixture';
 import type { CrewTableCase } from '@data/schemas/journeyCScenario';
-import { ensureCrewTable, findCrewTableByName, type CrewTableRecord } from '@utils/api/crewTablesApi';
+import { ensureCrewTable, type CrewTableRecord } from '@utils/api/crewTablesApi';
 import { createCrewTimeIn, listCrewTimeIns, punchTime, type CrewTimeInRow } from '@utils/api/crewTimeInApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
@@ -41,7 +41,7 @@ export interface JourneyCRun {
 
 /**
  * Seeds the office side, sweeps the fixture day, and binds the table name into the case. A minted
- * table is created by the spec on screen (C6-001); the fixture table is ensured here (C6-002).
+ * table is created by the spec on screen (C6); the fixture table is ensured here (C6).
  */
 export async function prepareJourneyC(
     scenario: CrewTableCase,
@@ -93,11 +93,6 @@ export async function prepareJourneyC(
     await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
 
     return { scenario: substituted, tableName, table, office, supervisor, workers, offTable, punchDate, day, cleanup, ctx };
-}
-
-/** The run's table as the API lists it now — after C6-001 saved it on screen, or the fixture row. */
-export function lookupTable(run: JourneyCRun, sessionApi: APIRequestContext): Promise<CrewTableRecord | null> {
-    return findCrewTableByName(sessionApi, run.tableName);
 }
 
 export interface CaptureResult {

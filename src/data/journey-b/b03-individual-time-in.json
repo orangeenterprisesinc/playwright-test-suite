@@ -40,19 +40,48 @@
   ],
   "expected": {
     "envelope": {
-      "sections": ["TimeCard"],
-      "employeeSources": { "BarcodeBadge": 2 },
-      "referenceParts": ["TI", "TI"],
-      "absentTags": ["CardType"],
+      "sections": [
+        "TimeCard"
+      ],
+      "employeeSources": {
+        "BarcodeBadge": 2
+      },
+      "referenceParts": [
+        "TI",
+        "TI"
+      ],
+      "absentTags": [
+        "CardType"
+      ],
       "gpsFixes": 1
     },
     "cards": [
-      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4201", "panel": true },
-      { "record": 1, "employeeCode": "6001", "fieldCode": "4102", "jobCode": "4202" }
+      {
+        "record": 0,
+        "employeeCode": "6001",
+        "fieldCode": "4101",
+        "jobCode": "4201",
+        "panel": true
+      },
+      {
+        "record": 1,
+        "employeeCode": "6001",
+        "fieldCode": "4102",
+        "jobCode": "4202"
+      }
     ],
-    "grid": { "status": "Warning", "issueGroup": "Time-In has no closing punch" }
+    "grid": {
+      "status": "Warning",
+      "issueGroup": "Time-In has no closing punch"
+    }
   },
   "cleanup": [
-    { "kind": "timeCards", "employeeCodes": ["6001"], "dayOffset": -2 }
+    {
+      "kind": "timeCards",
+      "employeeCodes": [
+        "6001"
+      ],
+      "dayOffset": -2
+    }
   ]
 }

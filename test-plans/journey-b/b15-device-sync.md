@@ -27,7 +27,7 @@ and unused: **66973** `AndroidLogs_….zip`, **67330** `image-20260902-191920.pn
 | Recording | `WEBPET-1533` attachments **66971** (Part 2), **66972** (Part 3) |
 | This plan | `test-plans/journey-b/b15-device-sync.md` |
 | Spec | `tests/web/journey-b-field/b15-device-sync.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B15-001`… |
+| Runner rows | `src/data/runner/journey-b.csv` → `B15`… |
 
 ## Catalog entry
 
@@ -50,7 +50,7 @@ and unused: **66973** `AndroidLogs_….zip`, **67330** `image-20260902-191920.pn
 
 | # | Catalog step | What the recording shows | Automatable? |
 |---|---|---|---|
-| 1 | The device records time cards and pieces locally, working with no cell coverage. | Device captures time-ins offline — P2 `Recs (0)` → `Recs (3)` (kf 3, 43); P3 opens with `Recs (2)` (kf 38–39). No connectivity toggle is ever shown. | **no** — on-device UI only. The *effect* is reproducible by building an `OrangeExportFile` envelope, per `B1-002`. |
+| 1 | The device records time cards and pieces locally, working with no cell coverage. | Device captures time-ins offline — P2 `Recs (0)` → `Recs (3)` (kf 3, 43); P3 opens with `Recs (2)` (kf 38–39). No connectivity toggle is ever shown. | **no** — on-device UI only. The *effect* is reproducible by building an `OrangeExportFile` envelope, per `B1`. |
 | 2 | When connected, each record can export in real time; otherwise it holds. | Not shown. `EXPORTAR` is never pressed in either part. | **no** — no evidence. |
 | 3 | At end of day, Sync exports all records, imports setup, and clears the device. | P3 `SIN-CRONIZAR` → "Go ahead with Syncing Records?" → "Updating Records / Sending time card records" (kf 382–385). Afterwards the capture form is blank except `Campo = FIELD 01` (kf 389). | **partly** — the device leg is not drivable; the office-side arrival is the assertable half, and the recording never checks it (see *Not established*). |
 | 4 | Mid-day, Import pulls setup updates (new employees, jobs) without clearing time cards. | The core of both parts. Office adds a crew → Save → **Push to Device** → device `IMPORTAR` → crew picker gains the new crew (P2 kf 51 → 129; P3 kf 46 → 128). `Recs (2)` survives five imports (P3 kf 268, 304, 376). | **yes, office side** — device scope config, push, export-log run, and the pushed XML payload are all office-verifiable. |
@@ -72,19 +72,17 @@ independent of any device. (Steps 3–4 were planned against
 `/connectivity/export/log`; that route has no evidence of existing on dev — see
 *Planner findings* 1 and *Verified on dev staging*.)
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B15-R1` | When a crew is added to a scan device and the form is saved, PET Tiger shall persist the crew on the device record and confirm with the toast "Scan device saved". | `B15-001` |
-| `B15-R2` | While a scan-device form has unsaved edits, PET Tiger shall show the "Unsaved changes" bar with Discard changes / Save, and shall disable Save with the tooltip "No changes to save" once the edits are persisted. | — not covered: edge case, happy path only |
-| `B15-R3` | When a ranch is assigned to a scan device without naming a field, PET Tiger shall record the assignment as the whole ranch and render it as a `Ranch \| Field` row reading "Whole ranch". | — not covered: edge case, happy path only |
-| `B15-R4` | When Push to Device is invoked, PET Tiger shall report the outcome inline as "Push succeeded". (The transient "Pushing..." label is **not** required: the endpoint returns too fast for it to be reliably observable, so asserting it races rather than verifies.) | `B15-001` |
-| `B15-R5` | When a setup export completes, PET Tiger shall name the destination mailbox it delivered to, on the same inline panel, and offer the produced file for download. | `B15-001` |
-| `B15-R6` | When a setup export file is produced, PET Tiger shall include `Ranch_Records`, `Field_Records` and `Crew_Records` blocks carrying exactly the ranches, fields and crews assigned to that device, each marked `Clear="True"`. | `B15-001` |
-| `B15-R7` | If a setup export is requested for a device whose scope is unchanged since the last export, PET Tiger shall still record a distinct export run rather than silently reusing the previous one. | — not covered: edge case, happy path only |
-| `B15-R8` | PET Tiger shall preserve time cards already captured on a device across a setup import, clearing them only on sync. | — not automatable: device-side state, no office-visible counter. |
-| `B15-R9` | PET Tiger shall make a pushed field selectable on the device after import. | — **contradicted by the recording**; see *Not established* #1. Do not encode until triaged. |
+- When a crew is added to a scan device and the form is saved, PET Tiger shall persist the crew on the device record and confirm with the toast "Scan device saved".
+- While a scan-device form has unsaved edits, PET Tiger shall show the "Unsaved changes" bar with Discard changes / Save, and shall disable Save with the tooltip "No changes to save" once the edits are persisted. _not covered: edge case, happy path only_
+- When a ranch is assigned to a scan device without naming a field, PET Tiger shall record the assignment as the whole ranch and render it as a `Ranch \| Field` row reading "Whole ranch". _not covered: edge case, happy path only_
+- When Push to Device is invoked, PET Tiger shall report the outcome inline as "Push succeeded". (The transient "Pushing..." label is **not** required: the endpoint returns too fast for it to be reliably observable, so asserting it races rather than verifies.)
+- When a setup export completes, PET Tiger shall name the destination mailbox it delivered to, on the same inline panel, and offer the produced file for download.
+- When a setup export file is produced, PET Tiger shall include `Ranch_Records`, `Field_Records` and `Crew_Records` blocks carrying exactly the ranches, fields and crews assigned to that device, each marked `Clear="True"`.
+- If a setup export is requested for a device whose scope is unchanged since the last export, PET Tiger shall still record a distinct export run rather than silently reusing the previous one. _not covered: edge case, happy path only_
+- PET Tiger shall preserve time cards already captured on a device across a setup import, clearing them only on sync. _not automatable: device-side state, no office-visible counter._
+- PET Tiger shall make a pushed field selectable on the device after import. _**contradicted by the recording**; see *Not established* #1. Do not encode until triaged._
 
 ## Screens and page objects
 
@@ -168,17 +166,17 @@ Through the API only — there is no DB access.
 - Export-log rows are append-only; they are not cleaned up. Assert on the run the
   test created (by device and timestamp window), never on row count.
 
-## Test cases
+## Test case
 
 **Happy path only, by decision (2026-09-15).** One case covering the whole office-side
 flow — scope, save, push, verify what was sent. The edge cases that were drafted
-(`B15-R2` unsaved-changes bar, `B15-R3` whole-ranch assignment, `B15-R7` distinct run on
+(`B15` unsaved-changes bar, `B15` whole-ranch assignment, `B15` distinct run on
 re-push) are recorded as requirements but left uncovered; they can be added later without
 renumbering, since ids are append-only.
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B15-001` | A scoped scan device pushes its setup to the device mailbox | `B15-R1`, `B15-R4`, `B15-R5`, `B15-R6` | `regression` | 1 |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B15` | A scoped scan device pushes its setup to the device mailbox | `regression` | 1 |
 
 This replaces the scaffolded `deviceSyncAndOfflineOperation` / `draft` row.
 
@@ -194,24 +192,24 @@ unverified until a live run confirms it.**
    button and reports success from an inline message, never a log screen. The real
    surface is the API: `POST /api/connectivity/export/scan-devices` →
    `{ runId, status: 'completed'|'partial', devicesTriggered, devices: [{ name, destination, status }] }`,
-   synchronous and terminal on response. **`B15-003/004/005` move from UI to API**, and
+   synchronous and terminal on response. **`B15/004/005` move from UI to API**, and
    must isolate their device by matching `devices[].name` — the call is a bulk export
    over all eligible devices, not scoped by id.
    → **Do not build `ExportLogPage.ts`** until a human confirms the route exists.
 
-2. **`B15-004` (XML content assertion) — resolved: go through the relay.** The export
+2. **`B15` (XML content assertion) — resolved: go through the relay.** The export
    response exposes `devices[].destination` as a *sync folder*, not a downloadable URL,
    and a **Web**-connectivity device delivers via relay mailbox instead. **Decided:** pull
-   the envelope back through `src/utils/relay/relayClient.ts` the way `B1-002`
+   the envelope back through `src/utils/relay/relayClient.ts` the way `B1`
    (`relayRoundTripsAnExportEnvelope`) already does, rather than reading a file from disk.
    That keeps the device Web-connectivity as the recording shows, and reuses the transport
    the suite already trusts.
 
-3. **`B15-R1`'s toast text "Scan device saved" is unverified on dev.** It is sourced only
+3. **`B15`'s toast text "Scan device saved" is unverified on dev.** It is sourced only
    from the recording (P3 kf 100). No spec or page object in the repo asserts it, and the
    walkthrough never mentions a save toast.
 
-4. **`B15-R2` is entirely unverified.** No existing code handles an "Unsaved changes" bar
+4. **`B15` is entirely unverified.** No existing code handles an "Unsaved changes" bar
    or a disabled-Save tooltip on this form; webpet's `ScanDeviceFormPage` disables Save
    only while submitting.
 
@@ -255,17 +253,17 @@ The spec passes. What five runs established, replacing the guesses above:
 | Ranch/Field section | **wrong** — it is `section#field`, not `section#ranch` |
 | Ranch/Field comboboxes | **no accessible name**; the first renders `— Select Ranch —` as content, so index is the only discriminator |
 | Ranch/Field options | keyed **by name**, not `data-value`, and their listbox renders **inline**, not in a `combobox-popup` portal — the opposite of the Crew section on the same form |
-| Field combobox + Add | **disabled until a ranch is chosen**; the field box already defaults to `Whole ranch` (`__ranch_only__`), so `B15-R3` is the form's default state, not a special path |
-| `"Pushing..."` busy state | **not observable** — endpoint too fast; assertion removed, see `B15-R4` |
+| Field combobox + Add | **disabled until a ranch is chosen**; the field box already defaults to `Whole ranch` (`__ranch_only__`), so `B15` is the form's default state, not a special path |
+| `"Pushing..."` busy state | **not observable** — endpoint too fast; assertion removed, see `B15` |
 | Export surface | the push renders `Push succeeded` + `Destination: <mailbox>` **inline**, with a `Download file` button. No `/connectivity/export/log` needed, and the speculative `POST /api/connectivity/export/scan-devices` capture was dropped as unverifiable |
-| Relay round-trip (`B15-R6`) | **works** — the envelope pulls back off the mailbox and its `Ranch_Records`/`Field_Records`/`Crew_Records` carry the assigned entities with `Clear="True"` |
+| Relay round-trip (`B15`) | **works** — the envelope pulls back off the mailbox and its `Ranch_Records`/`Field_Records`/`Crew_Records` carry the assigned entities with `Clear="True"` |
 
 Two combobox implementations coexist on this one form (Crew portals + `data-value`;
 Field inline + name). Carrying one section's idiom to the other is what cost three of
 the five runs — worth knowing before the next scan-device test.
 
 `Download file` on the push panel is an untried alternative to the relay pull for
-`B15-R6`, should the relay leg ever become unreliable.
+`B15`, should the relay leg ever become unreliable.
 
 ## Not established
 
@@ -275,11 +273,11 @@ Resolved live by the Planner, or escalated.
    pushed XML (P3 kf 357) yet the device errors on `Campo` until the **Sync** (P3 kf
    391); Part 2 ends mid-investigation on the same error (P2 kf 133–163). Either Import
    does not apply `Field_Records`, or field delivery is sync-only by design. **This looks
-   like a product defect and should be triaged before `B15-R9` is written.**
+   like a product defect and should be triaged before `B15` is written.**
 2. **The payoff assertion is absent from both recordings.** Sync uploads the time cards,
    but the office is never re-checked — no import log, no Transfer to Job Cards, no time
    cards. The device→office direction has to be discovered live (or driven through
-   `relayClient` the way `B1-002` does).
+   `relayClient` the way `B1` does).
 3. **`Push to Device` gives no visible confirmation** — no toast, no dialog, no
    `Last Export Date` change. Success is only inferable from the export-log row.
 4. **`Last Export Date` moved 16:09 → 16:20 with no visible action** (P3 kf 63 → 69).

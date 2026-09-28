@@ -121,13 +121,13 @@ function main() {
             fail(`${where}: status '${row.status}' must be one of ${STATUSES.join(', ')}`);
         }
 
-        // Catalog rows: id prefix, journey letter and workflow must agree.
+        // Catalog rows: the id IS the workflow. One workflow, one happy-path row,
+        // one spec — so there is nothing left for a `-001` ordinal to distinguish.
         if (row.workflow) {
-            const prefix = /^([A-F]\d{1,2})-\d{3}$/.exec(row.id);
-            if (!prefix) {
-                fail(`${where}: id must look like '<workflow>-001' for a catalog row`);
-            } else if (prefix[1] !== row.workflow) {
-                fail(`${where}: id prefix '${prefix[1]}' does not match workflow '${row.workflow}'`);
+            if (!/^[A-F]\d{1,2}$/.test(row.id)) {
+                fail(`${where}: a catalog row's id is its workflow id, e.g. 'C6' — no '-001' suffix`);
+            } else if (row.id !== row.workflow) {
+                fail(`${where}: id '${row.id}' does not match workflow '${row.workflow}'`);
             }
             if (!knownWorkflows.has(row.workflow)) {
                 fail(`${where}: workflow '${row.workflow}' is not in the catalog`);

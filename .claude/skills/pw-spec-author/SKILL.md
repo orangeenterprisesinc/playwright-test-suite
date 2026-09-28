@@ -1,6 +1,6 @@
 ---
 name: pw-spec-author
-description: Use when writing or editing a `*.spec.ts` in this repository — the conventions that keep specs from drifting. Covers which fixture module to import (base vs webpet vs api vs webpetAnonymous), the two separate tag vocabularies and which tags a test may legally carry, the mandatory testCaseId/requirement annotations, where test data lives, title and assertion style, and the runner sync/check that must pass afterwards.
+description: Use when writing or editing a `*.spec.ts` in this repository — the conventions that keep specs from drifting. Covers which fixture module to import (base vs webpet vs api vs webpetAnonymous), the two separate tag vocabularies and which tags a test may legally carry, the mandatory testCaseId annotation, where test data lives, title and assertion style, and the runner sync/check that must pass afterwards.
 ---
 
 ## Playwright Spec Author
@@ -71,11 +71,11 @@ Every test needs a `testCaseId`; without a matching row the gate skips it.
 ```typescript
 test('[User Setup] Verify that …', {
     tag: ['@Smoke', '@HighLevel', '@Regression'],
-    annotation: { type: 'testCaseId', description: 'A1-001' },
+    annotation: { type: 'testCaseId', description: 'A1' },
 }, async ({ pages, cleanup }) => { /* … */ });
 ```
 
-- journey specs bind by catalog id (`A1-001`), web-pet specs by `WP-####`; both
+- journey specs bind by catalog id (`A1`), web-pet specs by `WP-####`; both
   use the single-annotation form. No other annotation is required.
 
 ### 5. Titles and structure
@@ -116,7 +116,7 @@ reach them through `@utils/journeys/*`. Journey B: `runJourneyBScenario` / `runR
 
 ### 7. Data-driven selection (journey suite only)
 
-`test.use({ testCaseId: 'A1-001' })` or `test.use({ testCaseName: 'someName' })`
+`test.use({ testCaseId: 'A1' })` or `test.use({ testCaseName: 'someName' })`
 selects a runner row and only then may the test destructure `testCaseData`.
 Without one of those options the `testCaseData` fixture **skips the test** — so a
 non-data-driven test must not destructure it. See the **data-driven-testing** skill

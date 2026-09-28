@@ -56,7 +56,7 @@ export const PieceOutConfigCaseSchema = z
                 /** Must match `PreferencesPage`'s `PreferencesSection` union — `sectionHeading`/`gotoSection` take that literal type, not a bare string. */
                 pocketSection: z.literal('Pocket'),
                 stickerSection: z.literal('Traceability - Stickers'),
-                /** Written by the import engine, never by an operator (A9-R8). */
+                /** Written by the import engine, never by an operator. */
                 readOnlyField: z.string().min(1),
                 /** The one control chosen by label instead of filled — a base-ui Select. */
                 barcodeFunctionField: z.string().min(1),

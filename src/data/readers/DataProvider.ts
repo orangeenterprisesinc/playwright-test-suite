@@ -11,8 +11,8 @@ import {CsvDataReader, JsonDataReader, MultiFileDataReader} from './index';
 import {normalizeRow} from './MultiFileDataReader';
 import {Logger} from '../../utils/logger';
 
-/** Matches a catalog id and captures its journey letter, e.g. `A1-001` -> `A`. */
-const JOURNEY_ID = /^([A-F])\d{1,2}-\d{3}$/;
+/** Matches a catalog id and captures its journey letter, e.g. `C6` -> `C`. */
+const JOURNEY_ID = /^([A-F])\d{1,2}$/;
 
 type Row = Record<string, unknown> & { id?: string };
 
@@ -115,7 +115,7 @@ export class DataProvider {
 
     /**
      * Returns a reader scoped to the single journey file an id belongs to
-     * (e.g. `A1-001` -> `journey-a.json`), or `null` when the id doesn't map
+     * (e.g. `C6` -> `journey-c.json`), or `null` when the id doesn't map
      * to one file (system rows) or a DATA_FILE_PATH_* override is active.
      */
     private readerForId(id: string, type: DataSourceType): IDataReader | null {

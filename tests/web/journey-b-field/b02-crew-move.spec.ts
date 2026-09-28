@@ -11,7 +11,7 @@ test.describe('B2 · Crew move and job change', { tag: ['@JourneyB', '@B2'] }, (
     test('[Crew Move] Deliver a post-move export and verify movers and the member left behind.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B2-001' },
+            { type: 'testCaseId', description: 'B2' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);

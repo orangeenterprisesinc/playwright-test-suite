@@ -159,8 +159,8 @@ function specFiles(dir = TESTS_DIR) {
 /**
  * Maps every runner id claimed by a spec to the spec that claims it. Recognises
  * both binding styles the suite uses: a per-test
- * `annotation: { type: 'testCaseId', description: 'A1-001' }` and a
- * `test.use({ testCaseId: 'A1-001' })` option.
+ * `annotation: { type: 'testCaseId', description: 'A1' }` and a
+ * `test.use({ testCaseId: 'A1' })` option.
  */
 function specClaims() {
     const claims = new Map();

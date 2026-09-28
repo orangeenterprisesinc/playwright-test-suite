@@ -1,11 +1,11 @@
 # `B1` · Crew time-in
 
-> **Transport change, 2026-08-12.** `B1-001` no longer drives a device. It builds the same
+> **Transport change, 2026-08-12.** `B1` no longer drives a device. It builds the same
 > `OrangeExportFile` envelope PET Pocket serializes (ported from the app's serializer —
 > `src/utils/relay/exportEnvelope.ts`) and delivers it through the real Post Office relay, so the
-> office half runs on the production path. Device-side requirements (`B1-R1`–`B1-R4`, `B1-R6`) are
+> office half runs on the production path. Device-side requirements (`B1`) are
 > **deferred with the mobile automation** (branch `feature/appium-journey-video-wip`); the row now
-> claims `B1-R5|B1-R7|B1-R8`. New `B1-002` proves the relay leg on its own
+> claims `B1`|`B1`|`B1`. New `B1` proves the relay leg on its own
 > (`tests/web/journey-b-field/b01-relay-roundtrip.spec.ts`) and is green today. Everything below about the device's
 > screens describes the deferred manual/mobile scope.
 >
@@ -22,7 +22,7 @@
 | Recording | `docs/media/Journey B1 Crew Time In.mp4` |
 | This plan | `test-plans/journey-b/b01-crew-time-in.md` |
 | Spec | `tests/web/journey-b-field/b01-crew-time-in.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B1-001`… |
+| Runner rows | `src/data/runner/journey-b.csv` → `B1`… |
 
 ## Catalog entry
 
@@ -56,22 +56,20 @@ Playwright project (one worker, long timeout, Appium `webServer`), never in the 
 | 2 | The device lists the crew roster | SAVE opens an "Employee Selection" dialog, all members pre-checked | yes |
 | 3 | Uncheck any members who are absent | one member is unchecked | yes |
 | 4 | Record the crew time-in; time, GPS, assignment and roster are captured | a toast names exactly the saved employees | yes — GPS is not asserted (emulator location is mocked, not real) |
-| 5 | Data syncs to the office | Amy syncs, then reviews Transfer to Job Cards on her web instance | yes, via the stub relay + Connectivity import (see `B1-002`, deferred) |
+| 5 | Data syncs to the office | Amy syncs, then reviews Transfer to Job Cards on her web instance | yes, via the stub relay + Connectivity import (see `B1`, deferred) |
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B1-R1` | When a crew time-in is saved with a field, job and crew selected, PET Pocket shall record one Time In per selected crew member. | `B1-001` |
-| `B1-R2` | If a crew member is unchecked in the Employee Selection dialog, then PET Pocket shall record no Time In for that member. | `B1-001` |
-| `B1-R3` | When a crew time-in is saved, PET Pocket shall stamp each Time In with the selected field, job and crew and a Crew In reference. | `B1-001` |
-| `B1-R4` | When Export is confirmed, PET Pocket shall serialize the unexported records into an `OrangeExportFile` envelope that references each record by Code. | `B1-001` |
-| `B1-R5` | When the crew's punches reach the office, PET Tiger shall hold one time card per punch linked to the matching employee, crew, job, ranch and field. | `B1-001` — see *Transport substitution* below |
-| `B1-R6` | PET Pocket shall capture a GPS position with each time card. | — not automatable: the emulator reports a mocked fix, so asserting it proves the mock, not the product |
-| `B1-R7` | When Export is confirmed, PET Pocket shall deliver the envelope to the configured web-mail address. | `B1-001`, **opt-in**: asserted only when `DEVICE_RELAY_SERVER`/`DEVICE_RELAY_URL` are set (see *Delivery* below); on offline runs the send outcome is attached but not asserted |
-| `B1-R8` | When the punch day is loaded on Transfer to Job Cards, PET Tiger shall list one row per punch carrying its reference. | `B1-001` |
+- When a crew time-in is saved with a field, job and crew selected, PET Pocket shall record one Time In per selected crew member.
+- If a crew member is unchecked in the Employee Selection dialog, then PET Pocket shall record no Time In for that member.
+- When a crew time-in is saved, PET Pocket shall stamp each Time In with the selected field, job and crew and a Crew In reference.
+- When Export is confirmed, PET Pocket shall serialize the unexported records into an `OrangeExportFile` envelope that references each record by Code.
+- When the crew's punches reach the office, PET Tiger shall hold one time card per punch linked to the matching employee, crew, job, ranch and field. _see *Transport substitution* below_
+- PET Pocket shall capture a GPS position with each time card. _not automatable: the emulator reports a mocked fix, so asserting it proves the mock, not the product_
+- When Export is confirmed, PET Pocket shall deliver the envelope to the configured web-mail address.
+- When the punch day is loaded on Transfer to Job Cards, PET Tiger shall list one row per punch carrying its reference.
 
-### Delivery (`B1-R7`) — opt-in against the real relay, capture-first by default
+### Delivery (`B1`) — opt-in against the real relay, capture-first by default
 
 A local stub relay was built first and abandoned for a hard reason:
 `net/OrangeRESTClient` **force-upgrades the URL to HTTPS** (lines 70-74: any `http://` becomes
@@ -79,9 +77,9 @@ A local stub relay was built first and abandoned for a hard reason:
 no `network_security_config`, so on API 29 it trusts **system** CAs only. A plain-HTTP stub is
 therefore unreachable, and an HTTPS stub would need its CA installed into `/system`.
 
-Since the office only ever consumes the XML, `B1-001` captures the envelope from the app's own
+Since the office only ever consumes the XML, `B1` captures the envelope from the app's own
 serializer (`SyncManager.sendInputRecords` logs it verbatim; see
-`src/utils/device/exportCapture.ts`) — genuine app output, so `B1-R4` is provable without
+`src/utils/device/exportCapture.ts`) — genuine app output, so `B1` is provable without
 interception.
 
 Delivery itself was then proven against the **real relay** (2026-08-10): the relay has no accounts
@@ -104,7 +102,7 @@ The captured envelope declares its own lookup basis and uses barcodes throughout
             <Job>4201</Job><Ranch>4001</Ranch><CardType>TimeIn</CardType>…</TimeCard>
 ```
 
-This matters for `B1-002`: the office-side records on dev staging must carry **matching codes**, not
+This matters for `B1`: the office-side records on dev staging must carry **matching codes**, not
 just matching names. The importer's `TimeCard` foreign keys are nullable, so a mismatch imports
 "successfully" with NULL counters — the import spec must assert non-null links, not merely a
 `completed` run.
@@ -118,7 +116,7 @@ Note the on-device tables are the opposite way round: `Employee_Records.CREW` ho
 |---|---|---|---|
 | PET Pocket main menu | app launcher | `src/pages/device/PetPocketMainMenuPage.ts` | exists |
 | PET Pocket Crew In | `Main menu ▸ Crew In` | `src/pages/device/PetPocketCrewInPage.ts` | exists |
-| Transfer to Job Card | `Input ▸ Transfer to Job Card` | `src/pages/processing/TransferToJobCardsPage.ts` | exists (used by `B1-002`) |
+| Transfer to Job Card | `Input ▸ Transfer to Job Card` | `src/pages/processing/TransferToJobCardsPage.ts` | exists (used by `B1`) |
 
 ## Data
 
@@ -154,23 +152,23 @@ to be re-declared or it disappears.
 ## Cleanup
 
 The device is re-seeded from the golden database at the start of every run, so device state needs no
-teardown. The office-side import (`B1-002`) creates real time cards on dev staging and will use
+teardown. The office-side import (`B1`) creates real time cards on dev staging and will use
 `cleanup.track()` with run-unique names.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B1-001` | Capture a crew time-in on the device, uncheck the absentee, and export it | `B1-R1`, `B1-R2`, `B1-R3`, `B1-R4`, `B1-R5`, `B1-R8` | `regression` + `@Demo` | 1 — green, runs in the opt-in `device` project |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B1` | Capture a crew time-in on the device, uncheck the absentee, and export it | `regression` + `@Demo` | 1 — green, runs in the opt-in `device` project |
 
-`B1-001` is the whole flow the recording shows: capture on the device, export, import into the
+`B1` is the whole flow the recording shows: capture on the device, export, import into the
 office, then verify on Transfer to Job Cards.
 
 ### Transport substitution — what a green run does and does not prove
 
 The spec first attempts the real transport (upload the device export through Connectivity import).
 Where that is impossible — dev staging has no object storage — it creates the **identical punches**
-through `POST /time-cards/crew-time-in` and continues, so `B1-R5` (the office landing) and `B1-R8`
+through `POST /time-cards/crew-time-in` and continues, so `B1` (the office landing) and `B1`
 (Transfer to Job Cards) are asserted on every run. The run then carries an
 `office-transport-substituted` annotation, and the per-row `programCreated` flag is asserted **per
 transport** (imports stamp it `true`, office writes leave it `false`), so a fallback can never
@@ -191,7 +189,7 @@ device→office import was actually proven. Set `OFFICE_TRANSPORT_SUBSTITUTE=1` 
 substituted transport instead: the same punches are created via `POST /time-cards/crew-time-in`,
 the office half is verified, and the run carries an `office-transport-substituted` annotation.
 Run against the localhost stack — or ask DevOps to configure S3 for the dev API (WEBPET-1830) — to
-exercise `B1-R5` end to end.
+exercise `B1` end to end.
 
 A second server flag gates the *UI* half: the Transfer grid is fed by
 `POST /transfer-to-job-cards/analyze`, which 404s unless `PT_TRANSFER_ANALYZE_ENABLED` is truthy.
