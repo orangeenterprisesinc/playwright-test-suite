@@ -111,7 +111,7 @@ Four different things get called "test data". They are deliberately separate:
 
 | Kind | Where | Authored how | Example |
 |---|---|---|---|
-| **Runner rows** — which tests exist and whether they run | `src/data/runner/journey-*.csv` (+ generated `.json` mirror) | CSV by hand, Excel-friendly | `A1-001, enabled=1` |
+| **Runner rows** — which tests exist and whether they run | `src/data/runner/journey-*.csv` (+ generated `.json` mirror) | CSV by hand, Excel-friendly | `A1, enabled=1` |
 | **Static value bags** — fixed inputs and expected copy | `src/data/static/<journey>/*.ts` | typed TS, so a shared constant is compile-checked | the 17 role names, expected error messages |
 | **Randomized** — must be unique per run | `src/data/generated/` | `makeUser()`, `uid()` | a test user's name/initials/email |
 | **Reference** — the source-of-truth catalog | `src/data/catalog/workflow-catalog.json` | generated from the `.docx` | the 69 workflows |

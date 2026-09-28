@@ -38,11 +38,11 @@ staging: values read off it are the *product's* behaviour; ids and names are tha
 | Screenshots | WEBPET-1526 attachments `66917`, `66918` — office `Edit Time Out` panels |
 | This plan | `test-plans/journey-b/b07-undefined-employee-reconciliation.md` |
 | Spec | `tests/web/journey-b-field/b07-undefined-employee-reconciliation.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B7-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B7` |
 
 ## Blocked — importer defect on the `Employee_Records` parent
 
-`B7-001` is written, delivered and verified end to end **except** `B7-R1`, which cannot pass on any
+`B7` is written, delivered and verified end to end **except** `B7`, which cannot pass on any
 client whose `Employee.PayPeriod` is NOT NULL. The envelope is deliberately **not** padded to work
 around it: it stays byte-faithful to what the recording's device syncs.
 
@@ -62,7 +62,7 @@ via the `Employee:Code` self-key (`lookupconvert/display.go:413-421` → `upsert
   `valueAssignments` (`:1063-1075`) writes **every** column, including ones the file omits.
 * `PayPeriod` is modelled nullable (`specs.go:260`, `colEnum`) but is NOT NULL on the client DB → 515.
 * A parent failure is **fatal to its nested grid** (`upsert.go:418-427`): `writeNestedGrids` never
-  runs, so the roll assignment is never persisted and `B7-R1` finds nothing.
+  runs, so the roll assignment is never persisted and `B7` finds nothing.
 
 The sibling families already carry the guard this one lacks — `reference.go:1634` and
 `gridmapper.go:666` both `if bc.Absent { continue }`. WEBPET-2120 fixed the displaced key `Name`
@@ -139,7 +139,7 @@ not a manual edit:
 
 **This is why B7's piece-outs carry no crew.** A crew on a Device-B piece-out makes the office
 undo the reconciliation and distribute to the crew, leaving `employeeCounter` NULL — which would
-defeat the id-equality `B7-R2`/`B7-R3` assert even with the importer defect fixed. The recording's
+defeat the id-equality `B7` assert even with the importer defect fixed. The recording's
 own Device B has `Cuadrilla de Trabajo` blank (kf 218), so the faithful shape is also the testable
 one.
 
@@ -160,27 +160,25 @@ the recorded instance.
 Transfer screen offers `Crew piece-out tc=… Fix` (kf 152, 218). That is the crew-piece-out
 distribution flow (**B8**), not B7, and it is why those rows show an empty Employee in the final grid.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B7-R1` | Where the Traceability - Stickers module is licensed, when a device export carrying an employee code-history assignment grid is imported, PET Tiger shall record the roll's extracted prefix as that employee's code-history alternate code. | `B7-001` |
-| `B7-R2` | Where the Traceability - Stickers and Piece Payment modules are licensed, when a piece-out record whose employee value is a sticker prefix matching a same-day code-history assignment is imported, PET Tiger shall attribute the resulting time card to that assignment's employee. | `B7-001` |
-| `B7-R3` | If a piece-out record's sticker prefix matches no code-history assignment for that day, then PET Tiger shall attribute the resulting time card to the configured Undefined Employee. | `B7-001` |
-| `B7-R4` | If a piece-out record is attributed to the Undefined Employee for want of an assignment, then PET Tiger shall record on that card's memo `Assigning to Undefined Employee - Missing Code: <prefix>`. | `B7-001` |
-| `B7-R5` | When a piece-out record declares an alternate-code employee source, PET Tiger shall report the card's Employee Selection as `Sticker Code`. | `B7-001` |
-| `B7-R6` | When such a record is imported, PET Tiger shall store the full scanned sticker as the card's traceability code and its number of pieces as the card's Pieces value. | `B7-001` |
-| `B7-R7` | When such a record is imported, PET Tiger shall key the card by the device's own reference, whose part is `PO`, and shall store it as a time-out-typed card. | `B7-001` |
-| `B7-R8` | PET Tiger shall reconcile the sticker prefix at import rather than on the scanning device — a device holding no roll assignment shall export the extracted prefix as the record's employee value. | `B7-001` |
-| `B7-R9` | While the Piezas screen is open on a device holding no assignment, PET Tiger shall display the extracted prefix and shall confirm the save with `Record saved for <prefix>`. | — not automatable: device-side; the display never reaches an envelope (kf 240, 272) |
-| `B7-R10` | PET Tiger shall play a confirmation tone when a piece is recorded. | — not automatable: device audio, no office surface |
-| `B7-R11` | Where two checker devices are in use, PET Tiger shall keep each device's reference sequence distinct by device prefix. | — not automatable via one envelope: needs a second physical device; observed as `S31` vs `D31` (kf 350) |
+- Where the Traceability - Stickers module is licensed, when a device export carrying an employee code-history assignment grid is imported, PET Tiger shall record the roll's extracted prefix as that employee's code-history alternate code.
+- Where the Traceability - Stickers and Piece Payment modules are licensed, when a piece-out record whose employee value is a sticker prefix matching a same-day code-history assignment is imported, PET Tiger shall attribute the resulting time card to that assignment's employee.
+- If a piece-out record's sticker prefix matches no code-history assignment for that day, then PET Tiger shall attribute the resulting time card to the configured Undefined Employee.
+- If a piece-out record is attributed to the Undefined Employee for want of an assignment, then PET Tiger shall record on that card's memo `Assigning to Undefined Employee - Missing Code: <prefix>`.
+- When a piece-out record declares an alternate-code employee source, PET Tiger shall report the card's Employee Selection as `Sticker Code`.
+- When such a record is imported, PET Tiger shall store the full scanned sticker as the card's traceability code and its number of pieces as the card's Pieces value.
+- When such a record is imported, PET Tiger shall key the card by the device's own reference, whose part is `PO`, and shall store it as a time-out-typed card.
+- PET Tiger shall reconcile the sticker prefix at import rather than on the scanning device — a device holding no roll assignment shall export the extracted prefix as the record's employee value.
+- While the Piezas screen is open on a device holding no assignment, PET Tiger shall display the extracted prefix and shall confirm the save with `Record saved for <prefix>`. _not automatable: device-side; the display never reaches an envelope (kf 240, 272)_
+- PET Tiger shall play a confirmation tone when a piece is recorded. _not automatable: device audio, no office surface_
+- Where two checker devices are in use, PET Tiger shall keep each device's reference sequence distinct by device prefix. _not automatable via one envelope: needs a second physical device; observed as `S31` vs (kf 350)_
 
 Nothing here is invented: every row cites a keyframe, an attachment or a named source line. The
 office-side sticker rule is B7's alone — B4 stores the roll, B5 exercises the device-resolved path.
 
 **Scope.** B7 covers the single path Amy's recording walks, as B1–B6 do: one assignment, one matched
-prefix, one unmatched prefix. `B7-R3`/`B7-R4` are not a negative case — the catalog's own step 3 makes
+prefix, one unmatched prefix. `B7` are not a negative case — the catalog's own step 3 makes
 the still-undefined record part of the workflow. Deliberately **not** carried as requirements: the
 duplicate-traceability fallback and the crew-distribution flow (**B8**), both noted above as recorded
 context.
@@ -213,9 +211,9 @@ does not repeat them.
   whether the match succeeded.
 
 > **Correction to the B4 plan.** B4's N1 concluded that importing a Time In carrying a roll code
-> writes no `EmployeeCodeHistory` row. That is true of the **flat envelope `B4-001` builds**, which
-> never sends the nested grid — it is *not* true of the real device, which sends both. `B4-R9` still
-> stands as written (it asserts about B4-001's own envelope); the B4 plan's inference that later
+> writes no `EmployeeCodeHistory` row. That is true of the **flat envelope `B4` builds**, which
+> never sends the nested grid — it is *not* true of the real device, which sends both. `B4` still
+> stands as written (it asserts about B4's own envelope); the B4 plan's inference that later
 > piece-outs resolve "through the TimeIn traceability code itself" is superseded by the grid.
 
 ### Office side — the rule that reconciles
@@ -261,9 +259,9 @@ The recording is a LAN instance with the label-tracking preferences configured. 
 
 | # | Question | Why it matters |
 |---|---|---|
-| N1 | Dev's `RunTrackingEmpCodeStartLoc`, `RunTrackingRollCodeStartLoc`, `RunTrackingBarcodeLen`, `RunTrackAlternateCodeLength`, `RunTrackAlternateCodePrefix`, `RunTrackingAssignRollsDaily`. | **The gate.** At the registry defaults (`0`, `0`, nil) the office extracts `""` and `B7-R2`/`B7-R3` cannot fire at all. `PUT /preferences` can write all of them (`employeeCodeStartLocation`, `rollCodeStartLocation`, `assignRollsDaily`, …) — but per the run decision the spec **reads and gates**, never writes. Note `assignRollsDaily` false→true additionally **clears `AlternateCode` on every Employee row** and needs `confirmClearAlternateCodes: true`; the spec must never send it. |
-| N2 | Dev's `RunTrackingUndefinedEmp` value. B5 found `undefinedEmployee = 4` ("Undefined Employee", inactive). | `B7-R3` asserts id equality; a preference of 0 leaves `EmployeeCounter` NULL and the assertion must say so rather than accept any non-null id. Read-only — there is no field for it on `UpdatePreferencesRequest`. |
-| N3 | Is `PiecePayment` in `PT_MODULES` on the dev API task? B6 proved it is **not**, and that no `/admin/tm` change can alter it. `LabelTraceability` **is** on (B5). | Per the run decision B7 asserts **both**, consistent with B5-001/B6-001 — so B7-001 is expected red on this gate until DevOps updates `PT_MODULES`. |
+| N1 | Dev's `RunTrackingEmpCodeStartLoc`, `RunTrackingRollCodeStartLoc`, `RunTrackingBarcodeLen`, `RunTrackAlternateCodeLength`, `RunTrackAlternateCodePrefix`, `RunTrackingAssignRollsDaily`. | **The gate.** At the registry defaults (`0`, `0`, nil) the office extracts `""` and `B7` cannot fire at all. `PUT /preferences` can write all of them (`employeeCodeStartLocation`, `rollCodeStartLocation`, `assignRollsDaily`, …) — but per the run decision the spec **reads and gates**, never writes. Note `assignRollsDaily` false→true additionally **clears `AlternateCode` on every Employee row** and needs `confirmClearAlternateCodes: true`; the spec must never send it. |
+| N2 | Dev's `RunTrackingUndefinedEmp` value. B5 found `undefinedEmployee = 4` ("Undefined Employee", inactive). | `B7` asserts id equality; a preference of 0 leaves `EmployeeCounter` NULL and the assertion must say so rather than accept any non-null id. Read-only — there is no field for it on `UpdatePreferencesRequest`. |
+| N3 | Is `PiecePayment` in `PT_MODULES` on the dev API task? B6 proved it is **not**, and that no `/admin/tm` change can alter it. `LabelTraceability` **is** on (B5). | Per the run decision B7 asserts **both**, consistent with B5/B6 — so B7 is expected red on this gate until DevOps updates `PT_MODULES`. |
 | N4 | Does the grid import also write `Employee.AlternateCode` office-side? The device does (`updateEmployeeAlterCodeAndPieceOut`), but the exported grid carries only `<Code>` under `<Employee>`. | Decides whether rung 3 (`Employee.AlternateCode`) short-circuits ahead of rungs 4/8. The **outcome is identical**, so no assertion changes — but if rung 3 fires, B7 would not actually be exercising the code-history rule, which is the point of the workflow. Planner confirms with `GET /employees/{id}` before and after. |
 | N5 | Code-history residue policy — see *Cleanup*. `EmployeeCodeHistory` has **no DELETE** anywhere in `openapi.yaml`. | With a fixed `AlternateCode` and `StartDateTime` on `punchDay(DAY_OFFSET.B7)`, the identity changes daily, so the suite leaves **one undeletable row per calendar day it runs**. Pinning B7 to a fixed date instead would hold it at exactly one row forever. Decision needed before the gate opens. |
 
@@ -271,8 +269,8 @@ The recording is a LAN instance with the label-tracking preferences configured. 
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
-| Time Cards | `View ▸ Time Cards` | **none — and none is needed** | `src/pages/processing/TimeCardsPage.ts` does not exist. `GET /time-cards` returns `employeeCounter`, `traceabilityCode`, `numOfPieces`, `memo` and `employeeSourceText` — every value `B7-R2`–`B7-R8` asserts. |
-| Employee ▸ Code History | `File ▸ Employee ▸ <employee> ▸ Code History` | — | not needed — `GET /employees/{id}/code-history` (`src/utils/api/stickerRollApi.ts` → `getCodeHistory`) carries `B7-R1`. |
+| Time Cards | `View ▸ Time Cards` | **none — and none is needed** | `src/pages/processing/TimeCardsPage.ts` does not exist. `GET /time-cards` returns `employeeCounter`, `traceabilityCode`, `numOfPieces`, `memo` and `employeeSourceText` — every value `B7` asserts. |
+| Employee ▸ Code History | `File ▸ Employee ▸ <employee> ▸ Code History` | — | not needed — `GET /employees/{id}/code-history` (`src/utils/api/stickerRollApi.ts` → `getCodeHistory`) carries `B7`. |
 | Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — **not used by B7**. There is no transfer issue group for an Undefined-Employee card (see *Planner evidence*), so the screen shows nothing B7 asserts. |
 
 ## Data
@@ -286,17 +284,17 @@ spec sends: with `empStartLoc=1` / `rollStartLoc=8` the prefix is `code[0..7)`. 
 `newRunPrefix()`, and **send the prefix the test computed** rather than re-deriving it in the
 assertion, so the comparison is like-for-like.
 
-**Envelope `B7-001` builds** — one envelope, `punchDay(DAY_OFFSET.B7)`, `prefix = newRunPrefix()`:
+**Envelope `B7` builds** — one envelope, `punchDay(DAY_OFFSET.B7)`, `prefix = newRunPrefix()`:
 
 | # | Node / part | Time | `<Employee>` | Elements |
 |---|---|---|---|---|
 | 1 | `TimeCard` / `TI` | 06:30 | `6007` code | crew `5001`, ranch `4001`, field `4101`, job `4201`, `employeeSource` `BarcodeBadge`, `traceabilityCode` = assigned roll — device A's Time In |
 | 2 | `Employee_Records` **nested grid** (not a flat `_Records` section) | 06:30 | `6007` code | `AlternateCode` = assignedPrefix, `FirstCode` = roll suffix, `ScannedCode` = full roll, `StartDateTime` = 06:30 that day |
-| 3 | `PieceOut` / `PO` | 12:17 | **assignedPrefix** | **no crew**, no job/ranch/field, `pieces` 1, `traceabilityCode` = assignedSticker, `employeeSource` `AlternateCode` — `B7-R2` |
-| 4 | `PieceOut` / `PO` | 12:16 | **unassignedPrefix** | same shape, a prefix with no grid row — `B7-R3`, `B7-R4` |
+| 3 | `PieceOut` / `PO` | 12:17 | **assignedPrefix** | **no crew**, no job/ranch/field, `pieces` 1, `traceabilityCode` = assignedSticker, `employeeSource` `AlternateCode` — `B7` |
+| 4 | `PieceOut` / `PO` | 12:16 | **unassignedPrefix** | same shape, a prefix with no grid row — `B7` |
 
 **Office assertions.** `GET /employees/{id}/code-history` → a row whose `alternateCode` is
-assignedPrefix (`B7-R1`). `GET /time-cards` cardType 0 → per reference: `employeeCounter`
+assignedPrefix (`B7`). `GET /time-cards` cardType 0 → per reference: `employeeCounter`
 (`emp6007.id`, then `preferences.undefinedEmployee`), `traceabilityCode` verbatim, `numOfPieces` 1,
 `cardType` 0, `employeeSourceText` `"Sticker Code"`, and `memo` matching
 `/^Assigning to Undefined Employee - Missing Code: <unassignedPrefix>/` on the undefined row.
@@ -328,14 +326,14 @@ assignedPrefix (`B7-R1`). `GET /time-cards` cardType 0 → per reference: `emplo
 
 No SQL. All cleanup goes through the app's API.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B7-001` | Deliver a roll assignment and employee-less sticker piece-outs from a second device, and verify the office attributes the assigned prefix to its owner and flags the unassigned one on the Undefined Employee. | `B7-R1`, `B7-R2`, `B7-R3`, `B7-R4`, `B7-R5`, `B7-R6`, `B7-R7`, `B7-R8` | `regression` (demo=0 → no `@Demo`) | **1** |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B7` | Deliver a roll assignment and employee-less sticker piece-outs from a second device, and verify the office attributes the assigned prefix to its owner and flags the unassigned one on the Undefined Employee. | `regression` (demo=0 → no `@Demo`) | **1** |
 
 `testName` stays `undefinedEmployeeReconciliation`; `category` is already `workflow`. One case, one
-envelope — the same shape as `B4-001`, `B5-001` and `B6-001`.
+envelope — the same shape as `B4`, `B5` and `B6`.
 
 ## Open questions for the tester
 
@@ -344,5 +342,5 @@ envelope — the same shape as `B4-001`, `B5-001` and `B6-001`.
       crew Time In that could collide, so the fixed date is safe — it just breaks the `DAY_OFFSET`
       convention. Nothing accrues while the gate is red.
 - [ ] **N1 / N3** are environment changes, not code: `PT_MODULES` needs `PiecePayment`, and the two
-      start-location preferences need setting on the dev client. Until both land, `B7-001` is red by
+      start-location preferences need setting on the dev client. Until both land, `B7` is red by
       design and its reconciliation assertions are unproven on dev.

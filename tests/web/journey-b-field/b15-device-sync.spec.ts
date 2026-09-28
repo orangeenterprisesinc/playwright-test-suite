@@ -11,19 +11,18 @@ test.describe('B15 · Device sync and offline operation', { tag: ['@JourneyB', '
     test('[Scan Device] A scoped scan device pushes its setup to the device mailbox.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B15-001' },
+            { type: 'testCaseId', description: 'B15' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(DeviceSyncScenarioSchema, testInfo);
         const minted = mintDeviceScope(scenario);
         expect(minted.relay.url, 'DEVICE_RELAY_URL must be set (see .env.dev)').toBeTruthy();
         const run = await scopeDevice(minted, { sessionApi, pages, testInfo });
-        // B15-R1
         await expect(pages.scanDevice.savedToast).toBeVisible();
         const sync = await pushAndPull(run, pages, testInfo);
-        // B15-R4, B15-R5 — the push reports success against this device's own mailbox.
+        // The push reports success against this device's own mailbox.
         expect(sync.destination, 'the push reported a different destination mailbox').toContain(run.device.webMailAddress);
-        // B15-R6 — what was actually sent, read back off the relay.
+        // What was actually sent, read back off the relay.
         expect(sync.pulled, 'nothing was queued for the device mailbox').not.toBeNull();
         const view = sync.export!;
         const { ranch, field, crew } = run.entities;

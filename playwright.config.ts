@@ -44,8 +44,7 @@ const WEBPET_ENABLED =
     process.argv.includes('run-test-mcp-server') ||
     process.argv.some(
         (arg, i, argv) =>
-            arg.startsWith('--project=webpet') ||
-            (arg === '--project' && (argv[i + 1] ?? '').startsWith('webpet')),
+            arg.startsWith('--project=webpet') || (arg === '--project' && (argv[i + 1] ?? '').startsWith('webpet')),
     );
 // Worker processes re-evaluate this config with a different argv, so persist
 // the decision into the environment — children inherit it and materialize the
@@ -149,7 +148,11 @@ export default defineConfig({
     // Per-test budget. The app is a Vite-served SPA whose first load can be
     // slow (especially cold on CI), so this is set above Playwright's 30s
     // default. Override per run with the CLI `--timeout`.
-    timeout: 110 * 1000,
+    //
+    // 120 not 110: a01-user-setup was already finishing around 117s wall with no
+    // test.slow() of its own, so the margin was gone before per-action
+    // screenshots added their few seconds.
+    timeout: 120 * 1000,
 
     // Per-assertion budget for web-first auto-retrying `expect(...)` matchers.
     expect: {
@@ -205,7 +208,7 @@ export default defineConfig({
         // src/reporting/deliver/slack/gate.ts: CI events only (SLACK_NOTIFY_EVENTS),
         // so local and manual runs never post.
         ['./src/reporting/deliver/slackReporter.ts'],
-        ['./src/reporting/deliver/dashboard.ts'],     // gated by SEND_RESULT_ELK + ELK_URL
+        ['./src/reporting/deliver/dashboard.ts'], // gated by SEND_RESULT_ELK + ELK_URL
     ],
 
     // Root folder for per-test artifacts (traces, videos, screenshots). Every
@@ -224,13 +227,22 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Full artifact capture on every test. Screenshots give the Allure
-        // report visual context on every result; traces and videos provide
+        // Full artifact capture on every test. Traces and videos provide
         // complete step-by-step debugging. To trim artifact size/time, switch
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
-        screenshot: 'on',
-        trace: 'retain-on-failure',
-        video: 'on',
+        //
+        // Not 'on': that is a single shot at the END of the test, which is now
+        // just a duplicate of the last per-action frame that
+        // src/fixtures/instrumentation/actionShots.ts captures. The failure shot
+        // is not a duplicate — the runner takes it at the moment of failure, and
+        // it still lands when the failure is an expect() rather than an action.
+        screenshot: 'only-on-failure',
+        trace: 'on',
+        // Pinned to the viewport. Left unset, Playwright scales the recording to
+        // an 800px longest side — 800x450 against this 1280x720 viewport, which
+        // is why the .webm read as soft next to a full-size screenshot. Anything
+        // larger than the viewport would only upscale.
+        video: { mode: 'on', size: { width: 1280, height: 720 } },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
@@ -262,11 +274,7 @@ export default defineConfig({
             // Browserless specs (api.fixture) live in tests/web too — a spec that
             // never destructures `page` never launches a browser, so one project
             // serves both.
-            testIgnore: [
-                '**/tests/webpet/**',
-                '**/tests/tools/**',
-                '**/tests/seed.spec.ts',
-            ],
+            testIgnore: ['**/tests/webpet/**', '**/tests/tools/**', '**/tests/seed.spec.ts'],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: '.auth/user.json',

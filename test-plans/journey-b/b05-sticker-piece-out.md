@@ -25,7 +25,7 @@ table, which uncapped it and closed the gap. No other flag was changed.
 | Recording | `docs/media/journey-b/b05-sticker-piece-out.mp4` |
 | This plan | `test-plans/journey-b/b05-sticker-piece-out.md` |
 | Spec | `tests/web/journey-b-field/b05-sticker-piece-out.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B5-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B5` |
 
 ## Catalog entry
 
@@ -70,32 +70,30 @@ The office's Piece Out preference panel is on screen throughout (`/setup/scan-de
 (Global: No)`, `Lock Number Of Pieces No`, `Piece Out Display After Save — (Global: Pallet Count)`.
 The bounds step 3 names are configured **office-side** here and enforced **device-side**.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B5-R1` | Where the Piece Payment and Traceability - Stickers modules are licensed, when a device export containing piece-out records that carry an employee, a sticker employee-source and a traceability code is imported, PET Tiger shall create one piece time card per reference bearing that employee's id. | `B5-001` |
-| `B5-R2` | Where the Traceability - Stickers module is licensed, when such a record is imported, PET Tiger shall store the scanned sticker code as that time card's traceability code. | `B5-001` |
-| `B5-R3` | When such a record is imported, PET Tiger shall record its number of pieces as the time card's Pieces value. | `B5-001` |
-| `B5-R4` | When one export carries several piece-out records for the same employee, PET Tiger shall total their pieces to the number of stickers scanned for that employee. | `B5-001` |
-| `B5-R5` | When a piece-out record is imported, PET Tiger shall key it by a reference whose part is `PO` and shall report it as a time-out-typed card carrying a Pieces value. | `B5-001` |
-| `B5-R6` | If a piece-out record's employee value resolves to no employee, then PET Tiger shall attribute the card to the configured Undefined Employee. | `B5-001` |
-| `B5-R7` | When a piece-out record carries no job, PET Tiger shall import the card and shall raise its missing-job exception against it. | `B5-001` |
-| `B5-R8` | If a piece count above the device's Maximum Pieces preference is entered, then PET Tiger shall reject it with `Numero de Piezas exceeds maximum: 5.000000`. | — not automatable: device-side, enforced in the Piezas activity; the rejected value never reaches an envelope (kf 37, 49) |
-| `B5-R9` | If a piece count below the device's Minimum Pieces preference is entered, then PET Tiger shall reject it with `Numero de Piezas less than minimum: 0.750000`. | — not automatable: device-side, same reason (kf 55) |
-| `B5-R10` | If a sticker already recorded is scanned again, then PET Tiger shall reject the scan with `Traceability code already used.` | — not automatable: device-side de-duplication; the rejected scan never reaches an envelope (kf 15, 21) |
-| `B5-R11` | PET Tiger shall play a confirmation tone when a piece is recorded. | — not automatable: device audio, no office surface |
-| `B5-R12` | PET Tiger shall show running piece totals by employee on the device's Display screen. | — not automatable: device-side; the catalog's variations line places running counts on the device (kf 81) |
+- Where the Piece Payment and Traceability - Stickers modules are licensed, when a device export containing piece-out records that carry an employee, a sticker employee-source and a traceability code is imported, PET Tiger shall create one piece time card per reference bearing that employee's id.
+- Where the Traceability - Stickers module is licensed, when such a record is imported, PET Tiger shall store the scanned sticker code as that time card's traceability code.
+- When such a record is imported, PET Tiger shall record its number of pieces as the time card's Pieces value.
+- When one export carries several piece-out records for the same employee, PET Tiger shall total their pieces to the number of stickers scanned for that employee.
+- When a piece-out record is imported, PET Tiger shall key it by a reference whose part is `PO` and shall report it as a time-out-typed card carrying a Pieces value.
+- If a piece-out record's employee value resolves to no employee, then PET Tiger shall attribute the card to the configured Undefined Employee.
+- When a piece-out record carries no job, PET Tiger shall import the card and shall raise its missing-job exception against it.
+- If a piece count above the device's Maximum Pieces preference is entered, then PET Tiger shall reject it with `Numero de Piezas exceeds maximum: 5.000000`. _not automatable: device-side, enforced in the Piezas activity; the rejected value never reaches an envelope (kf 37, 49)_
+- If a piece count below the device's Minimum Pieces preference is entered, then PET Tiger shall reject it with `Numero de Piezas less than minimum: 0.750000`. _not automatable: device-side, same reason (kf 55)_
+- If a sticker already recorded is scanned again, then PET Tiger shall reject the scan with `Traceability code already used.` _not automatable: device-side de-duplication; the rejected scan never reaches an envelope (kf 15, 21)_
+- PET Tiger shall play a confirmation tone when a piece is recorded. _not automatable: device audio, no office surface_
+- PET Tiger shall show running piece totals by employee on the device's Display screen. _not automatable: device-side; the catalog's variations line places running counts on the device (kf 81)_
 
 No rejection criteria are invented. Every row cites a keyframe or an importer source; the pack-house
 variation is the same device flow with no distinct system surface in the recording, so it is recorded
 under *Not automatable* rather than guessed at.
 
-`B5-R1`'s `Where` clause names both catalog modules, matching the `modules` column on `B5-001` — that
+`B5`'s `Where` clause names both catalog modules, matching the `modules` column on `B5` — that
 pairing is what `src/config/scope.ts` filters a per-customer run on. It scopes the requirement to
 customers licensing both; it is **not** a runtime precondition for the assertions. Dev currently
 reports `PiecePayment=false` (PET-12689) while still storing pieces and resolving employees, which is
-why `B5-001` verifies the behaviour there today. See **N6**.
+why `B5` verifies the behaviour there today. See **N6**.
 
 ## Planner evidence — the importer, read before the spec
 
@@ -118,8 +116,8 @@ These decide the envelope shape and retire the run brief's employee-less `PieceO
   `RunTrackingEmpCodeStartLoc`, `RunTrackingRollCodeStartLoc`.
 * **`employee_fk_ladder.go:326-360` — rung 8's right arm** (`AssignUndefinedEmployee`) is gated only on
   an unresolved FK, a non-empty value and a `Code` lookup — *not* on the sticker conjuncts. It binds
-  nothing when the Undefined Employee preference is 0 or absent. This is what carries `B5-R6`.
-* **B4-R9** already proved that importing a Time In carrying a roll code writes **no**
+  nothing when the Undefined Employee preference is 0 or absent. This is what carries `B5`.
+* **`B4`** already proved that importing a Time In carrying a roll code writes **no**
   `EmployeeCodeHistory` row, and `POST /scan/assign-barcode-roll` writes `StartDateTime = NULL`, which
   the window above can never match. `/employees/{id}/code-history` is GET-only and `openapi.yaml`
   exposes no `deleteCodeHistory`.
@@ -134,9 +132,9 @@ code-history path belongs to B7.
 |---|---|---|
 | N1 | The exact wire value of the sticker `EmployeeSource` — `Sticker Code` is the office *column* rendering. Confirm from AndroidPET `sync/TimeCardExport.java`, `common/TraceabilityCode.java`, `editrecord/PieceOutActivity.java`. | Decides a new `DEVICE_SCHEMA.employeeSource` entry; today only `Crew` and `BarcodeBadge` exist. |
 | N2 | Does the office accept the exported `<Employee>` on rung 1, or re-resolve through code history? | Confirms B5 needs no seeding. If it re-resolves, B5 inherits the `StartDateTime` problem and becomes an annotated environment gate rather than a green test. |
-| N3 | The Undefined Employee preference on the dev client and that employee's id (`GET /employees`, once). | `B5-R6` asserts id equality; an unset preference leaves `EmployeeCounter` NULL, and the assertion must say so rather than accept any non-null id. |
+| N3 | The Undefined Employee preference on the dev client and that employee's id (`GET /employees`, once). | `B5` asserts id equality; an unset preference leaves `EmployeeCounter` NULL, and the assertion must say so rather than accept any non-null id. |
 | N4 | Does importing a piece-out for an employee with no time-in that day synthesize one (WEBPET-1409)? The recorded employees already had B4's Time In, so it never fired. | Decides whether cleanup must sweep synthesized Time-Ins as well as piece cards. |
-| N5 | The exact exception text and API surface for the missing-job issue (`JobCounter is required …`, kf 105). | `B5-R7` asserts it; the wording must come from dev, not from a keyframe crop. |
+| N5 | The exact exception text and API surface for the missing-job issue (`JobCounter is required …`, kf 105). | `B5` asserts it; the wording must come from dev, not from a keyframe crop. |
 | N6 | Which modules does B5 actually depend on, and are they licensed on dev? | A module that gates the assertions is a precondition; one that gates a neighbouring feature is not. Either way the state is named in an annotation, never silently skipped. |
 
 ### Planner resolution (2026-08-26 — AndroidPET source, importer spec, dev staging GETs + one blocked UI probe)
@@ -144,27 +142,27 @@ code-history path belongs to B7.
 | # | Resolution | Evidence |
 |---|---|---|
 | N1 | **`AlternateCode`** (`AlternateCodeWithScale` when a scale is present). New entry `DEVICE_SCHEMA.employeeSource.alternateCode`. The office stores enum **6** and renders `employeeSourceText` **"Sticker Code"**. | AndroidPET `editrecord/PieceOutActivity.java:183` → `record/RecordBase.java:435-436,452-453` → `conf/Enums/EmployeeScanSourceOptions.java:9`; exported verbatim by `sync/TimeCardExport.java:221`; deployed SPA enum `{…6:"Sticker Code"…13:"Crew"}`; a live Crew card reads `employeeSource:13`/`"Crew"`. No `StickerCode` literal exists device-side. |
-| N2 | **Rung 1 accepts it — B5 is a green test, not a gate.** `<Employee>` carries the employee *Code*, resolved by the declared `Employee:Code` lookup; rung 8's sticker arm only fires on an unresolved FK. No code-history read, no seeding, no residue. | The plan's own importer evidence; kf 105 (four correct employees with no history rows — B4-R9); B3/B4 green on the identical path. |
-| N3 | Preference **set**: `undefinedEmployee = 4`, `undefinedEmployeeName` "Undefined Employee"; employee id 4 is inactive and its comment documents exactly this fallback. `B5-R6` asserts `employeeCounter === prefs.undefinedEmployee`. Employee `6006` → id **587** (`6005` → 586). | `GET /preferences`, `GET /employees` (dev, 2026-08-26). |
+| N2 | **Rung 1 accepts it — B5 is a green test, not a gate.** `<Employee>` carries the employee *Code*, resolved by the declared `Employee:Code` lookup; rung 8's sticker arm only fires on an unresolved FK. No code-history read, no seeding, no residue. | The plan's own importer evidence; kf 105 (four correct employees with no history rows — `B4`); B3/B4 green on the identical path. |
+| N3 | Preference **set**: `undefinedEmployee = 4`, `undefinedEmployeeName` "Undefined Employee"; employee id 4 is inactive and its comment documents exactly this fallback. `B5` asserts `employeeCounter === prefs.undefinedEmployee`. Employee `6006` → id **587** (`6005` → 586). | `GET /preferences`, `GET /employees` (dev, 2026-08-26). |
 | N4 | **No synthesis on dev** — `timeInCardCreationMethod:"User"`, `fixedTimeForTimeInFromPieceOut:null`, and the recording's own Piece Out panel shows `Create Time In From Piece Out — (Global: No)`. B5 sends the Time In first regardless. The sweep still covers cardTypes `[1,0]` so a later preference flip cannot orphan a synthesized card. | `GET /preferences`; kf 0/15 panel; the WEBPET-1409 PostSave hook in the importer spec. |
-| N5 | Surface: **`POST /transfer-to-job-cards/analyze`** — it feeds both the Transfer screen and the Time Cards Exceptions panel. Full literal now pinned from a dev run: `{"code":"block.fk_missing","severity":"block","message":"JobCounter is required on a piece-out TimeCard","sourceTimeCardCounter":…,"employeeCounter":…,"date":…,"errorParams":{"field":"JobCounter","reason":"piece-out"}}`. **The payload identifies cards by `sourceTimeCardCounter`, not by `Reference`** — so `B5-R7` joins on the `timeCardCounter` values this run's import produced and requires **every** piece card to be flagged, not merely one. | Dev run 2026-08-28, attached as `transfer-to-job-cards-analyze-B5.json`; kf 105 clips the same text to "JobCounter is required … TimeCard". |
-| N6 | `GET /session/me` reports `PiecePayment=false`, `LabelTraceability=true`, `Traceability=true`. **The two are gated differently, because they gate different things.** *Traceability - Stickers* is a hard precondition — without it the importer has no sticker path and `B5-R2` would be vacuous, so the spec asserts it. *Piece Payment* gates piece **payment**, not piece **capture**: the importer stores `NumOfPieces` and resolves the employee with it off, which is all `B5-R1`–`B5-R7` assert. It reads false on dev only because the API resolves modules from the `PT_MODULES` env var and never queries TigerMaster — where Piece Payment (moduleId 36) **is** licensed for client 1. The spec therefore **records it in an `environment-gate` annotation naming PET-12689 and asserts against the API regardless** — named, never silently skipped. Under EARS, `Where <module> is licensed` scopes a requirement rather than failing it. | `GET /session/me` 2026-08-26; `GET /api/admin/tm/clients/1/modules` → `{"moduleId":36,"name":"Piece Payment"}`; leftover PO card 346 (`0000001-260811-PO-DFLT-ui`) stores `numOfPieces:12` unlicensed; **PET-12689** (Cloud Infra) — `PT_MODULES` in `services/tigerden/ecs.tf` omits 8 keys and blocks 26 catalog workflows. |
+| N5 | Surface: **`POST /transfer-to-job-cards/analyze`** — it feeds both the Transfer screen and the Time Cards Exceptions panel. Full literal now pinned from a dev run: `{"code":"block.fk_missing","severity":"block","message":"JobCounter is required on a piece-out TimeCard","sourceTimeCardCounter":…,"employeeCounter":…,"date":…,"errorParams":{"field":"JobCounter","reason":"piece-out"}}`. **The payload identifies cards by `sourceTimeCardCounter`, not by `Reference`** — so `B5` joins on the `timeCardCounter` values this run's import produced and requires **every** piece card to be flagged, not merely one. | Dev run 2026-08-28, attached as `transfer-to-job-cards-analyze-B5.json`; kf 105 clips the same text to "JobCounter is required … TimeCard". |
+| N6 | `GET /session/me` reports `PiecePayment=false`, `LabelTraceability=true`, `Traceability=true`. **The two are gated differently, because they gate different things.** *Traceability - Stickers* is a hard precondition — without it the importer has no sticker path and the traceability assertions would be vacuous, so the spec asserts it. *Piece Payment* gates piece **payment**, not piece **capture**: the importer stores `NumOfPieces` and resolves the employee with it off, which is all this spec asserts. It reads false on dev only because the API resolves modules from the `PT_MODULES` env var and never queries TigerMaster — where Piece Payment (moduleId 36) **is** licensed for client 1. The spec therefore **records it in an `environment-gate` annotation naming PET-12689 and asserts against the API regardless** — named, never silently skipped. A licensing condition scopes an expected outcome rather than failing it. | `GET /session/me` 2026-08-26; `GET /api/admin/tm/clients/1/modules` → `{"moduleId":36,"name":"Piece Payment"}`; leftover PO card 346 (`0000001-260811-PO-DFLT-ui`) stores `numOfPieces:12` unlicensed; **PET-12689** (Cloud Infra) — `PT_MODULES` in `services/tigerden/ecs.tf` omits 8 keys and blocks 26 catalog workflows. |
 
 **Structure note for the Generator.** `deliverAndVerifyCards` / `verifyImportInOffice` assume a single
-`cardType` and one reference per expected card; B5-001 composes `importDeviceExport` +
+`cardType` and one reference per expected card; B5 composes `importDeviceExport` +
 `findByReferences` (cardType 1, then 0) + `sweepFixtureCards([587, 4], day, [0,1])` + `cleanupCards`
 directly — all existing exports, no new util. An imported `PieceOut` is **cardType 0**; the grid's Type
 column is what rendered it "Time Out" in the recording. Dev's `serviceImportInterval` is now 1 minute.
 `/setup/scan-devices/37` is 404 today (the device row is gone) — do not reference it.
 
-**Envelope `B5-001` builds** (one envelope, `punchDay(DAY_OFFSET.B5)`, `prefix = newRunPrefix()`):
+**Envelope `B5` builds** (one envelope, `punchDay(DAY_OFFSET.B5)`, `prefix = newRunPrefix()`):
 
 | # | Node / part | Time | Employee | Elements |
 |---|---|---|---|---|
 | 1 | `TimeCard` / `TI` | 06:00 | `6006` | crew `5001`, ranch `4001`, field `4101`, job `4201`, `employeeSource` `BarcodeBadge` — the seeding Time In, mirroring the recorded day |
 | 2 | `PieceOut` / `PO` | 14:27 | `6006` | crew `5001`, **no** job/ranch/field, `pieces` 1, `traceabilityCode` stickerA, `employeeSource` `AlternateCode` |
-| 3 | `PieceOut` / `PO` | 14:28 | `6006` | same shape, `pieces` 1, stickerB — gives `B5-R4` its total of 2 |
-| 4 | `PieceOut` / `PO` | 14:28 | `9999999` (resolves to nothing) | crew `5001`, no job, `pieces` 1, stickerC, `employeeSource` `AlternateCode` — `B5-R6`; anonymous-worker rungs are off on dev, so rung 7 cannot intercept it |
+| 3 | `PieceOut` / `PO` | 14:28 | `6006` | same shape, `pieces` 1, stickerB — gives `B5` its total of 2 |
+| 4 | `PieceOut` / `PO` | 14:28 | `9999999` (resolves to nothing) | crew `5001`, no job, `pieces` 1, stickerC, `employeeSource` `AlternateCode` — `B5`; anonymous-worker rungs are off on dev, so rung 7 cannot intercept it |
 
 **Office assertions.** `GET /time-cards` cardType 1 → the TI card's employee/crew/ranch/field/job
 counters and `programCreated`; cardType 0 → per reference `employeeCounter` (587, 587, 4),
@@ -185,7 +183,7 @@ Fixture values come from `src/data/journey-b/fixture.ts`. B5 uses the **sticker 
 (`B5 STICKER SIX`) as the roll owner, per the run brief, so its rows never collide with B6 (`6005`) or
 B1's time-in sweep. `DAY_OFFSET.B5 = -7` is already present.
 
-Sticker codes must be **run-unique** — the device rejects a re-scanned traceability code (`B5-R10`) and
+Sticker codes must be **run-unique** — the device rejects a re-scanned traceability code (`B5`) and
 the office keys cards by Reference, so a fixed sticker would blur one run's rows into the next. Derive
 them from `newRunPrefix()` in the shape the recording shows (`B7` plus digits), and record the sent
 value so the assertion compares like with like.
@@ -197,7 +195,7 @@ value so the assertion compares like with like.
 - [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set; run with
       `IMPORT_TRANSPORT=single-folder`.
 - [ ] **N6** — **Traceability - Stickers** licensed on the dev client (it is): the spec asserts it,
-      because without it `B5-R2` has nothing to assert. **Piece Payment** is *not* a precondition —
+      because without it `B5` has nothing to assert. **Piece Payment** is *not* a precondition —
       it gates piece payment, not piece capture — so the spec records its state in an
       `environment-gate` annotation naming PET-12689 and asserts against the API either way.
 
@@ -212,17 +210,17 @@ value so the assertion compares like with like.
 
 No SQL. All cleanup goes through the app's API.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B5-001` | Deliver sticker piece-out records, verify each piece attributes to its sticker's owner with the code stored verbatim, that the pieces total, and that an unresolvable sticker falls to the Undefined Employee. | `B5-R1`, `B5-R2`, `B5-R3`, `B5-R4`, `B5-R5`, `B5-R6`, `B5-R7` | `regression` + `demo=1` → `@Demo` | **1** |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B5` | Deliver sticker piece-out records, verify each piece attributes to its sticker's owner with the code stored verbatim, that the pieces total, and that an unresolvable sticker falls to the Undefined Employee. | `regression` + `demo=1` → `@Demo` | **1** |
 
 `testName` stays `stickerPieceOut`; `category` flips `api` → `workflow`.
 
 ## Open questions for the tester
 
-- [ ] **N2** decides whether `B5-001` is a green test or an annotated environment gate. The Planner
+- [ ] **N2** decides whether `B5` is a green test or an annotated environment gate. The Planner
       settles it against dev before the spec is written.
 - [ ] The catalog promises counts "by employee, field, or job". The recording shows them by employee
       on the device only, and the imported rows carry no field or job. If an office grouping surface

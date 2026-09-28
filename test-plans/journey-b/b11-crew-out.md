@@ -14,7 +14,7 @@
 > Cards, which may simply reflect a module/flag difference in her own LAN environment (user,
 > 2026-08-27). We do not depend on it either way: the one thing that grid shows which the
 > other does not — the **Employee Selection** provenance — is carried on the time-cards API
-> (`employeeSource`), so `B11-R9` is asserted there. B11 therefore builds **no page object**
+> (`employeeSource`), so `B11` is asserted there. B11 therefore builds **no page object**
 > and follows the existing Journey B specs exactly. (B10 is authored but unmerged, so the
 > closest template on `main` is `b03-individual-time-in.spec.ts`, which already uses
 > `buildEnvelope` + `DEVICE_SCHEMA` + `DeviceRecord` + `punchDay(DAY_OFFSET.B3)`.)
@@ -38,7 +38,7 @@ pull reported `Pulled and queued 1 file(s) from the relay.` (`runId` 354, `files
 | Recording | `docs/media/journey-b/b11-crew-out.mp4` |
 | This plan | `test-plans/journey-b/b11-crew-out.md` |
 | Spec | `tests/web/journey-b-field/b11-crew-out.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B11-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B11` |
 
 ## Catalog entry
 
@@ -111,19 +111,17 @@ then corroborated by the recording:
    `0000003-260810-CO-S34-ui` = `{seq7}-{yyMMdd}-{part}-{prefix}-ui`, exactly what
    `buildReference` produces.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B11-R1` | When a crew-out is saved for a work crew, PET Pocket shall create one Time Out record per still-active member, all stamped with the same date and time. | — not automatable via XML: device-side fan-out; the office receives the already-expanded rows, which `B11-R4` asserts |
-| `B11-R2` | While a crew-out's employee list is open, PET Pocket shall list only the crew members who have not already timed out. | — not automatable: device UI (`Empleado Selection`, kf 27) |
-| `B11-R3` | When a crew-out is saved, PET Pocket shall confirm it naming each member a record was created for. | — not automatable: device UI toast (kf 31) |
-| `B11-R4` | When a crew-out export is imported, PET Tiger shall hold exactly one Time Out card (cardType 0) per crewed-out member, each linked by id to the scanned employee and to the crew, with `programCreated` true. | `B11-001` |
-| `B11-R5` | When a crew-out export is imported, PET Tiger shall preserve each card's device reference with part `CO`. | `B11-001` |
-| `B11-R6` | PET Tiger shall leave Job, Ranch and Field unset on an imported Time Out card. | `B11-001` |
-| `B11-R7` | When a member timed out individually before the crew-out, PET Tiger shall hold that member's Time Out card at its own earlier time with a `TO` reference, unchanged by the crew-out. | `B11-001` |
-| `B11-R8` | When a crew-out export is imported, PET Tiger shall stamp every card created by it with the same date and time. | `B11-001` |
-| `B11-R9` | PET Tiger shall record the Employee Selection of a crew-out Time Out card as `Crew` (`employeeSource` 13) and that of an individually-recorded Time Out card as `Barcode Badge` (`employeeSource` 2). | `B11-001` |
+- When a crew-out is saved for a work crew, PET Pocket shall create one Time Out record per still-active member, all stamped with the same date and time. _not automatable via XML: device-side fan-out; the office receives the already-expanded rows, which asserts_
+- While a crew-out's employee list is open, PET Pocket shall list only the crew members who have not already timed out. _not automatable: device UI (`Empleado Selection`, kf 27)_
+- When a crew-out is saved, PET Pocket shall confirm it naming each member a record was created for. _not automatable: device UI toast (kf 31)_
+- When a crew-out export is imported, PET Tiger shall hold exactly one Time Out card (cardType 0) per crewed-out member, each linked by id to the scanned employee and to the crew, with `programCreated` true.
+- When a crew-out export is imported, PET Tiger shall preserve each card's device reference with part `CO`.
+- PET Tiger shall leave Job, Ranch and Field unset on an imported Time Out card.
+- When a member timed out individually before the crew-out, PET Tiger shall hold that member's Time Out card at its own earlier time with a `TO` reference, unchanged by the crew-out.
+- When a crew-out export is imported, PET Tiger shall stamp every card created by it with the same date and time.
+- PET Tiger shall record the Employee Selection of a crew-out Time Out card as `Crew` (`employeeSource` 13) and that of an individually-recorded Time Out card as `Barcode Badge` (`employeeSource` 2).
 
 ## Not established / out of scope
 
@@ -131,7 +129,7 @@ Listed, not tested. Nothing here becomes a second scenario.
 
 | # | Question / item | Why it matters |
 |---|---|---|
-| ~~N1~~ | Does `GET /time-cards` expose `employeeSource`? | **Resolved 2026-08-27 from source.** Yes — `apps/api/internal/input/time_card.go:51-52` returns `employeeSource` (int) and `employeeSourceText` (string); its comment says both *"drive the Employee Selection grid column on View Time Cards and Transfer to Job Cards"*. Codes from `importmap/enums.go:154-179`: `Crew` = **13**, `BarcodeBadge` = **2**. `B11-R9` is asserted on the API. |
+| ~~N1~~ | Does `GET /time-cards` expose `employeeSource`? | **Resolved 2026-08-27 from source.** Yes — `apps/api/internal/input/time_card.go:51-52` returns `employeeSource` (int) and `employeeSourceText` (string); its comment says both *"drive the Employee Selection grid column on View Time Cards and Transfer to Job Cards"*. Codes from `importmap/enums.go:154-179`: `Crew` = **13**, `BarcodeBadge` = **2**. `B11` is asserted on the API. |
 | ~~N2~~ | Is a page object needed for **View ▸ Time Cards**? | **Resolved — no.** N1 puts the provenance on the API, so nothing Amy read off that grid is unreachable. B11 builds no page object and asserts no Transfer to Job Cards state. |
 | N3 | Which office screen a customer verifies on (`View ▸ Time Cards` vs `Transfer to Job Cards`) | Amy used the former; possibly a module/flag difference in her LAN environment. Not a product requirement B11 asserts either way. |
 | N4 | GPS on a crew-out card. The recording shows `(36.8076576, -119.8347626)` on both time-out types, but our envelope controls it. | Carried as an ordinary `gps` field; not a separate requirement. |
@@ -198,19 +196,18 @@ morning time-ins `07:15`, early leaver's `TO` at `15:09`, crew-out `CO` at `15:1
 No SQL, ever — the dev database is unreachable by design; setup and teardown go through the
 app's API.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B11-001` | Crew-out to individual time-outs | `B11-R4`, `B11-R5`, `B11-R6`, `B11-R7`, `B11-R8`, `B11-R9` | `regression` | 0 → 1 when green |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B11` | Crew-out to individual time-outs | `regression` | 0 → 1 when green |
 
 ```ts
 test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@B11'] }, () => {
     test('[Crew Out] Record one crew-out for the crew and verify an individual time-out per still-active member, leaving the early leaver untouched.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B11-001' },
-            { type: 'requirement', description: 'B11-R4|B11-R5|B11-R6|B11-R7|B11-R8|B11-R9' },
+            { type: 'testCaseId', description: 'B11' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => { /* … */ });
 });

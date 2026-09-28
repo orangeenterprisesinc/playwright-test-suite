@@ -19,7 +19,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
     test('[Time-Out Questions] Clock three crew members out with their clock-out question answers and a signature, and verify every answer — including the ones outside the expected response — imports against the right time-out card.', {
         tag: ['@Regression', '@Demo'],
         annotation: [
-            { type: 'testCaseId', description: 'B12-001' },
+            { type: 'testCaseId', description: 'B12' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
@@ -50,7 +50,6 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         expect(run.cards).toHaveLength(expected.cards.length);
         assertExpectedCards(run, expected.cards);
         const timeOutCards = expected.cards.filter((c) => records[c.record].node === timeOut.node).map((c) => cardOf(run, c.record));
-        // B12-R3
         for (const { card, expected: json, bound } of timeOutCards) {
             expect(card.cardType).toBe(json.cardType);
             expect(card.employeeCounter).toBe(bound.employeeId);
@@ -58,13 +57,12 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
             expect(card.programCreated).toBe(true);
             expect(referencePart(String(card.reference))).toBe(timeOut.part);
         }
-        // B12-R4 — the nulls explicitly; the flow only skipped the work-context asserts for them.
+        // The nulls explicitly; the flow only skipped the work-context asserts for them.
         for (const { card } of timeOutCards) {
             expect(card.jobCounter).toBeNull();
             expect(card.ranchCounter).toBeNull();
             expect(card.fieldCounter).toBeNull();
         }
-        // B12-R5
         const byName = (rows: { questionName: string; response: string }[]) =>
             rows.map(({ questionName, response }) => ({ questionName, response })).sort((a, b) => a.questionName.localeCompare(b.questionName));
         const details = new Map<number, Awaited<ReturnType<typeof timeOutDetailOf>>>();
@@ -81,13 +79,12 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
             expect(detail.questions, `${json.employeeCode}'s answers`).toHaveLength(answers.length);
             expect(byName(detail.questions ?? [])).toEqual(byName(answers));
         }
-        // B12-R6 — answers outside the expected response are stored verbatim, not rejected or normalised.
+        // Answers outside the expected response are stored verbatim, not rejected or normalised.
         for (const { index } of timeOutCards) {
             for (const answer of answersOf(run.scenario, index).filter((a) => a.unexpected)) {
                 expect(details.get(index)!.questions!.find((q) => q.questionName === answer.questionName)!.response).toBe(answer.response);
             }
         }
-        // B12-R8
         expect(run.crewNotify, 'the scenario must name the crewNotifyUser precondition').not.toBeNull();
         expect(run.crewNotify!.crew.userToNotifyBreakAndMeal).toBe(run.crewNotify!.user.usersCounter);
         expect(run.crewNotify!.user.emailAddress).toEqual(expect.any(String));

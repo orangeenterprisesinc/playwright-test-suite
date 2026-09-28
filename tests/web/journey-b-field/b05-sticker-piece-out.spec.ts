@@ -11,7 +11,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
     test('Deliver sticker piece-out records and verify attribution, totals and the Undefined-Employee fallback', {
         tag: ['@Regression', '@Demo'],
         annotation: [
-            { type: 'testCaseId', description: 'B5-001' },
+            { type: 'testCaseId', description: 'B5' },
         ],
     }, async ({ sessionApi }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
@@ -29,7 +29,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         expect(
             Number.isFinite(gates.undefinedEmployeeId) && gates.undefinedEmployeeId > 0,
             'preferences.undefinedEmployee must be configured — the importer binds it as the ' +
-                'fallback owner, so B5-R6 cannot be asserted without it. The field is read-only on ' +
+                'fallback owner, so the fallback cannot be asserted without it. The field is read-only on ' +
                 'the preferences screen, but no DB write is needed: run Help ▸ Administration ▸ ' +
                 '"Add Standard Records to Database" (/settings/standard-records, or POST ' +
                 'admin/standard-records) and it repoints the setting at the existing Undefined ' +
@@ -61,28 +61,28 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         expect(seeding.card.jobCounter).toBe(run.office.job.id);
         expect(seeding.card.programCreated).toBe(true);
 
-        // B5-R1/B5-R4: both 6006 piece cards attribute to 6006's id, pieces total 2.
+        // Both 6006 piece cards attribute to 6006's id, pieces total 2.
         expect(stickerA.card.employeeCounter).toBe(stickerA.bound.employeeId);
         expect(stickerB.card.employeeCounter).toBe(stickerB.bound.employeeId);
         expect(
             Number(stickerA.card.numOfPieces) + Number(stickerB.card.numOfPieces),
-            'B5-R4: pieces total across the two scans',
+            'pieces total across the two scans',
         ).toBe(stickerA.expected.pieces! + stickerB.expected.pieces!);
 
-        // B5-R6: id equality, never merely non-null — the fallback ladder can land on a
+        // Id equality, never merely non-null — the fallback ladder can land on a
         // wrong-but-non-null employee.
         expect(fallback.card.employeeCounter).toBe(gates.undefinedEmployeeId);
 
-        // B5-R2/R3/R5/R7: shared shape for every piece card.
+        // shared shape for every piece card.
         for (const { card, expected: json, index } of [stickerA, stickerB, fallback]) {
-            expect(String(card.traceabilityCode ?? ''), 'B5-R2: sticker stored verbatim').toBe(records[index].traceabilityCode);
-            expect(card.jobCounter, 'B5-R7: no job carried through').toBeNull();
-            expect(card.cardType, 'B5-R5: piece-out imports as cardType 0').toBe(json.cardType);
+            expect(String(card.traceabilityCode ?? ''), 'sticker stored verbatim').toBe(records[index].traceabilityCode);
+            expect(card.jobCounter, 'no job carried through').toBeNull();
+            expect(card.cardType, 'piece-out imports as cardType 0').toBe(json.cardType);
             expect(String(card.employeeSourceText ?? ''), 'N1: sticker source renders "Sticker Code"').toBe(json.employeeSourceText);
             expect(card.programCreated).toBe(true);
         }
 
-        // ── B5-R7: the missing-job exception, from the same endpoint that feeds both the
+        // ── The missing-job exception, from the same endpoint that feeds both the
         // Transfer screen and the Time Cards Exceptions panel ──
         const analyze = await analyzeTransferExceptions(run);
         const expectedCode = gates.requireJobInEmpPieceOut ? expected.analyze!.blockingCode : expected.analyze!.warningCode;
@@ -103,12 +103,12 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         for (const { card } of [stickerA, stickerB]) {
             expect(
                 codesFor(card.timeCardCounter),
-                `B5-R7: piece card ${card.timeCardCounter} must carry ${expectedCode}`,
+                `piece card ${card.timeCardCounter} must carry ${expectedCode}`,
             ).toContain(expectedCode);
         }
         expect(
             codesFor(fallback.card.timeCardCounter),
-            `B5-R6/R7: the Undefined-Employee piece card ${fallback.card.timeCardCounter} must be flagged unusable`,
+            `the Undefined-Employee piece card ${fallback.card.timeCardCounter} must be flagged unusable`,
         ).toContain(expected.analyze!.undefinedEmployeeCode);
     });
 });

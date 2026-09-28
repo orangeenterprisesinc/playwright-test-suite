@@ -29,7 +29,7 @@ export interface AssignBarcodeRollResult {
 }
 
 /**
- * Never throws on a non-2xx — B4-R8 asserts the 400 rejection body itself, so
+ * Never throws on a non-2xx — the B4 spec asserts the 400 rejection body itself, so
  * the caller must be able to observe it rather than catch an exception.
  */
 export async function assignBarcodeRoll(

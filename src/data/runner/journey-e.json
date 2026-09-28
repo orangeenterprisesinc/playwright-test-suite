@@ -1,7 +1,7 @@
 {
     "runnerManager": [
         {
-            "id": "E1-001",
+            "id": "E1",
             "workflow": "E1",
             "journey": "E",
             "category": "workflow",
@@ -21,7 +21,7 @@
             "enabled": false
         },
         {
-            "id": "E2-001",
+            "id": "E2",
             "workflow": "E2",
             "journey": "E",
             "category": "workflow",
@@ -41,7 +41,7 @@
             "enabled": false
         },
         {
-            "id": "E3-001",
+            "id": "E3",
             "workflow": "E3",
             "journey": "E",
             "category": "workflow",
@@ -61,7 +61,7 @@
             "enabled": false
         },
         {
-            "id": "E4-001",
+            "id": "E4",
             "workflow": "E4",
             "journey": "E",
             "category": "workflow",
@@ -81,7 +81,7 @@
             "enabled": false
         },
         {
-            "id": "E5-001",
+            "id": "E5",
             "workflow": "E5",
             "journey": "E",
             "category": "workflow",
@@ -104,7 +104,7 @@
             "enabled": false
         },
         {
-            "id": "E6-001",
+            "id": "E6",
             "workflow": "E6",
             "journey": "E",
             "category": "workflow",
@@ -125,7 +125,7 @@
             "enabled": false
         },
         {
-            "id": "E7-001",
+            "id": "E7",
             "workflow": "E7",
             "journey": "E",
             "category": "workflow",
@@ -146,7 +146,7 @@
             "enabled": false
         },
         {
-            "id": "E8-001",
+            "id": "E8",
             "workflow": "E8",
             "journey": "E",
             "category": "ui",
@@ -166,7 +166,7 @@
             "enabled": false
         },
         {
-            "id": "E9-001",
+            "id": "E9",
             "workflow": "E9",
             "journey": "E",
             "category": "ui",
@@ -187,7 +187,7 @@
             "enabled": false
         },
         {
-            "id": "E10-001",
+            "id": "E10",
             "workflow": "E10",
             "journey": "E",
             "category": "ui",
@@ -207,7 +207,7 @@
             "enabled": false
         },
         {
-            "id": "E11-001",
+            "id": "E11",
             "workflow": "E11",
             "journey": "E",
             "category": "ui",
@@ -227,7 +227,7 @@
             "enabled": false
         },
         {
-            "id": "E12-001",
+            "id": "E12",
             "workflow": "E12",
             "journey": "E",
             "category": "workflow",
@@ -249,7 +249,7 @@
             "enabled": false
         },
         {
-            "id": "E13-001",
+            "id": "E13",
             "workflow": "E13",
             "journey": "E",
             "category": "workflow",

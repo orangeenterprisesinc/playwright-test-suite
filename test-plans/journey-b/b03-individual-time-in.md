@@ -19,7 +19,7 @@ Source: `docs/media/journey-b/b03-individual-time-in.mp4` (Jira WEBPET-1522 atta
 | Recording | `docs/media/journey-b/b03-individual-time-in.mp4` |
 | This plan | `test-plans/journey-b/b03-individual-time-in.md` |
 | Spec | `tests/web/journey-b-field/b03-individual-time-in.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B3-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B3` |
 
 ## Catalog entry
 
@@ -52,14 +52,12 @@ Device record (kf 0–5, 36–55).
 | 4 | Rescan outside the range → new record | 10:40: Rancho → AVI-COA-Citrus, Campo → Anthony Nursery - Mangos, rescan → LISTA **Recs (2) Emps (1)** (kf 64–81) | device-only; the envelope carries **both** records |
 | 5 | *(office)* Review after sync | View ▸ **Time Cards**, From/To 08/07/2026, Apply Filter → **Total 2 rows**, both "Time In", Daniel Hernandez, crew 254 Ronaldo Me…, Box - Field Packing (kf 94–105). Exceptions: 1 issue "No corresponding Time-Out/Piece-Out(without Job)/Crew-Piece-Out found" (kf 110–111). Edit Time In: refs **`0000006-260807-TI-S34-ui`** (10:37, AV-Kern-Grape / Central - Org Scarlet Royal) and **`0000007-260807-TI-S34-ui`** (10:40, AVI-COA-Citrus / Anthony Nursery - Mangos), Phase "Cajas del Fil", GPS (36.8076638, -119.8348287), Transferred No (kf 112–119) | **yes** — `GET time-cards` id equality; office UI via the existing Transfer to Job Cards verification (B1/B2 pattern; View ▸ Time Cards has no page object yet — see Screens) |
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B3-R1` | When an individual time-in export (two `TimeIn` records for one employee, distinct `TI` references, `EmployeeSource` `BarcodeBadge`, different field/job contexts) is imported, PET Tiger shall hold exactly one Time In card (cardType 1) per reference, each linked by id to the scanned employee, ranch, field, job and crew, with `programCreated` true. | `B3-001` |
-| `B3-R2` | When the punch day is loaded in the office, PET Tiger shall list one row per imported card carrying its reference, and flag each as an open Time In (no corresponding Time-Out/Piece-Out). | `B3-001` |
-| `B3-R3` | When a badge is rescanned within the Duplicate Range with different data, PET Pocket shall replace the existing Time In record ("Updated record within duplicate range for: <employee>"); outside the range with different data it shall add a record; outside the range with identical data it shall refuse ("TimeIn is identical with the previous TimeIn record"). | — not automatable via XML: device-side duplicate-range rules; the office receives the final state, which `B3-R1` asserts |
-| `B3-R4` | Where biometric identification is configured, PET Pocket shall accept a fingerprint in place of a badge scan. | — not automatable: device hardware, not shown |
+- When an individual time-in export (two `TimeIn` records for one employee, distinct `TI` references, `EmployeeSource` `BarcodeBadge`, different field/job contexts) is imported, PET Tiger shall hold exactly one Time In card (cardType 1) per reference, each linked by id to the scanned employee, ranch, field, job and crew, with `programCreated` true.
+- When the punch day is loaded in the office, PET Tiger shall list one row per imported card carrying its reference, and flag each as an open Time In (no corresponding Time-Out/Piece-Out).
+- When a badge is rescanned within the Duplicate Range with different data, PET Pocket shall replace the existing Time In record ("Updated record within duplicate range for: <employee>"); outside the range with different data it shall add a record; outside the range with identical data it shall refuse ("TimeIn is identical with the previous TimeIn record"). _not automatable via XML: device-side duplicate-range rules; the office receives the final state, which asserts_
+- Where biometric identification is configured, PET Pocket shall accept a fingerprint in place of a badge scan. _not automatable: device hardware, not shown_
 
 ## Not established (Planner resolves before generation)
 
@@ -94,7 +92,7 @@ Device record (kf 0–5, 36–55).
 |---|---|---|---|
 | Sidebar | — | `src/pages/shell/LeftNavigationPage.ts` | exists |
 | Connectivity ▸ Import ▸ Internet | `Connectivity ▸ Import ▸ Internet` | `src/pages/connectivity/ImportInternetPage.ts` | exists (bypassed by `IMPORT_TRANSPORT=single-folder`) |
-| Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — used for `B3-R2`, as in B1/B2 |
+| Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — used for `B3`, as in B1/B2 |
 | View ▸ Time Cards | `View ▸ Time Cards` | — | not built; Amy's screen, deferred (would be a later enhancement) |
 
 ## Data
@@ -116,8 +114,8 @@ Device record (kf 0–5, 36–55).
 Cards found by reference are deleted via `DELETE time-cards/{id}` in `finally`; the pre-run sweep
 removes leftovers for employee `6001` on the B3 day. No SQL.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B3-001` | Individual time-in and duplicate-range correction | `B3-R1`, `B3-R2` | `regression` | 0 → 1 when green |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B3` | Individual time-in and duplicate-range correction | `regression` | 0 → 1 when green |

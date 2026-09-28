@@ -30,9 +30,9 @@ where they read their mail settings, and that difference decides testability:
 | Path | Settings come from | Reports the outcome? |
 |---|---|---|
 | **Notification module** (Notify Now, scheduler) | **database preferences** — `GET`/`PUT /preferences` (`input/notification_smtp_prefs.go`) | **yes** — per recipient, with the transport's error |
-| Clock-out flag notification (B12-R10) | the API task's own environment, resolved once at startup by `selectEmailSender` | no — no outbox, and `TimeCardQuestionFlag.NotifiedAtUtc` is on no response |
+| Clock-out flag notification (B12) | the API task's own environment, resolved once at startup by `selectEmailSender` | no — no outbox, and `TimeCardQuestionFlag.NotifiedAtUtc` is on no response |
 
-So this spec does not cover B12's notification and does not claim to. B12-R10
+So this spec does not cover B12's notification and does not claim to. That half
 stays a named gate in its own plan.
 
 ## Acceptance criteria (EARS)

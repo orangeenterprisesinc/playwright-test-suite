@@ -267,7 +267,7 @@ suites:
 | fixture | `@fixtures/base.fixture` / `api.fixture` | `@fixtures/webpet.fixture` |
 | page objects | `src/pages/` | `src/pages/webpet/` (47 screens, 9 components) |
 | runner rows | `src/data/runner/` | `src/data/webpet/webpetRunnerManager.csv` |
-| ids / tags | `A1-001`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
+| ids / tags | `A1`, `@JourneyA` | `WP-0001`, `@WebPet` / `@wp-*` |
 | projects | `auth-setup` → `chromium` / `api` | `webpet-setup` → `webpet` (opt-in) |
 | CI | `e2e.yml` (`suite: journey`) | `e2e.yml` (`suite: webpet`) |
 | dev-staging run | `e2e.yml -f suite=journey` | `e2e.yml -f suite=webpet` |
@@ -583,7 +583,7 @@ A row is bound either via a per-test **annotation** (the live pattern in `tests/
 // Live pattern — annotation on the test options
 test('[User Setup] Verify that ... appears in the Users list.', {
     tag: ['@UI', '@Smoke', '@Local'],
-    annotation: { type: 'testCaseId', description: 'A1-002' },
+    annotation: { type: 'testCaseId', description: 'A1' },
 }, async ({ usersPage, testCaseData }) => {
     // testCaseData is the USR-001 row: { id: 'USR-001', testName: 'createUserWithAllFields', ... }
 });
@@ -720,7 +720,7 @@ import { test } from '../../../src/fixtures/base.fixture';
 test.describe('Product Cart Functionality', () => {
     test('verifyUserCanAddProductToCart', {
         tag: ['@Regression', '@UI'],
-        annotation: { type: 'testCaseId', description: 'A2-001' }, // must exist in src/data/runner/
+        annotation: { type: 'testCaseId', description: 'A2' }, // must exist in src/data/runner/
     }, async ({ productPage }) => {
         await productPage.navigate();
         await productPage.selectProduct('Widget Pro');

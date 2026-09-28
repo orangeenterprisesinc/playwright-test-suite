@@ -11,7 +11,7 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
     test('[Crew Out] Record one crew-out for the crew and verify an individual time-out per still-active member, leaving the early leaver untouched.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B11-001' },
+            { type: 'testCaseId', description: 'B11' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
@@ -36,7 +36,6 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
         expect(run.cards).toHaveLength(scenario.expected.cards.length);
         assertExpectedCards(run, scenario.expected.cards);
         const [, , , toCard, coCard1, coCard2] = scenario.expected.cards.map((c) => cardOf(run, c.record));
-        // B11-R4
         expect(coCard1.card.cardType).toBe(coCard1.expected.cardType);
         expect(coCard2.card.cardType).toBe(coCard2.expected.cardType);
         expect(coCard1.card.employeeCounter).toBe(coCard1.bound.employeeId);
@@ -45,24 +44,21 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
         expect(coCard2.card.crewCounter).toBe(run.office.crew.id);
         expect(coCard1.card.programCreated).toBe(true);
         expect(coCard2.card.programCreated).toBe(true);
-        // B11-R5
         expect(referencePart(String(coCard1.card.reference))).toBe(crewOut.part);
         expect(referencePart(String(coCard2.card.reference))).toBe(crewOut.part);
-        // B11-R6 — the nulls explicitly; the flow only skipped the work-context asserts for them.
+        // The nulls explicitly; the flow only skipped the work-context asserts for them.
         for (const { card } of [toCard, coCard1, coCard2]) {
             expect(card.jobCounter).toBeNull();
             expect(card.ranchCounter).toBeNull();
             expect(card.fieldCounter).toBeNull();
         }
-        // B11-R7
         expect(referencePart(String(toCard.card.reference))).toBe(timeOut.part);
         expect(toCard.card.dateTime).toBe(recordStamp(run, toCard.index));
         expect(storedMoment(toCard.card).getTime()).toBeLessThan(storedMoment(coCard1.card).getTime());
         expect(storedMoment(toCard.card).getTime()).toBeLessThan(storedMoment(coCard2.card).getTime());
-        // B11-R8
         expect(coCard1.card.dateTime).toBe(recordStamp(run, coCard1.index));
         expect(coCard2.card.dateTime).toBe(recordStamp(run, coCard2.index));
-        // B11-R9 — the raw EmployeeSource enum: on the API response, not on the named OfficeTimeCard fields.
+        // The raw EmployeeSource enum: on the API response, not on the named OfficeTimeCard fields.
         expect(Number(coCard1.card.employeeSource)).toBe(coCard1.expected.employeeSourceCode);
         expect(Number(coCard2.card.employeeSource)).toBe(coCard2.expected.employeeSourceCode);
         expect(Number(toCard.card.employeeSource)).toBe(toCard.expected.employeeSourceCode);

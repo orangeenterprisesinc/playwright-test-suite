@@ -33,7 +33,7 @@ staging. Values read off it are the *product's* behaviour; ids and names are tha
 | Recording | `docs/media/journey-b/b06-badge-piece-out.mp4` |
 | This plan | `test-plans/journey-b/b06-badge-piece-out.md` |
 | Spec | `tests/web/journey-b-field/b06-badge-piece-out.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B6-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B6` |
 
 ## Catalog entry
 
@@ -77,20 +77,18 @@ discrepancy in the run brief, which read `{MMDDYY}` off the *iPhone* sample
 (`0000302-031324-PO-A02`): Android/CloudPet uses `yyMMdd`, which is what
 `src/utils/relay/exportEnvelope.ts` already does. No builder change needed.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B6-R1` | Where the Piece Payment module is licensed, when a device export containing a badge piece-out record is imported, PET Tiger shall create one time card for that record's reference bearing its employee id. | `B6-001` |
-| `B6-R2` | When such a record is imported, PET Tiger shall record its number of pieces as the time card's Pieces value. | `B6-001` |
-| `B6-R3` | When such a record is imported, PET Tiger shall store it as a time-out-typed card and shall report its type as `Piece Out` on Transfer to Job Cards. | `B6-001` |
-| `B6-R4` | When such a record is imported, PET Tiger shall key the card by the device's own reference, whose part is `PO`. | `B6-001` |
-| `B6-R5` | When a piece-out record declares a barcode-badge employee source, PET Tiger shall report the card's Employee Selection as `Barcode Badge`. | `B6-001` |
-| `B6-R6` | When a piece-out record carries a crew and a job, PET Tiger shall link the card to both. | `B6-001` |
-| `B6-R7` | When a piece-out record carries a GPS reading, PET Tiger shall store it on the card verbatim. | `B6-001` |
-| `B6-R8` | If a badge already recorded is re-scanned inside the device's duplicate range, then PET Tiger shall update the existing record rather than add one, and shall report `Updated record within duplicate range. Record saved for <employee>`. | — not automatable: device-side; the suppressed scan never reaches an envelope (kf 9, 29, 39, 45, 137) |
-| `B6-R9` | When a piece is recorded, PET Tiger shall play a confirmation tone. | — not automatable: device audio, no office surface |
-| `B6-R10` | While the Piezas screen is open, PET Tiger shall show the previous piece count, the previous employee and the running record and employee counts. | — not automatable: device-side (kf 11, 19, 97, 139) |
+- Where the Piece Payment module is licensed, when a device export containing a badge piece-out record is imported, PET Tiger shall create one time card for that record's reference bearing its employee id.
+- When such a record is imported, PET Tiger shall record its number of pieces as the time card's Pieces value.
+- When such a record is imported, PET Tiger shall store it as a time-out-typed card and shall report its type as `Piece Out` on Transfer to Job Cards.
+- When such a record is imported, PET Tiger shall key the card by the device's own reference, whose part is `PO`.
+- When a piece-out record declares a barcode-badge employee source, PET Tiger shall report the card's Employee Selection as `Barcode Badge`.
+- When a piece-out record carries a crew and a job, PET Tiger shall link the card to both.
+- When a piece-out record carries a GPS reading, PET Tiger shall store it on the card verbatim.
+- If a badge already recorded is re-scanned inside the device's duplicate range, then PET Tiger shall update the existing record rather than add one, and shall report `Updated record within duplicate range. Record saved for <employee>`. _not automatable: device-side; the suppressed scan never reaches an envelope (kf 9, 29, 39, 45, 137)_
+- When a piece is recorded, PET Tiger shall play a confirmation tone. _not automatable: device audio, no office surface_
+- While the Piezas screen is open, PET Tiger shall show the previous piece count, the previous employee and the running record and employee counts. _not automatable: device-side (kf 11, 19, 97, 139)_
 
 Nothing here is invented: every row cites a keyframe or an importer source. The sticker path is
 explicitly *not* B6 (`Sticker: Not Selected` throughout) — that is B4/B5/B7.
@@ -114,7 +112,7 @@ does not repeat them.
   (`isPieceOutNodeName` = `PieceOut` or `PieceOutWithTimeIn`; the Crew aliases are excluded). So
   `node: 'PieceOut'` is the shape that exercises them.
 * **Pieces default** — `timecard_rules.go:1149-1170`: an absent `NumOfPieces` is filled from
-  `DefaultNumberOfTimeCardPieces` (or 1). The spec therefore sends `NumOfPieces` explicitly, so `B6-R2`
+  `DefaultNumberOfTimeCardPieces` (or 1). The spec therefore sends `NumOfPieces` explicitly, so `B6`
   asserts our value rather than the preference.
 * **No Time-In synthesis, by construction** — the WEBPET-1409 PostSave hook
   (`timecard_timein_synth.go:156-261`) needs *all* of: a piece-out node name, a bound Employee, a bound
@@ -132,10 +130,10 @@ does not repeat them.
   `EmployeeScanSourceOptions.BarcodeBadge` for a scanned barcode column and
   `sync/TimeCardExport.java:221` exports it verbatim, i.e.
   `<EmployeeSource>BarcodeBadge</EmployeeSource>` = `DEVICE_SCHEMA.employeeSource.barcodeBadge`. The
-  office renders it `Barcode Badge` (kf 127) — `B6-R5`.
+  office renders it `Barcode Badge` (kf 127) — `B6`.
 * **The duplicate range is a device preference** — `PieceOutActivity.java:1679,1774,1786,2154`:
   `saveRecord(r, mPrefs, poPreferences.getDuplicateRange())` updates the identical in-range record.
-  That is why `B6-R8` is not automatable: the office never sees the suppressed scan.
+  That is why `B6` is not automatable: the office never sees the suppressed scan.
 
 **Groundwork: one page-object method.** `buildEnvelope` + `DEVICE_SCHEMA` (`PieceOut` node, `pieceOut`
 row shape, `referenceParts.pieceOut`), `deliverAndVerifyCards`/`cleanupCards`, `timeCardsApi`'s optional
@@ -148,8 +146,8 @@ envelope-builder or verification-helper change.
 | # | Question | Why it matters |
 |---|---|---|
 | N1 | Is **Piece Payment** licensed on the dev client? B5 found `modules.PiecePayment=false` (2026-08-26); the recording's local instance clearly has it. | Either way it must be *named*: the spec pre-checks `GET session/me` and fails with an `environment-gate` annotation, never a silent skip. Enabling it is a one-time TigerMaster change (`/admin/tm`, ClientID 1, su can) — being done for this run. |
-| N2 | Does dev's fixture job `4201` qualify as "piece-eligible" (`PaymentType` ∈ {1 Piece, 3 TimeAndPiece, 4 TimeAndAllPieces}), and does a piece-out that carries a job import **clean** — no `JobCounter is required` issue, status not `Blocking`? The recording only ever shows job-less piece-outs. | This is the happy path's load-bearing assumption. If a job-carrying piece-out still blocks, `B6-001`'s scope needs revisiting before the spec is written, not after. Planner: `GET /jobs`, then one delivered record. |
-| N3 | Does the Transfer grid render `Piece Out` / `Barcode Badge` on **dev's** build, and is `POST /transfer-to-job-cards/analyze` enabled there? | `B6-R3`/`B6-R5` are asserted on the row; dev has the analyze flag on (probed 2026-08-10) and the existing helper annotates `transfer-grid-not-asserted` when it is off, with the API assertions standing either way. |
+| N2 | Does dev's fixture job `4201` qualify as "piece-eligible" (`PaymentType` ∈ {1 Piece, 3 TimeAndPiece, 4 TimeAndAllPieces}), and does a piece-out that carries a job import **clean** — no `JobCounter is required` issue, status not `Blocking`? The recording only ever shows job-less piece-outs. | This is the happy path's load-bearing assumption. If a job-carrying piece-out still blocks, `B6`'s scope needs revisiting before the spec is written, not after. Planner: `GET /jobs`, then one delivered record. |
+| N3 | Does the Transfer grid render `Piece Out` / `Barcode Badge` on **dev's** build, and is `POST /transfer-to-job-cards/analyze` enabled there? | `B6` are asserted on the row; dev has the analyze flag on (probed 2026-08-10) and the existing helper annotates `transfer-grid-not-asserted` when it is off, with the API assertions standing either way. |
 | N4 | The exact moment of `EXPORTAR` / `SINCRONIZAR` on the device. The main menu carrying those buttons is on screen (kf 49, 107, 161) and the office grid populates afterwards (kf 127), but the tap itself falls in a force-sampled, motionless stretch. | Cosmetic only — the spec builds and delivers the envelope itself, so the device's sync UI is out of scope. |
 | N5 | What the **large numeral** on the `Piezas` screen counts. It reads 2 → 3 → 4 → 1 → 0 → 2 → 1 across kf 5, 9, 21, 89, 137, 139, 163 and matches neither the `LISTA` record count (4 → 8 → 9) nor the `Previous Number of Pieces` footer. | Nothing in the automation depends on it — it is a device display. Recorded so a later reader does not mistake it for a record counter. |
 
@@ -157,17 +155,17 @@ envelope-builder or verification-helper change.
 
 | # | Resolution | Evidence |
 |---|---|---|
-| N1 | **The licence flag does not come from TigerMaster at all on dev — it comes from the `PT_MODULES` env var, and no admin action can change it.** `LoadModulesForClient` returns `parseModulesEnv(PT_MODULES)` and **skips the TigerMaster query entirely** whenever that var is non-empty; only when it is unset does it run `SELECT Name FROM TigerMaster.dbo.vw_ActiveClientModules WHERE ClientId=@p1` and map names via `dbNameToKey` (which *does* contain `"Piece Payment": {"PiecePayment"}`, so this is not a mapping gap). Proof the override is live on dev: `session/me` reports **20** modules true — `BioIdentification`, `CostAccounting`, `ElectronicToken`, `Measurement`, `Notification`, `Onboarding`, `Signature`, `TimeCardQuestions`, `WorkOrder`, `RealTimeDashboard` among them — none of which are in TigerMaster's **13** subscriptions for client 1 (`Bonus Payment, Connectivity, Department, Equipment, Grower Billing, Inventory, Irrigation, Piece Payment, Real Time, Time Sheet Entry, Traceability - Items, Traceability - Stickers, Windows`). A view can only filter, never add, so the set must be the env list — which omits `PiecePayment` while TigerMaster licenses it (moduleId 36). **The unblock is `PT_MODULES` on the dev API task (DevOps), not `/admin/tm`.** `B6-001` therefore pre-checks `session/me.modules.PiecePayment`, pushes an `environment-gate` annotation naming `PT_MODULES` explicitly, and **fails** — per the ticket AC and the run brief, never a silent skip. | `apps/api/internal/auth/modules.go:569-571` (env override), `:579-610` (view query + `dbNameToKey` miss = silent `continue`), `:505` (`"Piece Payment": {"PiecePayment"}`), `:18` (`PT_MODULES`); live `GET /session/me` and `GET /admin/tm/clients/1/modules`, 2026-08-27 |
+| N1 | **The licence flag does not come from TigerMaster at all on dev — it comes from the `PT_MODULES` env var, and no admin action can change it.** `LoadModulesForClient` returns `parseModulesEnv(PT_MODULES)` and **skips the TigerMaster query entirely** whenever that var is non-empty; only when it is unset does it run `SELECT Name FROM TigerMaster.dbo.vw_ActiveClientModules WHERE ClientId=@p1` and map names via `dbNameToKey` (which *does* contain `"Piece Payment": {"PiecePayment"}`, so this is not a mapping gap). Proof the override is live on dev: `session/me` reports **20** modules true — `BioIdentification`, `CostAccounting`, `ElectronicToken`, `Measurement`, `Notification`, `Onboarding`, `Signature`, `TimeCardQuestions`, `WorkOrder`, `RealTimeDashboard` among them — none of which are in TigerMaster's **13** subscriptions for client 1 (`Bonus Payment, Connectivity, Department, Equipment, Grower Billing, Inventory, Irrigation, Piece Payment, Real Time, Time Sheet Entry, Traceability - Items, Traceability - Stickers, Windows`). A view can only filter, never add, so the set must be the env list — which omits `PiecePayment` while TigerMaster licenses it (moduleId 36). **The unblock is `PT_MODULES` on the dev API task (DevOps), not `/admin/tm`.** `B6` therefore pre-checks `session/me.modules.PiecePayment`, pushes an `environment-gate` annotation naming `PT_MODULES` explicitly, and **fails** — per the ticket AC and the run brief, never a silent skip. | `apps/api/internal/auth/modules.go:569-571` (env override), `:579-610` (view query + `dbNameToKey` miss = silent `continue`), `:505` (`"Piece Payment": {"PiecePayment"}`), `:18` (`PT_MODULES`); live `GET /session/me` and `GET /admin/tm/clients/1/modules`, 2026-08-27 |
 | N2 | **Keep job `4201`; no fixture change.** It is `paymentType: 0` (`jobCounter 221`) and that is deliberate: `officeFixture.ts:37-40` says the fixture's `paymentType: 'Time'` is display text the office API cannot take, so `seedOfficeFixture` does not forward it and `ensureJob` applies its default `0`. Payment type is irrelevant to the import — `JobCounter is required` fires on a **missing Job link**, never on eligibility (`timecard_rules.go:1255-1277`, `:2300-2329` consult `PaymentType` only for the data-tracking skip and a prior-Time-In lookup), and piece-eligibility is enforced **device-side** (`PieceOutActivity.java:1066-1067`). So a job-carrying piece-out satisfies the happy path. `ensureJob` *does* forward a numeric `paymentType` if a future case needs a piece-paid job (`setupEntitiesApi.ts:166-188`). | `officeFixture.ts:37-40`; `setupEntitiesApi.ts:166-188`; live `GET /jobs` 2026-08-27; plan's *Planner evidence* |
 | N3 | **`rowFor` is the Reference cell, not the row** — the plan's original assertion idiom was wrong and would never have matched. One new method, `rowCells()`, mirroring `rowStatus`'s row filter. **Both halves then confirmed on dev 2026-08-27** by a gate-bypassed verification run: `analyzeEnabled()` returned `true` and the grid assertions executed and passed, so dev does render Type `Piece Out` and Employee Selection `Barcode Badge` for an imported badge piece-out. The `transfer-grid-not-asserted` branch stays for other environments. | `TransferToJobCardsPage.ts:221-227, 241-246`; `BasePage.ts:25`; `officeVerification.ts:420-424`; instrumented run 2026-08-27 |
 | N4/N5 | Unchanged — out of scope for the automation (device sync UI; unexplained device numeral). | — |
 
 **The spec body is proven; only the gate is red.** A one-off verification run on 2026-08-27 with the
 licence assertion neutralised (a throwaway copy, never committed, deleted afterwards) took the full
-path — envelope → relay → `single-folder` import → every EARS assertion → Transfer to Job Cards grid →
+path — envelope → relay → `single-folder` import → every office assertion → Transfer to Job Cards grid →
 cleanup — and **passed**. It also produced the two facts above: `employeeSourceText === "Barcode Badge"`
-(so `B6-R5` is now pinned, not merely attached) and `analyzeEnabled() === true`. So when `PT_MODULES`
-gains `PiecePayment`, `B6-001` turns green with no code change; nothing downstream of the gate is
+(so `B6` is now pinned, not merely attached) and `analyzeEnabled() === true`. So when `PT_MODULES`
+gains `PiecePayment`, `B6` turns green with no code change; nothing downstream of the gate is
 unverified.
 
 **Preferences confirmed live (2026-08-27), settling the synthesis question twice over:**
@@ -175,7 +173,7 @@ unverified.
 `fieldRequiredInPieceOut: false`, `serviceImportInterval: 1` (minute), and
 **`defaultNumberOfTimeCardPieces: 0`** — note the zero: `timecard_rules.go:1145-1148` warns an *absent*
 preference row yields 1 while a row holding 0 yields **0**, so sending `NumOfPieces` explicitly is
-required for `B6-R2`, not merely tidy.
+required for `B6`, not merely tidy.
 
 ## Screens and page objects
 
@@ -183,7 +181,7 @@ required for `B6-R2`, not merely tidy.
 |---|---|---|---|
 | Transfer to Job Cards | `Transfer to Job Cards` (left nav) | `src/pages/processing/TransferToJobCardsPage.ts` | **exists, plus one new method.** `applyDateRange`, `waitForCandidates`, `rowFor`, `rowStatus`, `analyzeEnabled`, `screenshot` are reused. **Correction (Planner):** `rowFor(id)` is *not* the row — its JSDoc and `officeVerification.ts:420-424`'s exact-match `toHaveText(reference)` prove it resolves to the **Reference cell**, so asserting `Piece Out` / `Barcode Badge` on it could never match. `rowStatus` (`:241-246`) shows the correct idiom — `page.getByRole('row').filter({ has: this.rowFor(id) })` — but `page` is `protected` (`BasePage.ts:25`), so the spec cannot compose it inline. Add one method mirroring `rowStatus`: `rowCells(timeCardCounter): Locator`. `rowFor`'s contract is untouched, so B1–B5 keep working. |
 | Piece-out side panel | click a piece row | — | **not used.** The page object's `timeInPanel` is filtered on a heading `/^Time In$/i` (l. 91-93) and a piece-out panel is titled **`Time Out`** (kf 173), so it would need a new member. Skipped deliberately: every panel value (`Reference`, `Pieces`, `Employee`, `Work Crew`, `GPS Reading`) is asserted on the card via `GET /time-cards`, which is authoritative. Add a generalised `panelFor(title)` only when a workflow needs the panel itself. |
-| PET Pocket `Piezas` | device `MENU PRINCIPAL ▸ PIEZAS` | — | device-side, out of scope (`B6-R8`–`B6-R10`) |
+| PET Pocket `Piezas` | device `MENU PRINCIPAL ▸ PIEZAS` | — | device-side, out of scope (`B6`) |
 
 ## Data
 
@@ -198,25 +196,25 @@ Nothing here needs run-unique values: identity is the `Reference`, and `newRunPr
 those per-run. The piece row carries **no Field and no Ranch**, mirroring kf 173 — which also makes
 Time-In synthesis structurally impossible (see *Planner evidence*).
 
-**Envelope `B6-001` builds** — one envelope, one record, `punchDay(DAY_OFFSET.B6)`,
+**Envelope `B6` builds** — one envelope, one record, `punchDay(DAY_OFFSET.B6)`,
 `prefix = newRunPrefix()`:
 
 | # | Node / part | Time | Employee | Elements |
 |---|---|---|---|---|
 | 1 | `PieceOut` / `PO` | 10:13 | `6005` | crew `5001`, job `4201` (confirmed by N2), no ranch/field, `pieces` 1, `employeeSource` `BarcodeBadge`, `gps` the `b01` fix literal |
 
-**Office assertions**, per EARS id — every row keeps an API-level witness so nothing depends on the
+**Office assertions** — every row keeps an API-level witness so nothing depends on the
 Transfer grid being enabled:
 
-| EARS | Assertion | Read from |
+| # | Assertion | Read from |
 |---|---|---|
-| `B6-R1` | `card.employeeCounter === emp6005.id` (from `ensureEmployee(F.sticker[0])`, not `seedOfficeFixture`) | `GET /time-cards` |
-| `B6-R2` | `Number(card.numOfPieces) === 1` | `GET /time-cards` |
-| `B6-R3` | `card.cardType === CARD_TYPE.timeOut` (0); **and** if `analyzeEnabled()`, `rowCells(id)` contains `Piece Out`, else the existing `transfer-grid-not-asserted` annotation | `GET /time-cards`; `rowCells` |
-| `B6-R4` | `card.reference === references[0]`, which `buildReference` built with part `PO` | envelope + card |
-| `B6-R5` | `card.employeeSourceText === 'Barcode Badge'` — **pinned**, confirmed against dev 2026-08-27 (the office renders `BarcodeBadge` exactly as the recording's grid cell does, kf 127); also attached; **and** `rowCells(id)` contains `Barcode Badge` | `GET /time-cards`; `rowCells` |
-| `B6-R6` | `card.crewCounter === office.crew.id` **and** `card.jobCounter === office.job.id` — id equality, never non-null (the nine-rung FK ladder in `timeCardsApi.ts` can resolve a bad code to the wrong employee) | `GET /time-cards` |
-| `B6-R7` | `String(card.gpsReading ?? '') === gpsFix` verbatim | `GET /time-cards` |
+| 1 | `card.employeeCounter === emp6005.id` (from `ensureEmployee(F.sticker[0])`, not `seedOfficeFixture`) | `GET /time-cards` |
+| 2 | `Number(card.numOfPieces) === 1` | `GET /time-cards` |
+| 3 | `card.cardType === CARD_TYPE.timeOut` (0); **and** if `analyzeEnabled()`, `rowCells(id)` contains `Piece Out`, else the existing `transfer-grid-not-asserted` annotation | `GET /time-cards`; `rowCells` |
+| 4 | `card.reference === references[0]`, which `buildReference` built with part `PO` | envelope + card |
+| 5 | `card.employeeSourceText === 'Barcode Badge'` — **pinned**, confirmed against dev 2026-08-27 (the office renders `BarcodeBadge` exactly as the recording's grid cell does, kf 127); also attached; **and** `rowCells(id)` contains `Barcode Badge` | `GET /time-cards`; `rowCells` |
+| 6 | `card.crewCounter === office.crew.id` **and** `card.jobCounter === office.job.id` — id equality, never non-null (the nine-rung FK ladder in `timeCardsApi.ts` can resolve a bad code to the wrong employee) | `GET /time-cards` |
+| 7 | `String(card.gpsReading ?? '') === gpsFix` verbatim | `GET /time-cards` |
 | belt-and-braces | `cardType 1` for 6005 that day → **zero** rows (no WEBPET-1409 synthesis; structurally impossible with no Field) | `GET /time-cards` |
 
 ## Preconditions
@@ -226,7 +224,7 @@ Transfer grid being enabled:
 - [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set; run with
       `IMPORT_TRANSPORT=single-folder`, without `OFFICE_TRANSPORT_SUBSTITUTE`.
 - [ ] **N1** — `PiecePayment` present in **`PT_MODULES`** on the dev API task. It is **not** today, and
-      no TigerMaster/`/admin/tm` change can alter it (see *Planner resolution*), so `B6-001` is expected
+      no TigerMaster/`/admin/tm` change can alter it (see *Planner resolution*), so `B6` is expected
       **red on this gate** until DevOps adds it. The spec names it in an `environment-gate` annotation
       and fails — never a silent skip.
 - [x] **N2** — job `4201` is sufficient; payment type is enforced device-side only. No fixture change.
@@ -241,18 +239,18 @@ Transfer grid being enabled:
 
 No SQL. All cleanup goes through the app's API.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B6-001` | Deliver a badge piece-out export and verify the office records one piece against the scanned employee. | `B6-R1`, `B6-R2`, `B6-R3`, `B6-R4`, `B6-R5`, `B6-R6`, `B6-R7` | `regression` (demo=0 → no `@Demo`) | **1** |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B6` | Deliver a badge piece-out export and verify the office records one piece against the scanned employee. | `regression` (demo=0 → no `@Demo`) | **1** |
 
 `testName` stays `badgePieceOut`; `category` is already `workflow`.
 
 ## Open questions for the tester
 
 - [ ] **N2** is the one that can move scope: if a job-carrying piece-out still lands `Blocking` on
-      `JobCounter is required`, then the recording's job-less shape *is* the only shape, and `B6-001`
+      `JobCounter is required`, then the recording's job-less shape *is* the only shape, and `B6`
       would assert that blocker instead of a clean import. The Planner settles it before the spec.
 - [ ] Is a negative case wanted later for the job-less piece-out (`JobCounter is required on a
       piece-out TimeCard`, kf 127) and for the out-of-range rescan adding a second card (kf 89)? Both
