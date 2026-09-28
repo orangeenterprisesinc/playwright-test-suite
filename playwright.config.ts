@@ -230,7 +230,11 @@ export default defineConfig({
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
         screenshot: 'on',
         trace: 'retain-on-failure',
-        video: 'on',
+        // Pinned to the viewport. Left unset, Playwright scales the recording to
+        // an 800px longest side — 800x450 against this 1280x720 viewport, which
+        // is why the .webm read as soft next to a full-size screenshot. Anything
+        // larger than the viewport would only upscale.
+        video: { mode: 'on', size: { width: 1280, height: 720 } },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
