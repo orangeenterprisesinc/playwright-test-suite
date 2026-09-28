@@ -17,6 +17,7 @@ import {
     ensureEmployee,
     deleteEmployee,
     lockIdentifierGate,
+    demoteFromSu,
     type EnsuredCrew,
     type EnsuredDepartment,
     type EnsuredEmployee,
@@ -225,12 +226,7 @@ test.describe('Edit employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employe
         // third, the temporary-name escape hatch, is off because emp.name is
         // "E2EEMP_…, Test"). Dev serves isSU=true + AllowRecordNameModification=true,
         // so the locked state is unreachable without rewriting the responses.
-        await page.route('**/api/session/me', async (route) => {
-            const response = await route.fetch();
-            const body = await response.json().catch(() => null);
-            if (body?.user) body.user.isSU = false;
-            await route.fulfill({ response, json: body });
-        });
+        await demoteFromSu(page);
         // The gate flag lives on /api/setup-identifier-preferences, not
         // /api/preferences (measured 2026-09-24). Only Name's flag is closed here,
         // so Code stays editable via its own untouched allowRecordBarcodeModification.

@@ -182,6 +182,22 @@ export class WebpetDataGridComponent extends BaseComponent {
     }
 
     /**
+     * Options of the Multi Update "Value" control. It migrated from a base-ui
+     * Select to a combobox (`<input role=combobox data-testid="mu-fk-combobox">`),
+     * so its list renders `role=option` in a listbox rather than
+     * `[data-slot="select-item"]` in a Select portal. The "Field" select above it
+     * is still a Select, so `openSelectOptions` stays for that one.
+     */
+    get multiUpdateValueOptions(): Locator {
+        return this.page.getByRole('option');
+    }
+
+    /** Wait for the Value combobox's listbox to close before reaching past it. */
+    async waitForComboboxClosed(): Promise<void> {
+        await expect(this.page.getByRole('listbox')).toHaveCount(0, { timeout: 5000 });
+    }
+
+    /**
      * Wait for a Select portal to finish closing. base-ui closes through an exit
      * animation behind a full-screen `inert` backdrop that intercepts pointer
      * events, so a click issued right after picking an option can stall on it.

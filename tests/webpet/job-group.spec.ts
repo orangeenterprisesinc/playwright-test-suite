@@ -14,6 +14,8 @@ import {
     ensureJob,
     deleteJob,
     uniqueName,
+    lockIdentifierGate,
+    demoteFromSu,
     type EnsuredJobGroup,
     type EnsuredJob,
 } from './data-factory';
@@ -172,22 +174,40 @@ test.describe('Edit job group form', { tag: ['@WebPet', '@wp-setup', '@wp-job-gr
         await expect(form.codeInput).toHaveValue(group.code);
     });
 
-    test('[Job Group] Verify that name and code are read-only while export identifier stays editable.', {
+    test('[Job Group] Verify that name and code lock under the WEBPET-2006 gate for a non-SU user, while export identifier stays editable.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0225' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-2006's identifier gate now reaches Job Group too — previously
+        // Name and the generated barcode Code were unconditionally read-only
+        // here (WEBPET-2682), which is what this test used to assert. The
+        // suite's session is SU with every flag open, so both are editable
+        // until demoted. Export Identifier is a mapping field, not identity —
+        // it is not wired to the gate and stays editable in every case.
         const form = pages.jobGroupForm;
         await form.gotoEdit(group.id);
         await form.waitForForm();
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        // Non-SU with both flags closed reaches the locked branch. Both rewrites
+        // are registered before this navigation, and the assertions wait on the
+        // actual preferences response rather than racing it (see job.spec.ts's
+        // WP-0235, the pattern this mirrors).
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordBarcodeModification: false,
+        });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(group.id);
+        await gateSettled;
+        await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
-        // Code is the barcode, and WEBPET-2682 made it auto-generated on create; it
-        // locks on edit so the generated value cannot be overwritten. That brought Job
-        // Group in line with crew/department/employee/equipment/job/variety; customer is
-        // now the only setup entity left asserting an editable code.
         await expect(form.codeInput).toHaveAttribute('readonly', '');
         // The attribute is markup; this is the guarantee it exists for.
         await expect(form.codeInput).not.toBeEditable();
-        // Export identifier is a mapping field, not identity — it stays editable.
         await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
     });
 

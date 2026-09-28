@@ -10,7 +10,7 @@ import { apiUrl } from '@config/webpetEnv';
  */
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureJob, deleteJob, lockIdentifierGate, type EnsuredJob } from './data-factory';
+import { ensureJob, deleteJob, lockIdentifierGate, demoteFromSu, type EnsuredJob } from './data-factory';
 
 // This file owns its own Job, created fresh via the API (no dependency on a
 // seeded "0 - PISCA" / "0-Boxing" row). Assert against `job.*`, never a literal
@@ -202,18 +202,20 @@ test.describe('Edit job form', { tag: ['@WebPet', '@wp-setup', '@wp-jobs', '@WPB
 
         // Non-SU with all three flags closed: Name/Code/Export Identifier lock,
         // Alias stays editable in every combination tested — no flag gates it.
-        await page.route('**/api/session/me', async (route) => {
-            const response = await route.fetch();
-            const body = await response.json().catch(() => null);
-            if (body?.user) body.user.isSU = false;
-            await route.fulfill({ response, json: body });
-        });
+        // Both rewrites must be registered before THIS navigation, not just
+        // before the assertions: waitForForm only proves the name field
+        // rendered, not that the form's setup-identifier-preferences fetch (the
+        // gate's other unlocking term) has landed — asserting against that race
+        // is what made this test flaky. Waiting on the actual response settles it.
+        await demoteFromSu(page);
         await lockIdentifierGate(page, {
             allowRecordNameModification: false,
             allowRecordBarcodeModification: false,
             allowRecordExportIdModify: false,
         });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
         await form.gotoEdit(job.id);
+        await gateSettled;
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
         await expect(form.aliasInput).not.toHaveAttribute('readonly', '');

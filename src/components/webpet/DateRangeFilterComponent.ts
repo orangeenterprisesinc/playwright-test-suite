@@ -36,8 +36,17 @@ export class DateRangeFilterComponent extends BaseComponent {
      */
     readonly applyButton: Locator;
 
-    constructor(page: Page, columnKey: string = 'dateTimeIn') {
-        super(page, `#filter-${columnKey}`);
+    /**
+     * @param columnKey grid column key — builds the DataGrid filter id.
+     * @param selector  explicit trigger selector, used instead of the column
+     *   filter. WEBPET-3342 moved Export v2's picker out of the grid and into the
+     *   page-level scope bar (`export-date-scope`), where it is reachable before
+     *   any rows load; the grid renders no column-filter row until then, so
+     *   `#filter-dateTimeIn` never exists there. The popover is identical either
+     *   way — same presets, same Apply.
+     */
+    constructor(page: Page, columnKey: string = 'dateTimeIn', selector?: string) {
+        super(page, selector ?? `#filter-${columnKey}`);
 
         this.trigger = this.root;
         this.applyButton = page.getByRole('button', { name: /^Apply/i });

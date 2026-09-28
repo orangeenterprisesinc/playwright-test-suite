@@ -12,7 +12,7 @@
  * so retitling does not renumber.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureCrop, deleteCrop, type EnsuredCrop } from './data-factory';
+import { ensureCrop, deleteCrop, lockIdentifierGate, demoteFromSu, type EnsuredCrop } from './data-factory';
 
 // This file creates its own Crop via the API instead of depending on a shared
 // "Admin" crop that may not exist in every client DB. The duplicate-name tests
@@ -165,12 +165,32 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
         await expect(form.exportIdentifierInput).toHaveValue(crop.exportIdentifier);
     });
 
-    test('[Crop] Verify that the name and export identifier are read-only on an existing crop.', {
+    test('[Crop] Verify that the name and export identifier lock under the WEBPET-2006 gate for a non-SU user.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0105' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-2006's identifier gate now reaches Crop too — previously these
+        // two fields were unconditionally read-only here, which is what this test
+        // used to assert. The suite's session is SU with every flag open, so they
+        // are editable until demoted.
         const form = pages.cropForm;
         await form.gotoEdit(crop.id);
+        await form.waitForForm();
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        // Non-SU with both flags closed reaches the locked branch. Both rewrites
+        // are registered before this navigation, and the assertions wait on the
+        // actual preferences response rather than racing it (see job.spec.ts's
+        // WP-0235, the pattern this mirrors).
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordExportIdModify: false,
+        });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(crop.id);
+        await gateSettled;
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
         await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
