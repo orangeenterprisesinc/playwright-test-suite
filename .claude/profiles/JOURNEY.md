@@ -29,7 +29,8 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
   here — the fixtures are not interchangeable.
 * Tags: `@Journey<X>` + `@<WF>` on describe; `@Smoke`/`@HighLevel`/`@Regression`
   tiers on tests (max one `@Smoke` per file; tier tags must equal the CSV row's
-  `tags`). Annotation: `testCaseId` (`A1-001`) only.
+  `tags`). Annotation: `testCaseId` only, and it is the **workflow id** (`C6`,
+  never `C6-001`).
 * Runner CSVs are **authored by hand** (the opposite of webpet's discovered CSV):
   `npm run runner:sync` regenerates the JSON mirrors, `npm run runner:check`
   fails on drift, `npm run coverage:catalog` reports per-workflow state.
@@ -57,8 +58,9 @@ human-reviewable.
    writes the plan to `test-plans/journey-<x>/<wf>-<slug>.md`.
 3. **Checkpoint** — non-empty "Open questions" → pause for the human before
    generating.
-4. **Rows** — orchestrator adds runner rows `enabled=0` to
-   `src/data/runner/journey-<x>.csv`, then `npm run runner:sync`.
+4. **Row** — orchestrator adds **one** runner row `enabled=0` to
+   `src/data/runner/journey-<x>.csv`, id = the workflow id, then
+   `npm run runner:sync`.
 5. **Generate** — Generator (one invocation per plan, not per test) receives the
    plan path, this profile, `pw-spec-author`, and the target spec path.
    Always `tests/web/journey-<x>-<area>/`; the `surface` sets the runner
@@ -73,10 +75,24 @@ human-reviewable.
 
 * Gate-skips masquerade as green — run the gate-skip check in
   `.claude/skills/pw-failure-triage/SKILL.md` (Step 1) before any triage.
-* Journey capture defaults are rich (`trace: 'retain-on-failure'`, video and
-  screenshot on) — a first failure always has a trace under `artifacts/results/`.
-* Never weaken an assertion tied to an EARS requirement; if the app contradicts
-  the requirement, report a potential product bug instead of healing around it.
+* Journey capture defaults are rich (trace and video on, plus a screenshot after
+  every action from `src/fixtures/instrumentation/actionShots.ts`) — a first
+  failure always has a trace under `artifacts/results/`.
+* Never weaken an assertion tied to an expected outcome in the plan; if the app
+  contradicts the plan, report a potential product bug instead of healing around it.
+
+## The one rule that shapes every journey
+
+**One ticket, one spec file, one happy-path test, one runner row — and the id is
+the workflow id.** No negative, edge, boundary, additional-positive or
+setup-only cases; no EARS acceptance criteria and no `<WF>-R<n>` requirement ids.
+A plan's "Expected outcomes" are plain sentences, and anything automation will
+not assert is listed there with its reason (`not automatable`, `deferred`,
+`(POM)`) so a gap never reads as silence.
+
+This overrides the generic "cover edge cases / include negative testing"
+guidance in the planner agent's own definition: that agent is shared, this
+profile is the journey contract. Say so explicitly in every Planner invocation.
 
 ## Validation
 

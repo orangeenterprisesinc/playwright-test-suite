@@ -69,7 +69,7 @@ fixtures the test needs:
 test.describe('User Setup Tests', { tag: '@user-setup' }, () => {
   test('[User Setup] End-to-end: create a user, verify, edit, delete.', {
       tag: ['@UI', '@E2E', '@Smoke', '@Local'],
-      annotation: { type: 'testCaseId', description: 'A1-001' }, // ← binds test to a runner row
+      annotation: { type: 'testCaseId', description: 'A1' }, // ← binds test to a runner row
   }, async ({ usersPage }) => {                                    // ← usersPage injected by the fixture
       ...
   });

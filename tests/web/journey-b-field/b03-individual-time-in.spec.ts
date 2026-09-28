@@ -11,7 +11,7 @@ test.describe('B3 · Individual time-in and duplicate-range correction', { tag: 
     test('[Individual Time In] Deliver an individual time-in export with a corrected and a new record and verify both punches.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B3-001' },
+            { type: 'testCaseId', description: 'B3' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);

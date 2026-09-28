@@ -3,7 +3,7 @@ import { CleanupStepSchema } from './cleanupStep';
 
 // Journey C (pack-house day) scenarios. C6 is the office-side half of a kiosk workflow: a table is
 // set up under a crew, workers are clocked in against it, and the day's cards are grouped by table.
-// A file holds `{ shared, cases }` keyed by testCaseId; run-unique values arrive through
+// One file per spec, one happy-path case; run-unique values arrive through
 // `{tableName}` tokens substituted by src/utils/journeys/journeyCFlow.ts.
 
 const Code = z.string().regex(/^[1-9]\d{3,}$/);
@@ -20,9 +20,9 @@ export const CrewTableCaseSchema = z
         table: z
             .object({
                 /**
-                 * `minted`: a run-unique `{tableName}` the case creates itself (C6-001, on screen).
+                 * `minted`: a run-unique `{tableName}` the case creates itself, on screen.
                  * `fixture`: the fixed `C6 TABLE A` row, ensured through the API and never deleted
-                 * (C6-002) — tables cannot be deleted on dev today, see crewTablesApi.ts.
+                 * — tables cannot be deleted on dev today, see crewTablesApi.ts.
                  */
                 source: z.enum(['minted', 'fixture']),
                 /** Name the fixture supervisor on the table (C6: "under a shared supervisor"). */
@@ -30,7 +30,7 @@ export const CrewTableCaseSchema = z
                 active: z.boolean().default(true),
             })
             .strict(),
-        /** Who is clocked in (C6-002); absent for a setup-only case. */
+        /** Who is clocked in. */
         capture: z
             .object({
                 /** Fixture workers clocked in WITH the table selected. */

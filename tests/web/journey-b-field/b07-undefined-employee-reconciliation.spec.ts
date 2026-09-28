@@ -12,7 +12,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
     test('Deliver a roll assignment and employee-less sticker piece-outs, and verify the assigned prefix attributes to its owner while the unassigned one falls to the Undefined Employee', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'B7-001' },
+            { type: 'testCaseId', description: 'B7' },
         ],
     }, async ({ sessionApi }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
@@ -56,7 +56,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         // KNOWN PRODUCT DEFECT — device A's file stops here, and the envelope is deliberately
         // NOT padded to get past it (see the JSON's _notes and the product-defect annotation).
         // Soft, so one run still exercises and reports the Undefined-Employee half
-        // (B7-R3..B7-R7), which does not depend on the assignment. The test still fails; it
+        // of the workflow, which does not depend on the assignment. The test still fails; it
         // just stops hiding everything behind the first error.
         if (deviceA.file) {
             expect.soft(
@@ -94,37 +94,37 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         expect(timeIn.card.programCreated).toBe(true);
         expect(String(timeIn.card.traceabilityCode ?? '')).toBe(records[timeIn.index].traceabilityCode);
 
-        // B7-R1: the roll's extracted prefix lands as the employee's own code-history alternate
+        // The roll's extracted prefix lands as the employee's own code-history alternate
         // code, windowed to this punch day. Soft, and guarded, for the same reason device A's
         // import status is: both fail together on the PayPeriod defect, and stopping here would
         // leave the Undefined-Employee half unexercised on every run.
         const history = await codeHistoryOf(run, timeIn.expected.employeeCode);
         const historyRow = history.find((h) => h.alternateCode === assignedPrefix);
-        expect.soft(historyRow, 'B7-R1: no code-history row carries the assigned prefix — see the product-defect annotation').toBeDefined();
+        expect.soft(historyRow, 'no code-history row carries the assigned prefix — see the product-defect annotation').toBeDefined();
         if (historyRow) {
             expect.soft(historyRow.startDateTime, 'startDateTime must be set — a NULL never satisfies the window').toBeTruthy();
             expect.soft(String(historyRow.startDateTime)).toMatch(new RegExp(`^${run.day}`));
         }
 
         expect(cardsOfType(unassigned.expected.cardType!), 'both piece-out cards').toHaveLength(wantOfType(unassigned.expected.cardType!));
-        // B7-R3: a prefix matching no same-day assignment falls back to the configured
+        // A prefix matching no same-day assignment falls back to the configured
         // Undefined Employee — id equality, never merely non-null.
         expect(unassigned.card.employeeCounter).toBe(gates.undefinedEmployeeId);
-        // B7-R2: a prefix matching a same-day assignment attributes to that assignment's own
-        // employee. Soft with B7-R1 — there is no assignment to match while the PayPeriod defect
-        // blocks the grid, so this fails for the same single cause and must not mask B7-R4..R7.
-        expect.soft(assigned.card.employeeCounter, 'B7-R2').toBe(assigned.bound.employeeId);
-        // B7-R4: the fallback records why on the card's memo.
+        // A prefix matching a same-day assignment attributes to that assignment's own
+        // employee. Soft: there is no assignment to match while the PayPeriod defect blocks
+        // the grid, so this fails for the same single cause and must not mask the rest.
+        expect.soft(assigned.card.employeeCounter).toBe(assigned.bound.employeeId);
+        // The fallback records why on the card's memo.
         expect(String(unassigned.card.memo ?? '')).toMatch(new RegExp(unassigned.expected.memoPattern!));
-        // B7-R5: an alternate-code employee source reports as "Sticker Code".
+        // An alternate-code employee source reports as "Sticker Code".
         expect(String(unassigned.card.employeeSourceText ?? '')).toBe(unassigned.expected.employeeSourceText);
         expect(String(assigned.card.employeeSourceText ?? '')).toBe(assigned.expected.employeeSourceText);
-        // B7-R6: the full scanned sticker and piece count survive verbatim.
+        // The full scanned sticker and piece count survive verbatim.
         expect(String(unassigned.card.traceabilityCode ?? '')).toBe(records[unassigned.index].traceabilityCode);
         expect(String(assigned.card.traceabilityCode ?? '')).toBe(records[assigned.index].traceabilityCode);
         expect(Number(unassigned.card.numOfPieces)).toBe(unassigned.expected.pieces);
         expect(Number(assigned.card.numOfPieces)).toBe(assigned.expected.pieces);
-        // B7-R7: keyed by the device's own PO reference, stored as time-out.
+        // Keyed by the device's own PO reference, stored as time-out.
         expect(referencePart(String(unassigned.card.reference))).toBe(records[unassigned.index].part);
         expect(referencePart(String(assigned.card.reference))).toBe(records[assigned.index].part);
         expect(unassigned.card.cardType).toBe(unassigned.expected.cardType);

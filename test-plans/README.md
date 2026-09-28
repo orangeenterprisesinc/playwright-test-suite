@@ -23,7 +23,7 @@ One workflow id (`A1`, `D4`) joins five artifacts, so there is no lookup table:
 | Recording | `docs/media/journey-a/a01-user-setup.mp4` |
 | Plan | `test-plans/journey-a/a01-user-setup.md` |
 | Spec | `tests/web/journey-a-setup/a01-user-setup.spec.ts` |
-| Runner rows | `src/data/runner/journey-a.csv` → `A1-001`… |
+| Runner row | `src/data/runner/journey-a.csv` → `A1` |
 
 ## Adding a workflow
 
@@ -33,8 +33,9 @@ One workflow id (`A1`, `D4`) joins five artifacts, so there is no lookup table:
 2. **Copy `_template.md`** to `journey-<x>/<wf>-<slug>.md` and fill it in. Getting
    the "Automatable?" column and the uniqueness rules right here is what stops the
    spec being rewritten twice.
-3. **Add runner rows** to `src/data/runner/journey-<x>.csv` — one per test case,
-   `enabled=0` — then `npm run runner:sync`.
+3. **Add one runner row** to `src/data/runner/journey-<x>.csv` — id = the workflow
+   id, `enabled=0` — then `npm run runner:sync`. One workflow, one happy-path
+   test, one row.
 4. **Write the spec** at `tests/web/journey-<x>-<area>/<wf>-<slug>.spec.ts`.
    One folder for every category. Category comes from the workflow's `surface`:
    `ui` → `ui`, `calc` → `workflow` (tag it `@Workflow`), `device` → `api` (or

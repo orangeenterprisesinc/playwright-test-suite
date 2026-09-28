@@ -1,7 +1,7 @@
 {
     "runnerManager": [
         {
-            "id": "A1-001",
+            "id": "A1",
             "workflow": "A1",
             "journey": "A",
             "category": "ui",
@@ -24,7 +24,7 @@
             "enabled": true
         },
         {
-            "id": "A2-001",
+            "id": "A2",
             "workflow": "A2",
             "journey": "A",
             "category": "ui",
@@ -44,7 +44,7 @@
             "enabled": false
         },
         {
-            "id": "A3-001",
+            "id": "A3",
             "workflow": "A3",
             "journey": "A",
             "category": "ui",
@@ -65,7 +65,7 @@
             "enabled": false
         },
         {
-            "id": "A4-001",
+            "id": "A4",
             "workflow": "A4",
             "journey": "A",
             "category": "ui",
@@ -87,7 +87,7 @@
             "enabled": false
         },
         {
-            "id": "A5-001",
+            "id": "A5",
             "workflow": "A5",
             "journey": "A",
             "category": "ui",
@@ -107,7 +107,7 @@
             "enabled": false
         },
         {
-            "id": "A6-001",
+            "id": "A6",
             "workflow": "A6",
             "journey": "A",
             "category": "api",
@@ -131,7 +131,7 @@
             "enabled": false
         },
         {
-            "id": "A7-001",
+            "id": "A7",
             "workflow": "A7",
             "journey": "A",
             "category": "ui",
@@ -152,7 +152,7 @@
             "enabled": false
         },
         {
-            "id": "A8-001",
+            "id": "A8",
             "workflow": "A8",
             "journey": "A",
             "category": "ui",
@@ -174,7 +174,7 @@
             "enabled": false
         },
         {
-            "id": "A9-001",
+            "id": "A9",
             "workflow": "A9",
             "journey": "A",
             "category": "ui",
@@ -198,7 +198,7 @@
             "enabled": true
         },
         {
-            "id": "A10-001",
+            "id": "A10",
             "workflow": "A10",
             "journey": "A",
             "category": "ui",
@@ -219,7 +219,7 @@
             "enabled": false
         },
         {
-            "id": "A11-001",
+            "id": "A11",
             "workflow": "A11",
             "journey": "A",
             "category": "ui",
@@ -239,7 +239,7 @@
             "enabled": false
         },
         {
-            "id": "A12-001",
+            "id": "A12",
             "workflow": "A12",
             "journey": "A",
             "category": "ui",
@@ -259,7 +259,7 @@
             "enabled": false
         },
         {
-            "id": "A13-001",
+            "id": "A13",
             "workflow": "A13",
             "journey": "A",
             "category": "ui",
@@ -282,7 +282,7 @@
             "enabled": false
         },
         {
-            "id": "A14-001",
+            "id": "A14",
             "workflow": "A14",
             "journey": "A",
             "category": "ui",

@@ -21,7 +21,7 @@ consecutive Imports. The Field only becomes selectable after an end-of-day **Syn
 Either Import is meant to apply `Field_Records` and silently does not (a defect), or
 Fields are delivered on Sync only (working as designed, and the error message is
 misleading). The recordings do not settle it, and the answer changes what the B15
-automation is allowed to assert. Until it is settled, requirement `B15-R9` in
+automation is allowed to assert. Until it is settled, requirement `B15` in
 `test-plans/journey-b/b15-device-sync.md` is deliberately left unencoded.
 
 ## Evidence

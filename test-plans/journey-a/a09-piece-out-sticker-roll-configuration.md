@@ -25,10 +25,10 @@ text; both corrections are proposed back to `workflow-catalog.json` (Open questi
 
 | # | Catalog step | What the app actually does | Automatable? |
 |---|---|---|---|
-| 1 | Enable the piece modules. | Verified live 2026-09-16 on dev: `LabelTraceability` **true**, `ElectronicToken` **true**, `PiecePayment` **false**. `LabelTraceability` gates the Traceability - Stickers section wholesale, so it is asserted truthy. `PiecePayment` is sourced from `PT_MODULES`, which omits it (`PET-12689`) — annotated, never silently skipped, per the `b05` precedent. | yes — module state read and annotated (`A9-003`) |
-| 2 | Set piece-out global preferences: default, maximum and minimum pieces per scan. | **Correction (`WEBPET-1592`):** these three are on the **Pocket** section — `defaultNumberOfTimeCardPieces`, `maximumNumberOfPieces`, `minimumNumberOfPieces` — not on Traceability - Stickers. Confirmed live: `defaultNumberOfTimeCardPieces` = 1, the other two **null** on dev. | yes — `A9-001` |
-| 3 | Choose the piece method (sticker roll or badge). | **Correction (`WEBPET-1592`):** no such control exists, in web or legacy — swept and confirmed absent. Nearest shipped control is `pieceTraceabilityBarcodeFunction`, which chooses whether the barcode identifies the *employee* or the *piece*. Related, not the same choice. | proxy only — `A9-001` asserts `pieceTraceabilityBarcodeFunction`; true wording needs QA confirmation (Open question) |
-| 4 | Confirm piece-eligible jobs exist (payment type piece or time and piece, see A3). | Verified live: `paymentType` `1` = piece (4 jobs) and `3` = timeAndPiece (13 jobs) exist on dev. A3 owns creating them; A9 asserts the precondition holds and fails loudly pointing at A3 if it does not. | yes, as a precondition assertion — `A9-003` |
+| 1 | Enable the piece modules. | Verified live 2026-09-16 on dev: `LabelTraceability` **true**, `ElectronicToken` **true**, `PiecePayment` **false**. `LabelTraceability` gates the Traceability - Stickers section wholesale, so it is asserted truthy. `PiecePayment` is sourced from `PT_MODULES`, which omits it (`PET-12689`) — annotated, never silently skipped, per the `b05` precedent. | yes — module state read and annotated (`A9`) |
+| 2 | Set piece-out global preferences: default, maximum and minimum pieces per scan. | **Correction (`WEBPET-1592`):** these three are on the **Pocket** section — `defaultNumberOfTimeCardPieces`, `maximumNumberOfPieces`, `minimumNumberOfPieces` — not on Traceability - Stickers. Confirmed live: `defaultNumberOfTimeCardPieces` = 1, the other two **null** on dev. | yes — `A9` |
+| 3 | Choose the piece method (sticker roll or badge). | **Correction (`WEBPET-1592`):** no such control exists, in web or legacy — swept and confirmed absent. Nearest shipped control is `pieceTraceabilityBarcodeFunction`, which chooses whether the barcode identifies the *employee* or the *piece*. Related, not the same choice. | proxy only — `A9` asserts `pieceTraceabilityBarcodeFunction`; true wording needs QA confirmation (Open question) |
+| 4 | Confirm piece-eligible jobs exist (payment type piece or time and piece, see A3). | Verified live: `paymentType` `1` = piece (4 jobs) and `3` = timeAndPiece (13 jobs) exist on dev. A3 owns creating them; A9 asserts the precondition holds and fails loudly pointing at A3 if it does not. | yes, as a precondition assertion — `A9` |
 
 **Variations**: there is no separate office sticker-range screen — ranges are set by
 the day-start assignment in the field (`B4`, already automated); pack-house assigns at
@@ -43,29 +43,27 @@ Employee row in the tenant — no `Deleted` filter, no `RecordType` filter, by d
 `B4_PACK_HOUSE_ROLL.alternateCode`, `EmployeeSource: AlternateCode` across B4/B5/B7).
 
 **The spec must never send `confirmClearAlternateCodes: true` and must never write
-`assignRollsDaily` at all.** See `A9-R7` for why the guard is not exercisable on dev.
+`assignRollsDaily` at all.** See `A9` for why the guard is not exercisable on dev.
 
 Corollary: because the restore writes only the keys a test changed,
 `assignRollsDaily` is never in a restore payload either — `restorePreferences` drops
 the key outright.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `A9-R1` | When File ▸ Administration ▸ Preferences is opened, PET Tiger shall display a "Traceability - Stickers" section. | `A9-001` |
-| `A9-R2` | When the Pocket section's Default, Maximum and Minimum Number of Pieces in Piece-Out are saved, PET Tiger shall persist the entered values. | `A9-001` |
-| `A9-R3` | When the Traceability - Stickers section's Piece-out Sticker Prefix, Sticker Barcode Length and Average Number of Employee Daily Pieces are saved, PET Tiger shall persist the entered values. | `A9-001` |
-| `A9-R4` | When the Preferences screen is reloaded after a save, PET Tiger shall rehydrate both sections with the previously saved values. | `A9-001` |
-| `A9-R5` | Where the Traceability - Stickers module is licensed, when Piece-out Traceability Barcode Function is saved, PET Tiger shall persist the selection as its wire value (`No`, `Yes` or `Optional`), not its displayed label. | `A9-001` |
-| `A9-R6` | PET Tiger shall accept only values matching `^[0-9]*[dDhH]?$` for Traceability Uniqueness Verification Period, rejecting any other value. | — deliberately not automated: this suite is scoped to the happy path for now. It was implemented and passing as `A9-002` (API accept-set plus a field-routed UI rejection) and removed on request 2026-09-16; recover it from git history rather than rewriting it. |
-| `A9-R7` | If `assignRollsDaily` is changed from `false` to `true` without `confirmClearAlternateCodes`, then PET Tiger shall reject the change with `409` and `code: confirm_clear_alternate_codes` and persist nothing. | — not automatable: dev already stores `true`, so the transition cannot be reached without first writing `false`, and restoring `true` afterwards would require the confirm flag that wipes every employee's alternate code. One-way door; recorded as an `environment-gate` annotation in `A9-001` instead. |
-| `A9-R8` | PET Tiger shall render Undefined Employee as read-only on the Traceability - Stickers section. | `A9-001` |
-| `A9-R9` | When a setup export is generated, PET Tiger shall include at least one job whose exported `PaymentType` is `Piece` or `Time & Piece`, so a field piece-out has a job to bind to. | `A9-001` |
-| `A9-R10` | When a setup export is generated for an active pocket-class scan device, PET Tiger shall include the office's Default, Maximum and Minimum Number of Pieces in that device's `Preferen_Records`. | `A9-001` |
+- When File ▸ Administration ▸ Preferences is opened, PET Tiger shall display a "Traceability - Stickers" section.
+- When the Pocket section's Default, Maximum and Minimum Number of Pieces in Piece-Out are saved, PET Tiger shall persist the entered values.
+- When the Traceability - Stickers section's Piece-out Sticker Prefix, Sticker Barcode Length and Average Number of Employee Daily Pieces are saved, PET Tiger shall persist the entered values.
+- When the Preferences screen is reloaded after a save, PET Tiger shall rehydrate both sections with the previously saved values.
+- Where the Traceability - Stickers module is licensed, when Piece-out Traceability Barcode Function is saved, PET Tiger shall persist the selection as its wire value (`No`, `Yes` or `Optional`), not its displayed label.
+- PET Tiger shall accept only values matching `^[0-9]*[dDhH]?$` for Traceability Uniqueness Verification Period, rejecting any other value. _deliberately not automated: this suite is scoped to the happy path for now. It was implemented and passing as (API accept-set plus a field-routed UI rejection) and removed on request 2026-09-16; recover it from git history rather than rewriting it._
+- If `assignRollsDaily` is changed from `false` to `true` without `confirmClearAlternateCodes`, then PET Tiger shall reject the change with `409` and `code: confirm_clear_alternate_codes` and persist nothing. _not automatable: dev already stores `true`, so the transition cannot be reached without first writing `false`, and restoring `true` afterwards would require the confirm flag that wipes every employee's alternate code. One-way door; recorded as an `environment-gate` annotation in instead._
+- PET Tiger shall render Undefined Employee as read-only on the Traceability - Stickers section.
+- When a setup export is generated, PET Tiger shall include at least one job whose exported `PaymentType` is `Piece` or `Time & Piece`, so a field piece-out has a job to bind to.
+- When a setup export is generated for an active pocket-class scan device, PET Tiger shall include the office's Default, Maximum and Minimum Number of Pieces in that device's `Preferen_Records`.
 
-`A9-R5` names a module from the catalog entry (`Traceability - Stickers`), and the CSV
-row carries it. `A9-R9` deliberately does **not** carry a `Where the Piece Payment
+`A9` names a module from the catalog entry (`Traceability - Stickers`), and the CSV
+row carries it. `A9` deliberately does **not** carry a `Where the Piece Payment
 module is licensed` qualifier: dev reports that module false (`PT_MODULES`, PET-12689)
 yet piece jobs export anyway, so gating the requirement on it would be untrue to the
 behaviour.
@@ -92,7 +90,7 @@ Control types, read from the live DOM:
 | `INPUT` (text) | `stickerPrefix`, `verifyTraceabilityUniquenessPeriod` |
 | `INPUT[type=checkbox]` | `assignRollsDaily` (never written), `piecePutTwoStickers`, `importPieceOutsWithDuplicateStickers`, `checkForDuplicateAssignments`, `pieceOutAllowMultiplePieceCodes` |
 | `BUTTON[role=combobox]` | `pieceTraceabilityBarcodeFunction` |
-| `INPUT[type=text][readonly]` | `undefinedEmployee` — confirms `A9-R8` |
+| `INPUT[type=text][readonly]` | `undefinedEmployee` — confirms `A9` |
 
 `pieceTraceabilityBarcodeFunction` is a base-ui Select: it closes behind an inert
 backdrop, so the option click must be waited for, never raced.
@@ -128,9 +126,9 @@ them but never writes them, avoiding a concurrent-write race against dev.
 - [ ] `LabelTraceability` licensed on client 1 — verified true 2026-09-16. Asserted at
       run time so the section assertions cannot pass vacuously.
 - [ ] At least one job with `paymentType` `1` or `3` — verified (4 and 13 on dev).
-      `A9-003` asserts and fails pointing at A3 rather than creating one out of scope.
+      `A9` asserts and fails pointing at A3 rather than creating one out of scope.
 - [ ] An active scan device on client 1 — verified: 8 active, including `1308`
-      "Guka Phone Pocket" (type 0). `A9-003` picks an active device at run time rather
+      "Guka Phone Pocket" (type 0). `A9` picks an active device at run time rather
       than hardcoding an id, and annotates an `environment-gate` if none is active.
 
 ## Cleanup
@@ -162,18 +160,18 @@ returns the keys it could not clear and the spec surfaces them as a
 **Do not** use the `page.route('**/api/preferences*')` rewrite from `tests/webpet/`.
 A9's subject is that preferences *save*; rewriting the response makes the spec vacuous.
 
-## Test cases
+## Test case
 
 `src/data/runner/journey-a.csv`:
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `A9-001` | End-to-end: configure the piece-out and sticker-roll preferences, confirm they save, and confirm they reach a scan device setup export | `A9-R1`, `A9-R2`, `A9-R3`, `A9-R4`, `A9-R5`, `A9-R8`, `A9-R9`, `A9-R10` | `regression` | 1 |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `A9` | End-to-end: configure the piece-out and sticker-roll preferences, confirm they save, and confirm they reach a scan device setup export | `regression` | 1 |
 
 **Scope: one end-to-end happy path**, mirroring the manual walkthrough that passed QA
 (configure → save → confirm it sticks → confirm the device setup file carries it), the
-same single-test shape as `A1-001`. `A9-002` (the uniqueness-period reject case,
-`A9-R6`) and `A9-003` (the export, now folded into `A9-001`) were built and then
+same single-test shape as `A1`. `A9` (the uniqueness-period reject case,
+`A9`) and `A9` (the export, now folded into `A9`) were built and then
 removed on request 2026-09-16; both ids are left unused so the numbering still matches
 git history.
 
@@ -189,7 +187,7 @@ side effect (`WEBPET-1593`), so it stays out of the most frequently run tier eve
 - [ ] **Catalog step 2 location.** Piece counts are on the **Pocket** section, not
       Traceability - Stickers. `WEBPET-1592` called this "itself a discoverability
       finding". Worth correcting the catalog text too.
-- [ ] **`A9-R7` cannot be automated on dev** while `assignRollsDaily` is `true`. To
+- [ ] **`A9` cannot be automated on dev** while `assignRollsDaily` is `true`. To
       cover it, a throwaway tenant (or a dev reset to `false`) is needed. Worth a
       decision: accept the gap, or ask for the preference to be seeded `false` on a
       non-shared environment.

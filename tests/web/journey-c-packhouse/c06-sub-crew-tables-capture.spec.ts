@@ -5,44 +5,14 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { CrewTableCaseSchema } from '@data/schemas/journeyCScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { captureByTable, lookupTable, prepareJourneyC, rollUpByTable } from '@utils/journeys/journeyCFlow';
+import { captureByTable, prepareJourneyC, rollUpByTable } from '@utils/journeys/journeyCFlow';
 
 test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }, () => {
-
-    test('[Setup ▸ Table] Create a table under a crew with a supervisor.', {
-        tag: ['@Regression'],
-        annotation: [
-            { type: 'testCaseId', description: 'C6-001' },
-        ],
-    }, async ({ pages, sessionApi }, testInfo) => {
-        const scenario = await loadScenario(CrewTableCaseSchema, testInfo);
-        const run = await prepareJourneyC(scenario, { sessionApi, testInfo });
-
-        const outcome = await pages.crewTable.createTable({
-            name: run.tableName,
-            crew: run.office.crew.name,
-            supervisor: run.supervisor.name,
-        });
-        expect(outcome, scenario.screen!.messages.tableCreated).toBe('created');
-        await expect(pages.crewTable.tableCreatedToast).toBeVisible();
-        expect(pages.crewTable.savedTableId()).toBeGreaterThan(0);
-
-        await pages.crewTable.gotoTablesList();
-        await pages.crewTable.expectListedUnderCrew(run.tableName, run.office.crew.name);
-
-        const table = await lookupTable(run, sessionApi);
-        expect(table, `GET /crew-tables should list the created table '${run.tableName}'`).not.toBeNull();
-        expect(table!.crewCounter).toBe(run.office.crew.id);
-        expect(table!.supervisorCounter).toBe(run.supervisor.id);
-        expect(table!.active).toBe(true);
-
-        await run.cleanup();
-    });
 
     test('[Capture by table] Clock a table of three in and roll the day up to the crew.', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'C6-002' },
+            { type: 'testCaseId', description: 'C6' },
         ],
     }, async ({ page, sessionApi }, testInfo) => {
         const scenario = await loadScenario(CrewTableCaseSchema, testInfo);

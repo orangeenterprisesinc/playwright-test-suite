@@ -16,7 +16,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
     test('End-to-end: configure the piece-out and sticker-roll preferences, confirm they save, and confirm they reach a scan device setup export', {
         tag: ['@Regression'],
         annotation: [
-            { type: 'testCaseId', description: 'A9-001' },
+            { type: 'testCaseId', description: 'A9' },
         ],
     }, async ({ pages, sessionApi }, testInfo) => {
         test.slow();
@@ -38,17 +38,17 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         const written = { ...write.pocket, ...write.stickers };
         await prefs.gotoPreferences();
 
-        // A9-R1 — the section WEBPET-1446 originally failed for want of.
+        // The section WEBPET-1446 originally failed for want of.
         await expect(prefs.sectionHeading(screen.stickerSection)).toBeVisible();
 
-        // A9-R8 — written by the import engine, never by an operator.
+        // Written by the import engine, never by an operator.
         await expect(prefs.field(screen.readOnlyField)).toHaveJSProperty('readOnly', true);
 
-        // A9-R2 — the piece bounds live on Pocket, not on the sticker section.
+        // The piece bounds live on Pocket, not on the sticker section.
         await prefs.gotoSection(screen.pocketSection);
         for (const [fieldId, value] of Object.entries(write.pocket)) await prefs.setValue(fieldId, value);
 
-        // A9-R3, and A9-R5: the barcode function is chosen by its label and must persist as the wire value.
+        // and the barcode function is chosen by its label and must persist as the wire value.
         await prefs.gotoSection(screen.stickerSection);
         for (const [fieldId, value] of Object.entries(write.stickers)) {
             if (fieldId === screen.barcodeFunctionField) await prefs.choose(fieldId, barcodeLabel);
@@ -58,7 +58,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         const saveStatus = await prefs.save();
         expect(expected.savedStatuses, `PUT preferences answered ${saveStatus}`).toContain(saveStatus);
 
-        // A9-R4 — reopen and confirm the screen comes back with what was saved.
+        // Reopen and confirm the screen comes back with what was saved.
         await prefs.gotoPreferences();
         for (const [fieldId, value] of Object.entries(written)) {
             if (fieldId === screen.barcodeFunctionField) await expect(prefs.field(fieldId)).toContainText(barcodeLabel);
@@ -66,7 +66,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         }
 
         const stored = await getPreferences(sessionApi);
-        expect(stored[screen.barcodeFunctionField], 'A9-R5: stored as the wire value, not the label')
+        expect(stored[screen.barcodeFunctionField], 'stored as the wire value, not the label')
             .toBe(write.stickers.pieceTraceabilityBarcodeFunction);
         for (const [key, value] of Object.entries(written)) {
             if (key !== screen.barcodeFunctionField) expect(stored[key]).toBe(value);
@@ -82,19 +82,19 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         // section, so the assertions below cannot pass by absence.
         expect(xml, 'export must be a pocket-class file').toContain(expected.export.deviceTypeMarker);
 
-        // A9-R10 — legacy `Preferen.Name` keys, not the web field ids.
-        expect(preferenceInExport(xml, expected.export.names.maximumPieces), 'A9-R10: exported MaximumPieces')
+        // Legacy `Preferen.Name` keys, not the web field ids.
+        expect(preferenceInExport(xml, expected.export.names.maximumPieces), 'exported MaximumPieces')
             .toBe(String(write.pocket.maximumNumberOfPieces));
-        expect(preferenceInExport(xml, expected.export.names.minimumPieces), 'A9-R10: exported MinimumPieces')
+        expect(preferenceInExport(xml, expected.export.names.minimumPieces), 'exported MinimumPieces')
             .toBe(String(write.pocket.minimumNumberOfPieces));
-        expect(preferenceInExport(xml, expected.export.names.numberOfPieces), 'A9-R10: exported default NumberOfPieces')
+        expect(preferenceInExport(xml, expected.export.names.numberOfPieces), 'exported default NumberOfPieces')
             .toBe(String(write.pocket.defaultNumberOfTimeCardPieces));
 
-        // A9-R9 — a piece-out can only bind to a job the device actually received.
+        // A piece-out can only bind to a job the device actually received.
         const pieceJobs = pieceJobsInExport(xml, expected.export.piecePaymentTypes, expected.export.jobSection);
         expect(
             pieceJobs.length,
-            `A9-R9: the setup export must carry a ${expected.export.piecePaymentTypes.join(' or ')} job ` +
+            `the setup export must carry a ${expected.export.piecePaymentTypes.join(' or ')} job ` +
                 'for a piece-out to bind to — see A3; A9 does not create jobs out of scope',
         ).toBeGreaterThan(0);
         testInfo.annotations.push({ type: 'exported-piece-jobs', description: pieceJobs.join(', ') });

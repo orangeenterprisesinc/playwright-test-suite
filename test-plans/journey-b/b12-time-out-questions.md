@@ -32,8 +32,8 @@
 
 ## Scope decisions (human, 2026-08-27)
 
-1. **`B12-R10` is a named gate, not an assertion** (Option A, Planner-recommended). The test
-   asserts `B12-R3`–`R9` and names both halves of R10 in annotations: the detector is
+1. **`B12` is a named gate, not an assertion** (Option A, Planner-recommended). The test
+   asserts `B12`–`R9` and names both halves of R10 in annotations: the detector is
    unreachable from `connectivity/`, and the email has no observable channel. The transcribed
    screenshot below is the manual evidence. Rationale that decided it: when the product
    follow-up lands (flag-on-import), R10 becomes assertable through **the same import this
@@ -42,7 +42,7 @@
    a step the recording never shows, it still cannot assert R10's email half, and a
    re-submitting `PUT` adds rowversion/normalisation flake to a `demo=1` test.
 2. **No standalone `SignatureCard` row.** The frames show the signature on the *Time Out* card,
-   not as a separate CardType-2 record (see `B12-R7`). The envelope therefore carries
+   not as a separate CardType-2 record (see `B12`). The envelope therefore carries
    **6 card records** — 3 `TimeCard`/`TI` morning time-ins and 3 `TimeOut`/`TO` clock-outs,
    the latter each carrying `<Signature>` — plus **9 `TimeCardQuestion` grid rows**, which are
    not cards and mint no reference. Same card count as B11. A latent bug found while
@@ -78,13 +78,13 @@ Three runs, each red for a different and instructive reason; the third proved th
    Questions**. Granted on human authority via
    `PUT /admin/tm/clients/1/modules` (read-merge-write, nothing de-licensed) → 14
    modules. **Reversal:** `setClientModules(1, [4,6,9,13,17,21,22,36,38,44,46,47,50])`.
-3. With the module licensed the grid rows imported and **`B12-R3`–`R6` all passed** —
+3. With the module licensed the grid rows imported and **`B12`–`R6` all passed** —
    three Time Out cards (cardType 0, id equality, `programCreated`, `-TO-` refs), null
    Job/Ranch/Field, and each card's three answers joined by the parent `<Reference>`
    with the unexpected values stored verbatim. This run is the **first live proof** of
    the `TimeCardQuestion` wire format anywhere: the four-element `'grid'` row and the
    omitted `LookupContents` are correct (resolving N1 and N2 empirically). It also
-   established `B12-R9`'s gate — `signature: null`, the importer leaving the column
+   established `B12`'s gate — `signature: null`, the importer leaving the column
    unbound by design.
 
 Source: `docs/media/journey-b/b12-time-out-questions.mp4` (Jira attachment **66894**,
@@ -101,7 +101,7 @@ capped** (the default run capped at 60 change points with an 8.5 s gap; re-run w
 | Evidence | `docs/media/journey-b/b12-notification-email.png` (attachment **66895**, transcribed in full below) |
 | This plan | `test-plans/journey-b/b12-time-out-questions.md` |
 | Spec | `tests/web/journey-b-field/b12-time-out-questions.spec.ts` |
-| Runner rows | `src/data/runner/journey-b.csv` → `B12-001` |
+| Runner rows | `src/data/runner/journey-b.csv` → `B12` |
 
 ## Catalog entry
 
@@ -362,22 +362,20 @@ received came from the legacy service, which web-pet cannot trigger.
 **Therefore the email leg is a named environment gate**, and this plan's transcription above
 is the manual evidence, per PET-12650's "never a silent skip".
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
-| id | Requirement | Cases |
-|---|---|---|
-| `B12-R1` | While a clock-out question sheet is open, PET Pocket shall pre-check each question with its configured expected answer. | — not automatable: device UI (kf 3–9) |
-| `B12-R2` | When a clock-out is saved, PET Pocket shall require a signature before enabling Save. | — not automatable: device UI (kf 11 — `SAVE` appears only once the pad is signed) |
-| `B12-R3` | When a clock-out export is imported, PET Tiger shall hold one Time Out card (cardType 0) per clocked-out worker, each linked by id to the scanned employee and to the crew, with `programCreated` true and a `TO` reference. | `B12-001` |
-| `B12-R4` | PET Tiger shall leave Job, Ranch and Field unset on an imported Time Out card. | `B12-001` |
-| `B12-R5` | When a clock-out export carries `TimeCardQuestion` rows, PET Tiger shall attach every answer to the Time Out card its `<TimeCard>` reference names, preserving each `<Question>` name and `<Response>` verbatim. | `B12-001` |
-| `B12-R6` | When a worker answers a clock-out question with a value outside the question's required response, PET Tiger shall store that answer verbatim rather than rejecting or normalising the record. | `B12-001` |
-| `B12-R7` | When a clock-out export carries a `SignatureCard` row, PET Tiger shall hold it as a signature card (cardType 2) linked by id to the same employee, with an `SC` reference. | — **out of scope: Amy's flow produces no standalone signature card.** The Transfer grid's `Type` column shows only `Time In` / `Time Out` / `Piece Out` across all 23 rows (kf 69–87), and the signature image sits **inside the Time Out panel** (kf 99–113) — it is the `<Signature>` element on the *TimeOut* row (`input/time_out.go:80`), which `buildRow` already emits as an empty slot. `SignatureCard` (CardType 2) is the device's separate signature-capture screen (`SignatureCardActivity`), which she never opens. The signature requirement is `B12-R9`. |
-| `B12-R8` | Where the Notification module is licensed, PET Tiger shall record the crew's notification user as a Users record carrying an email address. | `B12-001` |
-| `B12-R9` | When a clock-out export's Time Out row carries a signature, PET Tiger shall store it on that card and expose it alongside the card's question answers. | — **not automatable via import (established live 2026-08-28, run 3).** The importer deliberately does not bind the column: *"Signature and PictureVerification are `image` columns. The device sends them empty in every available sample and their populated encoding is unverified, so they are left unbound (they will simply be NULL) rather than guessing a decode — logged in OPEN_QUESTIONS.md"* (`importmap/timecard.go:80-83`); `timeCardSpec.Columns` has no `Signature` entry. `GET /time-cards/time-out/{id}` duly returned `signature: null` for a card whose envelope carried one. Amy's panel shows a signature because her records came through the legacy stack — the same split that explains the email. The envelope still carries `<Signature>`, asserted as **sample fidelity** in the spec, so the day the importer binds the column this becomes assertable unchanged. **Named in a test annotation, never silently skipped.** |
-| `B12-R10` | If a clock-out answer differs from its question's required response, then PET Tiger shall raise a question flag carrying the given and the expected response, and email the crew's notification user. | — **not automatable via import**: `DetectAndFlagClockOutAnswers` / `sendClockOutFlagNotifications` are reachable only from `POST`/`PUT /api/time-cards/time-out`, never from `connectivity/`; and the email has no observable channel on dev (`LogEmailSender`, no outbox, `NotifiedAtUtc` unexposed). Manual evidence: `docs/media/journey-b/b12-notification-email.png`, transcribed above. **Named in a test annotation, never silently skipped.** |
+- While a clock-out question sheet is open, PET Pocket shall pre-check each question with its configured expected answer. _not automatable: device UI (kf 3–9)_
+- When a clock-out is saved, PET Pocket shall require a signature before enabling Save. _not automatable: device UI (kf 11 — `SAVE` appears only once the pad is signed)_
+- When a clock-out export is imported, PET Tiger shall hold one Time Out card (cardType 0) per clocked-out worker, each linked by id to the scanned employee and to the crew, with `programCreated` true and a `TO` reference.
+- PET Tiger shall leave Job, Ranch and Field unset on an imported Time Out card.
+- When a clock-out export carries `TimeCardQuestion` rows, PET Tiger shall attach every answer to the Time Out card its `<TimeCard>` reference names, preserving each `<Question>` name and `<Response>` verbatim.
+- When a worker answers a clock-out question with a value outside the question's required response, PET Tiger shall store that answer verbatim rather than rejecting or normalising the record.
+- When a clock-out export carries a `SignatureCard` row, PET Tiger shall hold it as a signature card (cardType 2) linked by id to the same employee, with an `SC` reference. _**out of scope: Amy's flow produces no standalone signature card.** The Transfer grid's `Type` column shows only `Time In` / `Time Out` / `Piece Out` across all 23 rows (kf 69–87), and the signature image sits **inside the Time Out panel** (kf 99–113) — it is the `<Signature>` element on the *TimeOut* row (`input/time_out.go:80`), which `buildRow` already emits as an empty slot. `SignatureCard` (CardType 2) is the device's separate signature-capture screen (`SignatureCardActivity`), which she never opens. The signature requirement is ._
+- Where the Notification module is licensed, PET Tiger shall record the crew's notification user as a Users record carrying an email address.
+- When a clock-out export's Time Out row carries a signature, PET Tiger shall store it on that card and expose it alongside the card's question answers. _**not automatable via import (established live 2026-08-28, run 3).** The importer deliberately does not bind the column: *"Signature and PictureVerification are `image` columns. The device sends them empty in every available sample and their populated encoding is unverified, so they are left unbound (they will simply be NULL) rather than guessing a decode — logged in OPEN_QUESTIONS.md"* (`importmap/timecard.go:80-83`); `timeCardSpec.Columns` has no `Signature` entry. `GET /time-cards/time-out/{id}` duly returned `signature: null` for a card whose envelope carried one. Amy's panel shows a signature because her records came through the legacy stack — the same split that explains the email. The envelope still carries `<Signature>`, asserted as **sample fidelity** in the spec, so the day the importer binds the column this becomes assertable unchanged. **Named in a test annotation, never silently skipped.**_
+- If a clock-out answer differs from its question's required response, then PET Tiger shall raise a question flag carrying the given and the expected response, and email the crew's notification user. _**not automatable via import**: `DetectAndFlagClockOutAnswers` / `sendClockOutFlagNotifications` are reachable only from `POST`/`PUT /api/time-cards/time-out`, never from `connectivity/`; and the email has no observable channel on dev (`LogEmailSender`, no outbox, `NotifiedAtUtc` unexposed). Manual evidence: `docs/media/journey-b/b12-notification-email.png`, transcribed above. **Named in a test annotation, never silently skipped.**_
 
-`B12-R10` is the workflow's headline outcome and it is the one row this plan cannot assert
+`B12` is the workflow's headline outcome and it is the one row this plan cannot assert
 through the transport Amy uses. That is a product gap, not a test gap — see *Follow-up* below.
 
 ## Not established / out of scope
@@ -492,19 +490,18 @@ The **unexpected** answer for each question is derived at runtime from the store
 No SQL, ever — the dev database is unreachable by design; setup and teardown go through the
 app's API.
 
-## Test cases
+## Test case
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `B12-001` | Time-out questions to notification | `B12-R3`, `B12-R4`, `B12-R5`, `B12-R6`, `B12-R8` | `regression` + `demo=1` → `@Demo` | 0 → 1 when green |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `B12` | Time-out questions to notification | `regression` + `demo=1` → `@Demo` | 0 → 1 when green |
 
 ```ts
 test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', '@B12'] }, () => {
     test('[Time-Out Questions] Clock three crew members out with their clock-out question answers and a signature, and verify each answer — including the ones outside the expected response — imports against the right time-out card.', {
         tag: ['@Regression', '@Demo'],
         annotation: [
-            { type: 'testCaseId', description: 'B12-001' },
-            { type: 'requirement', description: 'B12-R3|B12-R4|B12-R5|B12-R6|B12-R7|B12-R8|B12-R9' },
+            { type: 'testCaseId', description: 'B12' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => { /* … */ });
 });
@@ -512,7 +509,7 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
 
 ## Follow-up (product, not test)
 
-`B12-R10` cannot be asserted through the device→office transport because web-pet's
+`B12` cannot be asserted through the device→office transport because web-pet's
 `connectivity/` import path never calls `DetectAndFlagClockOutAnswers`. In the legacy stack
 the equivalent ran inside the import (`TimeCardImport.cs:1577-1596`), which is why Amy's
 run produced flags and emails. Worth a PET ticket (component **Cloud**, assignee **Gukan**):

@@ -53,7 +53,7 @@ Plus two supporting data sets:
 
 | Column | Notes |
 |---|---|
-| `id` | `<workflow>-<nnn>` for a catalog row (`A1-001`), `UI-00X` for a system row |
+| `id` | `<workflow>` for a catalog row (`A1`), `UI-00X` for a system row |
 | `category` | `ui` \| `api` \| `workflow` — must match the spec's folder under `tests/` |
 | `journey` | `A`–`F`; empty for system rows |
 | `workflow` | catalog workflow id (`A1`); empty for system rows |
@@ -103,7 +103,7 @@ The live pattern is a per-test annotation:
 ```typescript
 test('[Ranch] Verify that …', {
     tag: ['@UI', '@Regression'],
-    annotation: { type: 'testCaseId', description: 'A2-001' },
+    annotation: { type: 'testCaseId', description: 'A2' },
 }, async ({ pages, cleanup }) => { /* … */ });
 ```
 
@@ -112,7 +112,7 @@ if the spec needs to destructure `testCaseData`:
 
 ```typescript
 test.describe('A2 · Ranch, field, crop, and variety setup', { tag: ['@JourneyA', '@A2'] }, () => {
-    test.use({ testCaseId: 'A2-001' });
+    test.use({ testCaseId: 'A2' });
 
     test('scenario title', async ({ testCaseData, pages }) => {
         // testCaseData is loaded, validated, and skip-checked already
@@ -144,4 +144,4 @@ Rules:
 - No hand-editing `src/data/runner/*.json` — it is generated from the CSV.
 - No Excel or database readers — JSON and CSV only.
 - No test values hardcoded in specs. The only inline literals are the `testCaseId` annotation, `tag:` arrays, describe/test titles and `expect()` messages; everything an assertion compares against comes from `scenario.expected` (see `pw-spec-author` §6).
-- No new id prefix schemes. Catalog rows are `<workflow>-<nnn>`.
+- No new id prefix schemes. Catalog rows are `<workflow>`.
