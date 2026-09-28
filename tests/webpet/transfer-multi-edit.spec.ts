@@ -100,15 +100,28 @@ const FIELD_MATRIX: {
     label: string;
     kind: 'fk' | 'dateTime' | 'dateOnly' | 'timeOnly' | 'text' | 'choice' | 'number';
 }[] = [
+    // WEBPET-3058 is only part-shipped, so expect this matrix to move twice more:
+    // that ticket also asks for Work Order to be REMOVED as an option and for Meal
+    // Length to gain a value-type dropdown (Exact Value / Add / Multiply / Divide).
+    // Neither has landed on dev as of 2026-09-28 — when either reds, it is the
+    // ticket arriving, not drift.
+    //
+    // Ranch dropped from the field list (verified live 2026-09-28): the app
+    // hard-codes it out, unlike every other optional field here which reads a
+    // licensing flag. Ranch is now implied by Field — the review row renders
+    // `${ranch} / ${field}` — so this is a deliberate removal, not a module
+    // gate regression. Do not "fix" it back in.
     { value: 'jobCounter', label: 'Job', kind: 'fk' },
     { value: 'crewCounter', label: 'Crew', kind: 'fk' },
-    { value: 'ranchCounter', label: 'Ranch', kind: 'fk' },
     { value: 'fieldCounter', label: 'Field', kind: 'fk' },
     { value: 'workOrderCounter', label: 'Work Order', kind: 'fk' },
     { value: 'varietyCounter', label: 'Variety', kind: 'fk' },
     { value: 'runCounter', label: 'Run', kind: 'fk' },
     { value: 'agRowCounter', label: 'Row', kind: 'fk' },
     { value: 'employeeCounter', label: 'Employee', kind: 'fk' },
+    // New choice field (options from `S1t`), added after Employee — a picker
+    // for which employee source populates the record, not an fk itself.
+    { value: 'employeeSource', label: 'Employee Selection', kind: 'choice' },
     { value: 'dateTime', label: 'Date, Time', kind: 'dateTime' },
     { value: 'dateOnly', label: 'Date', kind: 'dateOnly' },
     { value: 'timeOnly', label: 'Time', kind: 'timeOnly' },
@@ -127,7 +140,6 @@ const FIELD_MATRIX: {
 const BLANK_ENABLED_FIELDS: MultiEditFieldValue[] = [
     'jobCounter',
     'crewCounter',
-    'ranchCounter',
     'fieldCounter',
     'workOrderCounter',
     'varietyCounter',
@@ -228,6 +240,38 @@ test.describe('Transfer to Job Cards — Multi-Edit field matrix', { tag: ['@Web
                             'Time In',
                             'Signature',
                             'Non-Labor',
+                        ]);
+                    } else if (entry.value === 'employeeSource') {
+                        // WEBPET-3058's new field. Its options are the employee-source
+                        // enum, led by the clear choice "(None)" — the 9 capture methods,
+                        // then Crew/Import, then each scale-paired variant.
+                        expect(choiceLabels).toEqual([
+                            'Select a value…',
+                            '(None)',
+                            'Unknown',
+                            'Manual',
+                            'Barcode Badge',
+                            'NFC Badge',
+                            'RFID Badge',
+                            'Biometric Badge',
+                            'Sticker Code',
+                            'Finger Tec',
+                            'Face ID',
+                            'Hand',
+                            'Finger Scanner',
+                            'Iris Face',
+                            'Bio Password',
+                            'Crew',
+                            'Import',
+                            'Manual + Scale',
+                            'Barcode Badge + Scale',
+                            'NFC Badge + Scale',
+                            'RFID Badge + Scale',
+                            'Biometric Badge + Scale',
+                            'Sticker Code + Scale',
+                            'Finger Scanner + Scale',
+                            'Iris Face + Scale',
+                            'Crew + Scale',
                         ]);
                     } else {
                         expect(choiceLabels).toEqual(['Select a value…', 'Yes', 'No']);

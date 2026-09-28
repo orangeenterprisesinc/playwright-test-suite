@@ -38,6 +38,7 @@
  */
 import { expect, test } from '@fixtures/webpet.fixture';
 import { sixCharRunToken } from '@utils/cleanup/runToken';
+import { lockIdentifierGate, demoteFromSu } from './data-factory';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -143,7 +144,7 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
     test('[Validation] Verify that creating a validation navigates to the edit form.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0385' },
-    }, async ({ pages, request }) => {
+    }, async ({ page, pages, request }) => {
         const form = pages.timeSheetValidationForm;
         if (!(await form.gotoNewOrForbidden())) return;
 
@@ -168,7 +169,26 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
         // unsaved create form — which reported this as "name is not read-only".
         expect(await form.submit()).toBe('created');
         await expect(form.nameInput).toHaveValue(TEST_NAME);
-        // Name is read-only after first save.
+        // WEBPET-2006's identifier gate now reaches Validation too — Name was
+        // unconditionally read-only after first save, which is what this test
+        // used to assert here. The suite's session is SU with the flag open, so
+        // it is editable until demoted.
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+
+        const match = page.url().match(/\/setup\/timesheet\/validations\/(\d+)/);
+        expect(match, 'URL should contain the new validation id after save').not.toBeNull();
+        const validationId = match![1]!;
+
+        // Non-SU with the flag closed reaches the locked branch. Both rewrites
+        // are registered before this navigation, and the assertions wait on the
+        // actual preferences response rather than racing it (see job.spec.ts's
+        // WP-0235, the pattern this mirrors).
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, { allowRecordNameModification: false });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(validationId);
+        await gateSettled;
+        await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
     });
 
@@ -178,10 +198,10 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
 
 test.describe('Setup > TimeSheet Validation — edit form', { tag: ['@WebPet', '@wp-setup', '@wp-validation', '@WPBatch09'] }, () => {
 
-    test('[Validation] Verify that the name is read-only on an existing record.', {
+    test('[Validation] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0386' },
-    }, async ({ pages, request }) => {
+    }, async ({ page, pages, request }) => {
         const form = pages.timeSheetValidationForm;
         // Fetch the record the create test made — see the file header on coupling.
         const listResp = await request.get('/api/validations');
@@ -198,7 +218,18 @@ test.describe('Setup > TimeSheet Validation — edit form', { tag: ['@WebPet', '
             `produce it, so there is nothing to open.`,
         );
 
+        // WEBPET-2006's identifier gate now reaches Validation too — Name was
+        // unconditionally read-only on an existing record, which is what this
+        // test used to assert. The suite's session is SU with the flag open, so
+        // it is editable until demoted; WP-0385 (this file) already covers that
+        // SU-editable branch on the same record, so this test asserts the
+        // demoted, locked branch directly.
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, { allowRecordNameModification: false });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
         if (!(await form.gotoEditOrForbidden(rec!.validationCounter))) return;
+        await gateSettled;
+        await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
     });
 

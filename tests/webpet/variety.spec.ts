@@ -20,6 +20,8 @@ import {
     deleteCrop,
     ensureVariety,
     deleteVariety,
+    lockIdentifierGate,
+    demoteFromSu,
     type EnsuredCrop,
     type EnsuredVariety,
 } from './data-factory';
@@ -177,12 +179,34 @@ test.describe('Edit variety form', { tag: ['@WebPet', '@wp-setup', '@wp-variety'
         await expect(form.exportIdentifierInput).toHaveValue(variety.exportIdentifier);
     });
 
-    test('[Variety] Verify that the name, barcode and export identifier are read-only.', {
+    test('[Variety] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0403' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-2006's identifier gate now reaches Variety too — previously
+        // these three fields were unconditionally read-only here, which is what
+        // this test used to assert. The suite's session is SU with every flag
+        // open, so they are editable until demoted.
         const form = pages.varietyForm;
         await form.gotoEdit(variety.id);
+        await form.waitForForm();
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        // Non-SU with all three flags closed reaches the locked branch. Both
+        // rewrites are registered before this navigation, and the assertions
+        // wait on the actual preferences response rather than racing it (see
+        // job.spec.ts's WP-0235, the pattern this mirrors).
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordBarcodeModification: false,
+            allowRecordExportIdModify: false,
+        });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(variety.id);
+        await gateSettled;
         await form.waitForForm();
         await expect(form.nameInput).toHaveAttribute('readonly', '');
         await expect(form.codeInput).toHaveAttribute('readonly', '');

@@ -26,6 +26,8 @@ export type MultiEditFieldValue =
     | 'runCounter'
     | 'agRowCounter'
     | 'employeeCounter'
+    /** Choice field (options from `S1t`), not an fk — added after Employee. */
+    | 'employeeSource'
     | 'dateTime'
     | 'dateOnly'
     | 'timeOnly'
@@ -38,10 +40,13 @@ export type MultiEditFieldValue =
     | 'numOfPieces'
     | 'breakTime';
 
+// ranchCounter dropped: the app hard-codes it out of the field list now — Ranch
+// is implied by Field (the review row renders `${ranch} / ${field}`), not a
+// module gate. Do not add it back here if it reappears in a future probe
+// without confirming the app change first (see transfer-multi-edit.spec.ts).
 const FK_COMBOBOX_SUFFIX: Partial<Record<MultiEditFieldValue, string>> = {
     jobCounter: 'job',
     crewCounter: 'crew',
-    ranchCounter: 'ranch',
     fieldCounter: 'field',
     workOrderCounter: 'workorder',
     varietyCounter: 'variety',
@@ -154,6 +159,7 @@ export class WebpetMultiEditDialogComponent extends BaseComponent {
                 return this.textControl;
             case 'cardType':
             case 'transferred':
+            case 'employeeSource':
                 return this.choiceSelect;
             case 'numOfPieces':
             case 'breakTime':

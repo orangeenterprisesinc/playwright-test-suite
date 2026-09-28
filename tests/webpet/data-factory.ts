@@ -83,6 +83,23 @@ export async function lockIdentifierGate(page: Page, flags: IdentifierGateFlags)
   })
 }
 
+/**
+ * Demotes the suite's SU session to non-SU client-side, by rewriting
+ * `GET /api/session/me`. Dev only has an SU login for the suite's main
+ * fixture, so this is the only way to reach the WEBPET-2006 gate's locked
+ * branch (`isSU` is one of its two unlocking terms) — pair with
+ * `lockIdentifierGate` closing the flag(s) that cover the other. Only `isSU`
+ * is overridden; the rest of the response is forwarded unchanged.
+ */
+export async function demoteFromSu(page: Page): Promise<void> {
+  await page.route('**/api/session/me', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json().catch(() => null)
+    if (body?.user) body.user.isSU = false
+    await route.fulfill({ response, json: body })
+  })
+}
+
 // ── Crew ────────────────────────────────────────────────────────────────────
 
 export interface EnsuredCrew {

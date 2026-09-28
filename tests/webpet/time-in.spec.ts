@@ -123,10 +123,10 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
         // real ranch names asynchronously. Pick the first one that differs from
         // row A's current ranch.
         await grid.multiUpdateValueTrigger.click();
-        const options = grid.openSelectOptions;
+        const options = grid.multiUpdateValueOptions;
         await expect(options.first()).toBeVisible({ timeout: 5000 });
         // Options render their label asynchronously, so reading textContent as soon as
-        // the portal opens can return '' for every entry — which the loop below then
+        // the listbox opens can return '' for every entry — which the loop below then
         // skips, leaving `chosen` empty and failing as if dev had only one ranch. Wait
         // for more than the static "— None —" to load, then for that last option's
         // label to actually populate before comparing.
@@ -150,10 +150,12 @@ test.describe('TimeInListPage — multi-edit dropdown (WEBPET-666)', { tag: ['@W
             `expected a ranch option different from row A's current value (${originalA}); saw ${String(optionCount)} option(s)`,
         ).not.toBe('');
 
-        // Wait for the pick to commit and the portal's backdrop to go before
-        // reaching for the button behind it.
-        await expect(grid.multiUpdateValueTrigger).toHaveText(chosen);
-        await grid.waitForSelectPortalClosed();
+        // Wait for the pick to commit and the listbox to close before reaching
+        // for the button behind it.
+        // The Value control is a combobox <input>, so the committed pick is its
+        // value, not its text.
+        await expect(grid.multiUpdateValueTrigger).toHaveValue(chosen);
+        await grid.waitForComboboxClosed();
 
         // Commit — the label carries the selected-row count.
         await grid.updateRecordsButton.click();
