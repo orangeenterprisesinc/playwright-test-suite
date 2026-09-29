@@ -202,8 +202,8 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         { auto: true },
     ],
 
-    // Playwright's stock `page`, with the Page/Locator prototypes patched for the
-    // duration of the test. An override rather than an auto fixture so it stays
+    // Playwright's stock `page`, with the Frame prototype's assertion hook patched
+    // for the duration of the test. An override rather than an auto fixture so it stays
     // lazy: the browserless specs still never open a browser. `actionShots` is
     // declared only for ordering — its session must exist before the patch goes
     // on, and outlive the restore.
