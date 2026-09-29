@@ -2,7 +2,7 @@
 
 > **Journey D's first automated workflow — and a real transfer.** D6 cannot be arranged
 > read-only: the only thing worth recalculating is a job card the transfer itself wrote. The spec
-> therefore seeds a whole day of its own time cards, runs a **real** `transfer-to-job-cards/execute`
+> therefore seeds a whole day of its own time cards on Input ▸ Batch, runs a **real** transfer on the Transfer screen
 > scoped to its own crew *and* its own job, changes the job's piece rate, and recalculates exactly
 > the two job card ids the execute envelope named. Every mutating call is id- or fixture-scoped;
 > nothing pre-existing is ever selected, transferred, recalculated or deleted.
@@ -52,7 +52,7 @@ Manual source WEBPET-2051 (Done).
 
 | # | Catalog step | Office surface (live 2026-09-29) | Automatable? |
 |---|---|---|---|
-| 1 | Change the pay rate or setup record (for example a piece rate from one dollar to two). | Setup ▸ Job → `pieceRate`. The API is authoritative and writable: `POST /jobs` accepts `pieceRate` on create, and a full-payload `GET → merge → PUT /jobs/{id}` answers **204** with the value persisted and `version` bumped. | **yes, over the API** — precondition-style, exactly as C6 ensured its table through `POST /crew-tables`. The Job form is *not* driven: a UI write asserted through a UI read is weaker than an API read-back, and the on-blur/hydration race adds flake for no coverage. |
+| 1 | Change the pay rate or setup record (for example a piece rate from one dollar to two). | Setup ▸ Job → the **Piece Rate** field (`#pieceRate`, required for a Piece job). Validation runs on blur, Save stays disabled until it has, and saving navigates away — so the new rate is read back from a fresh load of the record. | **yes, on screen** — this is the workflow's own step 1, so it is driven like a user would, not written through `PUT /jobs/{id}`. Two form behaviours the API path could never see: writing the value the field already holds leaves Save disabled (correctly), and the form is left on save. |
 | 2 | Run Recalculate; the program revisits the records that feed the calculation and updates the existing job cards. | **View ▸ Job Cards** `/input/job-cards`. From/To (`#filter-from`/`#filter-to`) → **Apply** (`list-date-range-apply`) → **Multi Update** (`page-header-action-multi-update`) reveals the row checkboxes → check the two own rows → **Recalculate** (`page-header-action-recalculate`) → `role="alertdialog"` **"Recalculate job cards?"** → button **"Recalculate"**. Server: `POST /job-cards/recalculate {recordIds:[…]}` → 202 `{jobId}` → poll `GET /job-cards/recalculate/{jobId}`. | **yes** — this is the workflow, driven on screen. |
 | 3 | Confirm the new totals. | Result toast **"Recalculate complete: 2 updated, 0 skipped, 0 failed."** The grid's **Amount** column, however, reads **0.00** after the recalculate (see Expected outcomes — product defect). The trustworthy read-back is `GET /job-cards/{id}` → `pieceRate` / `pieceAmount`. | **partly** — toast and surviving rows on screen; the numeric total asserted over the API, because the grid's own Amount column is wrong on dev today. |
 
@@ -114,14 +114,15 @@ Manual source WEBPET-2051 (Done).
   exported or date-locked row) or a scope it is forbidden to use (all visible rows). Separate
   tickets._
 - Save-stays-disabled, on-blur validation and the "Unsaved changes" bar on the Job form.
-  _(POM) — the rate change goes through the API, so no form behaviour is exercised or asserted._
+  _Exercised — the rate change is driven on Setup ▸ Job. The form's on-blur validation, Save-stays-disabled and the navigate-away-on-save are all handled in `src/pages/setup/JobPage.ts`; the "Unsaved changes" bar itself is not asserted._
 
 ## Screens and page objects
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
 | View ▸ Job Cards (list) | `Input ▸ Job Card` / `/input/job-cards` | `src/pages/processing/JobCardsPage.ts` extends `BasePage` | **new** |
-| Transfer to Job Cards | `/transfer-to-job-cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — **not used by D6** (the transfer is run over the API; see Data) |
+| Transfer to Job Cards | `/transfer-to-job-cards` | `src/pages/processing/TransferToJobCardsPage.ts` | **extended** — date scope (six segmented Month/Day/Year inputs), Analyze, per-row selection by Reference, `Transfer to Job Cards N` scoped to `transfer-v2-page` (the left nav carries an item of the same name). Never `Select all rows`. |
+| Input ▸ Batch ▸ Crew Time In / Crew Piece Out / Crew Time Out | `/input/crew-*/new` | `src/pages/input/CrewTimeInPage.ts`, `CrewPieceOutPage.ts`, `CrewTimeOutPage.ts` on a shared `CrewPunchPage` | **new** — the crew day is seeded here, not through `POST time-cards/*`. The job field is labelled **Phase**. Ranch is a button-style combobox. Crew Time Out sets no Phase (a piece job there makes Number of Pieces required) and only offers employees with an open time-in. |
 
 `JobCardsPage` — locators confirmed live 2026-09-29, all role- or testid-based:
 
@@ -180,9 +181,11 @@ The page object exposes `applyDateRange(day)`, `enableSelection()`, `selectByRef
 
 - **The minimum transferable day (measured — a lone time-in yields nothing).** Three API writes,
   all on `D6 CREW` + `D6 JOB` + `B1 RANCH`/`B1 FIELD`:
-  1. `POST time-cards/crew-time-in` `{dateTime, crewCounter, employeeIds:[…], ranchCounter, fieldCounter, jobCounter, crewTableCounter:null}` → `{created, references}`;
-  2. `POST time-cards/crew-time-out` — same body shape → `{created, references}`;
-  3. `POST time-cards/crew-piece-out` `{dateTime, crewCounter, crewTableCounter:null, numOfPieces, ranchCounter, fieldCounter, jobCounter, memo:null}` → `{timeCardCounter}` (one row for the whole crew, **no** `employeeIds`).
+  1. **Input ▸ Batch ▸ Crew Time In** — Date/Time, Crew (loads its active members, pre-selected), Ranch, Field, **Phase = the job**. A time-in with no Phase analyses as *eligible* but `plannable 0` and silently writes no job card;
+  2. **Input ▸ Batch ▸ Crew Piece Out** — Date/Time, Crew, Num of Pieces, Ranch (required here), Field, Job. One row for the whole crew;
+  3. **Input ▸ Batch ▸ Crew Time Out** — Date/Time, Crew. No Phase (a piece job makes Number of Pieces required, and the pieces belong to the piece-out). Only offered once the time-in is readable — the flow waits for it over the API first, or the form intermittently says "No employees with open time in found for this crew".
+
+  These forms are stricter than the API they sit on: the API takes an explicit `employeeIds` list and any `jobCounter`, and happily punched inactive employees with no home crew against an inactive job. The forms refuse all three, which is how the fixture was found to be invalid — `prepareJourneyD` now repairs it (active + home crew + active job) before seeding.
 
   `numOfPieces` must respect the preference `maximumNumberOfPieces` (**5** on dev) and
   `minimumNumberOfPieces` (1) — `4` is the scenario value, giving 2 pieces per employee.
