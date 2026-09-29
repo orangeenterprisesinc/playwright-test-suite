@@ -207,17 +207,47 @@ export interface ImportFileResult {
     [key: string]: unknown;
 }
 
+/**
+ * The `drain` block a Trigger Import run carries since WEBPET-2996 — the
+ * background relay drain's own outcome, which the run's rolled-up file status
+ * cannot tell: `running` while it still pulls, then `ok` or `warning`.
+ */
+export interface ImportRunDrainState {
+    status: 'running' | 'ok' | 'warning' | string;
+    filesPulled: number;
+    message: string;
+}
+
 export interface ImportRunResult {
     runId: number;
     /** Rolled-up status: completed | failed | partial (terminal), or the last seen. */
     status: string;
     files: ImportFileResult[];
+    /** Present only on a run a background drain created. */
+    drain?: ImportRunDrainState;
     /** Whatever the poll returned last, for assertions this helper does not model. */
     raw: unknown;
 }
 
+type RunSnapshot = { status?: string; files?: ImportFileResult[]; drain?: ImportRunDrainState };
+
 const TERMINAL = ['completed', 'failed', 'partial'];
 export const TERMINAL_IMPORT_STATUSES = TERMINAL;
+
+/**
+ * Whether a run has nothing left to report. Mirrors web-pet's
+ * shouldKeepPollingImportRun: with a `drain` block the run's status rolls up
+ * from the files pulled SO FAR and can read `completed` while the drain is
+ * still pulling, so the drain must have left `running` too; and a drain that
+ * finished without persisting a file leaves a run with no files that never
+ * leaves `received`.
+ */
+function runSettled(run: RunSnapshot): boolean {
+    const terminal = TERMINAL.includes(String(run.status));
+    if (!run.drain) return terminal;
+    if (run.drain.status === 'running') return false;
+    return terminal || (run.files ?? []).length === 0;
+}
 
 /**
  * The signature of an environment without object storage.
@@ -401,14 +431,14 @@ export async function waitForImportRun(
 ): Promise<ImportRunResult> {
     const startedAt = Date.now();
     recordImportRun(runId, testInfo);
-    let last: { status?: string; files?: ImportFileResult[] } = seed;
+    let last: RunSnapshot = seed;
     let claimed = String(seed.status ?? 'received') !== 'received';
     deadline.touch();
     let fp = runFingerprint(seed);
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
-            last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            last = (await poll.json()) as RunSnapshot;
             const next = runFingerprint(last);
             if (next !== fp) {
                 fp = next;
@@ -421,7 +451,7 @@ export async function waitForImportRun(
                     description: String(Date.now() - startedAt),
                 });
             }
-            if (TERMINAL.includes(String(last.status))) break;
+            if (runSettled(last)) break;
         }
         const verdict = deadline.verdict();
         if (verdict) {
@@ -442,6 +472,7 @@ export async function waitForImportRun(
         runId,
         status: String(last.status),
         files: last.files ?? [],
+        drain: last.drain,
         raw: last,
     };
 }
@@ -473,7 +504,7 @@ export async function waitForImportFiles(
 ): Promise<ImportRunResult & { oursPresent: boolean }> {
     const startedAt = Date.now();
     recordImportRun(runId, testInfo);
-    let last: { status?: string; files?: ImportFileResult[] } = {};
+    let last: RunSnapshot = {};
     let claimed = false;
     let emptySinceMs: number | null = null;
     deadline.touch();
@@ -481,7 +512,7 @@ export async function waitForImportFiles(
     for (;;) {
         const poll = await request.get(`connectivity/import/runs/${runId}`);
         if (poll.ok()) {
-            last = (await poll.json()) as { status?: string; files?: ImportFileResult[] };
+            last = (await poll.json()) as RunSnapshot;
             const next = runFingerprint(last);
             if (next !== fp) {
                 fp = next;
@@ -499,7 +530,7 @@ export async function waitForImportFiles(
             if (ours.length && ours.every((f) => TERMINAL.includes(String(f.status)))) {
                 noteDeliveryOutcome(null);
                 testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
-                return { runId, status: String(last.status), files: allFiles, raw: last, oursPresent: true };
+                return { runId, status: String(last.status), files: allFiles, drain: last.drain, raw: last, oursPresent: true };
             }
             // The relay pull lists files as they are stored, so one empty look is
             // normal — only two consecutive empty looks spanning >=10s means the
@@ -507,12 +538,12 @@ export async function waitForImportFiles(
             if (allFiles.length && ours.length === 0) {
                 if (emptySinceMs === null) emptySinceMs = Date.now();
                 else if (Date.now() - emptySinceMs >= 10_000) {
-                    return { runId, status: String(last.status), files: allFiles, raw: last, oursPresent: false };
+                    return { runId, status: String(last.status), files: allFiles, drain: last.drain, raw: last, oursPresent: false };
                 }
             } else {
                 emptySinceMs = null;
             }
-            if (TERMINAL.includes(String(last.status))) break;
+            if (runSettled(last)) break;
         }
         const verdict = deadline.verdict();
         if (verdict) {
@@ -536,15 +567,41 @@ export async function waitForImportFiles(
     noteDeliveryOutcome(null);
     testInfo?.annotations.push({ type: 'import-terminal-ms', description: String(Date.now() - startedAt) });
     const finalFiles = last.files ?? [];
-    return { runId, status: String(last.status), files: finalFiles, raw: last, oursPresent: finalFiles.some(wanted) };
+    return { runId, status: String(last.status), files: finalFiles, drain: last.drain, raw: last, oursPresent: finalFiles.some(wanted) };
 }
 
 /** What `POST connectivity/import/internet` reports about the pull itself. */
 export interface InternetPullResult {
     runId: number;
     filesPulled: number;
+    /** Settled: a 202 `running` is followed to the run's `drain` block before this is returned. */
     status: string;
     message: string;
+    /** `already-running` — a peer's drain holds the lease; `could-not-start` — ours could not begin. */
+    reason: string;
+}
+
+/**
+ * Follow a background drain (WEBPET-2996) to its outcome: poll the run until its
+ * `drain` block leaves `running`. Null when the deadline runs out first — the
+ * caller's status then stays `running` and its own expect names it.
+ */
+async function waitForDrain(
+    request: APIRequestContext,
+    runId: number,
+    deadline: ImportDeadline,
+): Promise<ImportRunDrainState | null> {
+    deadline.touch();
+    for (;;) {
+        const poll = await request.get(`connectivity/import/runs/${runId}`);
+        if (poll.ok()) {
+            const run = (await poll.json()) as RunSnapshot;
+            if (run.drain && run.drain.status !== 'running') return run.drain;
+            if (run.drain) deadline.touch();
+        }
+        if (deadline.verdict()) return null;
+        await new Promise((r) => setTimeout(r, deadline.pollDelayMs()));
+    }
 }
 
 /**
@@ -552,7 +609,9 @@ export interface InternetPullResult {
  * same POST the Connectivity ▸ Import ▸ Internet screen makes. Preferred over
  * `single-folder` because it exercises the WebMail leg a real device sync uses.
  *
- * The route answers HTTP 200 whatever happens, so the body's `status` is the
+ * Since WEBPET-2996 a drain that finds files answers 202 `running` and finishes
+ * in the background (followed here through the run's `drain` block); otherwise
+ * the route answers HTTP 200 whatever happens, so the body's `status` is the
  * outcome: `ok` pulled files, `no-data` found none, anything else is a closed
  * relay gate. `no-data` is NOT a failure under `workers=2` — every worker shares
  * one office mailbox, so a peer's pull can drain our envelope into its own run.
@@ -576,8 +635,15 @@ export async function pullFromRelayInternet(
         filesPulled: Number(body.filesPulled ?? 0),
         status: String(body.status ?? ''),
         message: String(body.message ?? ''),
+        reason: String(body.reason ?? ''),
     };
 
     if (!Number.isFinite(pull.runId) || pull.runId <= 0) return { pull };
+    // 202: the drain continues in the background and its outcome is the run's
+    // `drain` block — the `ok` / `warning` + filesPulled the POST used to return.
+    if (pull.status === 'running') {
+        const drain = await waitForDrain(request, pull.runId, deadline);
+        if (drain) Object.assign(pull, { status: drain.status, filesPulled: drain.filesPulled, message: drain.message });
+    }
     return { pull, run: await waitForImportRun(request, pull.runId, deadline, {}, opts.testInfo) };
 }
