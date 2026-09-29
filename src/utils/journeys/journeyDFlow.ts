@@ -1,11 +1,12 @@
 import type { APIRequestContext, TestInfo } from '@playwright/test';
+import type { PageObjects } from '@fixtures/pages.fixture';
 import { JOURNEY_D_FIXTURE } from '@data/journey-d/fixture';
 import { punchDay } from '@data/journey-b/fixture';
 import type { JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
 import { createCrewPieceOut, createCrewTimeIn, createCrewTimeOut, punchTime } from '@utils/api/crewTimeInApi';
 import { analyzeTransfer, executeTransfer, previewJobCards, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
-import { ensureCrew, ensureEmployee, ensureJob, getJob, setJobRate, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
@@ -138,16 +139,23 @@ export async function prepareJourneyD(
     return { scenario: substituted, office, crew, job, pickerOne, pickerTwo, punchDate, day, recalcBaseline, jobCardIds, cleanup, ctx };
 }
 
-/** GET -> merge -> PUT the job's piece rate, annotate why, and read it back. */
-export async function setRate(
+/**
+ * Change the job's piece rate **on screen**, through Setup > Job.
+ *
+ * This is catalog D6's own step 1, so it is a workflow action, not setup: driving it through
+ * `PUT /jobs/{id}` would hide the step from the run and from any recording made of it. The API is
+ * reserved here for the preference read and the after-run cleanup.
+ */
+export async function setRateOnScreen(
     run: JourneyDRun,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    opts: { pages: PageObjects; testInfo: TestInfo },
     pieceRate: number,
     note: string,
 ): Promise<{ pieceRate: number }> {
-    opts.testInfo.annotations.push({ type: 'precondition', description: `${note}: job pieceRate -> ${pieceRate}` });
-    const job = await setJobRate(opts.sessionApi, run.job.id, pieceRate);
-    return { pieceRate: Number(job.pieceRate) };
+    opts.testInfo.annotations.push({ type: 'workflow-step', description: `${note}: Setup > Job -> Piece Rate ${pieceRate}` });
+    await opts.pages.job.gotoEditById(run.job.id, run.job.name);
+    const shown = await opts.pages.job.setPieceRate(pieceRate);
+    return { pieceRate: Number(shown) };
 }
 
 export interface SeedResult {

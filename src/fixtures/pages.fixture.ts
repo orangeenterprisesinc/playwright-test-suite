@@ -25,6 +25,7 @@ import { UsersPage } from '../pages/admin/UsersPage';
 import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { JobCardsPage } from '../pages/processing/JobCardsPage';
+import { JobPage } from '../pages/setup/JobPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
 import { CrewTablePage } from '../pages/setup/CrewTablePage';
@@ -58,6 +59,9 @@ export interface PageObjects {
     /** View (Input) ▸ Job Card — the recalculate screen, `/input/job-cards` (D6). */
     readonly jobCards: JobCardsPage;
 
+    /** Setup ▸ Job — the job record D6 re-rates on screen. */
+    readonly job: JobPage;
+
     // ── Connectivity ────────────────────────────────────────────────
     /** Connectivity ▸ Import ▸ Internet — the office's relay pull (Journey B). */
     readonly importInternet: ImportInternetPage;
@@ -87,6 +91,7 @@ export function createPageObjects(page: Page): PageObjects {
         get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get jobCards() { return lazy('jobCards', () => new JobCardsPage(page)); },
+        get job() { return lazy('job', () => new JobPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
     };
 }

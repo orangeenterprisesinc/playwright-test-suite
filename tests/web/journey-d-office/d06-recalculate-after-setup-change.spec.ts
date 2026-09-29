@@ -12,7 +12,7 @@ import {
     prepareJourneyD,
     readJobCards,
     seedFixtureDay,
-    setRate,
+    setRateOnScreen,
 } from '@utils/journeys/journeyDFlow';
 
 test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'] }, () => {
@@ -23,16 +23,17 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
             { type: 'testCaseId', description: 'D6' },
         ],
     }, async ({ page, sessionApi, pages }, testInfo) => {
-        // D6 drives two async server jobs (transfer, recalculate) plus a UI grid — a
-        // skipped-budget cleanup here means permanent residue on dev, not just an untidy report.
+        // D6 drives two async server jobs (transfer, recalculate) plus two UI screens — the Job form
+        // for the rate change and the Job Cards grid. A skipped-budget cleanup here means permanent
+        // residue on dev, not just an untidy report, so the budget is generous on purpose.
         test.slow();
-        test.setTimeout(240_000);
+        test.setTimeout(360_000);
 
         const scenario = await loadScenario(JourneyDRecalculateCaseSchema, testInfo);
         const run = await prepareJourneyD(scenario, { sessionApi, testInfo });
 
-        // 2. setJobRate(job, rate.before), then seed the day: crew time-in -> crew piece-out -> crew time-out.
-        await setRate(run, { sessionApi, testInfo }, scenario.rate.before, 'precondition: rate v1');
+        // 2. Set the starting rate on screen, then seed the day: crew time-in -> crew piece-out -> crew time-out.
+        await setRateOnScreen(run, { pages, testInfo }, scenario.rate.before, 'rate v1 (the starting rate)');
         const seed = await seedFixtureDay(run, { sessionApi, testInfo });
 
         // 3-4. analyzeTransfer guarded to exactly this run's own time cards, then executeTransfer polled to complete.
@@ -51,9 +52,9 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
             expect(card.locked).toBeFalsy();
         }
 
-        // 6. setJobRate(job, rate.after) — the setup change.
-        const jobAfterRateChange = await setRate(run, { sessionApi, testInfo }, scenario.rate.after, 'precondition: rate v2 — the setup change');
-        expect(jobAfterRateChange.pieceRate).toBe(scenario.rate.after);
+        // 6. THE SETUP CHANGE - catalog step 1, driven on Setup > Job like a user would.
+        const jobAfterRateChange = await setRateOnScreen(run, { pages, testInfo }, scenario.rate.after, 'rate v2 - the setup change');
+        expect(jobAfterRateChange.pieceRate, 'the Job form must show the new piece rate after saving').toBe(scenario.rate.after);
 
         // 7. On screen: /input/job-cards -> From/To = the fixture day -> Apply -> both references listed ->
         //    Multi Update -> check exactly the two own rows -> selection bar reads "2 selected".
