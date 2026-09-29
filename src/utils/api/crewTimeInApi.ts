@@ -96,3 +96,58 @@ export async function listCrewTimeIns(
     const body = (await res.json()) as CrewTimeInRow[] | { items?: CrewTimeInRow[]; data?: CrewTimeInRow[] };
     return Array.isArray(body) ? body : (body.items ?? body.data ?? []);
 }
+
+export interface CrewPieceOutRequest {
+    dateTime: string;
+    crewCounter: number;
+    crewTableCounter?: number | null;
+    numOfPieces: number;
+    ranchCounter: number;
+    fieldCounter: number;
+    jobCounter: number;
+    memo?: string | null;
+}
+
+export interface CrewPieceOutResult {
+    timeCardCounter: number;
+}
+
+/** `POST time-cards/crew-piece-out` — one row for the whole crew, no `employeeIds` (the split happens at transfer time). */
+export async function createCrewPieceOut(
+    request: APIRequestContext,
+    body: CrewPieceOutRequest,
+): Promise<CrewPieceOutResult> {
+    const res = await request.post('time-cards/crew-piece-out', {
+        data: { crewTableCounter: null, memo: null, ...body },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(
+            `POST time-cards/crew-piece-out failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
+        );
+    }
+    const payload = (await res.json()) as { timeCardCounter?: number };
+    return { timeCardCounter: Number(payload.timeCardCounter ?? 0) };
+}
+
+/**
+ * `POST time-cards/crew-time-out` — same request/response shape as {@link createCrewTimeIn}.
+ * A day needs this closing punch to be transferable at all: a lone time-in is an unpaired point of
+ * time, so the transfer emits `warn.incomplete_time_in` and writes no job card.
+ */
+export async function createCrewTimeOut(
+    request: APIRequestContext,
+    body: CrewTimeInRequest,
+): Promise<CrewTimeInResult> {
+    const res = await request.post('time-cards/crew-time-out', {
+        data: { crewTableCounter: null, ...body },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(
+            `POST time-cards/crew-time-out failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
+        );
+    }
+    const payload = (await res.json()) as { created?: number; references?: string[] };
+    return { created: Number(payload.created ?? 0), references: payload.references ?? [] };
+}

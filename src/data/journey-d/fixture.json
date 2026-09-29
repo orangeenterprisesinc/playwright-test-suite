@@ -1,0 +1,26 @@
+{
+  "_notes": [
+    "Fixed Journey D fixture (catalog D6, plan test-plans/journey-d/d06-recalculate-after-setup-change.md). Codes sit in the 8000/4600 block, clear of Journey B's 4000-6000 block and Journey C's 7000 block, so they never collide. Discovered-not-recreated by src/utils/journeys/journeyDFlow.ts (ensureCrew/ensureEmployee/ensureJob), never deleted — the isolation unit is (own fixture day) x (own fixed crew/job/employees) x (id-scoped execute), not per-run naming.",
+    "Ranch B1 RANCH (162) and field B1 FIELD (99) are Journey B's fixture rows, reused read-only for the punch context; office.job is overwritten with this D6 JOB, exactly as journeyCFlow overwrites office.crew.",
+    "Names start with 'D6 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^D[0-9]{1,2} / so the residue sweep and fixtureReconcile can never reclaim them."
+  ],
+  "entities": {
+    "crew": {
+      "code": "8001",
+      "name": "D6 CREW"
+    },
+    "pickerOne": {
+      "code": "8002",
+      "name": "D6 PICKER ONE"
+    },
+    "pickerTwo": {
+      "code": "8003",
+      "name": "D6 PICKER TWO"
+    },
+    "job": {
+      "code": "4601",
+      "name": "D6 JOB",
+      "paymentType": 1
+    }
+  }
+}

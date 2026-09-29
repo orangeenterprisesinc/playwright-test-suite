@@ -245,3 +245,42 @@ export function ensureJob(
         },
     });
 }
+
+export interface JobRecord {
+    jobCounter: number;
+    pieceRate?: number;
+    version?: string;
+    [key: string]: unknown;
+}
+
+export async function getJob(request: APIRequestContext, id: number): Promise<JobRecord> {
+    const res = await request.get(`jobs/${id}`);
+    if (!res.ok()) {
+        throw new Error(`GET jobs/${id} failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
+    }
+    return (await res.json()) as JobRecord;
+}
+
+/**
+ * Point the job's piece rate at `pieceRate` — GET -> merge -> PUT, modelled on `setCrewNotifyUser`
+ * in crewsApi.ts. Answers 204 with the value persisted and `version` bumped (verified live
+ * 2026-09-29). Returns the record read back, so the caller does not need a second GET.
+ */
+export async function setJobRate(
+    request: APIRequestContext,
+    jobCounter: number,
+    pieceRate: number,
+): Promise<JobRecord> {
+    const job = await getJob(request, jobCounter);
+    const { jobCounter: _drop, ...body } = job;
+    const res = await request.put(`jobs/${jobCounter}`, {
+        data: { ...body, pieceRate },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(
+            `PUT jobs/${jobCounter} (pieceRate=${pieceRate}) failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
+        );
+    }
+    return getJob(request, jobCounter);
+}

@@ -4,6 +4,7 @@ import type { CleanupStepSchema } from '../../data/schemas/cleanupStep';
 import { punchDay } from '../../data/journey-b/fixture';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
+import { getJob, setJobRate } from '../api/setupEntitiesApi';
 import {
     getPreferences,
     putPreferences,
@@ -51,6 +52,7 @@ interface Restorer {
 //   crewNotifyUser        → the fixture crew's userToNotifyBreakAndMeal (B12 points it at a notifiable user)
 //   stickerStartLocations → the two label-tracking preferences B7 arranges for its own extraction
 //   pieceOutPreferences   → the seven piece-out/sticker-roll preferences A9 writes through the UI
+//   d6JobPieceRate        → the fixture job's pieceRate (D6 raises it, restore puts it back)
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
         snapshot: async (api, ctx) => (await getCrew(api, fixtureCrewId(ctx))).userToNotifyBreakAndMeal ?? null,
@@ -85,11 +87,22 @@ const RESTORERS: Record<string, Restorer> = {
             }
         },
     },
+    d6JobPieceRate: {
+        snapshot: async (api, ctx) => (await getJob(api, journeyJobId(ctx))).pieceRate ?? null,
+        restore: async (api, snapshot, ctx) => {
+            if (snapshot !== null) await setJobRate(api, journeyJobId(ctx), snapshot as number);
+        },
+    },
 };
 
 function fixtureCrewId(ctx: CleanupContext): number {
     if (!ctx.office) throw new Error("restore 'crewNotifyUser' needs the seeded office fixture in the cleanup context");
     return ctx.office.crew.id;
+}
+
+function journeyJobId(ctx: CleanupContext): number {
+    if (!ctx.office) throw new Error("restore 'd6JobPieceRate' needs the seeded office fixture in the cleanup context");
+    return ctx.office.job.id;
 }
 
 export async function runCleanup(steps: CleanupStep[], api: APIRequestContext, testInfo: TestInfo, ctx: CleanupContext): Promise<void> {
