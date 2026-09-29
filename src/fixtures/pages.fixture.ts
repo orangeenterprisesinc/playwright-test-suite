@@ -26,6 +26,9 @@ import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { JobCardsPage } from '../pages/processing/JobCardsPage';
 import { JobPage } from '../pages/setup/JobPage';
+import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
+import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
+import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
 import { CrewTablePage } from '../pages/setup/CrewTablePage';
@@ -62,6 +65,11 @@ export interface PageObjects {
     /** Setup ▸ Job — the job record D6 re-rates on screen. */
     readonly job: JobPage;
 
+    // ── Input ▸ Batch — the office crew punches (D6 arrange) ──
+    readonly crewTimeIn: CrewTimeInPage;
+    readonly crewPieceOut: CrewPieceOutPage;
+    readonly crewTimeOut: CrewTimeOutPage;
+
     // ── Connectivity ────────────────────────────────────────────────
     /** Connectivity ▸ Import ▸ Internet — the office's relay pull (Journey B). */
     readonly importInternet: ImportInternetPage;
@@ -92,6 +100,9 @@ export function createPageObjects(page: Page): PageObjects {
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get jobCards() { return lazy('jobCards', () => new JobCardsPage(page)); },
         get job() { return lazy('job', () => new JobPage(page)); },
+        get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },
+        get crewPieceOut() { return lazy('crewPieceOut', () => new CrewPieceOutPage(page)); },
+        get crewTimeOut() { return lazy('crewTimeOut', () => new CrewTimeOutPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
     };
 }

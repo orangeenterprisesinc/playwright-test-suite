@@ -34,10 +34,10 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
 
         // 2. Set the starting rate on screen, then seed the day: crew time-in -> crew piece-out -> crew time-out.
         await setRateOnScreen(run, { pages, testInfo }, scenario.rate.before, 'rate v1 (the starting rate)');
-        const seed = await seedFixtureDay(run, { sessionApi, testInfo });
+        const seed = await seedFixtureDay(run, { sessionApi, testInfo, pages });
 
         // 3-4. analyzeTransfer guarded to exactly this run's own time cards, then executeTransfer polled to complete.
-        const transfer = await guardedTransfer(run, { sessionApi, testInfo }, seed);
+        const transfer = await guardedTransfer(run, { sessionApi, testInfo, pages }, seed);
         expect(transfer.jobCardsWritten).toBe(scenario.expected.jobCards);
         expect(transfer.timeCardsTransferred).toBe(seed.timeCardCounters.length);
         expect(transfer.jobCardCounters).toHaveLength(scenario.expected.jobCards);

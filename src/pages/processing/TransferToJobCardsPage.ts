@@ -587,4 +587,108 @@ export class TransferToJobCardsPage extends BasePage {
         await this.expandIssuesPanel();
         return this.issuesRegion.getByRole('listitem').allTextContents();
     }
+
+    // ── Running the transfer (D4/D6) ────────────────────────────────
+    //
+    // Everything below commits real job cards. The screen's own selection model is the danger: the
+    // header checkbox is "Select all rows" ACROSS the filter, not the visible rows, which is the
+    // shape of the September 2026 incident that wiped ~9.5k dev job cards with no restore route.
+    // Nothing here ever touches it, and this page object exposes no delete of any kind.
+
+    /** The header "Select all rows" checkbox — located only so a caller can assert it is untouched. */
+    get selectAllRowsCheckbox(): Locator {
+        return this.page.getByRole('checkbox', { name: 'Select all rows' });
+    }
+
+    get analyzeCandidatesButton(): Locator {
+        return this.page.getByRole('button', { name: /Analyze Transfer Candidates/i }).first();
+    }
+
+    /**
+     * The commit button, scoped to the page — the left navigation carries an item of the same name,
+     * and an unscoped match lands on that instead of the toolbar. Its label also tracks the screen:
+     * "Transfer to Job Cards" with nothing ticked (disabled by design), gaining the ready count once
+     * rows are checked, e.g. "Transfer to Job Cards 4".
+     */
+    get transferButton(): Locator {
+        return this.pageRoot.getByRole('button', { name: /^Transfer to Job Cards(\s|$)/i }).last();
+    }
+
+
+    /**
+     * Scope the screen to a single day. The range is two segmented Month/Day/Year fields inside the
+     * date-scope popover; the calendar's day cells toggle a range and clear it when the same day is
+     * clicked twice, so the segments are filled instead.
+     */
+    async scopeToDay(day: string): Promise<void> {
+        const [year, month, date] = day.split('-');
+        await this.dateRangeFilter.click();
+        const popover = this.page.locator('[data-slot=popover-content], [role=dialog]').last();
+        const segments = await popover.locator('input[type=text]').all();
+        for (const [index, value] of [[0, month], [1, date], [2, year], [3, month], [4, date], [5, year]] as const) {
+            await segments[Number(index)].click();
+            await segments[Number(index)].fill(String(value));
+        }
+        await popover.getByRole('button', { name: 'Apply' }).first().click();
+        await expect(this.dateRangeFilter).toContainText(`${month}/${date}/${year}`, { timeout: 20_000 });
+    }
+
+    /**
+     * Run the analyze and wait for the grid to settle. The click returns immediately while the
+     * candidates load, so reading the rows straight afterwards reports an empty screen rather than
+     * an unfinished one — and an empty screen is indistinguishable from "nothing to transfer".
+     */
+    async analyzeCandidates(opts: { expected?: number } = {}): Promise<void> {
+        await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 20_000 });
+        await this.analyzeCandidatesButton.click();
+        const wanted = opts.expected ?? 1;
+        await expect
+            .poll(async () => (await this.candidateReferences()).length, {
+                timeout: 90_000,
+                message: `analyze loaded no transfer candidates (expected ${wanted})`,
+            })
+            .toBeGreaterThanOrEqual(wanted);
+    }
+
+    /** Tick one candidate row by its Reference — never the header select-all. */
+    async selectCandidate(reference: string): Promise<void> {
+        const checkbox = this.page.getByRole('checkbox', { name: `Select ${reference}` });
+        await checkbox.waitFor({ state: 'visible', timeout: 30_000 });
+        await checkbox.check();
+    }
+
+    /** Every candidate Reference the analyze loaded, so a caller can prove the scope is its own. */
+    async candidateReferences(): Promise<string[]> {
+        const names = await this.page.getByRole('checkbox').evaluateAll((nodes) =>
+            nodes.map((n) => n.getAttribute('aria-label') ?? '').filter((n) => n.startsWith('Select ') && n !== 'Select all rows'),
+        );
+        return names.map((n) => n.replace(/^Select /, ''));
+    }
+
+    /**
+     * Commit the transfer for the ticked rows. The confirm step reports any warning issues before
+     * it proceeds; warnings are expected on a piece day (`warn.zero_rate`) and do not block.
+     */
+    async runTransfer(): Promise<void> {
+        const commit = this.transferButton;
+        try {
+            await expect(commit).toBeEnabled({ timeout: 30_000 });
+        } catch {
+            // A day can be fully "eligible" and still have nothing to plan — a time-in with no
+            // Phase (job) analyses as eligible but plannable 0, and the button then sits disabled
+            // with nothing on screen saying why. Report the pills, which is where the app says it.
+            const ready = (await this.page.getByTestId('v2-progress-pill-ready').innerText().catch(() => '?')).replace(/\s+/g, ' ');
+            const blocking = (await this.page.getByTestId('v2-progress-pill-blocking').innerText().catch(() => '?')).replace(/\s+/g, ' ');
+            const warnings = (await this.page.getByTestId('v2-progress-pill-warnings').innerText().catch(() => '?')).replace(/\s+/g, ' ');
+            throw new Error(
+                `Transfer never enabled for the ticked rows — ${ready}, ${blocking}, ${warnings}. ` +
+                    'A "0 Ready" here usually means the time-ins carry no Phase (job), which analyses as eligible but plannable 0.',
+            );
+        }
+        await commit.click();
+        const confirm = this.page.getByRole('alertdialog').or(this.page.getByRole('dialog')).first();
+        if (await confirm.isVisible({ timeout: 5_000 }).catch(() => false)) {
+            await confirm.getByRole('button', { name: /^Transfer$/i }).first().click();
+        }
+    }
 }

@@ -66,6 +66,22 @@ const RESIDUE_TOOLS_ENABLED =
 if (RESIDUE_TOOLS_ENABLED) process.env.RESIDUE_SWEEP_STANDALONE = '1';
 
 /**
+ * The agents' scratch page (tests/seed.spec.ts) is a project only for the MCP server the
+ * planner/generator/healer drive. `generator_setup_page` locates its seed by collecting it through
+ * a project, and the chromium project deliberately testIgnores it (untagged, no runner row), so
+ * without this the agents cannot open a browser at all — the failure reads "seed test not found".
+ * A normal run, CI and `runner:check` never materialize it.
+ */
+const AGENT_SEED_ENABLED =
+    process.env.AGENT_SEED === '1' ||
+    process.argv.includes('run-test-mcp-server') ||
+    process.argv.some(
+        (arg, i, argv) =>
+            arg.startsWith('--project=agent-seed') || (arg === '--project' && (argv[i + 1] ?? '') === 'agent-seed'),
+    );
+if (AGENT_SEED_ENABLED) process.env.AGENT_SEED = '1';
+
+/**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
  * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
  * so a run of the converted suite is still comparable with the source repo's
@@ -281,6 +297,19 @@ export default defineConfig({
             },
             dependencies: ['auth-setup'],
         },
+
+        // ── Agents' scratch page (tests/seed.spec.ts) — opt-in, see AGENT_SEED_ENABLED ──
+        ...(AGENT_SEED_ENABLED
+            ? [
+                  {
+                      name: 'agent-seed',
+                      testDir: './tests',
+                      testMatch: '**/seed.spec.ts',
+                      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
+                      dependencies: ['auth-setup'],
+                  },
+              ]
+            : []),
 
         // ── Residue-sweep tool (tests/tools) — opt-in, see RESIDUE_TOOLS_ENABLED ──
         ...(RESIDUE_TOOLS_ENABLED
