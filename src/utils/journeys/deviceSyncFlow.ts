@@ -85,10 +85,10 @@ export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOp
     const { scenario, relay, device } = minted;
     testInfo.slow();
     const mailbox: DeviceScopeRun['mailbox'] = { address: device.webMailAddress, pulled: null };
-    const cleanup = register(testInfo, `${scenario.label ?? 'B15'} cleanup`, async () => {
+    const cleanup = register(testInfo, `${scenario.label ?? 'B15'} cleanup`, async (api) => {
         // Acknowledge first so nothing accumulates on the relay; the delete steps follow in cleanupTargets order.
         if (mailbox.pulled) await ackRetrieved(relay.url, mailbox.address, mailbox.pulled.messageId);
-        await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'after' });
+        await runCleanup(scenario.cleanup, api, testInfo, { phase: 'after' });
     });
     const section = (key: EntityKey) => scenario.entities[key].section;
     const ranch: ScopedEntity = { ...(await ensureRanch(sessionApi, minted.minted.ranch)), section: section('ranch') };

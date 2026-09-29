@@ -559,7 +559,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     const cleanupSteps = run.scenario.cleanup;
     const scope = opts.scope ?? currentScope(testInfo);
     ctx.ui = scope?.ui;
-    const registration = scope?.add(`${run.scenario.label} cleanup`, () => runCleanup(cleanupSteps, sessionApi, testInfo, ctx));
+    const registration = scope?.add(`${run.scenario.label} cleanup`, (api) => runCleanup(cleanupSteps, api, testInfo, ctx));
     const cleanup = async (): Promise<void> => {
         await runCleanup(cleanupSteps, sessionApi, testInfo, ctx);
         registration?.complete();

@@ -1,0 +1,45 @@
+{
+  "_notes": [
+    "D6 - Recalculate after setup change (catalog D6, plan test-plans/journey-d/d06-recalculate-after-setup-change.md, runner row D6). dayOffset -11 is Journey D's own fixture day (Journey B owns 0...-9, Journey C took -10), so the three suites never collide on the same day's cards.",
+    "The minimum transferable day (measured live 2026-09-29): crew time-in + crew piece-out (respecting maximumNumberOfPieces=5) + crew time-out, all on the same crew and job. numOfPieces=4 splits to 2 pieces per employee across the two D6 pickers.",
+    "rate.before/after is the catalog's own example, 'a piece rate from one dollar to two'. expected.amountBefore/After are pieces-per-card x rate, pinned so a stale rate or a minimum-wage make-up would fail loudly at the arrange step rather than being swallowed by the later delta."
+  ],
+  "workflow": "D6",
+  "label": "d06-recalculate-transferred-job-cards",
+  "dayOffset": -11,
+  "capture": {
+    "punch": { "hour": 7, "minute": 0 },
+    "pieceOut": { "hour": 15, "minute": 0 },
+    "timeOut": { "hour": 15, "minute": 30 },
+    "numOfPieces": 4
+  },
+  "rate": {
+    "before": 1,
+    "after": 2
+  },
+  "expected": {
+    "jobCards": 2,
+    "piecesPerCard": 2,
+    "amountBefore": 2,
+    "amountAfter": 4,
+    "updated": 2,
+    "skipped": 0,
+    "failed": 0
+  },
+  "annotations": [
+    {
+      "type": "product-defect",
+      "description": "Recalculate leaves the job card's amount at 0 while pieceAmount tracks the rate correctly (measured live 2026-09-29). The spec asserts pieceAmount, never amount; amount is recorded as an annotation only. File against board 357 (qa-beta-test + journey-d) if not already tracked."
+    },
+    {
+      "type": "not-automatable",
+      "description": "Skip reasons (exported, dateLocked, noTimeRange, rateLookupFailed, notFound, updateFailed, other) and the bodyVisible/bodyExportScope confirm variants need data or scope this spec is forbidden to create/use — separate tickets."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["8002", "8003"], "dayOffset": -11, "cardTypes": [0, 1] },
+    { "kind": "restore", "target": "d6JobPieceRate" },
+    { "kind": "unremovable", "entity": "recalcRun", "reason": "audit row read as assertion evidence only, never reversed" },
+    { "kind": "unremovable", "entity": "transferRun", "reason": "a recalculated job card permanently blocks the transfer reverse (409 reverse_blocked / job_card_edited)" }
+  ]
+}
