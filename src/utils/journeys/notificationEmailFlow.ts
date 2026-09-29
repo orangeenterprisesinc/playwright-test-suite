@@ -79,8 +79,8 @@ export interface NotificationEmailRun extends NotificationEmailSetup {
 /** Creates the recipient user and, when a reporting script exists, the notification; fires Notify Now and attaches the job. Cleanup is registered with the scope up front. */
 export async function dispatchNotification(setup: NotificationEmailSetup, sessionApi: APIRequestContext, testInfo: TestInfo): Promise<NotificationEmailRun> {
     const { recipient, notificationName, subject } = setup;
-    const cleanup = register(testInfo, 'notification-email cleanup', () =>
-        runCleanup(setup.scenario.cleanup, sessionApi, testInfo, { phase: 'after' }),
+    const cleanup = register(testInfo, 'notification-email cleanup', (api) =>
+        runCleanup(setup.scenario.cleanup, api, testInfo, { phase: 'after' }),
     );
     const userId = await createUser(sessionApi, {
         name: recipient.name,

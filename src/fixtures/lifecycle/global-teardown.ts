@@ -8,6 +8,7 @@ import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { sweepLeftovers } from '../../utils/cleanup/cleanupRegistry';
 import { reconcileFixtureDays } from '../../utils/cleanup/fixtureReconcile';
+import { replayLeftoverJournals } from '../../utils/cleanup/cleanupJournal';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -161,6 +162,9 @@ async function globalTeardown(config: FullConfig): Promise<void> {
     // src/data/static/shared/cleanupTargets.ts; never throws, logs in for itself.
     // Before the Allure metadata so its summary can appear there.
     if (process.env.RESIDUE_SWEEP_STANDALONE !== '1') {
+        // Playwright still runs global teardown on SIGINT, but not necessarily a killed
+        // test's fixture teardown — so replay what the journal says was created.
+        await replayLeftoverJournals();
         const reconcile = await reconcileFixtureDays({ phase: 'end' });
         try {
             await sweepLeftovers(reconcile.sweep.blockedEmployees);

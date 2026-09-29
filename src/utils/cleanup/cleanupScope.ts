@@ -10,8 +10,18 @@
  * things; the `cleanupScope` fixture drains the scope in teardown, which Playwright
  * runs even after a timeout. Registration is keyed on `testInfo`, so nothing in the
  * flow signatures had to change.
+ *
+ * The API context the drain uses is the scope's OWN, opened untraced at drain time —
+ * never the test's `sessionApi`. After a timeout Playwright has already stopped
+ * tracing and removed the trace file, and the test's request context throws
+ * `ENOENT …/traces/…trace` inside `_wrapApiCall` on every call, before anything
+ * reaches the network. Cleanup "ran" through that context and every entry failed
+ * (measured 2026-09-29: two committed job cards and five transferred time cards
+ * left on dev). A context from the module-level `request` is not attached to the
+ * test's tracing, so it keeps working after the test is dead.
  */
-import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
+import type { APIRequestContext, Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
+import { createSessionRequestContext } from '../api/sessionContext';
 import { Logger } from '../logger';
 
 export type ScopeOutcome = 'ok' | 'failed' | 'skipped-budget';
@@ -41,9 +51,17 @@ export interface CleanupScopeOptions {
     budgetMs?: number;
 }
 
+/**
+ * What a flow registers. The `api` it receives is the scope's own untraced context;
+ * a cleanup that uses it instead of the test's `sessionApi` survives a timeout. A
+ * zero-argument callable is still accepted, so older registrations keep compiling —
+ * they just keep the timeout weakness until they take the parameter.
+ */
+export type ScopeCleanup = (api: APIRequestContext) => Promise<void>;
+
 interface Registered {
     label: string;
-    run: () => Promise<void>;
+    run: ScopeCleanup;
     done: boolean;
 }
 
@@ -67,15 +85,27 @@ export function currentScope(testInfo: TestInfo): CleanupScope | null {
  * Register `run` with the ambient scope and return an idempotent callable. The flow
  * hands that back to the spec as `run.cleanup()`: a spec that wants to clean up mid-test
  * still can, and teardown then skips it rather than repeating it. With no ambient scope
- * (tools, unit tests) the callable is just `run` itself.
+ * (tools, unit tests) the callable runs `run` against a fresh untraced context itself.
  */
-export function register(testInfo: TestInfo, label: string, run: () => Promise<void>): () => Promise<void> {
-    const registration = currentScope(testInfo)?.add(label, run);
-    if (!registration) return run;
+export function register(testInfo: TestInfo, label: string, run: ScopeCleanup): () => Promise<void> {
+    const scope = currentScope(testInfo);
+    if (!scope) return () => withUntracedApi(run);
+    const registration = scope.add(label, run);
     return async () => {
-        await run();
+        await withUntracedApi(run);
         registration.complete();
     };
+}
+
+/** Run `fn` against a context that is not the test's traced one, and dispose it after. */
+async function withUntracedApi(fn: ScopeCleanup): Promise<void> {
+    const api = await createSessionRequestContext();
+    if (!api) throw new Error('cleanup: no authenticated API session (.auth/user.json / API_URL) to clean up with');
+    try {
+        await fn(api);
+    } finally {
+        await api.dispose().catch(() => undefined);
+    }
 }
 
 export class CleanupScope {
@@ -91,7 +121,7 @@ export class CleanupScope {
         this.budgetMs = options.budgetMs ?? 60_000;
     }
 
-    add(label: string, run: () => Promise<void>): ScopeRegistration {
+    add(label: string, run: ScopeCleanup): ScopeRegistration {
         const entry: Registered = { label, run, done: false };
         this.entries.push(entry);
         return {
@@ -131,6 +161,14 @@ export class CleanupScope {
         // Teardown after a timeout is borrowed time; stop rather than hang the worker.
         const deadline = Date.now() + this.budgetMs;
 
+        // One untraced context for the whole drain, opened only if something is outstanding.
+        let api: APIRequestContext | null | undefined;
+        const openApi = async (): Promise<APIRequestContext> => {
+            api ??= await createSessionRequestContext();
+            if (!api) throw new Error('no authenticated API session (.auth/user.json / API_URL) to clean up with');
+            return api;
+        };
+
         for (let i = this.entries.length - 1; i >= 0; i -= 1) {
             const entry = this.entries[i];
             if (entry.done) continue;
@@ -144,7 +182,7 @@ export class CleanupScope {
 
             const at = Date.now();
             try {
-                await entry.run();
+                await entry.run(await openApi());
                 report.entries.push({ label: entry.label, outcome: 'ok', ms: Date.now() - at });
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -153,6 +191,7 @@ export class CleanupScope {
             }
         }
 
+        await api?.dispose().catch(() => undefined);
         await this.closeUi();
 
         if (report.entries.length) {

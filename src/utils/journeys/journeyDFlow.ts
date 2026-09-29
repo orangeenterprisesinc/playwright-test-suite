@@ -12,6 +12,7 @@ import { getPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { currentScope } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
+import { journalClear, journalRecord } from '@utils/cleanup/cleanupJournal';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 
 // Journey D's first workflow, and a real transfer: D6 cannot be arranged read-only, so this layer
@@ -113,11 +114,14 @@ export async function prepareJourneyD(
     // record.transferred_delete) and the transfer reverse is blocked once a card has been
     // recalculated (409 reverse_blocked / job_card_edited). Deleting the card by id resets its
     // sources back to transferred:false, which is the only thing that makes the day removable.
-    const finishCleanup = async (): Promise<void> => {
+    // `api` is the scope's own untraced context: after a timeout the test's `sessionApi` throws
+    // ENOENT on its trace file before any call reaches the network. The journal below is for the
+    // case where even this never runs — a killed process — and is replayed by the next run.
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
         for (const id of jobCardIds) {
             try {
-                const card = await getJobCard(sessionApi, id);
-                await deleteJobCard(sessionApi, id, card.version);
+                const card = await getJobCard(api, id);
+                await deleteJobCard(api, id, card.version);
             } catch (error) {
                 await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
                     body: error instanceof Error ? error.message : String(error),
@@ -125,14 +129,15 @@ export async function prepareJourneyD(
                 });
             }
         }
-        await runCleanup(substituted.cleanup, sessionApi, testInfo, ctx);
+        await runCleanup(substituted.cleanup, api, testInfo, ctx);
         // The declarative timeCards step filters by employee code, so it never sees the crew
         // piece-out (employeeCounter is null on it). Sweep the day by crew to finish the job.
-        await sweepOwnTimeCards(sessionApi, { day: isoDay(punchDay(substituted.dayOffset)), crewCounter: JOURNEY_D_FIXTURE_CREW_ID.value }).catch(() => undefined);
+        await sweepOwnTimeCards(api, { day: isoDay(punchDay(substituted.dayOffset)), crewCounter: JOURNEY_D_FIXTURE_CREW_ID.value }).catch(() => undefined);
+        journalClear(testInfo);
     };
     const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
     const cleanup = async (): Promise<void> => {
-        await finishCleanup();
+        await finishCleanup(sessionApi);
         registration?.complete();
     };
 
@@ -161,6 +166,8 @@ export async function prepareJourneyD(
 
     const punchDate = punchDay(substituted.dayOffset);
     const day = isoDay(punchDate);
+    journalRecord(testInfo, { kind: 'timeCardsByCrew', day, crewCounter: crew.id });
+    journalRecord(testInfo, { kind: 'jobPieceRate', jobCounter: job.id, pieceRate: Number((await getJob(sessionApi, job.id)).pieceRate ?? 1) });
 
     await sweepOwnJobCards(sessionApi, { day, crewCounter: crew.id, jobCounter: job.id });
     await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
@@ -288,6 +295,7 @@ export async function guardedTransfer(
     await expect(async () => {
         const written = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
         for (const card of written) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+        if (run.jobCardIds.length) journalRecord(opts.testInfo, { kind: 'jobCards', ids: [...run.jobCardIds] });
         expect(written).toHaveLength(run.scenario.expected.jobCards);
     }).toPass({ timeout: 120_000 });
 

@@ -54,8 +54,8 @@ export async function prepareJourneyC(
     for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
 
     const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [] };
-    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, () =>
-        runCleanup(substituted.cleanup, sessionApi, testInfo, ctx),
+    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, (api) =>
+        runCleanup(substituted.cleanup, api, testInfo, ctx),
     );
     const cleanup = async (): Promise<void> => {
         await runCleanup(substituted.cleanup, sessionApi, testInfo, ctx);

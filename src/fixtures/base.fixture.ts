@@ -278,7 +278,10 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     // Draining after `use` means it runs whether the test passed or failed, which
     // is the whole point: a failed test is exactly when records get left behind.
     cleanup: async ({ openSessionApi }, use) => {
-        const registry = new CleanupRegistry(openSessionApi);
+        void openSessionApi;
+        // Drained through an untraced context, not the test's: after a timeout the traced one
+        // throws ENOENT on its trace file before any call reaches the network (see cleanupScope.ts).
+        const registry = new CleanupRegistry(() => createSessionRequestContext());
         await use(registry);
         await registry.drain();
     },

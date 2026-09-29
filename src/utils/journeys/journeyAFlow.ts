@@ -18,11 +18,11 @@ export interface UserSetupRun {
     cleanup(): Promise<void>;
 }
 
-export function mintUserSetup(scenario: UserSetupCase, sessionApi: APIRequestContext, testInfo: TestInfo): UserSetupRun {
+export function mintUserSetup(scenario: UserSetupCase, _sessionApi: APIRequestContext, testInfo: TestInfo): UserSetupRun {
     const user = makeUser(scenario.user);
     const substituted = substituteTokens(scenario, { userName: user.name });
-    const cleanup = register(testInfo, 'A1 user-setup cleanup', () =>
-        runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'after' }),
+    const cleanup = register(testInfo, 'A1 user-setup cleanup', (api) =>
+        runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
     );
     return { scenario: substituted, user, cleanup };
 }
@@ -48,8 +48,8 @@ export async function preparePieceOutConfig(
     await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'before', snapshots });
     return {
         scenario,
-        cleanup: register(testInfo, 'A9 piece-out config cleanup', () =>
-            runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'after', snapshots }),
+        cleanup: register(testInfo, 'A9 piece-out config cleanup', (api) =>
+            runCleanup(scenario.cleanup, api, testInfo, { phase: 'after', snapshots }),
         ),
     };
 }

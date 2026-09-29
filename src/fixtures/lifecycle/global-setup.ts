@@ -8,6 +8,7 @@ import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { runResidueSweep } from '../../utils/cleanup/residueSweep';
 import { reconcileFixtureDays } from '../../utils/cleanup/fixtureReconcile';
+import { replayLeftoverJournals } from '../../utils/cleanup/cleanupJournal';
 import fs from 'fs';
 import path from 'path';
 
@@ -107,6 +108,9 @@ async function globalSetup(_config: FullConfig): Promise<void> {
         // still live 409s on DELETE, so sweeping parents first strands both. Teardown
         // has always run in this order; startup had it inverted, which is why run
         // 35589360814 reported candidates 2/3 and deleted 0 in both phases.
+        // First: whatever a killed previous run wrote down and never got to delete. Before the
+        // sweeps because a journaled job card locks its time cards until it is gone.
+        await replayLeftoverJournals();
         const reconcile = await reconcileFixtureDays({ phase: 'start' });
         await runResidueSweep({ phase: 'start', blockedEmployeeIds: reconcile.sweep.blockedEmployees });
     }
