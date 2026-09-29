@@ -72,6 +72,40 @@ if (RESIDUE_TOOLS_ENABLED) process.env.RESIDUE_SWEEP_STANDALONE = '1';
  * without this the agents cannot open a browser at all — the failure reads "seed test not found".
  * A normal run, CI and `runner:check` never materialize it.
  */
+/**
+ * Window maximization — the Playwright equivalent of Selenium's `window.maximize()`.
+ *
+ * Playwright emulates the page viewport independently of the OS window, so `--start-maximized`
+ * alone maximizes the window while the page keeps rendering in a 1280x720 box inside it (measured:
+ * still 1280x720). `viewport: null` is what hands the page the real window size (measured: the
+ * full screen minus the taskbar). Both halves are required.
+ *
+ * Headless has no screen to maximize to, and with `viewport: null` Chromium would fall back to its
+ * 800x600 default — so headless gets `--window-size` to fill. Headed gets `--start-maximized`
+ * ALONE: passing both makes Chromium honour the explicit size over the screen (measured: a 1920-wide
+ * window overhanging a 1536-wide display), which looks maximized in the recording and is not.
+ *
+ * The size matters beyond looks: the office grids are wider than 1280, so at
+ * `devices['Desktop Chrome']`'s default the right-hand columns are off-screen. Measured on Job
+ * Cards — 1600px stops at Ranch, 1760px is the first width that includes Amount.
+ */
+const WINDOW_SIZE = {
+    width: Number(process.env.WINDOW_WIDTH ?? 1920),
+    height: Number(process.env.WINDOW_HEIGHT ?? 1080),
+};
+const HEADED = process.argv.includes('--headed') || process.env.HEADED === '1';
+// Worker processes re-evaluate this config with a different argv (see WEBPET_ENABLED), and the
+// worker is what launches the browser — persist the decision or the worker picks the wrong flag.
+if (HEADED) process.env.HEADED = '1';
+/** Maximize to the screen when there is one; give headless a window of a known size otherwise. */
+const WINDOW_ARGS = HEADED ? ['--start-maximized'] : [`--window-size=${WINDOW_SIZE.width},${WINDOW_SIZE.height}`];
+/**
+ * Spread AFTER `...devices['Desktop Chrome']` in every journey project. The device preset carries
+ * `deviceScaleFactor: 1`, and Playwright refuses that alongside `viewport: null` — the run dies in
+ * browser.newContext before a single test starts. Clearing it here is what makes the two coexist.
+ */
+const MAXIMIZED = { viewport: null, deviceScaleFactor: undefined } as const;
+
 const AGENT_SEED_ENABLED =
     process.env.AGENT_SEED === '1' ||
     process.argv.includes('run-test-mcp-server') ||
@@ -255,16 +289,22 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         trace: 'on',
         // Pinned to the viewport. Left unset, Playwright scales the recording to
-        // an 800px longest side — 800x450 against this 1280x720 viewport, which
-        // is why the .webm read as soft next to a full-size screenshot. Anything
+        // an 800px longest side — 800x450 against a 1280x720 viewport, which is
+        // why the .webm read as soft next to a full-size screenshot. Anything
         // larger than the viewport would only upscale.
-        video: { mode: 'on', size: { width: 1280, height: 720 } },
+        video: { mode: 'on', size: WINDOW_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
         // watchable by a human — bug-report evidence, demos — because at full
         // speed the interaction is over before it reads on screen.
-        launchOptions: { slowMo: Number(process.env.SLOW_MO ?? 0) },
+        // The page fills the real window (see WINDOW_SIZE above) instead of an emulated box.
+        viewport: null,
+        launchOptions: {
+            slowMo: Number(process.env.SLOW_MO ?? 0),
+            // Mode-specific on purpose — see WINDOW_ARGS.
+            args: WINDOW_ARGS,
+        },
     },
 
     projects: [
@@ -277,7 +317,7 @@ export default defineConfig({
             // unanchored and would also capture unrelated setup files (e.g. the
             // migrated suite's webpet.setup.ts, which has its own project).
             testMatch: '**/auth.setup.ts',
-            use: { ...devices['Desktop Chrome'] },
+            use: { ...devices['Desktop Chrome'], ...MAXIMIZED },
         },
 
         {
@@ -293,6 +333,7 @@ export default defineConfig({
             testIgnore: ['**/tests/webpet/**', '**/tests/tools/**', '**/tests/seed.spec.ts'],
             use: {
                 ...devices['Desktop Chrome'],
+                ...MAXIMIZED,
                 storageState: '.auth/user.json',
             },
             dependencies: ['auth-setup'],
@@ -305,7 +346,7 @@ export default defineConfig({
                       name: 'agent-seed',
                       testDir: './tests',
                       testMatch: '**/seed.spec.ts',
-                      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
+                      use: { ...devices['Desktop Chrome'], ...MAXIMIZED, storageState: '.auth/user.json' },
                       dependencies: ['auth-setup'],
                   },
               ]

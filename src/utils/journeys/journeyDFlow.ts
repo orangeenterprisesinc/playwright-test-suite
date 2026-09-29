@@ -9,7 +9,7 @@ import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture'
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
-import { deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { currentScope } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
@@ -215,6 +215,17 @@ export async function seedFixtureDay(
     // only offers that crew's active members. That difference hides real fixture problems.
     await pages.crewTimeIn.punchIn({ day: run.day, hour: punch.hour, minute: punch.minute, crew: F.crew.name, ranch, field, job: F.job.name });
     await pages.crewPieceOut.pieceOut({ day: run.day, hour: pieceOut.hour, minute: pieceOut.minute, crew: F.crew.name, ranch, field, job: F.job.name, pieces: numOfPieces });
+
+    // The time-out form only offers employees with an OPEN time-in, so it must not open until the
+    // time-in is actually readable. Saving the form is not the same instant as the row being
+    // visible, and without this the form intermittently reports "No employees with open time in
+    // found for this crew" and the day is seeded one punch short.
+    await expect(async () => {
+        const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
+        const timeIns = cards.filter((c) => Number(c.crewCounter) === run.crew.id && Number(c.cardType) === CARD_TYPE.timeIn);
+        expect(timeIns).toHaveLength(run.scenario.expected.jobCards);
+    }).toPass({ timeout: 60_000 });
+
     await pages.crewTimeOut.punchOut({ day: run.day, hour: timeOut.hour, minute: timeOut.minute, crew: F.crew.name });
 
     const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
