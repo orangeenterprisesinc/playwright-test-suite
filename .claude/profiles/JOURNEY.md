@@ -75,9 +75,10 @@ human-reviewable.
 
 * Gate-skips masquerade as green — run the gate-skip check in
   `.claude/skills/pw-failure-triage/SKILL.md` (Step 1) before any triage.
-* Journey capture defaults are rich (trace and video on, plus a screenshot after
-  every action from `src/fixtures/instrumentation/actionShots.ts`) — a first
-  failure always has a trace under `artifacts/results/`.
+* Journey capture defaults are rich (trace on, 480p video on, plus a 480p
+  screenshot after every `expect(locator|page)` assertion from
+  `src/fixtures/instrumentation/actionShots.ts`) — a first failure always has a
+  trace under `artifacts/results/`.
 * Never weaken an assertion tied to an expected outcome in the plan; if the app
   contradicts the plan, report a potential product bug instead of healing around it.
 

@@ -621,7 +621,13 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             expect(send.success, `relay rejected the ${device.id} export: ${send.body}`).toBe(true);
             const { pull, run: pulledRun } = await pullFromRelayInternet(sessionApi, { deadline, testInfo });
             await testInfo.attach(`import-run-${device.id}.json`, { body: JSON.stringify({ pull, run: pulledRun }, null, 2), contentType: 'application/json' });
-            expect(['ok', 'no-data'], `relay pull could not run for ${device.id}: ${pull.status} ${pull.message}`).toContain(pull.status);
+            // A peer worker's drain still holding the lease (`warning` + `already-running`, WEBPET-2996)
+            // ingests our envelope into its own run — the reference poll below still proves ownership.
+            const peerDrain = pull.status === 'warning' && pull.reason === 'already-running';
+            expect(
+                ['ok', 'no-data'].includes(pull.status) || peerDrain,
+                `relay pull could not run for ${device.id}: ${pull.status} ${pull.message}`,
+            ).toBe(true);
             // Our file only, never the run: one office mailbox is shared by every worker, so a pull
             // routinely drains sibling specs' envelopes too. An absent file means a peer's pull took
             // it; the reference poll still proves ownership, exactly as importViaInternetUi does.

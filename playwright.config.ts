@@ -100,6 +100,15 @@ if (HEADED) process.env.HEADED = '1';
 /** Maximize to the screen when there is one; give headless a window of a known size otherwise. */
 const WINDOW_ARGS = HEADED ? ['--start-maximized'] : [`--window-size=${WINDOW_SIZE.width},${WINDOW_SIZE.height}`];
 /**
+ * Recording size, decoupled from the window: 480p keeps a red run's report in the tens of MB.
+ * `VIDEO_HEIGHT=1080` for bug-report evidence where the money columns must be legible.
+ */
+const VIDEO_HEIGHT = Number(process.env.VIDEO_HEIGHT ?? 480);
+const VIDEO_SIZE = {
+    width: Math.round((VIDEO_HEIGHT * WINDOW_SIZE.width) / WINDOW_SIZE.height),
+    height: VIDEO_HEIGHT,
+};
+/**
  * Spread AFTER `...devices['Desktop Chrome']` in every journey project. The device preset carries
  * `deviceScaleFactor: 1`, and Playwright refuses that alongside `viewport: null` — the run dies in
  * browser.newContext before a single test starts. Clearing it here is what makes the two coexist.
@@ -282,17 +291,15 @@ export default defineConfig({
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
         //
         // Not 'on': that is a single shot at the END of the test, which is now
-        // just a duplicate of the last per-action frame that
+        // just a duplicate of the last assertion frame that
         // src/fixtures/instrumentation/actionShots.ts captures. The failure shot
-        // is not a duplicate — the runner takes it at the moment of failure, and
-        // it still lands when the failure is an expect() rather than an action.
+        // is not a duplicate — the runner takes it at the moment of failure.
         screenshot: 'only-on-failure',
         trace: 'on',
-        // Pinned to the viewport. Left unset, Playwright scales the recording to
-        // an 800px longest side — 800x450 against a 1280x720 viewport, which is
-        // why the .webm read as soft next to a full-size screenshot. Anything
-        // larger than the viewport would only upscale.
-        video: { mode: 'on', size: WINDOW_SIZE },
+        // 480p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
+        // but recording at that size shipped a 763 MB report from one red run.
+        // The frame is scaled down to fit, never up.
+        video: { mode: 'on', size: VIDEO_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be

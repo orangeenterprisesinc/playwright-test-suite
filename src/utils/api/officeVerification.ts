@@ -320,6 +320,11 @@ function collectFailures(
  * Amy's path: sidebar menus → Connectivity ▸ Import ▸ Internet → Trigger
  * Import. The pull drains the office mailbox the envelope was delivered to.
  */
+/** A pull that found nothing because a peer worker's drain got there first — or still holds the lease. */
+function isPeerDrained(api: { status: string; reason?: string }): boolean {
+    return api.status === 'no-data' || (api.status === 'warning' && api.reason === 'already-running');
+}
+
 async function importViaInternetUi(
     input: DeliverInput,
     deadline: ImportDeadline,
@@ -364,9 +369,12 @@ async function importViaInternetUi(
     // specs run in parallel: every worker shares the one office mailbox, so
     // whichever test triggers first drains BOTH envelopes into its own run. The
     // punches still land in the same client DB either way — the reference
-    // matching below proves ownership. Only a 'warning' means the pull could not
-    // run at all (a closed relay gate), which stays a hard, diagnostic failure.
-    const peerDrained = outcome.api.status === 'no-data';
+    // matching below proves ownership. Since WEBPET-2996 the peer's drain can
+    // also still hold the client's drain lease when we click, which answers
+    // `warning` + `already-running` — same situation, same fall-through. Any
+    // other 'warning' means the pull could not run at all (a closed relay gate),
+    // which stays a hard, diagnostic failure.
+    const peerDrained = isPeerDrained(outcome.api);
     if (!pulled && !peerDrained && process.env.OFFICE_TRANSPORT_SUBSTITUTE === '1') {
         const reason =
             `The Internet pull could not run (screen: "${outcome.headingText}"; ` +
@@ -381,7 +389,12 @@ async function importViaInternetUi(
     expect(
         pulled || peerDrained,
         `Web import is not available: Connectivity ▸ Import ▸ Internet showed ` +
-            `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}". ` +
+            `"${outcome.headingText}" and the server said "${outcome.api.message || 'no message'}" ` +
+            `(status ${outcome.api.status || 'none'}${outcome.api.reason ? `, reason ${outcome.api.reason}` : ''}). ` +
+            (outcome.api.status === 'running'
+                ? `The background drain (WEBPET-2996) never left "running" within INTERNET_DRAIN_SETTLE_MS — ` +
+                  `check run ${outcome.api.runId} in the Internet Import Log. `
+                : '') +
             `Amy's office ingests from the relay automatically; on this environment the pull needs ` +
             `WEBMAIL_LIVE_SEND_ENABLED=true on the API task, plus a ClientRelayRegistration row ` +
             `with LiveSendEnabled=1 and either a SendPassword (SQL-only) or CopyNumber > 0 — the ` +
