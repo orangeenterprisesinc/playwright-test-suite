@@ -68,16 +68,41 @@
         "no-restricted-imports": ["error", {
           "patterns": [
             {
-              "group": ["@utils/relay/exportEnvelope", "@utils/relay/relayClient", "**/utils/relay/exportEnvelope", "**/utils/relay/relayClient"],
-              "message": "A spec builds and sends no XML — go through @utils/journeys/*."
+              "group": ["@utils/api/*", "**/utils/api/*"],
+              "message": "UI-first: a spec never touches the app's API — reads and allowed writes go through a flow in @utils/journeys/*."
             },
             {
-              "group": ["@utils/api/connectivityImportApi", "@utils/api/officeVerification", "**/utils/api/connectivityImportApi", "**/utils/api/officeVerification"],
-              "message": "A spec imports and verifies nothing directly — go through @utils/journeys/*."
+              "group": ["@utils/relay/*", "**/utils/relay/*"],
+              "message": "UI-first: device simulation lives in a flow, never in a spec."
+            },
+            {
+              "group": ["@utils/cleanup/*", "**/utils/cleanup/*"],
+              "message": "UI-first: cleanup is registered by the flow; a spec calls run.cleanup() at most."
             },
             {
               "group": ["@data/generated", "@data/generated/*", "**/data/generated", "**/data/generated/*"],
               "message": "A spec mints no data — values come from src/data/<journey>/<spec-basename>.json via loadScenario()."
+            },
+            {
+              "group": ["@pages/webpet/*", "@fixtures/webpet*", "**/pages/webpet/*", "**/fixtures/webpet*"],
+              "message": "The two page registries do not mix — journey specs use @fixtures/base.fixture and @pages/<area>/*."
+            }
+          ]
+        }],
+        "no-restricted-syntax": ["error", {
+          "selector": "CallExpression[callee.object.name=/^(sessionApi|apiRequest)$/][callee.property.name=/^(post|put|patch|delete|fetch)$/]",
+          "message": "UI-first: a spec never writes through the API context — the action belongs on screen, or in a flow under allowApiWrites()."
+        }]
+      }
+    },
+    {
+      "files": ["src/utils/journeys/**/*.ts", "src/pages/!(webpet)/**/*.ts", "src/utils/fixtureRows/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["@pages/webpet/*", "@fixtures/webpet*", "**/pages/webpet/*", "**/fixtures/webpet*"],
+              "message": "The two page registries do not mix. A shared component under components/webpet/* is fine — a page object or fixture is not."
             }
           ]
         }]
