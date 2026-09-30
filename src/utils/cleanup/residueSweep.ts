@@ -255,7 +255,7 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
     let context = opts.context ?? null;
     const ownsContext = !opts.context;
     try {
-        context ??= await createLoginRequestContext({ label: `residue sweep (${opts.phase})` });
+        context ??= await createLoginRequestContext({ label: `residue sweep (${opts.phase})`, allowance: 'cleanup' });
         if (!context) {
             summary.auth = 'failed';
             logger.warn(`residue sweep [${opts.phase}]: no authenticated API context — nothing swept`);

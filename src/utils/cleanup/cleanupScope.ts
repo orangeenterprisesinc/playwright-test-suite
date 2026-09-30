@@ -22,6 +22,7 @@
  */
 import type { APIRequestContext, Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { createSessionRequestContext } from '../api/sessionContext';
+import { allowApiWrites } from '../api/writeGuard';
 import { Logger } from '../logger';
 
 export type ScopeOutcome = 'ok' | 'failed' | 'skipped-budget';
@@ -89,20 +90,24 @@ export function currentScope(testInfo: TestInfo): CleanupScope | null {
  */
 export function register(testInfo: TestInfo, label: string, run: ScopeCleanup): () => Promise<void> {
     const scope = currentScope(testInfo);
-    if (!scope) return () => withUntracedApi(run);
+    if (!scope) return () => withUntracedApi(label, run, testInfo);
     const registration = scope.add(label, run);
     return async () => {
-        await withUntracedApi(run);
+        await withUntracedApi(label, run, testInfo);
         registration.complete();
     };
 }
 
-/** Run `fn` against a context that is not the test's traced one, and dispose it after. */
-async function withUntracedApi(fn: ScopeCleanup): Promise<void> {
-    const api = await createSessionRequestContext();
+/**
+ * Run `fn` against a context that is not the test's traced one, and dispose it after.
+ * Cleanup is allowance (b) of the UI-first rule, declared here so the guard lets the
+ * DELETEs through and the audit can show what teardown removed.
+ */
+async function withUntracedApi(label: string, fn: ScopeCleanup, testInfo?: TestInfo): Promise<void> {
+    const api = await createSessionRequestContext(undefined, { label: 'cleanupScope', testInfo });
     if (!api) throw new Error('cleanup: no authenticated API session (.auth/user.json / API_URL) to clean up with');
     try {
-        await fn(api);
+        await allowApiWrites('cleanup', label, () => fn(api));
     } finally {
         await api.dispose().catch(() => undefined);
     }
@@ -164,7 +169,7 @@ export class CleanupScope {
         // One untraced context for the whole drain, opened only if something is outstanding.
         let api: APIRequestContext | null | undefined;
         const openApi = async (): Promise<APIRequestContext> => {
-            api ??= await createSessionRequestContext();
+            api ??= await createSessionRequestContext(undefined, { label: 'cleanupScope', testInfo });
             if (!api) throw new Error('no authenticated API session (.auth/user.json / API_URL) to clean up with');
             return api;
         };
@@ -182,7 +187,8 @@ export class CleanupScope {
 
             const at = Date.now();
             try {
-                await entry.run(await openApi());
+                const ctx = await openApi();
+                await allowApiWrites('cleanup', entry.label, () => entry.run(ctx));
                 report.entries.push({ label: entry.label, outcome: 'ok', ms: Date.now() - at });
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);

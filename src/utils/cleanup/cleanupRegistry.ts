@@ -35,6 +35,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { CLEANUP_TARGETS, cleanupTarget, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { Logger } from '../logger';
+import { allowApiWrites } from '../api/writeGuard';
 import { deleteById, listRows, runResidueSweep, type SweepSummary } from './residueSweep';
 
 /** One record awaiting cleanup. */
@@ -100,6 +101,11 @@ export class CleanupRegistry {
     /**
      * Delete a record now and stop tracking it — for a test whose own steps include
      * deleting the record, where the deletion is the thing being verified.
+     *
+     * @deprecated Deliberately NOT covered by the cleanup allowance: a mid-test delete
+     * as a workflow step is exactly what the UI-first rule says belongs on screen, so
+     * the guard will flag it. A1 is the last caller, until the product grows a UI
+     * delete for users; new specs delete through the screen and let teardown do the rest.
      */
     async remove(entity: string, name: string): Promise<void> {
         await this.deleteRecord(entity, name);
@@ -114,7 +120,9 @@ export class CleanupRegistry {
         while (this.tracked.length) {
             const record = this.tracked.pop()!;
             try {
-                await this.deleteRecord(record.entity, record.name);
+                await allowApiWrites('cleanup', `registry ${record.entity} '${record.name}'`, () =>
+                    this.deleteRecord(record.entity, record.name),
+                );
             } catch (error) {
                 // One record failing to delete must not mask the test result or
                 // abandon the rest of the queue; the end-of-run sweep is the backstop.

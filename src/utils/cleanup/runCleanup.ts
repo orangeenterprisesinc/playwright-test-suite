@@ -2,6 +2,7 @@ import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { z } from 'zod';
 import type { CleanupStepSchema } from '../../data/schemas/cleanupStep';
 import { punchDay } from '../../data/journey-b/fixture';
+import { allowApiWrites } from '../api/writeGuard';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
 import { getJob, setJobRate } from '../api/setupEntitiesApi';
@@ -109,7 +110,12 @@ export async function runCleanup(steps: CleanupStep[], api: APIRequestContext, t
     const ordered = ctx.phase === 'before' ? steps : [...steps].sort((a, b) => rank(a) - rank(b));
     for (const step of ordered) {
         try {
-            await runStep(step, api, testInfo, ctx);
+            // Cleanup is allowance (b), in both phases: the 'before' sweep of a previous
+            // run's residue writes as much as teardown does. The restorers that PUT
+            // preferences back are covered here too — they undo, they do not configure.
+            await allowApiWrites('cleanup', `${ctx.phase} ${step.kind}`, () =>
+                runStep(step, api, testInfo, ctx),
+            );
         } catch (error) {
             if (ctx.phase === 'before') throw error;
             await testInfo.attach(`cleanup-warning-${step.kind}`, {

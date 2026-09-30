@@ -475,7 +475,7 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
     let context = opts.context ?? null;
     const ownsContext = !opts.context;
     try {
-        context ??= await createLoginRequestContext({ label: `fixture reconcile (${phase})` });
+        context ??= await createLoginRequestContext({ label: `fixture reconcile (${phase})`, allowance: 'cleanup' });
         if (!context) {
             summary.auth = 'failed';
             return finish();
