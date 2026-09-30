@@ -32,6 +32,10 @@ import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
 import { CrewTablePage } from '../pages/setup/CrewTablePage';
+import { RanchPage } from '../pages/setup/RanchPage';
+import { FieldPage } from '../pages/setup/FieldPage';
+import { CrewPage } from '../pages/setup/CrewPage';
+import { EmployeePage } from '../pages/setup/EmployeePage';
 
 /**
  * Every page object, lazily constructed.
@@ -64,6 +68,16 @@ export interface PageObjects {
 
     /** Setup ▸ Job — the job record D6 re-rates on screen. */
     readonly job: JobPage;
+
+    // ── setup: the fixture rows, created and repaired on screen (UI-first) ──
+    /** Setup ▸ Ranch, `/setup/ranches`. */
+    readonly ranch: RanchPage;
+    /** Setup ▸ Field, `/setup/fields`. */
+    readonly field: FieldPage;
+    /** Setup ▸ Crew, `/setup/crews` — also where B12 sets the notify user. */
+    readonly crew: CrewPage;
+    /** Setup ▸ Employee, `/setup/employees`. */
+    readonly employee: EmployeePage;
 
     // ── Input ▸ Batch — the office crew punches (D6 arrange) ──
     readonly crewTimeIn: CrewTimeInPage;
@@ -100,6 +114,10 @@ export function createPageObjects(page: Page): PageObjects {
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get jobCards() { return lazy('jobCards', () => new JobCardsPage(page)); },
         get job() { return lazy('job', () => new JobPage(page)); },
+        get ranch() { return lazy('ranch', () => new RanchPage(page)); },
+        get field() { return lazy('field', () => new FieldPage(page)); },
+        get crew() { return lazy('crew', () => new CrewPage(page)); },
+        get employee() { return lazy('employee', () => new EmployeePage(page)); },
         get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },
         get crewPieceOut() { return lazy('crewPieceOut', () => new CrewPieceOutPage(page)); },
         get crewTimeOut() { return lazy('crewTimeOut', () => new CrewTimeOutPage(page)); },
