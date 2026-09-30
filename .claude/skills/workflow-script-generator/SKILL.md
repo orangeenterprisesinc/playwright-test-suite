@@ -100,8 +100,10 @@ Notes:
 
 ### Setup / cleanup
 
-- Prefer creating prerequisite state and cleaning up through the API when an endpoint exists; use the `cleanup` fixture for teardown when the app has no delete path — `cleanup.track('<entity>', name)`, with the entity registered in `src/data/static/shared/cleanupTargets.ts` (as `tests/web/journey-a-setup/a01-user-setup.spec.ts` does for users). Do not hand-write `UPDATE … SET Deleted = 1` in a spec
+- **Create prerequisite state on screen, not through the API.** In `tests/web/**` this is the binding UI-first rule (`.claude/profiles/JOURNEY.md`): a record a user would create through a form is created through that form, fixed fixture rows included (`src/utils/fixtureRows/ensureOnScreen.ts` — existence is a GET, the create or repair is UI). The API is confined to four allowances: **(a)** configuration/preference writes in a before-hook, **(b)** cleanup, **(c)** device simulation via the relay, **(d)** read-only reads. A write outside them is wrapped in nothing and the run-time guard annotates or throws
+- Cleanup runs under allowance (b): use the `cleanup` fixture — `cleanup.track('<entity>', name)`, with the entity registered in `src/data/static/shared/cleanupTargets.ts` (as `tests/web/journey-a-setup/a01-user-setup.spec.ts` does for users). Records with no name (time cards, job cards) are deleted **by id**, captured from a read before the assertions run. Do not hand-write `UPDATE … SET Deleted = 1` in a spec
 - Track created entities and remove them in `test.afterEach` so runs stay idempotent
+- The "verify via the API" half of a workflow spec is **GET-only** — reading back what the screen did, never doing it
 
 ### Avoid hardcoded values
 

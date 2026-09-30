@@ -106,11 +106,21 @@ Do not hardcode credentials, URLs, or environment values. They come from
 the `tag:` arrays, the describe/test titles (all regex-read from source by
 `scripts/runner/check.js` and `src/reporting/generate/allure/labels.ts`) and the message
 argument of an `expect()`. Everything an assertion compares against comes from
-`scenario.expected`; everything a flow needs comes from the scenario. ESLint enforces the
-boundary: `tests/web/**/*.spec.ts` may not import `@utils/relay/exportEnvelope`,
-`@utils/relay/relayClient`, `@utils/api/connectivityImportApi`,
-`@utils/api/officeVerification` or `@data/generated` (`config/lint/.eslintrc.json`) — specs
-reach them through `@utils/journeys/*`. Journey B: `runJourneyBScenario` / `runRelayEcho` +
+`scenario.expected`; everything a flow needs comes from the scenario.
+
+ESLint enforces the boundary: `tests/web/**/*.spec.ts` may not import `@utils/api/*`,
+`@utils/relay/*`, `@utils/cleanup/*`, `@data/generated*`, `@pages/webpet/*` or
+`@fixtures/webpet*`, and may not call `.post|put|patch|delete|fetch` on `sessionApi` or
+`apiRequest` (`config/lint/.eslintrc.json`) — specs reach all of it through
+`@utils/journeys/*`. That is the import half of the **UI-first rule**
+(`.claude/profiles/JOURNEY.md`): a journey spec does on screen everything a user does on
+screen, and the API is confined to configuration, cleanup, device simulation and
+read-only reads. The run-time half is `src/utils/api/writeGuard.ts` — any write a flow
+makes under an allowance is wrapped in `allowApiWrites('preference'|'cleanup'|'device',
+reason, fn)`; an unwrapped write annotates the test `ui-first-violation` and, under
+`UI_FIRST_GUARD=enforce`, throws. Never add an allowance to make a red test green.
+
+Journey B: `runJourneyBScenario` / `runRelayEcho` +
 `assertExpectedCards` / `assertTransferGrid` from `src/utils/journeys/journeyBFlow.ts`, then
 `try { …asserts… } finally { await run.cleanup(); }`.
 
@@ -133,8 +143,10 @@ for the full runner-row workflow.
   [src/pages/webpet/README.md](src/pages/webpet/README.md))
 - destructure only the fixtures used; an unused one needs a `_` alias
   (`gotoUrl: _gotoUrl`) or `tsc --noEmit` fails on `noUnusedParameters`
-- clean up what you create: `cleanup.track('user', name)` (journey) or the
-  `data-factory` delete helper in `afterAll` (web-pet)
+- clean up what you create: in the journey suite the **flow** registers cleanup by id
+  before any assertion runs (so teardown still knows the record when the assertion
+  fails), and the spec calls `run.cleanup()` in a `finally` at most; web-pet uses the
+  `data-factory` delete helper in `afterAll`
 
 ### 9. Before reporting done
 
@@ -175,5 +187,6 @@ Then actually run the spec — `npm test -- --grep @A1` or
 - [ ] tier tags equal the CSV row's `tags` column
 - [ ] no inline test value: only `testCaseId`, `tag:`, titles and `expect()` messages are literals; everything compared comes from `scenario.expected`; no banned import (lint)
 - [ ] no selectors in the spec, no `waitForTimeout`, everything awaited
+- [ ] (journey) every record the workflow creates or edits is driven on screen, fixture rows included; `npm run ui-first:audit` reports no violation for this spec
 - [ ] created records cleaned up
 - [ ] typecheck, lint, runner check all clean; spec actually ran and passed
