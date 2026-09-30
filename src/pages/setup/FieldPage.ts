@@ -31,7 +31,14 @@ export interface NewFieldData {
  * fixture meaning — a journey never asserts on a field's irrigation — so they exist
  * only to get past the gate.
  */
-const IRRIGATION_DEFAULTS = { area: '1', flowRate: '1', flowRateUnit: 'GPM', efficiency: '100' };
+// Flow Rate Unit's options are spelled out ("Gallon per Minute"); only the closed
+// trigger abbreviates to "GPM", so matching the abbreviation finds no option at all.
+const IRRIGATION_DEFAULTS = {
+    area: '1',
+    flowRate: '1',
+    flowRateUnit: 'Gallon per Minute',
+    efficiency: '100',
+};
 
 export class FieldPage extends SetupScreenPage {
     readonly nameInput: Locator;

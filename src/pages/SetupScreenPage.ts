@@ -253,9 +253,14 @@ export abstract class SetupScreenPage extends BasePage {
      * after having been seen. A bare `toBeHidden()` on the bar passes vacuously when
      * the bar never rendered at all, which is exactly the case where nothing was
      * saved — see `src/pages/webpet/README.md`.
+     *
+     * Saving leaves the form: the app returns to the list, so anything that reads a
+     * form control afterwards would be reading a grid. The record is re-opened here so
+     * a caller can keep going — `JobPage.setPieceRate` re-loads for the same reason.
      */
     async saveEdit(): Promise<void> {
         const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue().catch(() => '');
         const barWasVisible = await this.unsavedChangesBar.isVisible().catch(() => false);
 
         await this.blurForValidation();
@@ -276,13 +281,29 @@ export abstract class SetupScreenPage extends BasePage {
         await this.saveButton.click();
         await committed;
         if (barWasVisible) await expect(this.unsavedChangesBar).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+
+        // Back onto the record if the save returned to the list, so the caller's next
+        // read sees the form and not the grid.
+        if (!this.editUrlPattern.test(this.page.url())) await this.gotoEditById(id, name);
     }
 
     // ── Active ──────────────────────────────────────────────────────
 
-    /** Whether the record is active, from the switch's `aria-checked`. */
+    /**
+     * Whether the record is active, from the switch's `aria-checked`.
+     *
+     * Bounded on purpose: the config sets no `actionTimeout`, so an unbounded wait here
+     * reports "test timeout" against the whole test rather than naming the control it
+     * could not find — which is how a missing Active switch cost a ten-minute run.
+     */
     async readActive(): Promise<boolean> {
-        await this.activeSwitch.waitFor({ state: 'visible' });
+        await this.activeSwitch.waitFor({ state: 'visible', timeout: SetupScreenPage.SETTLE_TIMEOUT }).catch(() => {
+            throw new Error(
+                `No Active switch on the ${this.config.entity} form at ${this.page.url()} — ` +
+                    'either the record is not open (a save returns to the list) or this screen ' +
+                    'renders Active some other way.',
+            );
+        });
         return (await this.activeSwitch.getAttribute('aria-checked')) === 'true';
     }
 

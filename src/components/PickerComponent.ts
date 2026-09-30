@@ -19,11 +19,38 @@
  */
 import { Locator, Page, expect } from '@playwright/test';
 
+/**
+ * Bound every wait on an option.
+ *
+ * Playwright's default action timeout is unbounded, so a label that matches no option
+ * does not fail — it sits until the whole test times out, and the error then names the
+ * test rather than the picker. One wrong constant cost a ten-minute run and reported
+ * nothing but "Test timeout of 600000ms exceeded".
+ */
+const OPTION_TIMEOUT = 15_000;
+
 export class PickerComponent {
     private readonly listbox: Locator;
 
     constructor(private readonly page: Page) {
         this.listbox = page.getByRole('listbox');
+    }
+
+    /** Wait for an option, and say what was on offer when it never arrives. */
+    private async clickOption(option: Locator, label: string, control: string): Promise<void> {
+        try {
+            await option.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        } catch {
+            const offered = await this.listbox
+                .getByRole('option')
+                .allInnerTexts()
+                .catch(() => []);
+            throw new Error(
+                `${control}: no option matching '${label}'. The picker offers: ` +
+                    `${offered.map((t) => t.trim()).join(' · ') || '(nothing — the listbox is empty)'}`,
+            );
+        }
+        await option.click({ timeout: OPTION_TIMEOUT });
     }
 
     /**
@@ -45,12 +72,12 @@ export class PickerComponent {
      */
     async pickCombobox(combobox: Locator, label: string): Promise<void> {
         await combobox.click();
-        await this.listbox.waitFor({ state: 'visible' });
+        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
         const option = this.option(label);
         if (!(await option.isVisible().catch(() => false))) {
             await this.page.keyboard.type(label);
         }
-        await option.click();
+        await this.clickOption(option, label, 'combobox');
         // The selection is the input's value, not its text.
         await expect(combobox).toHaveValue(PickerComponent.labelPattern(label));
     }
@@ -61,9 +88,11 @@ export class PickerComponent {
      */
     async pickSelect(trigger: Locator, label: string): Promise<void> {
         await trigger.click();
-        await this.listbox.waitFor({ state: 'visible' });
-        await this.page.getByRole('option', { name: label, exact: true }).click();
-        await expect(trigger).toContainText(label);
+        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        await this.clickOption(this.page.getByRole('option', { name: label, exact: true }), label, 'select');
+        // Not toContainText: some triggers abbreviate the chosen option ("Gallon per
+        // Minute" shows as "GPM"), so the closed trigger is no place to assert the label.
+        await expect(this.listbox).toBeHidden({ timeout: OPTION_TIMEOUT });
     }
 
     /**
@@ -72,8 +101,12 @@ export class PickerComponent {
      */
     async pickSelectByValue(trigger: Locator, value: string | number): Promise<void> {
         await trigger.click();
-        await this.listbox.waitFor({ state: 'visible' });
-        await this.listbox.locator(`[data-value="${String(value)}"]`).click();
+        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        await this.clickOption(
+            this.listbox.locator(`[data-value="${String(value)}"]`),
+            `data-value="${String(value)}"`,
+            'select',
+        );
     }
 
     /** Whether a picker currently holds a value, for "is this already set" checks. */
