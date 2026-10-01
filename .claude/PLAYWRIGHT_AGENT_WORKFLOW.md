@@ -107,8 +107,16 @@ route to the agents.
 ## 4. Stage contracts
 
 Generic contracts. Domain knowledge comes from the profile named in the
-invocation, never from this document. Shared constraint for every stage:
-setup/cleanup goes through the app's API — there is no DB access from tests.
+invocation, never from this document. Shared constraint for every stage: there is no
+DB access from tests. In the **journey** suite (`tests/web/**`) setup is driven on
+screen and the app's API is confined to four allowances — configuration, cleanup,
+device simulation, read-only reads (the UI-first rule in
+[profiles/JOURNEY.md](profiles/JOURNEY.md)). The Planner names every allowed call in
+its handoff, the Generator wraps each one in
+`allowApiWrites(allowance, reason, fn)`, and the **Healer never resolves a red
+`UiFirstViolation` by adding an allowance** — the violation means a step belongs on
+screen. In `tests/webpet/` the API seeding in `data-factory.ts` is part of the frozen
+baseline and stays.
 
 ### Planner — analysis and planning, never implementation
 
@@ -150,6 +158,9 @@ Important constraints
   and apply the profile's domain triage order.
 * Then: inspect evidence (error, trace, artifacts) → root cause → relevant
   diff/source → smallest fix → re-run the affected test → re-validate.
+* A red `UiFirstViolation` is never healed by wrapping the call in
+  `allowApiWrites(...)` — it says a step the spec performs through the API belongs on
+  screen. Move it to the page object, or report why the screen cannot do it.
 * Never blindly modify assertions, locators, waits, or timeouts just to go
   green. Escalate to Opus or Fable 5 when the cause cannot be confidently
   determined or the problem is architectural.

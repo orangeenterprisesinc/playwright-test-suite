@@ -13,9 +13,10 @@
  * belongs to `api.ptdev.xyz` while `Origin` stays the app's own URL.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { request as defaultRequest, type APIRequestContext } from '@playwright/test';
+import { request as defaultRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { Logger } from '../logger';
+import { guardApiContext } from './writeGuard';
 
 const logger = new Logger('SessionContext');
 
@@ -45,15 +46,26 @@ export function csrfTokenFromStorageFile(path: string = SESSION_STORAGE_STATE): 
     return undefined;
 }
 
+export interface SessionContextOptions {
+    /** Names this context in the UI-first ledger: `sessionApi`, `cleanupScope`, … */
+    label?: string;
+    /** Present inside a test, so a violation annotates the test the audit reports on. */
+    testInfo?: TestInfo;
+}
+
 /**
  * Build an API context carrying the persisted session, or return `null` when
  * there is nothing to build it from.
  *
  * Null rather than throwing: the callers are cleanup paths, where a missing
  * session must produce a warning, not a failed test or a failed teardown.
+ *
+ * The returned context is wrapped by the UI-first write guard, so an undeclared
+ * POST/PUT/PATCH/DELETE through it is recorded (and, in enforce mode, refused).
  */
 export async function createSessionRequestContext(
     factory: RequestFactory = defaultRequest,
+    opts: SessionContextOptions = {},
 ): Promise<APIRequestContext | null> {
     if (!existsSync(SESSION_STORAGE_STATE)) {
         logger.warn(`No session at ${SESSION_STORAGE_STATE} — cannot make authenticated API calls`);
@@ -69,9 +81,10 @@ export async function createSessionRequestContext(
     const origin = getConfigValue(ConfigProperties.APP_URL);
     const csrfToken = csrfTokenFromStorageFile();
 
-    return factory.newContext({
+    const baseURL = apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`;
+    const context = await factory.newContext({
         // Trailing slash so a relative path resolves under `/api` instead of replacing it.
-        baseURL: apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`,
+        baseURL,
         storageState: SESSION_STORAGE_STATE,
         extraHTTPHeaders: {
             Accept: 'application/json',
@@ -80,4 +93,8 @@ export async function createSessionRequestContext(
             ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
         },
     });
+
+    // Every authenticated context in the suite is born here, so this one wrap covers
+    // sessionApi, the cleanup registry, the cleanup-scope drain and withUntracedApi.
+    return guardApiContext(context, { label: opts.label ?? 'sessionApi', testInfo: opts.testInfo, baseURL });
 }

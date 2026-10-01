@@ -92,6 +92,12 @@ export abstract class SetupScreenPage extends BasePage {
     readonly errorSummaryButton: Locator;
     /** The "Unsaved changes" bar shown while an edit is pending. */
     readonly unsavedChangesBar: Locator;
+    /**
+     * The Active toggle. Every setup screen renders it the same way: a
+     * `span[role="switch"]` in the page header, **outside `<main>`**, mirrored by a
+     * hidden `input#active` that has no `offsetParent` and cannot be clicked.
+     */
+    readonly activeSwitch: Locator;
 
     constructor(page: Page, config: SetupScreenConfig) {
         super(page);
@@ -106,6 +112,7 @@ export abstract class SetupScreenPage extends BasePage {
         this.rejectionMessage = page.getByText(config.rejectionMessage);
         this.errorSummaryButton = page.getByRole('button', { name: /error/ });
         this.unsavedChangesBar = page.getByText('Unsaved changes');
+        this.activeSwitch = page.getByRole('switch', { name: 'Active' });
     }
 
     /** URL pattern of a saved record's Edit page — `<listUrl>/<id>`, query optional. */
@@ -198,7 +205,142 @@ export abstract class SetupScreenPage extends BasePage {
         await this.grid.expectAbsent(name);
     }
 
+    // ── Creating and editing by id ──────────────────────────────────
+
+    /**
+     * The id of the record the form is currently on, from the Edit URL
+     * `<listUrl>/{id}`.
+     *
+     * Under the UI-first rule a journey creates records on screen, which makes the
+     * page object the only thing that ever sees the new id — and cleanup, the
+     * read-backs and the fixture memo all need it.
+     */
+    savedIdFromUrl(): number {
+        const pattern = new RegExp(`${this.config.listUrl.replace(/\//g, '\\/')}\\/(\\d+)`);
+        const match = pattern.exec(this.page.url());
+        if (!match) throw new Error(`not on an Edit ${this.config.entity} page: ${this.page.url()}`);
+        return Number(match[1]);
+    }
+
+    /**
+     * Open a record's Edit form by id and wait for it to hydrate.
+     *
+     * The wait is the point: the form resets when `GET <entity>/{id}` lands, and
+     * anything typed before that is silently discarded. Asserting Name holds the
+     * record's own value is what proves the reset has happened. Lifted from
+     * `JobPage.gotoEditById`, which found this the hard way.
+     */
+    async gotoEditById(id: number, expectedName: string): Promise<void> {
+        await this.page.goto(`${this.config.listUrl}/${String(id)}`);
+        await this.nameInput.waitFor({ state: 'visible' });
+        await expect(this.nameInput).toHaveValue(expectedName, { timeout: 30_000 });
+    }
+
+    /**
+     * List → New → fill → save. The concrete `create*` methods are one line over this.
+     */
+    protected async createOnScreen(fill: () => Promise<void>): Promise<FormOutcome> {
+        await this.gotoList();
+        await this.openNewForm();
+        await fill();
+        return this.submitForm();
+    }
+
+    /**
+     * Save an edit to an existing record and wait for it to commit.
+     *
+     * Waits for the record's own PUT **or** for the unsaved-changes bar to hide
+     * after having been seen. A bare `toBeHidden()` on the bar passes vacuously when
+     * the bar never rendered at all, which is exactly the case where nothing was
+     * saved — see `src/pages/webpet/README.md`.
+     *
+     * Saving leaves the form: the app returns to the list, so anything that reads a
+     * form control afterwards would be reading a grid. The record is re-opened here so
+     * a caller can keep going — `JobPage.setPieceRate` re-loads for the same reason.
+     */
+    async saveEdit(): Promise<void> {
+        const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue().catch(() => '');
+        const barWasVisible = await this.unsavedChangesBar.isVisible().catch(() => false);
+
+        await this.blurForValidation();
+        await expect(
+            this.saveButton,
+            `Save stayed disabled on ${this.config.entity} ${String(id)} — the form is rejecting a value`,
+        ).toBeEnabled({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+
+        const committed = this.page
+            .waitForResponse(
+                (res) =>
+                    res.request().method() === 'PUT' &&
+                    new RegExp(`/${this.config.listUrl.split('/').pop() ?? ''}/${String(id)}(\\?|$)`).test(res.url()),
+                { timeout: SetupScreenPage.SETTLE_TIMEOUT },
+            )
+            .catch(() => null);
+
+        await this.saveButton.click();
+        await committed;
+        if (barWasVisible) await expect(this.unsavedChangesBar).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+
+        // Back onto the record if the save returned to the list, so the caller's next
+        // read sees the form and not the grid.
+        if (!this.editUrlPattern.test(this.page.url())) await this.gotoEditById(id, name);
+    }
+
+    // ── Active ──────────────────────────────────────────────────────
+
+    /**
+     * Whether the record is active, from the switch's `aria-checked`.
+     *
+     * Bounded on purpose: the config sets no `actionTimeout`, so an unbounded wait here
+     * reports "test timeout" against the whole test rather than naming the control it
+     * could not find — which is how a missing Active switch cost a ten-minute run.
+     */
+    async readActive(): Promise<boolean> {
+        await this.activeSwitch.waitFor({ state: 'visible', timeout: SetupScreenPage.SETTLE_TIMEOUT }).catch(() => {
+            throw new Error(
+                `No Active switch on the ${this.config.entity} form at ${this.page.url()} — ` +
+                    'either the record is not open (a save returns to the list) or this screen ' +
+                    'renders Active some other way.',
+            );
+        });
+        return (await this.activeSwitch.getAttribute('aria-checked')) === 'true';
+    }
+
+    /**
+     * Set Active and save — a no-op when it already holds that value, because
+     * toggling it twice would leave the form clean and Save correctly never enables.
+     */
+    async setActive(active: boolean): Promise<void> {
+        if ((await this.readActive()) === active) return;
+        await this.activeSwitch.click();
+        await expect(this.activeSwitch).toHaveAttribute('aria-checked', String(active));
+        await this.saveEdit();
+    }
+
+    /**
+     * Fail early, and by name, when a setup-identifier preference has locked the
+     * Barcode field. A fixture row is never created code-less: the auto-barcode
+     * counter would mint a different code, and a Journey B envelope referencing the
+     * intended one would dangle.
+     */
+    protected async assertCodeEditable(codeInput: Locator): Promise<void> {
+        await expect(
+            codeInput,
+            `Barcode is not editable on the New ${this.config.entity} form — ` +
+                'GET /api/setup-identifier-preferences has allowRecordBarcodeModification off, ' +
+                'and a fixture row must never be created without its code',
+        ).toBeEditable();
+    }
+
     // ── Screen-specific hooks ───────────────────────────────────────
+
+    /**
+     * The record's Name field. Every setup form has one, and two shared behaviours
+     * lean on it: the hydration wait in {@link gotoEditById}, and forcing the form
+     * to recompute its validity in {@link blurForValidation}.
+     */
+    abstract readonly nameInput: Locator;
 
     /**
      * A field that is present as soon as the form has rendered — used to wait for
@@ -208,15 +350,23 @@ export abstract class SetupScreenPage extends BasePage {
 
     /**
      * Blur the last-edited field so the form's on-blur validation runs before Save
-     * is inspected. Defaults to blurring whatever is focused, which is correct
-     * whenever the form was filled top-to-bottom; a screen whose last field needs
-     * different handling overrides this.
+     * is inspected.
+     *
+     * The forms use react-hook-form with `mode: 'onBlur'`, and whole-form validity —
+     * which is what enables Save — is only recomputed when a **plain text input**
+     * blurs. Blurring a number spinbutton or choosing from a Select updates the
+     * value and leaves validity stale, so a form finished on a number field would
+     * sit with Save wrongly enabled or wrongly disabled. Touching Name last is what
+     * settles it (measured on New Field, 2026-09-30).
      */
     protected async blurForValidation(): Promise<void> {
         await this.page.locator(':focus').blur().catch(() => {
-            // Nothing focused (e.g. the caller already blurred) — validation has
-            // either run or there was no pending field to validate.
+            // Nothing focused — the caller already blurred, or nothing was edited.
         });
+        if (await this.nameInput.isVisible().catch(() => false)) {
+            await this.nameInput.focus().catch(() => undefined);
+            await this.nameInput.blur().catch(() => undefined);
+        }
     }
 }
 

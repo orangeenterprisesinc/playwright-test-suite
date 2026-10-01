@@ -19,6 +19,7 @@
     "test:webpet": "node scripts/run-playwright.js dev --project=webpet",
     "residue:sweep": "node scripts/run-playwright.js dev --project=residue-sweep",
     "residue:sweep:dry": "node scripts/run-playwright.js dev --project=residue-sweep --dry-run",
+    "test:unit": "node node_modules/@playwright/test/cli.js test --config=playwright.unit.config.ts",
     "test:webpet:headed": "node scripts/run-playwright.js dev --project=webpet --headed",
     "test:webpet:dev": "node scripts/run-playwright.js dev --project=webpet",
     "test:webpet:debug": "node scripts/run-playwright.js dev --project=webpet --debug",
@@ -48,7 +49,8 @@
     "report:allure:open": "node scripts/report/allure-open.js",
     "video:annotate": "node scripts/annotate-video.js",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "cleanup:gate": "node scripts/runner/cleanup-gate.js"
+    "cleanup:gate": "node scripts/runner/cleanup-gate.js",
+    "ui-first:audit": "node scripts/runner/ui-first-audit.js"
   },
   "keywords": [],
   "license": "ISC",

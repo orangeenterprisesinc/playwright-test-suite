@@ -483,6 +483,19 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     /**
+     * The badge's keyword alone — `Ready`, `Warning`, `Blocking` or `Deferred`.
+     *
+     * Reading the Status *cell* instead would return `"ReadyManually edited"` on a
+     * flagged row, because the "Manually edited" flag is a sibling span in the same
+     * cell. Assert that flag separately.
+     */
+    async rowStatusText(timeCardCounter: number): Promise<string> {
+        const badge = this.rowStatus(timeCardCounter);
+        await badge.waitFor({ state: 'visible', timeout: 15_000 });
+        return (await badge.innerText()).trim();
+    }
+
+    /**
      * False when the server's analyze endpoint is disabled — the grid can then
      * never populate, so a missing row says nothing about the data.
      */

@@ -27,6 +27,7 @@ import { CleanupRegistry } from '../utils/cleanup/cleanupRegistry';
 import { bindScope, CleanupScope } from '../utils/cleanup/cleanupScope';
 import { envNumber } from '../utils/cleanup/residueSweep';
 import { createSessionRequestContext } from '../utils/api/sessionContext';
+import { guardApiContext } from '../utils/api/writeGuard';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
@@ -255,10 +256,13 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     // worker process alive. Disposal happens here, and because `cleanup` depends on
     // this fixture, Playwright tears down in reverse order: cleanup drains first,
     // then the context closes.
-    openSessionApi: async ({ playwright }, use) => {
+    openSessionApi: async ({ playwright }, use, testInfo) => {
         let context: APIRequestContext | null | undefined;
 
-        await use(async () => (context ??= await createSessionRequestContext(playwright.request)));
+        await use(async () => (context ??= await createSessionRequestContext(playwright.request, {
+            label: 'sessionApi',
+            testInfo,
+        })));
 
         await context?.dispose();
     },
@@ -277,11 +281,13 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
     // ── Test-data cleanup ───────────────────────────────────────────
     // Draining after `use` means it runs whether the test passed or failed, which
     // is the whole point: a failed test is exactly when records get left behind.
-    cleanup: async ({ openSessionApi }, use) => {
+    cleanup: async ({ openSessionApi }, use, testInfo) => {
         void openSessionApi;
         // Drained through an untraced context, not the test's: after a timeout the traced one
         // throws ENOENT on its trace file before any call reaches the network (see cleanupScope.ts).
-        const registry = new CleanupRegistry(() => createSessionRequestContext());
+        const registry = new CleanupRegistry(() =>
+            createSessionRequestContext(undefined, { label: 'cleanupRegistry', testInfo }),
+        );
         await use(registry);
         await registry.drain();
     },
@@ -297,7 +303,7 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
             void openSessionApi;
             const scope = new CleanupScope({
                 openBrowser: () => playwright.chromium.launch(),
-                budgetMs: envNumber('CLEANUP_SCOPE_BUDGET_MS', 60_000),
+                budgetMs: envNumber('CLEANUP_SCOPE_BUDGET_MS', 120_000),
             });
             bindScope(testInfo, scope);
             await use(scope);
@@ -353,7 +359,7 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         await context.close();
     },
 
-    apiRequest: async ({ playwright }, use) => {
+    apiRequest: async ({ playwright }, use, testInfo) => {
         // Ensure baseURL ends with '/' so Playwright resolves relative paths correctly
         // e.g. baseURL 'https://host/rest/' + './guarantors/...' → 'https://host/rest/guarantors/...'
         const rawBaseUrl = getConfigValue(ConfigProperties.API_URL);
@@ -366,7 +372,7 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
             },
         });
 
-        await use(apiContext);
+        await use(guardApiContext(apiContext, { label: 'apiRequest', testInfo, baseURL }));
         await apiContext.dispose();
     },
 

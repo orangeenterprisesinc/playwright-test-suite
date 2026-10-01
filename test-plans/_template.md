@@ -87,22 +87,39 @@ journeys D and E need captured time cards or committed job cards.
 
 - [ ] …
 
-Implement these in the spec's own arrange phase — with the factories in
+Implement these in the spec's own arrange phase — **on screen**, through the page
+object for that form, with the factories in
 [`src/data/generated/`](../src/data/generated/) for run-unique data — not by chaining
-onto another spec. (A shared `src/preconditions/` memoiser used to be scaffolded here
-but nothing ever adopted it; the web-pet suite's
-[`data-factory.ts`](../tests/webpet/data-factory.ts) is the pattern that actually
-earned its place, if you need a reference.)
+onto another spec and not by POSTing the record into existence. Fixed fixture rows
+(ranch, field, crew, employee, job, crew table, question) go through
+[`ensureOnScreen.ts`](../src/utils/fixtureRows/ensureOnScreen.ts): existence is a GET,
+the create or repair is UI.
+
+## API allowances
+
+Every call this spec makes outside the browser, and which of the four allowances in
+the UI-first rule covers it. A step a user performs on screen has **no row here**.
+Allowance is one of `configuration` · `cleanup` · `device` · `read`.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| before-hook preference read | `GET preferences` | read | gates the scenario |
+| before-hook preference write | `PUT preferences` | configuration | the screen has no control for it |
+| device envelope push | `POST …/UploadFile` (relay) | device | the handheld itself |
+| read-back after the screen saved | `GET <entity>?<scope>` | read | records ids before the assertions run |
+| after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id |
 
 ## Cleanup
 
 What the workflow creates, and how it is removed. Add an entry to
 [`cleanupTargets.ts`](../src/data/static/shared/cleanupTargets.ts), then `cleanup.track()`
-in the spec.
+in the spec. Records with **no name** (time cards, job cards) are never swept by
+prefix — they are deleted by id, captured from a read taken before the assertions run,
+so teardown still knows them when an assertion fails.
 
-| Entity | Table | Name column | Prefix |
-|---|---|---|---|
-| … | `dbo.…` | `Name` | `QA … ` |
+| Entity | Table | Name column | Prefix | Id source |
+|---|---|---|---|---|
+| … | `dbo.…` | `Name` | `QA … ` | save URL / captured POST / scoped GET |
 
 ## Test case
 

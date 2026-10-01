@@ -60,7 +60,8 @@ function asArray(body: unknown): ListedRecord[] {
     return wrapped?.items ?? wrapped?.data ?? [];
 }
 
-async function findByCode(
+/** Exported for the UI-first ensure helpers: existence is a GET, the create is on screen. */
+export async function findByCode(
     request: APIRequestContext,
     path: string,
     code: string,
@@ -145,7 +146,7 @@ async function ensureRecord(
  * Returns null when the entity has no recycle bin or the row is not in it;
  * the caller then reports the 409 with the explanation.
  */
-async function restoreFromRecycleBin(
+export async function restoreFromRecycleBin(
     request: APIRequestContext,
     path: string,
     idKey: string,

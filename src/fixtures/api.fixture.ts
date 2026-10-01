@@ -7,6 +7,7 @@ import { APIRequestContext, expect, test as base } from '@playwright/test';
 import { ConfigProperties, getConfigValue } from '../config/configProperties';
 import { buildAuthContextOptions } from '../auth/authContextFactory';
 import { executeWithAuthRetry, type HttpMethod, type RequestOptions } from '../auth/requestBuilder';
+import { guardApiContext } from '../utils/api/writeGuard';
 import { Logger } from '../utils/logger';
 
 /** Result of an {@link ApiHelper} call — parsed JSON body plus the HTTP status. */
@@ -45,16 +46,21 @@ function resolveApiBaseUrl(): string {
 }
 
 export const test = base.extend<CustomFixtures>({
-    apiContext: async ({ playwright }, use) => {
-        const context = await playwright.request.newContext({ baseURL: resolveApiBaseUrl() });
-        await use(context);
+    // Guarded like every other context: a browserless spec under tests/web is thereby
+    // limited to reads and relay work, which is the whole point of the UI-first rule —
+    // "it has no browser" was how API-driven journeys justified themselves.
+    apiContext: async ({ playwright }, use, testInfo) => {
+        const baseURL = resolveApiBaseUrl();
+        const context = await playwright.request.newContext({ baseURL });
+        await use(guardApiContext(context, { label: 'apiContext', testInfo, baseURL }));
         await context.dispose();
     },
 
-    authenticatedApi: async ({ playwright }, use) => {
+    authenticatedApi: async ({ playwright }, use, testInfo) => {
         const authOptions = await buildAuthContextOptions();
-        const context = await playwright.request.newContext({ baseURL: resolveApiBaseUrl(), ...authOptions });
-        await use(context);
+        const baseURL = resolveApiBaseUrl();
+        const context = await playwright.request.newContext({ baseURL, ...authOptions });
+        await use(guardApiContext(context, { label: 'authenticatedApi', testInfo, baseURL }));
         await context.dispose();
     },
 

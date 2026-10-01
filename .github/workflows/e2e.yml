@@ -281,6 +281,12 @@ jobs:
       # set this back to 'single-folder', which posts the same envelope straight
       # to the importer and exercises identical office-side assertions.
       IMPORT_TRANSPORT: 'internet'
+
+      # UI-first write guard (src/utils/api/writeGuard.ts). 'warn' records what a
+      # journey wrote through the API without blocking it; 'enforce' fails the call.
+      # Flips to 'enforce' when the last journey conversion lands. Never 'off'.
+      UI_FIRST_GUARD: 'warn'
+
       # Import waits are dynamic (src/utils/api/connectivityImportApi.ts): the suite
       # keeps waiting while GET connectivity/import/runs/{id} shows change (received
       # -> processing, files appearing, per-file status/message) and stops after
@@ -689,14 +695,25 @@ jobs:
         if: always()
         run: npm run cleanup:gate
 
+      # Every API write a journey made, and the ones that should have happened on
+      # screen. Warn mode while the suite is converted (UI_FIRST_GUARD below): the list
+      # is the burn-down, not yet a gate. Journey only — tests/webpet is out of scope.
+      - name: Audit UI-first API writes
+        if: always() && matrix.suite == 'journey'
+        run: npm run ui-first:audit
+
       # What the start/end residue sweeps found and deleted (also summarised in the
-      # Allure Environment panel and the [ResidueSweep] log lines).
+      # Allure Environment panel and the [ResidueSweep] log lines), plus the write
+      # guard's per-worker ledger the audit above reads.
       - name: Upload residue-sweep summaries
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.suite == 'webpet' && 'webpet-residue-sweep' || 'residue-sweep' }}
-          path: artifacts/results/residue-sweep-*.json
+          path: |
+            artifacts/results/residue-sweep-*.json
+            artifacts/results/fixture-reconcile-*.json
+            artifacts/results/ui-first-w*.jsonl
           if-no-files-found: ignore
 
       # Publish the raw test-results (traces, videos, screenshots, results.json)

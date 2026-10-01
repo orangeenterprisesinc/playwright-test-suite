@@ -133,6 +133,43 @@ Locator style is governed by **pw-locator-hardening** — accessible name first,
   **Don't Save** in web-pet)
 - grid column filters, row lookup, `Total N rows`, absence checks
 
+### Saving returns the id — the read-back convention
+
+Under the UI-first rule a journey drives creates on screen, so the **page object is
+the only thing that sees the new record's id**. Cleanup and every later read depend on
+it, so a `create*()` never returns void. Three sources, in order of preference:
+
+1. **The URL after save.** The edit route carries the id —
+   `SetupScreenPage.savedIdFromUrl()` reads it out of `<listUrl>/(\d+)`
+   (`CrewTablePage.savedTableId` is the original of that pattern).
+2. **The browser's own response.** When saving does not navigate, capture the page's
+   own POST with `page.waitForResponse` and read the id from its body —
+   `ScanDevicePage.createDevice` and `ImportInternetPage` both do this. This is the
+   page's request, not a test-side one, so it stays inside the read allowance.
+3. **A scoped GET read-back** in the flow, by the code or name just entered — the
+   fallback when the screen exposes neither.
+
+Shape the methods so a generic ensure helper can drive any setup screen:
+
+```ts
+gotoEditById(id: number, expectedName: string): Promise<void>;  // waits for hydration
+create(data: TCreate): Promise<{ outcome: 'created'; id: number } | { outcome: 'duplicate' }>;
+readActive(): Promise<boolean>;
+setActive(active: boolean): Promise<void>;
+```
+
+- `create()` **always fills the code** — a code-less create hits the auto-barcode
+  counter wedge and mints a different code. Call `assertCodeEditable()` first so a
+  setup-identifier preference that locks the field fails by name, not by mystery.
+- Repair methods (`setActive`, `setHomeCrew`, …) are **single-purpose and
+  idempotent**: a no-op when the value already matches, one edit-form visit otherwise.
+- `'duplicate'`/`'rejected'` is a real outcome, not an error — another worker won the
+  race, or the name is a recycled one. The caller re-reads and adopts.
+- After touching a setup page object, run `npm run fixture:fresh` — on dev the fixture
+  rows already exist, so nothing else ever exercises the `create()` path. (That proof
+  spec lands with the journey conversions; until it does, exercise the new screen from
+  a scratch row under a minted `E2E*` name and reclaim it with `npm run residue:sweep`.)
+
 ### Test-data cleanup
 
 If the screen creates records, register the entity in

@@ -4,12 +4,15 @@
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { PieceOutConfigCaseSchema } from '@data/schemas/journeyAScenario';
-import { getPreferences } from '@utils/api/preferencesApi';
-import { getSessionModules } from '@utils/api/sessionApi';
-import { findActiveDeviceOfType, pushSetupExport } from '@utils/api/setupExportApi';
 import { loadScenario } from '@utils/data/scenarioLoader';
 import { pieceJobsInExport, preferenceInExport } from '@utils/export/setupExportXml';
-import { preparePieceOutConfig } from '@utils/journeys/journeyAFlow';
+import {
+    findPocketDevice,
+    preparePieceOutConfig,
+    pushSetupExportToDevice,
+    readModuleGates,
+    readStoredPreferences,
+} from '@utils/journeys/journeyAFlow';
 
 test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@JourneyA', '@A9'] }, () => {
 
@@ -25,7 +28,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
 
         // The required module gates its whole section — without it the section assertions below
         // would pass vacuously — so it is read before anything is written.
-        const modules = await getSessionModules(sessionApi);
+        const modules = await readModuleGates(sessionApi);
         expect(modules[scenario.modules.required.key], scenario.modules.required.message).toBeTruthy();
         for (const note of scenario.modules.noteWhenOff) {
             if (!modules[note.key]) testInfo.annotations.push({ type: 'environment-gate', description: note.description });
@@ -65,7 +68,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
             else await expect(prefs.field(fieldId)).toHaveValue(String(value));
         }
 
-        const stored = await getPreferences(sessionApi);
+        const stored = await readStoredPreferences(sessionApi);
         expect(stored[screen.barcodeFunctionField], 'stored as the wire value, not the label')
             .toBe(write.stickers.pieceTraceabilityBarcodeFunction);
         for (const [key, value] of Object.entries(written)) {
@@ -73,9 +76,9 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         }
 
         // Push the setup file to one device and read it back.
-        const device = await findActiveDeviceOfType(sessionApi, deviceSpec.pocketDeviceType);
+        const device = await findPocketDevice(sessionApi, deviceSpec.pocketDeviceType);
         expect(device, deviceSpec.missingMessage).not.toBeNull();
-        const { xml } = await pushSetupExport(sessionApi, device!.id);
+        const { xml } = await pushSetupExportToDevice(sessionApi, device!.id);
         await testInfo.attach('setup-export.xml', { body: xml, contentType: 'text/xml' });
 
         // Proves the selection landed on a device type that actually carries the piece

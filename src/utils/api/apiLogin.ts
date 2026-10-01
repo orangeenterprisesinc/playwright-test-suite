@@ -13,6 +13,7 @@
  */
 import { request as defaultRequest, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { Logger } from '../logger';
+import { guardApiContext, type WriteAllowance } from './writeGuard';
 import type { RequestFactory } from './sessionContext';
 
 const logger = new Logger('ApiLogin');
@@ -72,6 +73,8 @@ export interface LoginContextOptions {
     /** Defaults to E2E_ADMIN_PASSWORD, else PASSWORD. */
     password?: string;
     label?: string;
+    /** A standing UI-first allowance for everything this context does (see writeGuard). */
+    allowance?: WriteAllowance;
 }
 
 /** Strip a trailing `/api` or `/api/` so the two URL styles in .env resolve alike. */
@@ -126,8 +129,9 @@ export async function createLoginRequestContext(
         }
         const state = await loginCtx.storageState();
         const csrf = await csrfTokenFromContext(loginCtx);
-        return factory.newContext({
-            baseURL: apiRoot.endsWith('/') ? apiRoot : `${apiRoot}/`,
+        const baseURL = apiRoot.endsWith('/') ? apiRoot : `${apiRoot}/`;
+        const context = await factory.newContext({
+            baseURL,
             storageState: state,
             extraHTTPHeaders: {
                 Accept: 'application/json',
@@ -136,6 +140,9 @@ export async function createLoginRequestContext(
                 'X-CSRF-Token': csrf,
             },
         });
+        // The login POST above is not guarded — it is the act of authenticating, not a
+        // workflow step. What callers do with the context afterwards is.
+        return guardApiContext(context, { label, baseURL, defaultAllowance: opts.allowance });
     } catch (error) {
         logger.warn(`${label} login threw: ${error instanceof Error ? error.message : String(error)}`);
         return null;

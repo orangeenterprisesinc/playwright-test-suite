@@ -4,9 +4,8 @@
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { UserSetupCaseSchema } from '@data/schemas/journeyAScenario';
-import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { mintUserSetup } from '@utils/journeys/journeyAFlow';
+import { deleteUserAsWorkflowStep, findUserId, mintUserSetup } from '@utils/journeys/journeyAFlow';
 
 test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA', '@A1'] }, () => {
 
@@ -28,9 +27,9 @@ test.describe('A1 · License, serial number, and user setup', { tag: ['@JourneyA
         await expect(usersPage.nameInput).toHaveValue(user.name);
 
         // Deleting is part of the workflow — a step, not teardown; the grid check is the proof it took effect.
-        const userId = await findUserIdByName(sessionApi, user.name);
+        const userId = await findUserId(sessionApi, user.name);
         expect(userId, `GET /users should list the created user '${user.name}'`).not.toBeNull();
-        await deleteUserById(sessionApi, userId!);
+        await deleteUserAsWorkflowStep(sessionApi, userId!);
 
         await usersPage.expectAbsentFromList(user.name);
     });

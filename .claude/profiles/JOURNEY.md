@@ -24,9 +24,11 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
   also for API+UI device workflows like B1/B2) or `src/fixtures/api.fixture.ts`
   (browserless, no office session — relay/transport checks only). Page objects come as named fixtures from the `PageObjects` registry
   (`src/fixtures/pages.fixture.ts`); classes live in `src/pages/<area>/`
-  (`admin/`, `shell/` today; `setup/`, `processing/`, `payroll/`, `analysis/`,
-  `connectivity/` are reserved landing zones). Never import `webpet.fixture`
-  here — the fixtures are not interchangeable.
+  (`admin/`, `connectivity/`, `input/`, `processing/`, `setup/`, `shell/` today;
+  `payroll/` and `analysis/` are reserved landing zones). Never import
+  `webpet.fixture` or `@pages/webpet/*` here — the registries are not
+  interchangeable (a shared `components/webpet/*` component is fine, and lint
+  draws exactly that line).
 * Tags: `@Journey<X>` + `@<WF>` on describe; `@Smoke`/`@HighLevel`/`@Regression`
   tiers on tests (max one `@Smoke` per file; tier tags must equal the CSV row's
   `tags`). Annotation: `testCaseId` only, and it is the **workflow id** (`C6`,
@@ -34,11 +36,53 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
 * Runner CSVs are **authored by hand** (the opposite of webpet's discovered CSV):
   `npm run runner:sync` regenerates the JSON mirrors, `npm run runner:check`
   fails on drift, `npm run coverage:catalog` reports per-workflow state.
-* Data: one JSON scenario file per spec, `src/data/journey-<x>/<spec-basename>.json`, loaded with `loadScenario(schema, testInfo)` (`src/utils/data/scenarioLoader.ts`) and validated by `src/data/schemas/`; shared fixture tables in `src/data/journey-<x>/fixture.json`; generated factories in `src/data/generated/` (flows only — specs may not import them); cleanup declared as `cleanup: CleanupStep[]` in the JSON and run by `runCleanup` — API only, no DB. The only inline literals in a spec: `testCaseId`, `tag:`, titles, `expect()` messages.
+* Data: one JSON scenario file per spec, `src/data/journey-<x>/<spec-basename>.json`, loaded with `loadScenario(schema, testInfo)` (`src/utils/data/scenarioLoader.ts`) and validated by `src/data/schemas/`; shared fixture tables in `src/data/journey-<x>/fixture.json`; generated factories in `src/data/generated/` (flows only — specs may not import them); cleanup declared as `cleanup: CleanupStep[]` in the JSON and run by `runCleanup` — under the cleanup allowance of the UI-first rule below, never the DB. The only inline literals in a spec: `testCaseId`, `tag:`, titles, `expect()` messages.
 * Conventions by path (agents Read on demand, never restated here):
   specs `.claude/skills/pw-spec-author/SKILL.md` · page objects
   `.claude/skills/pw-page-object/SKILL.md` · runner/gate mechanics
   `.claude/skills/data-driven-testing/SKILL.md`.
+
+## UI-first (binding for tests/web/**)
+
+A journey spec does on screen everything a user does on screen. The app's HTTP API may
+be used only for four things:
+
+* **(a) configuration** — preference/settings writes in a before-hook (Admin ▸
+  Preferences keys, notification SMTP settings) and the `session/me` / `preferences`
+  reads that gate a scenario;
+* **(b) cleanup** — the before-phase sweep of a previous run's residue and the
+  after-test teardown (`runCleanup`, `cleanupScope`, residue sweep, fixture reconcile,
+  recycle-bin restore of a fixture row);
+* **(c) device simulation** — building PET Pocket XML envelopes and pushing/pulling
+  them through the Post Office relay (`src/utils/relay/*`). The office's import click
+  (Connectivity ▸ Import ▸ *) and Push to Device are user actions, not the device:
+  they stay on screen;
+* **(d) read-only reads** — GETs (plus the non-committing
+  `transfer-to-job-cards/analyze` and `job-cards-preview` POSTs) used as sync points
+  and to read back what the screen did. Record ids from a scoped GET *before*
+  asserting (the D6 pattern), so cleanup knows them even when the assertion fails.
+
+Everything else — every record a user creates or edits on a screen, **including the
+fixed fixture rows** (ranch, field, crew, employee, job, crew table, question, user,
+scan device) — is created or repaired on screen through a page object
+(`src/utils/fixtureRows/ensureOnScreen.ts`). Existence is a GET; only the
+create/repair is UI. Time cards and job cards have no name and are never swept by
+prefix: they are deleted by id, from ids recorded under (d).
+
+Enforced twice. ESLint bans `@utils/api/*`, `@utils/relay/*`, `@utils/cleanup/*` and
+`sessionApi.post|put|patch|delete` from specs — specs reach the API only through
+`@utils/journeys/*`. At run time `src/utils/api/writeGuard.ts` rejects any
+POST/PUT/PATCH/DELETE made outside `allowApiWrites('preference'|'cleanup'|'device',
+reason, fn)`; `UI_FIRST_GUARD=warn` annotates the test (`ui-first-violation`),
+`enforce` throws `UiFirstViolation`. `npm run ui-first:audit` lists a run's
+violations. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
+API seeding is part of its frozen baseline.
+
+Why the rule exists: D6 was the first journey driven entirely on screen, and doing
+that exposed a fixture that had been invalid for weeks while the API-driven version
+stayed green — inactive employees with no home crew, an inactive job, a time-in with
+no Phase. **The API accepts what the product rejects, so an API-driven journey does
+not prove the workflow works.**
 
 ## Creating automation from the catalog
 

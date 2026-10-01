@@ -66,7 +66,6 @@ export class UsersPage extends SetupScreenPage {
     readonly initialsInput: Locator;
     readonly emailInput: Locator;
     readonly languageCombobox: Locator;
-    readonly activeSwitch: Locator;
     /** "Access to Reverse" dropdown (Permissions ▸ Additional Access). */
     readonly accessToReverseCombobox: Locator;
     readonly firstNameInput: Locator;
@@ -98,7 +97,6 @@ export class UsersPage extends SetupScreenPage {
         this.initialsInput = page.getByRole('textbox', { name: 'Initials *' });
         this.emailInput = page.getByRole('textbox', { name: 'Email Address *' });
         this.languageCombobox = page.getByRole('combobox', { name: 'Language' });
-        this.activeSwitch = page.getByRole('switch', { name: 'Active' });
         this.accessToReverseCombobox = page.getByRole('combobox', { name: 'Access to Reverse' });
 
         // Form — Personal Info
@@ -297,6 +295,40 @@ export class UsersPage extends SetupScreenPage {
         await expect(row).toContainText(user.initials);
         await expect(row).toContainText(user.role);
         await expect(row).toContainText(user.email);
+    }
+
+    /** The saved user's id from the Edit URL `/settings/users/{id}`. */
+    savedUserId(): number {
+        return this.savedIdFromUrl();
+    }
+
+    /**
+     * Retire a user the way the product actually allows.
+     *
+     * The catalog's A1 step 6 says "delete", and there is no UI delete for users —
+     * only this switch. Deactivating is what a person can do on this screen, so it is
+     * what the journey does; the row survives, and the tenant is kept clean by the
+     * after-phase API delete registered as cleanup.
+     */
+    async deactivate(name: string): Promise<void> {
+        await this.gotoUsersList();
+        await this.openEditUser(name);
+        await this.setActive(false);
+    }
+
+    /**
+     * Assert the user is still listed and reads as inactive.
+     *
+     * The grid lists inactive users by default — they are not hidden behind the Active
+     * column's filter — and renders the flag as the text "No", not as a checkbox the
+     * way the setup grids do.
+     */
+    async expectListedInactive(name: string): Promise<void> {
+        await this.gotoUsersList();
+        await this.filterByName(name);
+        const row = this.userRow(name);
+        await expect(row).toHaveCount(1);
+        await expect(row, `'${name}' should still be listed, reading inactive`).toContainText('No');
     }
 }
 

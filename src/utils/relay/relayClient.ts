@@ -18,6 +18,7 @@
  */
 import { request as playwrightRequest, type APIRequestContext } from '@playwright/test';
 import { DEVICE_VERSION, deviceIso } from './exportEnvelope';
+import { guardApiContext } from '../api/writeGuard';
 
 /** The app's hard-coded token; the relay only checks it is present. */
 const DEVICE_TOKEN = '7F6F87E4-FD6E-4B1C-9A3D-6B8F46F4ACAB';
@@ -79,8 +80,21 @@ function credentialsBody(mailbox: string, password?: string): string {
     );
 }
 
-async function relayContext(url: string): Promise<APIRequestContext> {
-    return playwrightRequest.newContext({ baseURL: url.endsWith('/') ? url : `${url}/` });
+/**
+ * Every call this module makes IS the handheld — allowance (c) of the UI-first rule —
+ * so the context carries a standing `device` allowance rather than each function
+ * declaring one. What the office does with an arrived envelope (the Import screens,
+ * Push to Device) is a user action and gets no allowance from here.
+ */
+async function relayContext(url: string, operation: string): Promise<APIRequestContext> {
+    const baseURL = url.endsWith('/') ? url : `${url}/`;
+    const ctx = await playwrightRequest.newContext({ baseURL });
+    return guardApiContext(ctx, {
+        label: `relay ${operation}`,
+        kind: 'relay',
+        baseURL,
+        defaultAllowance: 'device',
+    });
 }
 
 export interface SendInput {
@@ -131,7 +145,7 @@ export async function sendToRelay({
         '</msg>' +
         '</Send>';
 
-    const ctx = await relayContext(url);
+    const ctx = await relayContext(url, `send ${from} -> ${to}`);
     try {
         const res = await ctx.post('UploadFile', { headers: headers(from, password), data: body });
         const text = await res.text();
@@ -158,7 +172,7 @@ export async function pullFromRelay(
     mailbox: string,
     password?: string,
 ): Promise<PulledMessage | null> {
-    const ctx = await relayContext(url);
+    const ctx = await relayContext(url, `pull ${mailbox}`);
     try {
         const res = await ctx.post('File', {
             headers: headers(mailbox, password),
@@ -186,7 +200,7 @@ export async function ackRetrieved(
     messageId: number,
     password?: string,
 ): Promise<boolean> {
-    const ctx = await relayContext(url);
+    const ctx = await relayContext(url, `ack ${mailbox}`);
     try {
         const res = await ctx.post(`Retrieved?id=${messageId}`, {
             headers: headers(mailbox, password),

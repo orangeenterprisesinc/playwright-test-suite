@@ -24,7 +24,6 @@ export class CrewTablePage extends SetupScreenPage {
     readonly nameInput: Locator;
     readonly crewCombobox: Locator;
     readonly supervisorCombobox: Locator;
-    readonly activeSwitch: Locator;
     readonly listbox: Locator;
     /** "Table created" success toast. */
     readonly tableCreatedToast: Locator;
@@ -42,7 +41,6 @@ export class CrewTablePage extends SetupScreenPage {
         this.nameInput = page.getByRole('textbox', { name: 'Name *' });
         this.crewCombobox = page.getByRole('combobox', { name: 'Crew *' });
         this.supervisorCombobox = page.getByRole('combobox', { name: 'Supervisor' });
-        this.activeSwitch = page.getByRole('switch', { name: 'Active' });
         this.listbox = page.getByRole('listbox');
         this.tableCreatedToast = page.getByText('Table created');
         this.notFoundMessage = page.getByText('Table not found.');
@@ -120,9 +118,7 @@ export class CrewTablePage extends SetupScreenPage {
 
     /** The saved record's id from the Edit URL `/setup/crew-tables/{id}`. */
     savedTableId(): number {
-        const match = /\/setup\/crew-tables\/(\d+)/.exec(this.page.url());
-        if (!match) throw new Error(`not on an Edit Table page: ${this.page.url()}`);
-        return Number(match[1]);
+        return this.savedIdFromUrl();
     }
 
     tableRow(name: string): Locator {

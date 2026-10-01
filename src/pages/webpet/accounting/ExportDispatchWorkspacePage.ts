@@ -99,9 +99,30 @@ export class ExportDispatchWorkspacePage extends BasePage {
 
     // ── Navigation ──────────────────────────────────────────────────
 
-    /** Open the workspace with the new-IA flag on. */
+    /** Open the workspace with the new-IA flag on, and wait for it to be usable. */
     async gotoWorkspace(): Promise<void> {
         await this.page.goto(`${this.pageUrl}?pt-export-new-ia=true`);
+        await this.waitForWorkspaceReady();
+    }
+
+    /**
+     * Wait until the workspace has settled into its final layout.
+     *
+     * The chrome mounts before the grid has a box: the grid is a `flex-1 min-h-0`
+     * section, so while the page is still hydrating — and again when the service
+     * worker's "Ready to work offline" toast triggers a relayout — it computes to
+     * zero height and reads as hidden, even though its children are painting. CI run
+     * 36703368782 caught exactly that, twice, with the children rendered and
+     * overlapping each other inside a zero-height parent.
+     *
+     * An explicit budget rather than the ambient expect timeout, which parity mode
+     * pins to 5s: that is a sensible ceiling for an assertion and far too short for a
+     * dense workspace settling on a slow runner. Every assertion the specs make is
+     * unchanged — this only stops them racing the layout.
+     */
+    async waitForWorkspaceReady(): Promise<void> {
+        await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.grid.waitFor({ state: 'visible', timeout: 30_000 });
     }
 
     /**
