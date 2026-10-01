@@ -1,0 +1,44 @@
+{
+  "_notes": [
+    "D9 - Group piece-out distribution (catalog D9, plan test-plans/journey-d/d09-group-piece-out-distribution.md, runner row D9). dayOffset -12 is D9's own fixture day (Journey B owns 0...-9, C -10, D6 -11), inside maximumDaysForTransferExport = 21.",
+    "Three members are home-crewed, only participants punch in. numOfPieces=4 stays under maximumNumberOfPieces=5. Both participants share one crew time-in and one crew time-out, so their hours are identical and every split rule (by time worked, by head count, whole or fractional) gives 2 / 2.",
+    "expected.timeCards = 2 time-ins + 2 time-outs + 1 crew piece-out. crewEmployeeCell is the em dash the grid renders for a piece-out with no employee; pieceAmount = piecesPerCard x pieceRate.",
+    "Employee cells are asserted with toContainText(name), never exact text: they render from exportIdentifier, which is null for these pickers."
+  ],
+  "workflow": "D9",
+  "label": "d09-group-piece-out-distribution",
+  "dayOffset": -12,
+  "capture": {
+    "punch": { "hour": 7, "minute": 0 },
+    "pieceOut": { "hour": 15, "minute": 0 },
+    "timeOut": { "hour": 15, "minute": 30 },
+    "numOfPieces": 4
+  },
+  "participants": ["pickerOne", "pickerTwo"],
+  "nonParticipants": ["pickerThree"],
+  "expected": {
+    "timeCards": 5,
+    "jobCards": 2,
+    "piecesPerCard": 2,
+    "pieceRate": 1,
+    "pieceAmount": 2,
+    "crewEmployeeCell": "—",
+    "pieceOutType": "Piece Out",
+    "payByPiece": "Yes",
+    "jobCardType": "Piece"
+  },
+  "annotations": [
+    {
+      "type": "product-defect",
+      "description": "A transferred job card's amount is left at 0 while pieceAmount tracks the rate correctly (D6, measured 2026-09-29). The spec asserts pieceAmount, never amount; amount is recorded as an annotation only."
+    },
+    {
+      "type": "not-automatable",
+      "description": "Employee filter on the Transfer grid reports 0 pieces for crew piece-out rows (WEBPET-3397) - D9 filters by Work Crew instead. Reverse and re-transfer belongs to D5. An uneven split (ByTimeWorked with different hours) is a separate ticket."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["8011", "8012", "8013"], "dayOffset": -12, "cardTypes": [0, 1] },
+    { "kind": "unremovable", "entity": "transferRun", "reason": "GET /transfer-to-job-cards/runs keeps an audit row; D9 never reverses, so it is read as evidence at most" }
+  ]
+}

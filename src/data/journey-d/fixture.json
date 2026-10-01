@@ -2,7 +2,8 @@
   "_notes": [
     "Fixed Journey D fixture (catalog D6, plan test-plans/journey-d/d06-recalculate-after-setup-change.md). Codes sit in the 8000/4600 block, clear of Journey B's 4000-6000 block and Journey C's 7000 block, so they never collide. Discovered-not-recreated by src/utils/journeys/journeyDFlow.ts (ensureCrew/ensureEmployee/ensureJob), never deleted — the isolation unit is (own fixture day) x (own fixed crew/job/employees) x (id-scoped execute), not per-run naming.",
     "Ranch B1 RANCH (162) and field B1 FIELD (99) are Journey B's fixture rows, reused read-only for the punch context; office.job is overwritten with this D6 JOB, exactly as journeyCFlow overwrites office.crew.",
-    "Names start with 'D6 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^D[0-9]{1,2} / so the residue sweep and fixtureReconcile can never reclaim them."
+    "Names start with 'D6 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^D[0-9]{1,2} / so the residue sweep and fixtureReconcile can never reclaim them.",
+    "The d9 block (catalog D9, plan test-plans/journey-d/d09-group-piece-out-distribution.md) is built on screen through src/utils/fixtureRows/ensureOnScreen.ts, never by API POST. Job code 4603, not 4602: 4602 is held by a soft-deleted 'D6 JOB RATE PROBE' that owns its code in the recycle bin (WEBPET-2368) and would 409 the New Job form."
   ],
   "entities": {
     "crew": {
@@ -21,6 +22,30 @@
       "code": "4601",
       "name": "D6 JOB",
       "paymentType": 1
+    }
+  },
+  "d9": {
+    "crew": {
+      "code": "8010",
+      "name": "D9 CREW"
+    },
+    "pickerOne": {
+      "code": "8011",
+      "name": "D9 PICKER ONE"
+    },
+    "pickerTwo": {
+      "code": "8012",
+      "name": "D9 PICKER TWO"
+    },
+    "pickerThree": {
+      "code": "8013",
+      "name": "D9 PICKER THREE"
+    },
+    "job": {
+      "code": "4603",
+      "name": "D9 JOB",
+      "paymentType": "Piece",
+      "pieceRate": 1
     }
   }
 }
