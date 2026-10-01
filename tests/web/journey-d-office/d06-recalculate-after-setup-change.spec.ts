@@ -37,7 +37,8 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
         const seed = await seedFixtureDay(run, { sessionApi, testInfo, pages });
 
         // 3-4. analyzeTransfer guarded to exactly this run's own time cards, then executeTransfer polled to complete.
-        const transfer = await guardedTransfer(run, { sessionApi, testInfo, pages }, seed);
+        // Scoped to the crew: the sliding fixture day picks up other people's untransferred rows on dev.
+        const transfer = await guardedTransfer(run, { sessionApi, testInfo, pages, crew: run.crew.name }, seed);
         expect(transfer.jobCardsWritten).toBe(scenario.expected.jobCards);
         expect(transfer.timeCardsTransferred).toBe(seed.timeCardCounters.length);
         expect(transfer.jobCardCounters).toHaveLength(scenario.expected.jobCards);

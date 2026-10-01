@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
 /**
@@ -30,6 +30,9 @@ export class JobCardsPage extends BasePage {
     readonly confirmDialog: Locator;
     readonly confirmRecalculateButton: Locator;
     readonly cancelDialogButton: Locator;
+    /** Edit Job Card form — read-only use; Delete and Save are deliberately not exposed. */
+    readonly piecesInput: Locator;
+    readonly pieceRateInput: Locator;
 
     constructor(page: Page) {
         super(page);
@@ -46,6 +49,8 @@ export class JobCardsPage extends BasePage {
         this.confirmDialog = page.getByRole('alertdialog', { name: 'Recalculate job cards?' });
         this.confirmRecalculateButton = this.confirmDialog.getByRole('button', { name: 'Recalculate' });
         this.cancelDialogButton = this.confirmDialog.getByRole('button', { name: 'Cancel' });
+        this.piecesInput = page.locator('#pieces');
+        this.pieceRateInput = page.locator('#pieceRate');
     }
 
     async goto(): Promise<void> {
@@ -63,6 +68,64 @@ export class JobCardsPage extends BasePage {
 
     rowByReference(reference: string): Locator {
         return this.page.getByRole('row', { name: reference });
+    }
+
+    /**
+     * A cell by column index. Map (measured live 2026-10-01): 0 select · 1 delete (forbidden) ·
+     * 2 Reference · 3 Date · 4 Type · 5 Employee · 6 Job · 7 Crew · 8 Ranch · 9 Amount · 10 Exp ·
+     * 11 CA Exp · 12 Status · 13 Edit link. There is no Pieces column.
+     */
+    cellAt(row: Locator, index: number): Locator {
+        return row.getByRole('cell').nth(index);
+    }
+
+    rowType(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 4);
+    }
+
+    /** Rendered from the employee's exportIdentifier — assert with toContainText, never exact text. */
+    rowEmployee(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 5);
+    }
+
+    /** Data rows only — the header row carries no Edit link. */
+    rowsForDay(): Locator {
+        return this.grid.getByRole('row').filter({ has: this.page.getByRole('link', { name: /^Edit Job Card:/ }) });
+    }
+
+    /**
+     * The day's rows for one crew. The grid is date-scoped only, and a dev fixture day carries other
+     * people's cards — day -12 held a foreign manually-edited Time card for employee 767 on the first
+     * D9 run — so a count over the whole day asserts someone else's data and can never be stable.
+     * Exact match keeps "D9 CREW" off the "D9 JOB" cell.
+     */
+    rowsForCrew(crewName: string): Locator {
+        return this.rowsForDay().filter({ has: this.page.getByRole('cell', { name: crewName, exact: true }) });
+    }
+
+    /** Opens the Edit Job Card form from the list. Read it, then {@link closeCard}; never save or delete here. */
+    async openCardByReference(reference: string): Promise<void> {
+        await this.page.getByRole('link', { name: `Edit Job Card: ${reference}` }).click();
+        await expect(this.page.getByRole('heading', { name: `Edit Job Card: ${reference}`, level: 1 })).toBeVisible({ timeout: 30_000 });
+    }
+
+    private async readNumber(input: Locator): Promise<number> {
+        await expect(input).not.toHaveValue('', { timeout: 30_000 });
+        return Number((await input.inputValue()).replace(/,/g, ''));
+    }
+
+    readPieces(): Promise<number> {
+        return this.readNumber(this.piecesInput);
+    }
+
+    readPieceRate(): Promise<number> {
+        return this.readNumber(this.pieceRateInput);
+    }
+
+    /** Leaves the form unsaved by navigating back to the list, whose date range lives in the URL. */
+    async closeCard(): Promise<void> {
+        await this.page.goBack();
+        await this.heading.waitFor({ state: 'visible', timeout: 30_000 });
     }
 
     /** Reveals the row checkboxes — hidden by construction until this is pressed. */

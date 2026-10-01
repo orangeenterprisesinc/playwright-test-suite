@@ -629,21 +629,18 @@ export class TransferToJobCardsPage extends BasePage {
 
 
     /**
-     * Scope the screen to a single day. The range is two segmented Month/Day/Year fields inside the
-     * date-scope popover; the calendar's day cells toggle a range and clear it when the same day is
-     * clicked twice, so the segments are filled instead.
+     * Scope the screen to a single day through the calendar's day cell. The segment inputs commit
+     * nothing for a non-today date, so the chip is asserted at both ends — a one-ended match would
+     * also pass on a stale multi-day range that merely contains the day.
      */
     async scopeToDay(day: string): Promise<void> {
         const [year, month, date] = day.split('-');
-        await this.dateRangeFilter.click();
-        const popover = this.page.locator('[data-slot=popover-content], [role=dialog]').last();
-        const segments = await popover.locator('input[type=text]').all();
-        for (const [index, value] of [[0, month], [1, date], [2, year], [3, month], [4, date], [5, year]] as const) {
-            await segments[Number(index)].click();
-            await segments[Number(index)].fill(String(value));
-        }
-        await popover.getByRole('button', { name: 'Apply' }).first().click();
-        await expect(this.dateRangeFilter).toContainText(`${month}/${date}/${year}`, { timeout: 20_000 });
+        await this.applyDateRange(new Date(Number(year), Number(month) - 1, Number(date)));
+        const end = `${month}/${date}/${year}`;
+        await expect(this.dateRangeFilter, `the date scope must read ${end} – ${end}`).toContainText(
+            new RegExp(`${end}\\s*[–-]\\s*${end}`),
+            { timeout: 20_000 },
+        );
     }
 
     /**
@@ -703,5 +700,107 @@ export class TransferToJobCardsPage extends BasePage {
         if (await confirm.isVisible({ timeout: 5_000 }).catch(() => false)) {
             await confirm.getByRole('button', { name: /^Transfer$/i }).first().click();
         }
+    }
+
+    // ── Crew piece-out distribution (D9) — readers, the Work Crew filter and the Job Cards tab ──
+
+    /** The pieces total in the Time Cards totals strip. NaN until the strip renders, so a poll keeps waiting. */
+    async piecesTotal(): Promise<number> {
+        const text = (await this.page.getByTestId('timecards-totals-strip-issues').textContent()) ?? '';
+        return Number((/Pieces([\d.,]+)/.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
+    }
+
+    rowPieces(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 9);
+    }
+
+    rowEmployee(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 4);
+    }
+
+    rowType(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 13);
+    }
+
+    rowPayByPiece(reference: string): Locator {
+        return this.cellAt(this.rowByReference(reference), 14);
+    }
+
+    /** References whose Employee cell is `—` — a crew piece-out carries no employee by design. */
+    async crewPieceOutRows(): Promise<string[]> {
+        const out: string[] = [];
+        for (const reference of await this.candidateReferences()) {
+            const text = ((await this.rowEmployee(reference).textContent()) ?? '').trim();
+            if (text === '—') out.push(reference);
+        }
+        return out;
+    }
+
+    private get crewFilter(): Locator {
+        return this.page.getByTestId('transfer-grid-filter-crews');
+    }
+
+    private get crewSearch(): Locator {
+        return this.page.getByRole('searchbox', { name: /Search work crew/i });
+    }
+
+    /**
+     * Work Crew column filter. Its options come from the loaded rows, so it is empty until the
+     * analyze has finished. Re-filters the rows, the checkboxes and the totals strip.
+     */
+    async filterByCrew(crewName: string): Promise<void> {
+        await this.crewFilter.click();
+        await this.crewSearch.fill(crewName);
+        await this.page.getByRole('button', { name: crewName, exact: true }).click();
+        await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
+        await this.page.keyboard.press('Escape');
+        await expect(this.crewSearch).toBeHidden({ timeout: 10_000 });
+    }
+
+    async clearCrewFilter(): Promise<void> {
+        await this.crewFilter.click();
+        await this.page.getByRole('button', { name: /^Clear \(\d+\)$/ }).click();
+        await this.page.keyboard.press('Escape');
+        await expect(this.crewSearch).toBeHidden({ timeout: 10_000 });
+    }
+
+    /** The Job Cards tab's grid — the pre-commit preview of the cards this transfer would write. */
+    get previewGrid(): Locator {
+        return this.pageRoot.getByTestId('data-grid');
+    }
+
+    async openJobCardsTab(): Promise<void> {
+        await this.jobCardsTab.click();
+        await expect(this.previewGrid).toBeVisible({ timeout: 30_000 });
+    }
+
+    async openTimeCardsTab(): Promise<void> {
+        await this.timeCardsTab.click();
+        await expect(this.grid).toBeVisible({ timeout: 30_000 });
+    }
+
+    /** Preview rows are labelled only `Row N`, so a participant's row is found by employee text. Cols: 1 Employee, 12 Number of Pieces. */
+    async previewRows(): Promise<Array<{ employee: string; pieces: number }>> {
+        const rows = this.previewGrid.getByRole('row', { name: /^Row \d+$/ });
+        const count = await rows.count();
+        const out: Array<{ employee: string; pieces: number }> = [];
+        for (let i = 0; i < count; i += 1) {
+            const cells = rows.nth(i).getByRole('cell');
+            const employee = ((await cells.nth(1).textContent()) ?? '').trim();
+            const pieces = Number(((await cells.nth(12).textContent()) ?? '').replace(/,/g, ''));
+            out.push({ employee, pieces });
+        }
+        return out;
+    }
+
+    /** Totals bar of the preview — six-decimal pieces, so parsed with `Number()`. NaN until it renders. */
+    async previewTotals(): Promise<{ pieces: number; jobCards: number; employees: number }> {
+        const text = (await this.page.getByTestId('jobcards-totals-bar').textContent()) ?? '';
+        const read = (pattern: RegExp) => Number((pattern.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
+        return {
+            pieces: read(/Pieces\s*([\d.,]+)/),
+            jobCards: read(/Job Cards\s*(\d+)/),
+            employees: read(/Employees\s*(\d+)/),
+        };
     }
 }

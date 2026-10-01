@@ -1,18 +1,26 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
-import { JOURNEY_D_FIXTURE } from '@data/journey-d/fixture';
-import { punchDay } from '@data/journey-b/fixture';
-import type { JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import { JOURNEY_D_FIXTURE, journeyD9Fixture } from '@data/journey-d/fixture';
+import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
+import type { JourneyD9DistributionCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
 import type { ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
+import {
+    ensureCrewOnScreen,
+    ensureEmployeeOnScreen,
+    ensureFieldOnScreen,
+    ensureJobOnScreen,
+    ensureRanchOnScreen,
+} from '@utils/fixtureRows/ensureOnScreen';
 
 // Journey D's first workflow, and a real transfer: D6 cannot be arranged read-only, so this layer
 // seeds a whole day of its own time cards, runs transfer-to-job-cards/execute scoped to its own
@@ -36,6 +44,15 @@ export interface JourneyDRun {
     /** The case's cleanup steps, 'after' phase; also registered with the test's cleanup scope. */
     cleanup(): Promise<void>;
     readonly ctx: CleanupContext;
+}
+
+/** The slice of a run the transfer helpers read — D6 and D9 runs both satisfy it. */
+interface TransferRun {
+    scenario: { label: string; expected: { jobCards: number } };
+    crew: EnsuredRecord;
+    day: string;
+    jobCardIds: number[];
+    ctx: CleanupContext;
 }
 
 async function sweepOwnJobCards(request: APIRequestContext, opts: { day: string; crewCounter: number; jobCounter: number }): Promise<void> {
@@ -242,32 +259,32 @@ export async function seedFixtureDay(
 
 
 /**
- * Analyze scoped to this run's own crew+job, guarded so the roster `job-cards-preview` would write
- * from is a subset of the seeded time cards (never empty) before anything executes (day -11 already
- * carries other people's rows on dev — see the plan's binding safety note), then execute and poll to
- * completion.
+ * Scope the Transfer screen to the fixture day, analyze, optionally narrow to one Work Crew, and
+ * guard the roster: the candidates on screen must be exactly this run's own rows before anything
+ * can be ticked (day -11 and -12 carry other people's untransferred rows on dev, and the header
+ * "Select all rows" is select-all-across-filter, not the visible rows). Returns the candidates.
  *
- * `analyze`'s response carries no candidate roster (`{plannableTotal, eligibleTotal, totalPieces,
- * exceptions:[…]}`, verified live 2026-09-29) — only `job-cards-preview` names the source time-card
- * ids a transfer would actually write, via each row's `sourceRecordIds`. That preview is also
- * non-committing, so it is safe to call before `execute`.
+ * `crew` is off by default. When given, the Work Crew filter is applied after the analyze (its
+ * options come from the loaded rows) and before the guard.
  */
-export async function guardedTransfer(
-    run: JourneyDRun,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+export async function openScopedCandidates(
+    run: TransferRun,
+    opts: { pages: PageObjects; crew?: string },
     seed: SeedResult,
-): Promise<ExecuteResult> {
-    const { sessionApi, pages } = opts;
-    const transfer = pages.transferToJobCards;
+): Promise<string[]> {
+    const transfer = opts.pages.transferToJobCards;
+    const own = new Set((run.ctx.cards ?? []).map((c) => String(c.reference)));
 
     await transfer.goto();
     await transfer.scopeToDay(run.day);
     await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
 
-    // The roster guard, on screen. The candidates the analyze loaded must be exactly this run's own
-    // rows before anything commits: the fixture day carries other people's cards on dev, and the
-    // header "Select all rows" is select-all-across-filter, not the visible rows.
-    const own = new Set((run.ctx.cards ?? []).map((c) => String(c.reference)));
+    if (opts.crew) {
+        await transfer.filterByCrew(opts.crew);
+        // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
+        await expect.poll(async () => (await transfer.candidateReferences()).length, { timeout: 30_000 }).toBe(own.size).catch(() => undefined);
+    }
+
     const candidates = await transfer.candidateReferences();
     const outsiders = candidates.filter((r) => !own.has(r));
     if (candidates.length !== own.size || outsiders.length) {
@@ -278,6 +295,18 @@ export async function guardedTransfer(
                 `. This run seeded ${JSON.stringify([...own])}.`,
         );
     }
+    return candidates;
+}
+
+/** Tick each candidate by Reference, commit, then record every written job card id before asserting the count. */
+export async function commitTransfer(
+    run: TransferRun,
+    opts: { sessionApi: APIRequestContext; pages: PageObjects },
+    seed: SeedResult,
+    candidates: string[],
+): Promise<ExecuteResult> {
+    const { sessionApi, pages } = opts;
+    const transfer = pages.transferToJobCards;
 
     for (const reference of candidates) await transfer.selectCandidate(reference);
     await transfer.runTransfer();
@@ -307,6 +336,28 @@ export async function guardedTransfer(
     };
 }
 
+/**
+ * Analyze scoped to this run's own crew+job, guarded so the roster `job-cards-preview` would write
+ * from is a subset of the seeded time cards (never empty) before anything executes (day -11 already
+ * carries other people's rows on dev — see the plan's binding safety note), then execute and poll to
+ * completion.
+ *
+ * `analyze`'s response carries no candidate roster (`{plannableTotal, eligibleTotal, totalPieces,
+ * exceptions:[…]}`, verified live 2026-09-29) — only `job-cards-preview` names the source time-card
+ * ids a transfer would actually write, via each row's `sourceRecordIds`. That preview is also
+ * non-committing, so it is safe to call before `execute`.
+ *
+ * Pass `crew` to also apply the Work Crew filter before the roster guard (default off).
+ */
+export async function guardedTransfer(
+    run: TransferRun,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects; crew?: string },
+    seed: SeedResult,
+): Promise<ExecuteResult> {
+    const candidates = await openScopedCandidates(run, { pages: opts.pages, crew: opts.crew }, seed);
+    return commitTransfer(run, { sessionApi: opts.sessionApi, pages: opts.pages }, seed, candidates);
+}
+
 
 export async function readJobCards(opts: { sessionApi: APIRequestContext }, ids: number[]): Promise<JobCardRecord[]> {
     return Promise.all(ids.map((id) => getJobCard(opts.sessionApi, id)));
@@ -332,3 +383,218 @@ export async function assertTimeCardsStillTransferred(
 // getJob is re-exported so a later Journey D spec can read the fixture job without reaching past
 // this flow layer (the ESLint import ban keeps @utils/api/* out of specs).
 export { getJob };
+
+// ── D9 — Group piece-out distribution ────────────────────────────────────────────────────────
+
+export interface JourneyD9Run {
+    scenario: JourneyD9DistributionCase;
+    office: OfficeFixture;
+    ranch: EnsuredRecord;
+    field: EnsuredRecord;
+    crew: EnsuredRecord;
+    job: EnsuredRecord;
+    /** Home-crewed members who punch in. */
+    participants: EnsuredRecord[];
+    /** Home-crewed members who do not — they must receive no job card. */
+    nonParticipants: EnsuredRecord[];
+    punchDate: Date;
+    /** `YYYY-MM-DD` of the fixture day. */
+    day: string;
+    /** Filled by {@link commitTransfer}; cleanup deletes these first, one at a time, by id. */
+    jobCardIds: number[];
+    cleanup(): Promise<void>;
+    readonly ctx: CleanupContext;
+}
+
+export interface D9Seed extends SeedResult {
+    /** The crew piece-out's Reference — the one own card with no employee. */
+    pieceOutReference: string;
+}
+
+/**
+ * Builds D9's fixture rows on screen (existence is a GET; the create and any repair are UI), reads
+ * and asserts the piece preferences, and runs the before-phase sweep: job cards first, because a
+ * transferred time card cannot be deleted, then the crew's time cards.
+ *
+ * Does not call `seedOfficeFixture` (it API-creates the whole Journey B fixture) nor copy
+ * `ensureFixtureUsable` (a raw PUT, which the write guard rejects as a UI-first violation).
+ */
+export async function prepareJourneyD9(
+    scenario: JourneyD9DistributionCase,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<JourneyD9Run> {
+    const { sessionApi, testInfo, pages } = opts;
+    const F = journeyD9Fixture();
+    const substituted = substituteTokens(scenario, {});
+    for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
+
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const homeCrew = { id: crew.id, name: crew.name };
+    const pickers = {
+        pickerOne: await ensureEmployeeOnScreen({ ...F.pickerOne, homeCrew }, deps),
+        pickerTwo: await ensureEmployeeOnScreen({ ...F.pickerTwo, homeCrew }, deps),
+        pickerThree: await ensureEmployeeOnScreen({ ...F.pickerThree, homeCrew }, deps),
+    };
+    const job = await ensureJobOnScreen(
+        { code: F.job.code, name: F.job.name, paymentType: F.job.paymentType, pieceRate: F.job.pieceRate },
+        deps,
+    );
+
+    // D9's cleanup is the 'timeCards' step plus id-scoped job-card deletes, and the only field either
+    // reads is `employees`. The rest of OfficeFixture (field2, job2, mealJob) is Journey B's and has no
+    // D9 equivalent, so this is deliberately partial rather than invented.
+    const office = {
+        ranch,
+        field,
+        job,
+        crew,
+        employees: new Map(Object.values(pickers).map((p) => [p.code, p] as const)),
+    } as unknown as OfficeFixture;
+
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
+    const punchDate = punchDay(substituted.dayOffset);
+    const day = isoDay(punchDate);
+    const jobCardIds: number[] = [];
+
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
+        await allowApiWrites('cleanup', 'D9 teardown: own job cards by id', async () => {
+            for (const id of jobCardIds) {
+                try {
+                    const card = await getJobCard(api, id);
+                    await deleteJobCard(api, id, card.version);
+                } catch (error) {
+                    await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
+                        body: error instanceof Error ? error.message : String(error),
+                        contentType: 'text/plain',
+                    });
+                }
+            }
+        });
+        await runCleanup(substituted.cleanup, api, testInfo, ctx);
+        await allowApiWrites('cleanup', 'D9 teardown: crew-scoped day sweep', () =>
+            sweepOwnTimeCards(api, { day, crewCounter: crew.id }),
+        ).catch(() => undefined);
+    };
+    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
+    const cleanup = async (): Promise<void> => {
+        await finishCleanup(sessionApi);
+        registration?.complete();
+    };
+
+    // Read, never written: a moved ceiling must fail loudly rather than skip.
+    const preferences = await getPreferences(sessionApi);
+    const { numOfPieces } = substituted.capture;
+    if (!(Number(preferences.maximumNumberOfPieces) >= numOfPieces) || !(Number(preferences.minimumNumberOfPieces) <= numOfPieces)) {
+        throw new Error(
+            `${substituted.label}: capture.numOfPieces=${numOfPieces} is outside the environment's piece limits ` +
+                `(minimumNumberOfPieces=${String(preferences.minimumNumberOfPieces)}, maximumNumberOfPieces=${String(preferences.maximumNumberOfPieces)}).`,
+        );
+    }
+
+    await allowApiWrites('cleanup', 'D9 before-phase sweep: own job cards', () =>
+        sweepOwnJobCards(sessionApi, { day, crewCounter: crew.id, jobCounter: job.id }),
+    );
+    await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
+    await allowApiWrites('cleanup', 'D9 before-phase sweep: crew time cards', () =>
+        sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+
+    return {
+        scenario: substituted,
+        office,
+        ranch,
+        field,
+        crew,
+        job,
+        participants: substituted.participants.map((key) => pickers[key]),
+        nonParticipants: substituted.nonParticipants.map((key) => pickers[key]),
+        punchDate,
+        day,
+        jobCardIds,
+        cleanup,
+        ctx,
+    };
+}
+
+/**
+ * Crew time-in restricted to the participants (the roster arrives pre-checked, so this deselects
+ * the rest), then the piece-out for the whole crew, then the time-out — all on screen.
+ */
+export async function seedCrewPieceOutDay(
+    run: JourneyD9Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<D9Seed> {
+    const { sessionApi, pages } = opts;
+    const { punch, pieceOut, timeOut, numOfPieces } = run.scenario.capture;
+    const base = { day: run.day, crew: run.crew.name };
+
+    await pages.crewTimeIn.punchIn({
+        ...base,
+        hour: punch.hour,
+        minute: punch.minute,
+        ranch: run.ranch.name,
+        field: run.field.name,
+        job: run.job.name,
+        employees: run.participants.map((p) => p.name),
+    });
+
+    // The time-out form only offers employees with an OPEN time-in, so wait until the saved
+    // time-ins are readable rather than trusting that Save and visibility are the same instant.
+    await expect(async () => {
+        const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
+        const timeIns = cards.filter((c) => Number(c.crewCounter) === run.crew.id && Number(c.cardType) === CARD_TYPE.timeIn);
+        expect(timeIns).toHaveLength(run.participants.length);
+    }).toPass({ timeout: 60_000 });
+
+    await pages.crewPieceOut.pieceOut({
+        ...base,
+        hour: pieceOut.hour,
+        minute: pieceOut.minute,
+        ranch: run.ranch.name,
+        field: run.field.name,
+        job: run.job.name,
+        pieces: numOfPieces,
+    });
+    await pages.crewTimeOut.punchOut({ ...base, hour: timeOut.hour, minute: timeOut.minute });
+
+    const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
+    const own = cards.filter((c) => Number(c.crewCounter) === run.crew.id);
+    // Recorded before any assertion, so teardown knows the cards even when one fails.
+    run.ctx.cards = own as OfficeTimeCard[];
+
+    const pieceOuts = own.filter((c) => c.employeeCounter === null || c.employeeCounter === undefined);
+    if (pieceOuts.length !== 1) {
+        throw new Error(`${run.scenario.label}: expected exactly one crew piece-out (no employee) among ${own.length} own time cards, found ${pieceOuts.length}.`);
+    }
+    return { timeCardCounters: own.map((c) => c.timeCardCounter), pieceOutReference: String(pieceOuts[0].reference) };
+}
+
+/**
+ * Read-only GET read-back of what the transfer wrote: the crew's job cards on the fixture day and
+ * the seeded time cards. Records each job card's `amount` as an annotation only — a known product
+ * defect leaves it at 0 while `pieceAmount` is right (D6, 2026-09-29).
+ */
+export async function readDistribution(
+    run: JourneyD9Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    seed: SeedResult,
+): Promise<{ cards: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
+    const { sessionApi, testInfo } = opts;
+    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
+    for (const card of cards) {
+        testInfo.annotations.push({ type: 'product-defect-amount', description: `job card ${card.jobCardCounter}: amount=${String(card.amount)}` });
+    }
+
+    const wanted = new Set(seed.timeCardCounters);
+    const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
+    return { cards, timeCards };
+}
