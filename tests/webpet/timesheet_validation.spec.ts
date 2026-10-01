@@ -189,7 +189,14 @@ test.describe('Setup > TimeSheet Validation — new form', { tag: ['@WebPet', '@
         await form.gotoEdit(validationId);
         await gateSettled;
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        // The lock needs BOTH rewrites to have landed — readonly is
+        // `!isNew && !(isSU || flag)`, so session/me drives one term and
+        // setup-identifier-preferences the other — but only the preferences
+        // response is awaited above. When session/me lands late the field is still
+        // editable at this point, which is this test's intermittent CI failure
+        // ("unexpected value null"). Wait for the settled state rather than for
+        // whichever response happens to be last; the assertion itself is unchanged.
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
     });
 
 });
@@ -330,16 +337,26 @@ test.describe('Setup > TimeSheet Validation — soft delete and restore', { tag:
         } finally {
             // No purge endpoint for Validation (WEBPET-1798): a record left
             // soft-deleted by a failed assert would occupy its name forever.
-            const stillDeletedResp = await request.get('/api/validations/deleted');
-            if (stillDeletedResp.ok()) {
-                const stillDeleted = (await stillDeletedResp.json()) as ValidationRow[];
-                const stuck = stillDeleted.find((v) => v.name === TEST_NAME_2);
-                if (stuck) {
-                    await request.post(
-                        `/api/validations/${String(stuck.validationCounter)}/restore`,
-                        { data: { rowversion: stuck.version } },
-                    );
+            //
+            // Swallowed on purpose. When the test times out Playwright has already
+            // disposed `request`, so every call here throws "Target page, context or
+            // browser has been closed" — and that error replaces the timeout in the
+            // report, which is how WP-0389's real cause stayed hidden. Cleanup is
+            // best-effort; the failure that got us here is the interesting one.
+            try {
+                const stillDeletedResp = await request.get('/api/validations/deleted');
+                if (stillDeletedResp.ok()) {
+                    const stillDeleted = (await stillDeletedResp.json()) as ValidationRow[];
+                    const stuck = stillDeleted.find((v) => v.name === TEST_NAME_2);
+                    if (stuck) {
+                        await request.post(
+                            `/api/validations/${String(stuck.validationCounter)}/restore`,
+                            { data: { rowversion: stuck.version } },
+                        );
+                    }
                 }
+            } catch {
+                // Reported by the test's own failure, not by a dead context.
             }
         }
 

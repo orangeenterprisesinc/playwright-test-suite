@@ -30,7 +30,7 @@
  * row" problem (soft-deleted rows still occupy the name) — every run uses a new
  * name, mirroring variety-equivalence-cucumbers-european.spec.ts's RUN_TOKEN.
  */
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, APIResponse, Page } from '@playwright/test'
 import { Logger } from '@utils/logger'
 // The token scheme lives with its decoder so the residue sweep can date every
 // record this factory makes; `uniqueName` is re-exported unchanged for the specs.
@@ -57,6 +57,36 @@ export function uniqueCode(): string {
 
 async function bodyText(res: { text: () => Promise<string> }): Promise<string> {
   return res.text().catch(() => '<unreadable body>')
+}
+
+/** Gateway statuses: the request died in front of the app, so it never ran. */
+const GATEWAY_STATUSES = [502, 503, 504]
+const GATEWAY_BACKOFF_MS = [1000, 3000]
+
+/**
+ * POST a create, retrying only when dev's gateway answers 502/503/504.
+ *
+ * Dev staging drops a request now and then — run 36845515902 lost a whole spec
+ * file to a single `POST /api/crops` returning 502 Bad Gateway in `beforeAll`,
+ * which reads as "the variety test failed" when nothing was wrong with it. A
+ * gateway status means the request never reached the app, so re-issuing it
+ * cannot double-create; and every factory name is run-unique, so even if one
+ * slipped through, the stray row carries an `E2E*` prefix the residue sweep
+ * reclaims. 4xx is never retried — that is the app answering, and the caller
+ * needs to see it.
+ */
+async function postCreate(
+  request: APIRequestContext,
+  path: string,
+  init: Parameters<APIRequestContext['post']>[1]
+): Promise<APIResponse> {
+  let res = await request.post(path, init)
+  for (const wait of GATEWAY_BACKOFF_MS) {
+    if (!GATEWAY_STATUSES.includes(res.status())) return res
+    await new Promise((resolve) => setTimeout(resolve, wait))
+    res = await request.post(path, init)
+  }
+  return res
 }
 
 // ── WEBPET-2006 identifier gate ──────────────────────────────────────────────
@@ -119,7 +149,7 @@ export async function ensureCrew(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredCrew> {
   const name = uniqueName(opts.namePrefix ?? 'E2ECrew')
-  const res = await request.post('/api/crews', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/crews', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(`ensureCrew: POST /api/crews failed (${res.status()}): ${await bodyText(res)}`)
   }
@@ -252,7 +282,7 @@ export async function ensureDepartment(
   delete body['departmentCounter']
   delete body['version']
 
-  const res = await request.post('/api/departments', { data: body })
+  const res = await postCreate(request, '/api/departments', { data: body })
   if (!res.ok()) {
     throw new Error(
       `ensureDepartment: POST /api/departments failed (${res.status()}): ${await bodyText(res)}`
@@ -337,7 +367,7 @@ export async function ensureEmployee(
     }
   }
 
-  const res = await request.post('/api/employees', {
+  const res = await postCreate(request, '/api/employees', {
     data: {
       name,
       code: opts.code ?? uniqueCode(),
@@ -385,7 +415,7 @@ export async function ensureCrop(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredCrop> {
   const name = uniqueName(opts.namePrefix ?? 'E2ECrop')
-  const res = await request.post('/api/crops', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/crops', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(`ensureCrop: POST /api/crops failed (${res.status()}): ${await bodyText(res)}`)
   }
@@ -425,7 +455,7 @@ export async function ensureVariety(
     opts.cropId ??
     (await firstIdFrom<{ cropCounter: number }>(request, '/api/crops', (c) => c.cropCounter))
   const name = uniqueName(opts.namePrefix ?? 'E2EVar')
-  const res = await request.post('/api/varieties', {
+  const res = await postCreate(request, '/api/varieties', {
     data: { name, cropCounter: cropId, active: true },
   })
   if (!res.ok()) {
@@ -484,7 +514,7 @@ export async function ensureEquipment(
 
   const name = uniqueName(opts.namePrefix ?? 'E2EEquip')
   // Route is /api/equipments (plural) — see cmd/server/main.go.
-  const res = await request.post('/api/equipments', {
+  const res = await postCreate(request, '/api/equipments', {
     data: { name, equipmentTypeCounter: equipmentTypeId, active: true },
   })
   if (!res.ok()) {
@@ -531,7 +561,7 @@ export async function ensureCustomer(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredCustomer> {
   const name = uniqueName(opts.namePrefix ?? 'E2ECust')
-  const res = await request.post('/api/customers', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/customers', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(
       `ensureCustomer: POST /api/customers failed (${res.status()}): ${await bodyText(res)}`
@@ -575,7 +605,7 @@ export async function ensureBillingCenter(
   const token = name.slice(name.indexOf('_') + 1).replace(/_/g, '')
   const code = `BC${token}`
   const exportIdentifier = `EX${token}`
-  const res = await request.post('/api/billing-centers', {
+  const res = await postCreate(request, '/api/billing-centers', {
     data: { name, code, exportIdentifier, active: true },
   })
   if (!res.ok()) {
@@ -611,7 +641,7 @@ export async function ensureDocumentType(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredDocumentType> {
   const name = uniqueName(opts.namePrefix ?? 'E2EDocType')
-  const res = await request.post('/api/document-types', {
+  const res = await postCreate(request, '/api/document-types', {
     data: { name, comment: name, active: true },
   })
   if (!res.ok()) {
@@ -648,7 +678,7 @@ export async function ensureJobCard(
 ): Promise<EnsuredJobCard> {
   const day = new Date(Date.now() - (opts.daysAgo ?? 3) * 24 * 60 * 60 * 1000)
   const date = day.toISOString().slice(0, 10)
-  const res = await request.post('/api/job-cards', {
+  const res = await postCreate(request, '/api/job-cards', {
     data: {
       employeeCounter: opts.employeeId,
       jobCounter: opts.jobId,
@@ -715,7 +745,7 @@ export async function ensureJob(
     (o) => o.jobTypeCounter
   )
   const name = uniqueName(opts.namePrefix ?? 'E2EJob')
-  const res = await request.post('/api/jobs', {
+  const res = await postCreate(request, '/api/jobs', {
     data: {
       name,
       code: uniqueCode(),
@@ -758,7 +788,7 @@ export async function ensureBoard(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredBoard> {
   const name = uniqueName(opts.namePrefix ?? 'E2EBoard')
-  const res = await request.post('/api/boards', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/boards', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(`ensureBoard: POST /api/boards failed (${res.status()}): ${await bodyText(res)}`)
   }
@@ -800,7 +830,7 @@ export async function ensureJobGroup(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredJobGroup> {
   const name = uniqueName(opts.namePrefix ?? 'E2EJG')
-  const res = await request.post('/api/job-groups', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/job-groups', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(
       `ensureJobGroup: POST /api/job-groups failed (${res.status()}): ${await bodyText(res)}`
@@ -838,7 +868,7 @@ export async function ensureRanch(
   opts: { namePrefix?: string } = {}
 ): Promise<EnsuredRanch> {
   const name = uniqueName(opts.namePrefix ?? 'E2ERanch')
-  const res = await request.post('/api/ranches', { data: { name, active: true } })
+  const res = await postCreate(request, '/api/ranches', { data: { name, active: true } })
   if (!res.ok()) {
     throw new Error(`ensureRanch: POST /api/ranches failed (${res.status()}): ${await bodyText(res)}`)
   }
@@ -877,7 +907,7 @@ export async function ensureField(
     opts.ranchId ??
     (await firstIdFrom<{ ranchCounter: number }>(request, '/api/ranches', (r) => r.ranchCounter))
   const name = uniqueName(opts.namePrefix ?? 'E2EField')
-  const res = await request.post('/api/fields', {
+  const res = await postCreate(request, '/api/fields', {
     data: { name, ranchCounter: ranchId, active: true },
   })
   if (!res.ok()) {
