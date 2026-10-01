@@ -192,8 +192,15 @@ test.describe('Edit crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WP
         await form.gotoEdit(crop.id);
         await gateSettled;
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
-        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
+        // The lock needs BOTH rewrites to have landed — readonly is
+        // `!isNew && !(isSU || flag)`, so session/me drives one term and
+        // setup-identifier-preferences the other — but only the preferences
+        // response is awaited above. When session/me lands late the fields are
+        // still editable here, which is this test's intermittent CI failure
+        // ("unexpected value null"). Wait for the settled state rather than for
+        // whichever response happens to be last; the assertions are unchanged.
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
+        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
     });
 
     test('[Crop] Verify that the traceability assignment sections render on the edit form.', {

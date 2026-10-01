@@ -279,21 +279,41 @@ export class WebpetDataGridComponent extends BaseComponent {
     // Lists past the 100-row virtualization threshold render only the rows in
     // view, so a bare cellByText misses rows that exist. Walk the body one
     // viewport at a time until the cell renders or the scroller bottoms out.
+    //
+    // The whole walk runs inside the page. It used to step from Node, which cost
+    // three round-trips per screen — a count, a scroll and a frame wait — and the
+    // lists this exists for are long: the deleted-validations list is 587 rows at
+    // 26 per screen, so ~23 screens, and WP-0389 walks it twice. That was most of
+    // its 30s budget on a CI runner, and the list only grows (Validation has no
+    // purge endpoint, WEBPET-1798), so it was getting slower every week.
+    //
+    // Still one screen at a time, deliberately: the virtualizer only renders the
+    // current window, so a larger step would scroll straight past the row.
     async findRowWithText(text: string): Promise<boolean> {
         const cell = this.cellByText(text);
         const body = this.bodyScroller;
-        await body.evaluate((el) => { el.scrollTop = 0; });
-        for (let i = 0; i < 100; i++) {
-            if ((await cell.count()) > 0) return true;
-            const atEnd = await body.evaluate((el) => {
+
+        await body.evaluate(async (el, needle) => {
+            const twoFrames = () =>
+                new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            const onScreen = () =>
+                Array.from(el.querySelectorAll('[role="cell"]')).some((c) =>
+                    (c.textContent ?? '').includes(needle),
+                );
+
+            el.scrollTop = 0;
+            await twoFrames();
+            // Bounded by the same 100 screens as before, so a runaway scroller
+            // cannot spin here forever.
+            for (let i = 0; i < 100; i += 1) {
+                if (onScreen()) return;
                 const before = el.scrollTop;
                 el.scrollTop = before + el.clientHeight;
-                return el.scrollTop === before;
-            });
-            // Two frames so the virtualizer commits the newly scrolled rows.
-            await body.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-            if (atEnd) break;
-        }
+                await twoFrames();
+                if (el.scrollTop === before) return;
+            }
+        }, text);
+
         return (await cell.count()) > 0;
     }
 
