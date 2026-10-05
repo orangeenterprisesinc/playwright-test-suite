@@ -41,6 +41,17 @@ export type CandidateWaitResult =
           sawAnalyze404: boolean;
       };
 
+/** One row of the Job Cards tab, as the cells read — D10's segment preview. */
+export interface PreviewSegment {
+    job: string;
+    timeIn: string;
+    timeOut: string;
+    grossTime: string;
+    netTime: string;
+    /** NaN while the cell is empty, so a poll keeps waiting. */
+    amount: number;
+}
+
 export class TransferToJobCardsPage extends BasePage {
     readonly pageUrl: string = '/transfer-to-job-cards';
     readonly pageTitle: string | RegExp = /Transfer to Job Cards/i;
@@ -789,6 +800,39 @@ export class TransferToJobCardsPage extends BasePage {
             const employee = ((await cells.nth(1).textContent()) ?? '').trim();
             const pieces = Number(((await cells.nth(12).textContent()) ?? '').replace(/,/g, ''));
             out.push({ employee, pieces });
+        }
+        return out;
+    }
+
+    /**
+     * The Job Cards tab's rows in chronological order (D10). Column positions are resolved from the
+     * header row by name rather than hard-coded: a silent shift would read the wrong cell and turn
+     * into a wrong green.
+     */
+    async previewSegments(): Promise<PreviewSegment[]> {
+        const headers = (await this.previewGrid.getByRole('columnheader').allInnerTexts()).map((h) => h.trim());
+        const column = (name: string): number => {
+            const index = headers.findIndex((h) => new RegExp(`^${name}\\b`).test(h));
+            if (index < 0) throw new Error(`Job Cards preview has no '${name}' column; headers are ${JSON.stringify(headers)}`);
+            return index;
+        };
+        const at = { job: column('Job'), timeIn: column('Date Time In'), timeOut: column('Date Time Out'), gross: column('Gross Time'), net: column('Net Time'), amount: column('Amount') };
+
+        const rows = this.previewGrid.getByRole('row', { name: /^Row \d+$/ });
+        const count = await rows.count();
+        const out: PreviewSegment[] = [];
+        for (let i = 0; i < count; i += 1) {
+            const cells = rows.nth(i).getByRole('cell');
+            const text = async (index: number) => ((await cells.nth(index).textContent()) ?? '').trim();
+            const amount = (await text(at.amount)).replace(/[^0-9.-]/g, '');
+            out.push({
+                job: await text(at.job),
+                timeIn: await text(at.timeIn),
+                timeOut: await text(at.timeOut),
+                grossTime: await text(at.gross),
+                netTime: await text(at.net),
+                amount: amount === '' ? NaN : Number(amount),
+            });
         }
         return out;
     }

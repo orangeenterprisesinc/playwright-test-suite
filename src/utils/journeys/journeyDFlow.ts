@@ -1,14 +1,14 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
-import { JOURNEY_D_FIXTURE, journeyD9Fixture } from '@data/journey-d/fixture';
+import { JOURNEY_D_FIXTURE, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
-import type { JourneyD9DistributionCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
-import type { ExecuteResult } from '@utils/api/transferToJobCardsApi';
+import type { JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import { analyzeTransfer, previewJobCards, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
-import { getPreferences } from '@utils/api/preferencesApi';
+import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope } from '@utils/cleanup/cleanupScope';
@@ -46,7 +46,7 @@ export interface JourneyDRun {
     readonly ctx: CleanupContext;
 }
 
-/** The slice of a run the transfer helpers read — D6 and D9 runs both satisfy it. */
+/** The slice of a run the transfer helpers read — D6, D9 and D10 runs all satisfy it. */
 interface TransferRun {
     scenario: { label: string; expected: { jobCards: number } };
     crew: EnsuredRecord;
@@ -64,6 +64,12 @@ async function sweepOwnJobCards(request: APIRequestContext, opts: { day: string;
     for (const card of own) {
         await deleteJobCard(request, card.jobCardCounter, card.version);
     }
+}
+
+/** D10's crew owns three jobs, so its sweep is by crew alone. */
+async function sweepCrewJobCards(request: APIRequestContext, opts: { day: string; crewCounter: number }): Promise<void> {
+    const cards = (await listJobCards(request, { from: opts.day, to: opts.day })).filter((c) => Number(c.crewCounter) === opts.crewCounter);
+    for (const card of cards) await deleteJobCard(request, card.jobCardCounter, card.version);
 }
 
 /**
@@ -595,6 +601,292 @@ export async function readDistribution(
     }
 
     const wanted = new Set(seed.timeCardCounters);
+    const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
+    return { cards, timeCards };
+}
+
+// ── D10 — Exercise and auto-break split ──────────────────────────────────────────────────────
+
+type D10JobKey = JourneyD10SegmentCase['expected']['segments'][number]['job'];
+
+export interface JourneyD10Run {
+    scenario: JourneyD10SegmentCase;
+    ranch: EnsuredRecord;
+    field: EnsuredRecord;
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    jobs: Record<D10JobKey, EnsuredRecord>;
+    /** `YYYY-MM-DD` of the fixture day. */
+    day: string;
+    /** Filled by {@link commitTransfer}; cleanup deletes these first, one at a time, by id. */
+    jobCardIds: number[];
+    /** `paidBreakJob` is shared tenant state: cleanup restores it whenever this is set. */
+    preference: { designated: boolean };
+    cleanup(): Promise<void>;
+    readonly ctx: CleanupContext;
+}
+
+// Wire values behind the Crew form's three selects (measured live 2026-10-05).
+const D10_CREW_ENUMS: Record<'createBreakCardFromTimeIn' | 'autoPaidBreakType' | 'autoReturnFromBreak', Record<string, number>> = {
+    createBreakCardFromTimeIn: { No: 0, 'Time Only': 1, Everyone: 2 },
+    autoPaidBreakType: { None: 0, All: 1, 'Time Employees Only': 2, 'Piece Employees Only': 3 },
+    autoReturnFromBreak: { Never: 0, 'From Paid Break': 1, 'From Meal': 2, 'From Paid Break and Meal': 3 },
+};
+
+/**
+ * Builds D10's fixture rows on screen, applies the crew's exercise and break rule on screen and
+ * reads it back, asserts the day-window preference gate, and runs the before-phase sweep (job
+ * cards first — a transferred time card cannot be deleted — then the crew's time cards).
+ */
+export async function prepareJourneyD10(
+    scenario: JourneyD10SegmentCase,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<JourneyD10Run> {
+    const { sessionApi, testInfo, pages } = opts;
+    const F = journeyD10Fixture();
+    const substituted = substituteTokens(scenario, {});
+    for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
+
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const picker = await ensureEmployeeOnScreen({ ...F.picker, homeCrew: { id: crew.id, name: crew.name } }, deps);
+    const jobSpec = (j: typeof F.workJob) => ({ code: j.code, name: j.name, paymentType: j.paymentType, hourlyRate: j.hourlyRate });
+    const jobs: Record<D10JobKey, EnsuredRecord> = {
+        workJob: await ensureJobOnScreen(jobSpec(F.workJob), deps),
+        exerciseJob: await ensureJobOnScreen(jobSpec(F.exerciseJob), deps),
+        breakJob: await ensureJobOnScreen(jobSpec(F.breakJob), deps),
+    };
+
+    const office = {
+        ranch,
+        field,
+        job: jobs.workJob,
+        crew,
+        employees: new Map([[picker.code, picker]]),
+    } as unknown as OfficeFixture;
+
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
+    const day = isoDay(punchDay(substituted.dayOffset));
+    const jobCardIds: number[] = [];
+    const preference = { designated: false };
+
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
+        // First, because it is the only tenant-wide state this spec touches. 0 clears the FK back to
+        // null; null would be ignored by the partial PUT.
+        if (preference.designated) {
+            try {
+                await allowApiWrites('preference', 'D10 teardown: clear paidBreakJob', () => putPreferences(api, { paidBreakJob: 0 }));
+                const after = await getPreferences(api);
+                if (after.paidBreakJob !== null && after.paidBreakJob !== undefined) throw new Error(`paidBreakJob still reads ${String(after.paidBreakJob)}`);
+                preference.designated = false;
+            } catch (error) {
+                await testInfo.attach('cleanup-warning-paidBreakJob', {
+                    body: error instanceof Error ? error.message : String(error),
+                    contentType: 'text/plain',
+                });
+            }
+        }
+        await allowApiWrites('cleanup', 'D10 teardown: own job cards by id', async () => {
+            for (const id of jobCardIds) {
+                try {
+                    const card = await getJobCard(api, id);
+                    await deleteJobCard(api, id, card.version);
+                } catch (error) {
+                    await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
+                        body: error instanceof Error ? error.message : String(error),
+                        contentType: 'text/plain',
+                    });
+                }
+            }
+        });
+        await runCleanup(substituted.cleanup, api, testInfo, ctx);
+        await allowApiWrites('cleanup', 'D10 teardown: crew-scoped day sweep', () =>
+            sweepOwnTimeCards(api, { day, crewCounter: crew.id }),
+        ).catch(() => undefined);
+    };
+    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
+    const cleanup = async (): Promise<void> => {
+        await finishCleanup(sessionApi);
+        registration?.complete();
+    };
+
+    // Catalog step 1's own setup, on screen: a PUT /crews/{id} would hide it from the run.
+    const rule = substituted.crewRule;
+    await pages.crew.gotoEditById(crew.id, crew.name);
+    await pages.crew.setBreakAutomation({
+        includeInTransfer: true,
+        timeEmployeesIncluded: true,
+        exerciseJob: jobs.exerciseJob.name,
+        exerciseJobLengthMinutes: rule.exerciseJobLengthMinutes,
+        createBreakCardFromTimeIn: rule.createBreakCardFromTimeIn,
+        autoPaidBreakType: rule.autoPaidBreakType,
+        autoReturnFromBreak: rule.autoReturnFromBreak,
+        breakLengths: String(rule.breakLengthMinutes),
+    });
+    const stored = (await (await sessionApi.get(`crews/${crew.id}`)).json()) as Record<string, unknown>;
+    expect(
+        {
+            exerciseJobCounter: Number(stored.exerciseJobCounter),
+            exerciseJobLengthMinutes: Number(stored.exerciseJobLengthMinutes),
+            createBreakCardFromTimeIn: Number(stored.createBreakCardFromTimeIn),
+            autoPaidBreakType: Number(stored.autoPaidBreakType),
+            autoReturnFromBreak: Number(stored.autoReturnFromBreak),
+            breakLengthMinutesCommaSeparated: String(stored.breakLengthMinutesCommaSeparated).trim(),
+        },
+        `${substituted.label}: the crew rule must persist exactly as the screen saved it`,
+    ).toEqual({
+        exerciseJobCounter: jobs.exerciseJob.id,
+        exerciseJobLengthMinutes: rule.exerciseJobLengthMinutes,
+        createBreakCardFromTimeIn: D10_CREW_ENUMS.createBreakCardFromTimeIn[rule.createBreakCardFromTimeIn],
+        autoPaidBreakType: D10_CREW_ENUMS.autoPaidBreakType[rule.autoPaidBreakType],
+        autoReturnFromBreak: D10_CREW_ENUMS.autoReturnFromBreak[rule.autoReturnFromBreak],
+        breakLengthMinutesCommaSeparated: String(rule.breakLengthMinutes),
+    });
+
+    // Read, never written: a moved window must fail loudly rather than skip.
+    const preferences = await getPreferences(sessionApi);
+    if (!(Number(preferences.maximumDaysForTransferExport) >= Math.abs(substituted.dayOffset))) {
+        throw new Error(
+            `${substituted.label}: maximumDaysForTransferExport=${String(preferences.maximumDaysForTransferExport)} is below the fixture day ${substituted.dayOffset}.`,
+        );
+    }
+    for (const key of ['paidBreakJob', 'lockTCsAfterTransferToJCs', 'singleJobCardOnBreakReturn']) {
+        testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
+    }
+
+    await allowApiWrites('cleanup', 'D10 before-phase sweep: crew job cards', () =>
+        sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+    await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
+    await allowApiWrites('cleanup', 'D10 before-phase sweep: crew time cards', () =>
+        sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+
+    return { scenario: substituted, ranch, field, crew, picker, jobs, day, jobCardIds, preference, cleanup, ctx };
+}
+
+/**
+ * Time-in, a break start with no return punch, and the time-out — all on screen. The break start is
+ * a Crew Time In onto the paid-break job: both Break Card forms require an end time.
+ */
+export async function seedExerciseAndBreakDay(
+    run: JourneyD10Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<SeedResult> {
+    const { sessionApi, pages } = opts;
+    const { timeIn, breakStart, timeOut } = run.scenario.capture;
+    const where = { day: run.day, crew: run.crew.name, ranch: run.ranch.name, field: run.field.name, employees: [run.picker.name] };
+
+    // The next form only offers employees with an open time-in, so wait until the saved punch is
+    // readable rather than trusting that Save and visibility are the same instant.
+    const timeInsReadable = (count: number) =>
+        expect(async () => {
+            const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
+            const timeIns = cards.filter((c) => Number(c.crewCounter) === run.crew.id && Number(c.cardType) === CARD_TYPE.timeIn);
+            expect(timeIns).toHaveLength(count);
+        }).toPass({ timeout: 60_000 });
+
+    await pages.crewTimeIn.punchIn({ ...where, ...timeIn, job: run.jobs.workJob.name });
+    await timeInsReadable(1);
+    await pages.crewTimeIn.punchIn({ ...where, ...breakStart, job: run.jobs.breakJob.name });
+    await timeInsReadable(2);
+    await pages.crewTimeOut.punchOut({ day: run.day, crew: run.crew.name, ...timeOut });
+
+    const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
+    const own = cards.filter((c) => Number(c.crewCounter) === run.crew.id);
+    // Recorded before any assertion, so teardown knows the cards even when one fails.
+    run.ctx.cards = own as OfficeTimeCard[];
+    if (own.length !== run.scenario.expected.timeCards) {
+        throw new Error(`${run.scenario.label}: expected ${run.scenario.expected.timeCards} own time cards after seeding, found ${own.length}.`);
+    }
+    return { timeCardCounters: own.map((c) => c.timeCardCounter) };
+}
+
+/**
+ * Designate the break job as the tenant's paid-break job. `paidBreakJob` is the only place that
+ * designation lives, so this is configuration; it is written as late as possible, and the flag is
+ * raised first so cleanup restores it even if the PUT itself fails halfway.
+ */
+export async function designatePaidBreakJob(run: JourneyD10Run, opts: { sessionApi: APIRequestContext }): Promise<void> {
+    run.preference.designated = true;
+    await allowApiWrites('preference', `D10: designate ${run.jobs.breakJob.name} as the paid-break job`, () =>
+        putPreferences(opts.sessionApi, { paidBreakJob: run.jobs.breakJob.id }),
+    );
+}
+
+/** Non-committing analyze for the crew's day: how many time cards it plans, and any blocking exception codes. */
+export async function analyzeCrewDay(
+    run: JourneyD10Run,
+    opts: { sessionApi: APIRequestContext },
+): Promise<{ plannableTotal: number | undefined; blocking: string[] }> {
+    const res = await analyzeTransfer(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
+    if (!res.ok) throw new Error(`POST transfer-to-job-cards/analyze failed with ${res.status}: ${JSON.stringify(res.raw).slice(0, 300)}`);
+    return {
+        plannableTotal: res.plannableTotal,
+        blocking: res.exceptions.filter((e) => /block/i.test(String(e.severity))).map((e) => String(e.code)),
+    };
+}
+
+export interface PreviewBoundary {
+    day: string;
+    start: { hour: number; minute: number };
+    end: { hour: number; minute: number };
+    grossMinutes: number;
+    netMinutes: number;
+}
+
+/**
+ * The split's minute-exact boundaries from the non-committing `job-cards-preview`, in chronological
+ * order — independent of how the grid formats a date cell.
+ */
+export async function readPreviewBoundaries(run: JourneyD10Run, opts: { sessionApi: APIRequestContext }): Promise<PreviewBoundary[]> {
+    const preview = await previewJobCards(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
+    const clock = (value: unknown) => {
+        const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/.exec(String(value));
+        if (!match) throw new Error(`job-cards-preview returned an unreadable date-time: ${JSON.stringify(value)}`);
+        return { day: match[1], hour: Number(match[2]), minute: Number(match[3]) };
+    };
+    return preview.rows
+        .map((row) => {
+            const start = clock(row.dateTimeIn);
+            const end = clock(row.dateTimeOut);
+            return {
+                day: start.day,
+                start: { hour: start.hour, minute: start.minute },
+                end: { hour: end.hour, minute: end.minute },
+                grossMinutes: Number(row.grossMinutes),
+                netMinutes: Number(row.netMinutes),
+            };
+        })
+        .sort((a, b) => a.start.hour * 60 + a.start.minute - (b.start.hour * 60 + b.start.minute));
+}
+
+/**
+ * Read-only GET read-back of what the transfer wrote. Records each card's time and amount fields as
+ * annotations only: their unit is unverified and the on-screen Amount column already carries the proof.
+ */
+export async function readSplit(
+    run: JourneyD10Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+): Promise<{ cards: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
+    const { sessionApi, testInfo } = opts;
+    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
+    for (const card of cards) {
+        testInfo.annotations.push({
+            type: 'job-card-fields',
+            description: `job card ${card.jobCardCounter} (job ${String(card.jobCounter)}): netTime=${String(card.netTime)} grossTime=${String(card.grossTime)} amount=${String(card.amount)}`,
+        });
+    }
+
+    const wanted = new Set((run.ctx.cards ?? []).map((c) => c.timeCardCounter));
     const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
     return { cards, timeCards };
 }

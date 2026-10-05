@@ -3,7 +3,8 @@
     "Fixed Journey D fixture (catalog D6, plan test-plans/journey-d/d06-recalculate-after-setup-change.md). Codes sit in the 8000/4600 block, clear of Journey B's 4000-6000 block and Journey C's 7000 block, so they never collide. Discovered-not-recreated by src/utils/journeys/journeyDFlow.ts (ensureCrew/ensureEmployee/ensureJob), never deleted — the isolation unit is (own fixture day) x (own fixed crew/job/employees) x (id-scoped execute), not per-run naming.",
     "Ranch B1 RANCH (162) and field B1 FIELD (99) are Journey B's fixture rows, reused read-only for the punch context; office.job is overwritten with this D6 JOB, exactly as journeyCFlow overwrites office.crew.",
     "Names start with 'D6 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^D[0-9]{1,2} / so the residue sweep and fixtureReconcile can never reclaim them.",
-    "The d9 block (catalog D9, plan test-plans/journey-d/d09-group-piece-out-distribution.md) is built on screen through src/utils/fixtureRows/ensureOnScreen.ts, never by API POST. Job code 4603, not 4602: 4602 is held by a soft-deleted 'D6 JOB RATE PROBE' that owns its code in the recycle bin (WEBPET-2368) and would 409 the New Job form."
+    "The d9 block (catalog D9, plan test-plans/journey-d/d09-group-piece-out-distribution.md) is built on screen through src/utils/fixtureRows/ensureOnScreen.ts, never by API POST. Job code 4603, not 4602: 4602 is held by a soft-deleted 'D6 JOB RATE PROBE' that owns its code in the recycle bin (WEBPET-2368) and would 409 the New Job form.",
+    "The d10 block (catalog D10, plan test-plans/journey-d/d10-exercise-and-auto-break-split.md) is built the same way. All three jobs carry hourlyRate 1 so the Amount column reads decimal hours directly; 4604-4606 are clear, 4602 stays burnt."
   ],
   "entities": {
     "crew": {
@@ -46,6 +47,34 @@
       "name": "D9 JOB",
       "paymentType": "Piece",
       "pieceRate": 1
+    }
+  },
+  "d10": {
+    "crew": {
+      "code": "8014",
+      "name": "D10 CREW"
+    },
+    "picker": {
+      "code": "8015",
+      "name": "D10 PICKER ONE"
+    },
+    "workJob": {
+      "code": "4604",
+      "name": "D10 JOB",
+      "paymentType": "Time",
+      "hourlyRate": 1
+    },
+    "exerciseJob": {
+      "code": "4605",
+      "name": "D10 EXERCISE JOB",
+      "paymentType": "Time",
+      "hourlyRate": 1
+    },
+    "breakJob": {
+      "code": "4606",
+      "name": "D10 BREAK JOB",
+      "paymentType": "Time",
+      "hourlyRate": 1
     }
   }
 }

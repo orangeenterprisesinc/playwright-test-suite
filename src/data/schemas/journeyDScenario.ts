@@ -143,3 +143,109 @@ export const JourneyD9DistributionCaseSchema = z
     });
 
 export type JourneyD9DistributionCase = z.infer<typeof JourneyD9DistributionCaseSchema>;
+
+// D10 — Exercise and auto-break split. One worker's day (time-in, a break start with no return
+// punch, time-out) becomes four contiguous job cards. The refinements encode the plan's arithmetic
+// so the data cannot drift out of agreement with itself.
+
+/** Keys into the `d10` block of src/data/journey-d/fixture.json. */
+const D10JobKey = z.enum(['workJob', 'exerciseJob', 'breakJob']);
+
+const D10Segment = z
+    .object({
+        kind: z.enum(['exercise', 'work', 'break']),
+        job: D10JobKey,
+        start: TimeOfDay,
+        end: TimeOfDay,
+        minutes: z.number().int().positive(),
+        amount: z.number(),
+    })
+    .strict();
+
+const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
+
+export const JourneyD10SegmentCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('D10'),
+        label: z.string().min(1),
+        /** Journey B owns 0..-9, C -10, D6 -11, D9 -12 — D10 is -13, inside maximumDaysForTransferExport = 21. */
+        dayOffset: z.number().int(),
+        crewRule: z
+            .object({
+                exerciseJobLengthMinutes: z.number().int().positive(),
+                breakLengthMinutes: z.number().int().positive(),
+                createBreakCardFromTimeIn: z.string().min(1),
+                autoPaidBreakType: z.string().min(1),
+                autoReturnFromBreak: z.string().min(1),
+            })
+            .strict(),
+        capture: z.object({ timeIn: TimeOfDay, breakStart: TimeOfDay, timeOut: TimeOfDay }).strict(),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                jobCards: z.number().int().positive(),
+                hourlyRate: z.number().positive(),
+                totalMinutes: z.number().int().positive(),
+                totalAmount: z.number(),
+                employees: z.number().int().positive(),
+                pieces: z.number().int().min(0),
+                segments: z.array(D10Segment).min(1),
+            })
+            .strict(),
+        /** Pushed by the flow before the test body — what the workflow deliberately does NOT run, and why. */
+        annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) =>
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const { capture, expected, crewRule } = s;
+        const segments = expected.segments;
+        if (s.dayOffset !== -13) issue(['dayOffset'], 'D10 owns day -13 (Journey B: 0..-9, C: -10, D6: -11, D9: -12)');
+        if (!(minutes(capture.timeIn) < minutes(capture.breakStart) && minutes(capture.breakStart) < minutes(capture.timeOut))) {
+            issue(['capture'], 'timeIn < breakStart < timeOut');
+        }
+        if (expected.timeCards !== 3) issue(['expected', 'timeCards'], 'time-in + break start + time-out');
+        if (expected.jobCards !== segments.length) issue(['expected', 'jobCards'], 'one job card per segment');
+        if (expected.jobCards !== 4) issue(['expected', 'jobCards'], 'exercise + work + break + return to work');
+
+        if (segments[0]?.kind !== 'exercise') issue(['expected', 'segments', 0, 'kind'], 'the first segment is the exercise carve-off');
+        if (segments[0]?.minutes !== crewRule.exerciseJobLengthMinutes) {
+            issue(['expected', 'segments', 0, 'minutes'], 'the exercise segment must equal crewRule.exerciseJobLengthMinutes');
+        }
+        const breaks = segments.filter((seg) => seg.kind === 'break');
+        if (breaks.length !== 1) issue(['expected', 'segments'], 'exactly one break segment');
+        else {
+            if (breaks[0].minutes !== crewRule.breakLengthMinutes) issue(['expected', 'segments'], 'the break segment must equal crewRule.breakLengthMinutes');
+            if (minutes(breaks[0].start) !== minutes(capture.breakStart)) issue(['expected', 'segments'], 'the break segment starts at capture.breakStart');
+        }
+
+        // Contiguity: no gap, no overlap, first boundary = the time-in, last = the time-out.
+        if (segments[0] && minutes(segments[0].start) !== minutes(capture.timeIn)) issue(['expected', 'segments', 0, 'start'], 'must equal capture.timeIn');
+        segments.forEach((seg, i) => {
+            if (minutes(seg.end) - minutes(seg.start) !== seg.minutes) issue(['expected', 'segments', i, 'minutes'], 'must equal end - start');
+            const next = segments[i + 1];
+            if (next && minutes(seg.end) !== minutes(next.start)) issue(['expected', 'segments', i, 'end'], 'must equal the next segment\'s start');
+            if (seg.amount !== round4((seg.minutes / 60) * expected.hourlyRate)) issue(['expected', 'segments', i, 'amount'], 'must equal minutes / 60 x hourlyRate');
+        });
+        const last = segments[segments.length - 1];
+        if (last && minutes(last.end) !== minutes(capture.timeOut)) issue(['expected', 'segments', segments.length - 1, 'end'], 'must equal capture.timeOut');
+
+        // Conservation: the split redistributes the day; it neither creates nor loses a minute or a cent.
+        const sumMinutes = segments.reduce((sum, seg) => sum + seg.minutes, 0);
+        if (sumMinutes !== expected.totalMinutes) issue(['expected', 'totalMinutes'], 'must equal the sum of the segments\' minutes');
+        if (expected.totalMinutes !== minutes(capture.timeOut) - minutes(capture.timeIn)) issue(['expected', 'totalMinutes'], 'must equal timeOut - timeIn');
+        if (round4(segments.reduce((sum, seg) => sum + seg.amount, 0)) !== expected.totalAmount) issue(['expected', 'totalAmount'], 'must equal the sum of the segments\' amounts');
+
+        const timeCardsStep = s.cleanup.find((step) => step.kind === 'timeCards');
+        if (!timeCardsStep?.cardTypes?.includes(0) || !timeCardsStep.cardTypes.includes(1)) {
+            issue(['cleanup'], 'a timeCards cleanup step with cardTypes:[0,1] is required');
+        }
+        if (!s.cleanup.some((step) => step.kind === 'unremovable' && step.entity === 'paidBreakJob')) {
+            issue(['cleanup'], 'the paidBreakJob preference restore must be declared (an unremovable entry naming paidBreakJob)');
+        }
+    });
+
+export type JourneyD10SegmentCase = z.infer<typeof JourneyD10SegmentCaseSchema>;
