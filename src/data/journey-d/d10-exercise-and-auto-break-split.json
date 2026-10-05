@@ -1,0 +1,48 @@
+{
+  "_notes": [
+    "D10 - Exercise and auto-break split (catalog D10, plan test-plans/journey-d/d10-exercise-and-auto-break-split.md, runner row D10). dayOffset -13 is D10's own fixture day (Journey B owns 0...-9, C -10, D6 -11, D9 -12), inside maximumDaysForTransferExport = 21.",
+    "Three time cards (07:00 time-in on the work job, 10:00 time-in on the break job with no return punch, 15:00 time-out) become four job cards once paidBreakJob designates the break job. hourlyRate 1 makes each Amount a direct decimal-hour readout; 30/15 minutes are exact in two decimals so E6 (rounding at close) is not duplicated here.",
+    "The paidBreakJob preference is shared tenant state: the flow writes it just before the transfer and restores it with 0 first thing in the after phase (null writes are ignored by the partial PUT). The 'unremovable' entry below only declares that restore; the code that performs it is journeyDFlow.finishCleanup."
+  ],
+  "workflow": "D10",
+  "label": "d10-exercise-and-auto-break-split",
+  "dayOffset": -13,
+  "crewRule": {
+    "exerciseJobLengthMinutes": 30,
+    "breakLengthMinutes": 15,
+    "createBreakCardFromTimeIn": "Everyone",
+    "autoPaidBreakType": "All",
+    "autoReturnFromBreak": "From Paid Break"
+  },
+  "capture": {
+    "timeIn": { "hour": 7, "minute": 0 },
+    "breakStart": { "hour": 10, "minute": 0 },
+    "timeOut": { "hour": 15, "minute": 0 }
+  },
+  "expected": {
+    "timeCards": 3,
+    "jobCards": 4,
+    "hourlyRate": 1,
+    "totalMinutes": 480,
+    "totalAmount": 8,
+    "employees": 1,
+    "pieces": 0,
+    "segments": [
+      { "kind": "exercise", "job": "exerciseJob", "start": { "hour": 7, "minute": 0 }, "end": { "hour": 7, "minute": 30 }, "minutes": 30, "amount": 0.5 },
+      { "kind": "work", "job": "workJob", "start": { "hour": 7, "minute": 30 }, "end": { "hour": 10, "minute": 0 }, "minutes": 150, "amount": 2.5 },
+      { "kind": "break", "job": "breakJob", "start": { "hour": 10, "minute": 0 }, "end": { "hour": 10, "minute": 15 }, "minutes": 15, "amount": 0.25 },
+      { "kind": "work", "job": "workJob", "start": { "hour": 10, "minute": 15 }, "end": { "hour": 15, "minute": 0 }, "minutes": 285, "amount": 4.75 }
+    ]
+  },
+  "annotations": [
+    {
+      "type": "not-automatable",
+      "description": "Other Create Break Card / Auto Return variants, a break start that has a return punch, and a meal break are separate tickets (one happy path per workflow). Decimal-hour rounding at close belongs to E6."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["8015"], "dayOffset": -13, "cardTypes": [0, 1] },
+    { "kind": "unremovable", "entity": "paidBreakJob", "reason": "Shared tenant preference, restored with PUT preferences {paidBreakJob: 0} as the first step of the after phase (journeyDFlow.finishCleanup)" },
+    { "kind": "unremovable", "entity": "transferRun", "reason": "GET /transfer-to-job-cards/runs keeps an audit row; D10 never reverses, so it is read as evidence at most" }
+  ]
+}

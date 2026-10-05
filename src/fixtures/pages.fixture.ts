@@ -63,7 +63,7 @@ export interface PageObjects {
     /** Transfer to Job Card review screen (D2/D4; Journey B verification). */
     readonly transferToJobCards: TransferToJobCardsPage;
 
-    /** View (Input) ▸ Job Card — the recalculate screen, `/input/job-cards` (D6). */
+    /** View ▸ Job Card — the recalculate screen, `/input/job-cards` (D6). */
     readonly jobCards: JobCardsPage;
 
     /** Setup ▸ Job — the job record D6 re-rates on screen. */

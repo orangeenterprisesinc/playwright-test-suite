@@ -2,7 +2,7 @@ import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
 /**
- * View (Input) > Job Card (`/input/job-cards`, catalog D6) — the screen D6 recalculates on. A
+ * View ▸ Job Card (`/input/job-cards`, catalog D6) — the screen D6 recalculates on. A
  * date-scoped grid with a Multi Update selection mode and a bulk Recalculate action.
  *
  * Locators confirmed live 2026-09-29 (heading, From/To, the three testids below all present in the
@@ -88,6 +88,15 @@ export class JobCardsPage extends BasePage {
         return this.cellAt(this.rowByReference(reference), 5);
     }
 
+    /** The Job cell of an already-located row (D10 has no Reference before the cards are read). */
+    rowJob(row: Locator): Locator {
+        return this.cellAt(row, 6);
+    }
+
+    rowAmount(row: Locator): Locator {
+        return this.cellAt(row, 9);
+    }
+
     /** Data rows only — the header row carries no Edit link. */
     rowsForDay(): Locator {
         return this.grid.getByRole('row').filter({ has: this.page.getByRole('link', { name: /^Edit Job Card:/ }) });
@@ -101,6 +110,27 @@ export class JobCardsPage extends BasePage {
      */
     rowsForCrew(crewName: string): Locator {
         return this.rowsForDay().filter({ has: this.page.getByRole('cell', { name: crewName, exact: true }) });
+    }
+
+    /** The Job cell text of every row for one crew, in grid order. */
+    async jobsForCrew(crewName: string): Promise<string[]> {
+        const rows = this.rowsForCrew(crewName);
+        const count = await rows.count();
+        const jobs: string[] = [];
+        for (let i = 0; i < count; i += 1) jobs.push(((await this.rowJob(rows.nth(i)).textContent()) ?? '').trim());
+        return jobs;
+    }
+
+    /** The Amount cell of every row for one crew, in grid order. NaN where the cell is not a number. */
+    async amountsForCrew(crewName: string): Promise<number[]> {
+        const rows = this.rowsForCrew(crewName);
+        const count = await rows.count();
+        const amounts: number[] = [];
+        for (let i = 0; i < count; i += 1) {
+            const text = ((await this.rowAmount(rows.nth(i)).textContent()) ?? '').replace(/[^0-9.-]/g, '');
+            amounts.push(text === '' ? NaN : Number(text));
+        }
+        return amounts;
     }
 
     /** Opens the Edit Job Card form from the list. Read it, then {@link closeCard}; never save or delete here. */
