@@ -4,7 +4,7 @@ import type { PageObjects } from '@fixtures/pages.fixture';
 import { JOURNEY_D_FIXTURE, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import type { JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
-import { analyzeTransfer, previewJobCards, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
+import { analyzeTransfer, previewJobCards, readExecuteJob, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
@@ -315,7 +315,8 @@ export async function commitTransfer(
     const transfer = pages.transferToJobCards;
 
     for (const reference of candidates) await transfer.selectCandidate(reference);
-    await transfer.runTransfer();
+    const jobId = await transfer.runTransfer();
+    if (!jobId) throw new Error('The Transfer click sent no POST transfer-to-job-cards/execute to the server, so nothing was ever queued.');
 
     // Read the committed result back over the API: the screen reports progress, the cards are the
     // record. This is verification of a UI action, not a substitute for it.
@@ -327,6 +328,13 @@ export async function commitTransfer(
     await expect(async () => {
         const written = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
         for (const card of written) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+        if (written.length < run.scenario.expected.jobCards) {
+            // A failed async execute writes nothing and is otherwise indistinguishable from a slow one.
+            const job = await readExecuteJob(sessionApi, jobId);
+            if (!/^(complete|running|pending|queued|)$/i.test(job.status)) {
+                throw new Error(`transfer execute job ${jobId} ended ${job.status}: ${job.error ?? JSON.stringify(job.raw)}`);
+            }
+        }
         expect(written).toHaveLength(run.scenario.expected.jobCards);
     }).toPass({ timeout: 120_000 });
 
