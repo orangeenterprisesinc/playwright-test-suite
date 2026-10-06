@@ -690,7 +690,7 @@ export class TransferToJobCardsPage extends BasePage {
      * Commit the transfer for the ticked rows. The confirm step reports any warning issues before
      * it proceeds; warnings are expected on a piece day (`warn.zero_rate`) and do not block.
      */
-    async runTransfer(): Promise<void> {
+    async runTransfer(): Promise<string | null> {
         const commit = this.transferButton;
         try {
             await expect(commit).toBeEnabled({ timeout: 30_000 });
@@ -706,11 +706,17 @@ export class TransferToJobCardsPage extends BasePage {
                     'A "0 Ready" here usually means the time-ins carry no Phase (job), which analyses as eligible but plannable 0.',
             );
         }
+        const executed = this.page
+            .waitForResponse((r) => r.request().method() === 'POST' && /\/transfer-to-job-cards\/execute$/.test(new URL(r.url()).pathname), { timeout: 30_000 })
+            .catch(() => null);
         await commit.click();
         const confirm = this.page.getByRole('alertdialog').or(this.page.getByRole('dialog')).first();
         if (await confirm.isVisible({ timeout: 5_000 }).catch(() => false)) {
             await confirm.getByRole('button', { name: /^Transfer$/i }).first().click();
         }
+        const response = await executed;
+        const body = (await response?.json().catch(() => null)) as { jobId?: string } | null;
+        return body?.jobId ?? null;
     }
 
     // ── Crew piece-out distribution (D9) — readers, the Work Crew filter and the Job Cards tab ──
