@@ -1,0 +1,59 @@
+name: Validate
+
+# The static gates, on every pull request. No browser, no dev staging, no
+# secrets, no Slack — just the checks that can fail without an app.
+#
+# These used to ride along inside e2e.yml, which ran on a push to main. That
+# trigger is still declared but gated off behind the CI_AUTO_TRIGGERS repo
+# variable (2026-10-06 standup: the suite runs once a day), and without this file
+# the gates would only run at 4 PM — a whole day after a broken spec or a drifted
+# runner CSV reached main.
+#
+# Deliberately NOT here: npm run webpet:audit. It reads each spec's
+# pre-conversion form out of the webpet-lift-v1 tag, so it needs fetch-depth: 0;
+# it stays on the webpet leg of the scheduled run.
+on:
+  pull_request:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Static gates
+    runs-on: ubuntu-latest
+    # Generous for a ~2 min job: the cap is here to kill a hung npm ci, not to
+    # bound normal work.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Keep in step with .nvmrc.
+          node-version: 24
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # A spec whose testCaseId has no row, an enabled row no spec claims, a
+      # category that disagrees with the spec's folder, or a JSON mirror that has
+      # drifted from its CSV — each of which silently skips a test at run time.
+      - name: Validate journey runner data
+        run: npm run runner:check
+
+      # Catches a webpet spec importing base.fixture — which would skip all 406
+      # while reporting green — plus orphaned/duplicate WP ids and leaked journey
+      # tags. None of those show up in a pass/fail column.
+      - name: Validate webpet ids and runner data
+        run: |
+          npm run webpet:ids:check
+          npm run webpet:runner:check

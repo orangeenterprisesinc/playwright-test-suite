@@ -51,7 +51,8 @@ playwright-test-suite/
 │   └── scopes/           per-customer segments + modules (TEST_SCOPE)
 │
 ├── .vscode/              editor: lint config paths, debug configs, recommendations
-├── .github/workflows/    e2e.yml — both suites against dev staging
+├── .github/workflows/    e2e.yml — both suites against dev staging (4 PM cron)
+│                         validate.yml — static gates on every pull request
 │
 ├── artifacts/            ALL run output — one .gitignore line
 │   ├── results/          results.json, traces, videos, screenshots

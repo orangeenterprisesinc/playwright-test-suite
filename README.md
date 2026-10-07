@@ -430,8 +430,8 @@ import { getDataSourceConfig } from '@config/dataSource.config';
 ### Execution Workflow
 
 ```
-Git Push / Schedule / repository_dispatch → GitHub Actions
-  → npm ci → npx playwright install --with-deps
+Schedule (4 PM IST) / manual dispatch → GitHub Actions
+  → npm ci → npx playwright install chromium
     → npx playwright test
       → Global Setup (auth dir, results dirs)
         → Auth Setup Project (browser login → storageState)
@@ -899,8 +899,8 @@ Two things that look like bugs but aren't:
 `e2e.yml` serves **both** suites. Its `suite` input (`journey` | `webpet`) switches the timeout, the `WEBPET`/`DB_*` env, the checkout depth, the validation gates, the test command, the S3 prefix and the artifact names — so the two never share artifacts or overwrite each other's reports:
 
 ```
-gh workflow run e2e.yml --ref dry-run -f suite=journey
-gh workflow run e2e.yml --ref dry-run -f suite=webpet -f batch=01
+gh workflow run e2e.yml -f suite=journey
+gh workflow run e2e.yml -f suite=webpet -f batch=01
 ```
 
 **The daily dry run is `e2e.yml`'s own cron** (`28 10 * * *`, ~4:00 PM IST), and it runs **both** suites one after the other via a serialised matrix:
@@ -913,13 +913,19 @@ gh workflow run e2e.yml --ref dry-run -f suite=webpet -f batch=01
 
 `max-parallel: 1` is load-bearing: both suites hit the same dev-staging data and the webpet suite mutates it, so they must never overlap. `fail-fast: false` is too — otherwise a red journey leg would cancel WebPet before it started.
 
+**The cron is the only thing that starts a run on its own — the rest are behind a switch.** `push: branches: [main]`, `repository_dispatch` and `workflow_call` are still declared, but since 2026-10-07 the `route` job refuses them unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes`. It is unset, so they are off, per the standup call to run end-to-end testing once a day: a merge to main only re-tests the dev-staging build the cron already covers, and a second run on the same dev tenant collides with the first ([ADR 0007](docs/adr/0007-journey-b-shared-tenant-and-import-deadline.md)).
+
+Set `CI_AUTO_TRIGGERS` to `yes` in **Settings ▸ Secrets and variables ▸ Actions ▸ Variables** to turn them back on — no YAML edit, no PR, and it takes effect on the next event. `schedule` and `workflow_dispatch` ignore the switch entirely and always run.
+
+The switch cannot live in the `on:` block, because the `vars` context is not available to a trigger. A push therefore still *starts* a run; `route` then skips the suite within a few seconds, and the run is listed with its `e2e` job skipped. The static gates that used to ride along on the push trigger moved to `validate.yml` — see below.
+
 Three things to know about the schedule:
 
 - **It fires from `main` only.** GitHub runs `schedule:` from the default branch; a cron block on any other branch is accepted and then never triggers. So a scheduled run tests `main`, and `dry-run` is kept in step with it rather than being the pinned code under test.
 - **Expect it to start late.** GitHub queues scheduled runs best-effort and has fired this 20+ minutes past the hour. It sits at 3:58 rather than 4:00 because `:00` and `:30` are the most contended minutes, but nothing removes the delay — which is why nothing in the reporting states a fixed clock time.
 - **There is no pre-run announcement.** `dry-run-reminder.yml` was removed; `scripts/notify/slack-reminder.ts` survives as a CLI if it is ever wanted back.
 
-Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` still runs on push to `main`, manual dispatch, and `repository_dispatch` (triggered externally by the app repo); those runs post **no** Slack message (see the Slack section below).
+Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` also accepts a manual `workflow_dispatch`, the escape hatch for running one spec against dev staging while you write it, plus `push`, `workflow_call` and `repository_dispatch` when `CI_AUTO_TRIGGERS` is `yes`; none of those post a Slack message (see the Slack section below).
 
 The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
@@ -927,23 +933,27 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 
 ```yaml
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-  workflow_call:            # reusable: an orchestrator can call this per suite
-  repository_dispatch:
-    types: [run-playwright]
+  schedule:
+    - cron: '28 10 * * *'   # ~4:00 PM IST — the only ungated automatic trigger
+  workflow_dispatch:                     # always allowed; costs nothing until clicked
+    inputs: [suite, grep, scope, batch, workers, run_label]
+  push:                                  # ─┐ declared, but the `route` job skips
+    branches: [main]                     #  │ the suite unless the CI_AUTO_TRIGGERS
+  workflow_call:                         #  │ repo variable is `yes`
+    inputs: [suite, grep, scope, batch, workers, suite_name, run_label]
+  repository_dispatch:                   #  │
+    types: [run-playwright]              # ─┘
 
-# github.workflow is the CALLER's name in a reusable workflow, so an orchestrated
-# dry run and a direct push/dispatch run cannot cancel each other.
+# github.event_name is in the group so a manual dispatch cannot cancel the 4 PM
+# run mid-suite — both fire from refs/heads/main.
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -951,7 +961,7 @@ jobs:
       - uses: actions/setup-java@v5        # required by allure-commandline
         with: { distribution: temurin, java-version: '21' }
       - run: npm ci
-      - run: npx playwright install --with-deps
+      - run: npx playwright install chromium
       - run: npx playwright test
       - uses: actions/cache@v6              # Allure trend history (keeps graphs across runs)
         if: always()
@@ -964,6 +974,28 @@ jobs:
       - run: aws s3 sync artifacts/results "s3://.../test-results" --no-progress
         if: always() && env.SEND_S3 == 'yes'
 ```
+
+### The PR gate — `validate.yml`
+
+Since `e2e.yml` no longer runs the suite on a push to `main` by default, the checks that can fail *without* an app
+run on every pull request instead, in [`.github/workflows/validate.yml`](.github/workflows/validate.yml):
+
+```
+npm run typecheck          # tsc --noEmit over src + tests
+npm run lint               # eslint
+npm run runner:check       # journey runner rows ↔ specs ↔ JSON mirror
+npm run webpet:ids:check   # orphan/duplicate WP ids, base.fixture imports, leaked tags
+npm run webpet:runner:check
+```
+
+No browser, no dev staging, no secrets, no Slack — about two minutes. Each of these catches a
+class of failure that a pass/fail column never shows: a spec whose `testCaseId` has no runner
+row **skips silently while the run reports green**, and a webpet spec that imports
+`base.fixture` skips all 406 the same way.
+
+`npm run webpet:audit` is deliberately *not* here — it reads each spec's pre-conversion form
+out of the `webpet-lift-v1` tag, so it needs `fetch-depth: 0`. It stays on the webpet leg of
+the scheduled run.
 
 **CI-specific behavior:**
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
@@ -996,7 +1028,7 @@ things must all be true (`src/reporting/deliver/slack/gate.ts`):
 2. `GITHUB_ACTIONS=true` — so `npm test`, `npx playwright test`, `--debug`, `--ui` and any
    laptop run are silent no matter how the env is set
 3. the GitHub event is listed in `SLACK_NOTIFY_EVENTS` (default `schedule`) — so a manual
-   `workflow_dispatch` and a `repository_dispatch` are silent too
+   `workflow_dispatch` is silent too
 
 Each refusal logs one line naming the setting that blocked it, so "why didn't it post?" is
 answerable from the run log. To get a message out of a test run deliberately, set
@@ -1038,7 +1070,7 @@ the summary still posts and the run never fails because of a notification.
 
 Recipients are **not** a single list. They are routed per run from
 [`config/notifications/recipients.csv`](config/notifications/recipients.csv), so the
-nightly cron can reach the whole team while a push to `main` or a laptop run reaches
+nightly cron can reach the whole team while a manual dispatch, a gated push run or a laptop run reaches
 one person. Edit that CSV — no code change needed.
 
 Each row's `scope` is one of `<branch>:<trigger>`, a bare `<branch>`, a bare
