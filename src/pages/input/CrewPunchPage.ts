@@ -125,11 +125,15 @@ export abstract class CrewPunchPage extends BasePage {
             const reason = (await this.page.locator('form').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
             throw new Error(`${this.pageUrl}: Save stayed disabled. Form says: ${reason.slice(0, 400)}`);
         }
+        // The commit is the POST, not the URL: dev's form can stay on /new after a 201 (seen with
+        // "Use Employee Crew" ticked), so leaving /new is not a reliable signal.
+        const committed = this.page.waitForResponse(
+            (r) => r.request().method() === 'POST' && /\/api\/time-cards\//.test(r.url()) && r.ok(),
+            { timeout: 20_000 },
+        );
         await this.saveButton.click();
-        // Committing leaves the /new form for the list. Asserting that is what turns a rejected save
-        // into a readable failure instead of a missing record noticed three steps later.
         try {
-            await this.page.waitForURL((url) => !url.pathname.endsWith('/new'), { timeout: 20_000 });
+            await committed;
         } catch {
             const reason = (await this.page.locator('form').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
             throw new Error(`${this.pageUrl}: Save was clicked but the form did not commit. Form says: ${reason.slice(0, 400)}`);
