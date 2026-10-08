@@ -913,11 +913,14 @@ gh workflow run e2e.yml -f suite=webpet -f batch=01
 
 `max-parallel: 1` is load-bearing: both suites hit the same dev-staging data and the webpet suite mutates it, so they must never overlap. `fail-fast: false` is too — otherwise a red journey leg would cancel WebPet before it started.
 
-**The cron is the only thing that starts a run on its own — the rest are behind a switch.** `push: branches: [main]`, `repository_dispatch` and `workflow_call` are still declared, but since 2026-10-07 the `route` job refuses them unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes`. It is unset, so they are off, per the standup call to run end-to-end testing once a day: a merge to main only re-tests the dev-staging build the cron already covers, and a second run on the same dev tenant collides with the first ([ADR 0007](docs/adr/0007-journey-b-shared-tenant-and-import-deadline.md)).
+**The cron is the only thing that starts a run on its own, and a merge to main starts nothing at all.** Per the standup call to run end-to-end testing once a day: a merge run only re-tests the dev-staging build the cron already covers, and a second run on the same dev tenant collides with the first ([ADR 0007](docs/adr/0007-journey-b-shared-tenant-and-import-deadline.md)).
 
-Set `CI_AUTO_TRIGGERS` to `yes` in **Settings ▸ Secrets and variables ▸ Actions ▸ Variables** to turn them back on — no YAML edit, no PR, and it takes effect on the next event. `schedule` and `workflow_dispatch` ignore the switch entirely and always run.
+Two mechanisms arrange this, because GitHub offers no single one that does both jobs:
 
-The switch cannot live in the `on:` block, because the `vars` context is not available to a trigger. A push therefore still *starts* a run; `route` then skips the suite within a few seconds, and the run is listed with its `e2e` job skipped. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4 PM only — a PR is not checked.
+- **`push: branches: [main]` is commented out** in `e2e.yml`. A declared trigger always *starts* a run entry before any job-level gate can stop it (`vars` is not readable in `on:`), and even a 9-second skipped entry per merge was unwanted. Re-enabling merge runs = uncomment those two lines **and** set the variable below.
+- **`repository_dispatch` and `workflow_call` stay declared but gated**: the `route` job refuses them unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes` (Settings ▸ Secrets and variables ▸ Actions ▸ Variables — it is unset). Declared, they cost nothing: neither fires on a merge or a PR, and a dispatch can only arrive if web-pet sends one (its `RUN_E2E` variable is `no`).
+
+`schedule` and `workflow_dispatch` are never gated and always run. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4 PM only — a PR is not checked.
 
 Three things to know about the schedule:
 
@@ -925,7 +928,7 @@ Three things to know about the schedule:
 - **Expect it to start late.** GitHub queues scheduled runs best-effort and has fired this 20+ minutes past the hour. It sits at 3:58 rather than 4:00 because `:00` and `:30` are the most contended minutes, but nothing removes the delay — which is why nothing in the reporting states a fixed clock time.
 - **There is no pre-run announcement.** `dry-run-reminder.yml` was removed; `scripts/notify/slack-reminder.ts` survives as a CLI if it is ever wanted back.
 
-Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` also accepts a manual `workflow_dispatch`, the escape hatch for running one spec against dev staging while you write it, plus `push`, `workflow_call` and `repository_dispatch` when `CI_AUTO_TRIGGERS` is `yes`; none of those post a Slack message (see the Slack section below).
+Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` also accepts a manual `workflow_dispatch`, the escape hatch for running one spec against dev staging while you write it, plus `workflow_call` and `repository_dispatch` when `CI_AUTO_TRIGGERS` is `yes` (a merge to main triggers nothing); none of those post a Slack message (see the Slack section below).
 
 The target comes from `TEST_ENV: dev` in the job env, which makes the framework load `.env.dev` (`BASE_URL=https://app.ptdev.xyz`, `API_URL=https://api.ptdev.xyz/api` — the API is a separate host from the static SPA).
 
@@ -937,12 +940,12 @@ on:
     - cron: '28 10 * * *'   # ~4:00 PM IST — the only ungated automatic trigger
   workflow_dispatch:                     # always allowed; costs nothing until clicked
     inputs: [suite, grep, scope, batch, workers, run_label]
-  push:                                  # ─┐ declared, but the `route` job skips
-    branches: [main]                     #  │ the suite unless the CI_AUTO_TRIGGERS
-  workflow_call:                         #  │ repo variable is `yes`
+  # push:                               # commented out — a merge to main must
+  #   branches: [main]                   # trigger nothing, not even a skip entry
+  workflow_call:                         # ─┐ declared, but the `route` job skips
     inputs: [suite, grep, scope, batch, workers, suite_name, run_label]
-  repository_dispatch:                   #  │
-    types: [run-playwright]              # ─┘
+  repository_dispatch:                   #  │ the suite unless CI_AUTO_TRIGGERS
+    types: [run-playwright]              # ─┘ is `yes`
 
 # github.event_name is in the group so a manual dispatch cannot cancel the 4 PM
 # run mid-suite — both fire from refs/heads/main.
@@ -1048,7 +1051,7 @@ the summary still posts and the run never fails because of a notification.
 
 Recipients are **not** a single list. They are routed per run from
 [`config/notifications/recipients.csv`](config/notifications/recipients.csv), so the
-nightly cron can reach the whole team while a manual dispatch, a gated push run or a laptop run reaches
+nightly cron can reach the whole team while a manual dispatch or a laptop run reaches
 one person. Edit that CSV — no code change needed.
 
 Each row's `scope` is one of `<branch>:<trigger>`, a bare `<branch>`, a bare
