@@ -52,6 +52,18 @@ export interface PreviewSegment {
     amount: number;
 }
 
+/** One row of the Job Cards tab's overtime columns (E2). Numbers are NaN while a cell is empty. */
+export interface PreviewOvertimeRow {
+    job: string;
+    grossTime: number;
+    meal: number;
+    netTime: number;
+    regularHours: number;
+    overtime: number;
+    doubleTime: number;
+    amount: number;
+}
+
 export class TransferToJobCardsPage extends BasePage {
     readonly pageUrl: string = '/transfer-to-job-cards';
     readonly pageTitle: string | RegExp = /Transfer to Job Cards/i;
@@ -810,19 +822,59 @@ export class TransferToJobCardsPage extends BasePage {
         return out;
     }
 
-    /**
-     * The Job Cards tab's rows in chronological order (D10). Column positions are resolved from the
-     * header row by name rather than hard-coded: a silent shift would read the wrong cell and turn
-     * into a wrong green.
-     */
-    async previewSegments(): Promise<PreviewSegment[]> {
+    /** Column positions resolved from the header row by name. Shared so the readers cannot drift. */
+    private async previewColumnIndexes(names: readonly string[]): Promise<Record<string, number>> {
         const headers = (await this.previewGrid.getByRole('columnheader').allInnerTexts()).map((h) => h.trim());
         const column = (name: string): number => {
             const index = headers.findIndex((h) => new RegExp(`^${name}\\b`).test(h));
             if (index < 0) throw new Error(`Job Cards preview has no '${name}' column; headers are ${JSON.stringify(headers)}`);
             return index;
         };
-        const at = { job: column('Job'), timeIn: column('Date Time In'), timeOut: column('Date Time Out'), gross: column('Gross Time'), net: column('Net Time'), amount: column('Amount') };
+        return Object.fromEntries(names.map((name) => [name, column(name)]));
+    }
+
+    /**
+     * The Job Cards tab's overtime columns (E2). An `HH:MM` cell throws by name: the number-stripping
+     * parse would otherwise turn "11:30" into 1130 and assert against a plausible wrong number.
+     */
+    async previewOvertimeBuckets(): Promise<PreviewOvertimeRow[]> {
+        const at = await this.previewColumnIndexes(['Job', 'Gross Time', 'Meal', 'Net Time', 'Regular Hours', 'Overtime', 'Double Time', 'Amount']);
+        const rows = this.previewGrid.getByRole('row', { name: /^Row \d+$/ });
+        const count = await rows.count();
+        const out: PreviewOvertimeRow[] = [];
+        for (let i = 0; i < count; i += 1) {
+            const cells = rows.nth(i).getByRole('cell');
+            const text = async (name: string) => ((await cells.nth(at[name]).textContent()) ?? '').trim();
+            const num = async (name: string): Promise<number> => {
+                const raw = await text(name);
+                if (/^\d+:\d{2}$/.test(raw)) {
+                    throw new Error(`Job Cards preview renders '${name}' as HH:MM ("${raw}"), not a decimal; the E2 plan assumes decimal hours`);
+                }
+                const digits = raw.replace(/[^0-9.-]/g, '');
+                return digits === '' ? NaN : Number(digits);
+            };
+            out.push({
+                job: await text('Job'),
+                grossTime: await num('Gross Time'),
+                meal: await num('Meal'),
+                netTime: await num('Net Time'),
+                regularHours: await num('Regular Hours'),
+                overtime: await num('Overtime'),
+                doubleTime: await num('Double Time'),
+                amount: await num('Amount'),
+            });
+        }
+        return out;
+    }
+
+    /**
+     * The Job Cards tab's rows in chronological order (D10). Column positions are resolved from the
+     * header row by name rather than hard-coded: a silent shift would read the wrong cell and turn
+     * into a wrong green.
+     */
+    async previewSegments(): Promise<PreviewSegment[]> {
+        const idx = await this.previewColumnIndexes(['Job', 'Date Time In', 'Date Time Out', 'Gross Time', 'Net Time', 'Amount']);
+        const at = { job: idx['Job'], timeIn: idx['Date Time In'], timeOut: idx['Date Time Out'], gross: idx['Gross Time'], net: idx['Net Time'], amount: idx['Amount'] };
 
         const rows = this.previewGrid.getByRole('row', { name: /^Row \d+$/ });
         const count = await rows.count();

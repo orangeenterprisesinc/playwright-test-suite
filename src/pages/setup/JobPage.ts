@@ -37,6 +37,7 @@ export class JobPage extends SetupScreenPage {
     readonly hourlyRateInput: Locator;
     readonly paymentTypeSelect: Locator;
     readonly overtimeRulesCombobox: Locator;
+    readonly considerEmployeeRateControl: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -54,6 +55,7 @@ export class JobPage extends SetupScreenPage {
         this.paymentTypeSelect = page.locator('#paymentType');
         // Lower-case t here; Setup ▸ Field spells the same field `#overTimeRulesCounter`.
         this.overtimeRulesCombobox = page.locator('#overtimeRulesCounter');
+        this.considerEmployeeRateControl = page.getByLabel(/Consider Employee Rate/i);
         this.pickers = new PickerComponent(page);
     }
 
@@ -139,6 +141,59 @@ export class JobPage extends SetupScreenPage {
         await this.pieceRateInput.waitFor({ state: 'visible', timeout: 30_000 });
         await expect(this.pieceRateInput).not.toHaveValue('', { timeout: 30_000 });
         return this.pieceRateInput.inputValue();
+    }
+
+    /** The Overtime Rule combobox's label, once its options have hydrated. */
+    async readOvertimeRule(): Promise<string> {
+        // The combobox fetches its own options after the rest of the form has settled; read it too
+        // early and an already-correct record looks unset.
+        await expect(this.overtimeRulesCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        return this.overtimeRulesCombobox.inputValue();
+    }
+
+    /**
+     * Pickers label an option bare or as "<exportIdentifier> : <name>", so the no-op check is the
+     * label pattern, never `===`. A wrong "different" re-picks, leaves the form clean, Save never
+     * enables, and the failure reads "Save stayed disabled".
+     */
+    async setOvertimeRule(name: string): Promise<string> {
+        const current = await this.readOvertimeRule();
+        if (PickerComponent.labelPattern(name).test(current)) return current;
+
+        const editUrl = this.page.url();
+        await this.pickers.pickCombobox(this.overtimeRulesCombobox, name);
+        await this.saveEdit();
+
+        await this.page.goto(editUrl);
+        await this.nameInput.waitFor({ state: 'visible', timeout: 30_000 });
+        return this.readOvertimeRule();
+    }
+
+    async setHourlyRate(rate: number): Promise<string> {
+        const current = await this.hourlyRateInput.inputValue();
+        if (Number(current) === rate) return current;
+
+        const editUrl = this.page.url();
+        await this.hourlyRateInput.fill(String(rate));
+        // Validation runs on blur, and Save stays disabled until it has.
+        await this.hourlyRateInput.blur();
+        await expect(this.saveButton, `Save stayed disabled after setting Hourly Rate to ${rate}`).toBeEnabled({ timeout: 15_000 });
+        await this.saveButton.click();
+        await expect(this.unsavedChangesBar).toBeHidden({ timeout: 15_000 });
+
+        await this.page.goto(editUrl);
+        await this.hourlyRateInput.waitFor({ state: 'visible', timeout: 30_000 });
+        await expect(this.hourlyRateInput).not.toHaveValue('', { timeout: 30_000 });
+        return this.hourlyRateInput.inputValue();
+    }
+
+    /** Control shape is unverified (checkbox, switch or select), so try each reading in turn. */
+    async readConsiderEmployeeRate(): Promise<string> {
+        const control = this.considerEmployeeRateControl.first();
+        await control.waitFor({ state: 'attached', timeout: 15_000 });
+        const aria = await control.getAttribute('aria-checked');
+        if (aria !== null) return aria;
+        return control.isChecked().then(String, () => control.innerText());
     }
 }
 

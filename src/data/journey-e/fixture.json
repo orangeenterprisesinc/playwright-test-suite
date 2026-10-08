@@ -1,0 +1,24 @@
+{
+  "_notes": [
+    "Fixed Journey E fixture (catalog E2, plan test-plans/journey-e/e02-california-daily-overtime.md). Built on screen through src/utils/fixtureRows/ensureOnScreen.ts, never by API POST, and never deleted.",
+    "Codes continue Journey D's block: D10 took crew 8014 / employee 8015 and jobs 4604-4606. Job code 4602 stays burnt by a soft-deleted 'D6 JOB RATE PROBE' that owns its code in the recycle bin (WEBPET-2368) and would 409 the New Job form. 8016, 8017 and 4607 were probed free (live rows and recycle bin) on 2026-10-05.",
+    "Names start with 'E2 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^E\\d{1,2} / so the residue sweep and fixtureReconcile can never reclaim them. The trailing space matters: 'E2EEmp_' and the other E2E sweep prefixes stay sweepable.",
+    "E2 JOB carries hourlyRate 20 so 1.5x and 2x are exact in two decimals; the overtime rule (AG CA 2022) and the rate are applied through the Job form on every run, because ensureOnScreen never applies either."
+  ],
+  "e2": {
+    "crew": {
+      "code": "8016",
+      "name": "E2 CREW"
+    },
+    "picker": {
+      "code": "8017",
+      "name": "E2 PICKER ONE"
+    },
+    "job": {
+      "code": "4607",
+      "name": "E2 JOB",
+      "paymentType": "Time",
+      "hourlyRate": 20
+    }
+  }
+}
