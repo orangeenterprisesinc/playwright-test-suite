@@ -303,9 +303,18 @@ The mechanism spans four pieces:
 
 ## 8. GitHub CI
 
-One workflow: `e2e.yml`, against dev staging, serving both suites. It owns the repo's **only
-cron**; there is no separate orchestrator. It also listens for the external
-`repository_dispatch` (`run-playwright`), so an app-side build reaches dev staging.
+One workflow. `e2e.yml` runs the suites against dev staging and owns the repo's **only
+cron**; there is no separate orchestrator. The static gates (typecheck, lint, the runner and
+id checks) run inside its job, so with the automatic triggers off they execute at 4 PM only —
+a pull request is not checked.
+
+**Nothing but the 4 PM cron starts a suite run.** On 2026-10-07, per the standup call to run
+end-to-end testing once a day, `e2e.yml` lost its `push: branches: [main]`,
+`repository_dispatch` (`run-playwright`, from web-pet) and `workflow_call` triggers; dev
+staging deploys from main only, so a merge run just re-tested the build the cron already
+covers, and a second run on the same dev tenant collides with the first
+([ADR 0007](adr/0007-journey-b-shared-tenant-and-import-deadline.md)). `workflow_dispatch`
+stays as the escape hatch for running one spec while you write it.
 
 The self-hosted `e2e-local.yml` / `webpet-e2e-local.yml` pair was **removed**, along with all
 local-execution support. They booted the app natively on one QA machine (SQL Server Express over
@@ -314,16 +323,20 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
 `TEST_ENV` defaults to `dev`.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **`schedule` (`28 10 * * *`, ~4:00 PM IST — the daily dry run)**, push to `main`, manual
-  dispatch, external `repository_dispatch`, and `workflow_call`.
+- Triggers: **`schedule` (`28 10 * * *`, ~4:00 PM IST — the daily dry run)** and manual
+  `workflow_dispatch`, both always allowed. `push: branches: [main]`, `workflow_call` and
+  `repository_dispatch` are still declared but **gated**: the `route` job skips the suite
+  unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes` (it is unset). Flip that variable
+  to re-enable them without a YAML change. The gate sits in a job, not in `on:`, because
+  `vars` is unavailable to a trigger — so a push starts a run that then skips.
 - Serves **both** suites via `matrix.suite` (`journey` | `webpet`) — see §9. The cron runs both
-  serially; every other trigger runs one.
-- Runner: `ubuntu-latest` (GitHub-hosted); 15-min timeout for journey, 90 for webpet.
+  serially; a dispatch runs the one it selected, or `both` to mirror the cron.
+- Runner: `ubuntu-latest` (GitHub-hosted); 90-min timeout, both suites.
 - Does **not** boot an app — targets dev staging via `TEST_ENV=dev` (see §7). Pinning
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
   at a containerized stack that isn't running on the runner.
 - Steps: guard that the password secret exists → checkout → Node 24 → Java 21 (Allure) →
-  `npm ci` → `npx playwright install --with-deps` → compute deterministic `REPORT_S3_URL` →
+  `npm ci` → `npx playwright install chromium` → compute deterministic `REPORT_S3_URL` →
   `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
 - Credentials: the `DEV_PASSWORD` **secret** is required and has no fallback — a generic
   `PASSWORD` secret is deliberately *not* consulted, because a stale localhost one silently
@@ -387,9 +400,8 @@ separate CI send step. All three channels are self-gating (do nothing unless the
   `SLACK_CHANNEL_ID` are set, since webhooks cannot carry files.
   [`slack/gate.ts`](../src/reporting/deliver/slack/gate.ts) makes it **CI-only**: `SEND_SLACK`,
   plus `GITHUB_ACTIONS=true`, plus the event being in `SLACK_NOTIFY_EVENTS` (default
-  `schedule`). So `npm test`, `--debug`, `--ui`, a manual `workflow_dispatch` and a
-  `repository_dispatch` all post nothing. `SLACK_DRY_RUN=1` logs the payload instead of sending
-  it.
+  `schedule`). So `npm test`, `--debug`, `--ui` and a manual `workflow_dispatch` all post
+  nothing. `SLACK_DRY_RUN=1` logs the payload instead of sending it.
 - [`emailReporter.ts`](../src/reporting/deliver/emailReporter.ts) — **deprecated**. Still works
   (HTML email via nodemailer + the lean Allure report), but `SEND_EMAIL` is pinned to `no` in
   every workflow and nothing new lands here.

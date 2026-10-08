@@ -45,6 +45,23 @@ name: E2E
 # A scheduled run therefore tests main. `dry-run` is kept in step with main rather
 # than being pinned as the code under test, which is what the removed
 # `ref: dry-run` / BRANCH_OVERRIDE pair used to arrange.
+#
+# ── THE 4 PM CRON RUNS; THE OTHER AUTOMATIC TRIGGERS SIT BEHIND A SWITCH ────
+# Per the 2026-10-06 standup call the suite runs once a day. `push:
+# branches: [main]`, `repository_dispatch` (run-playwright, from web-pet) and
+# `workflow_call` are still declared below, but the `route` job refuses them
+# unless the CI_AUTO_TRIGGERS repo variable is `yes`. It is unset, so they are
+# off — turn one back on in Settings ▸ Secrets and variables ▸ Actions ▸
+# Variables, with no YAML edit and no PR.
+#
+# The gate cannot live in `on:` — the `vars` context is not available to a
+# trigger. So a push still STARTS a run and `route` skips the suite a few
+# seconds later; the run is listed with its `e2e` job skipped.
+#
+# schedule and workflow_dispatch are never gated. The static gates — typecheck,
+# lint, runner:check, webpet:ids:check, webpet:runner:check — run inside the e2e
+# job below, so with the triggers off they execute at 4 PM only; a PR is not
+# checked.
 on:
   schedule:
     # The daily dry run, ~4:00 PM IST (IST is UTC+5:30; cron is always UTC). Set a
@@ -89,7 +106,9 @@ on:
   # Reusable, so an orchestrator could drive this once per suite. Nothing calls it
   # today — the cron above runs both suites itself. Kept because a caller inherits
   # this workflow's triggering event, which is what would keep the Slack gate in
-  # src/reporting/deliver/slack/gate.ts satisfied for an orchestrated run.
+  # src/reporting/deliver/slack/gate.ts satisfied for an orchestrated run. Note
+  # that inheritance also decides the CI_AUTO_TRIGGERS gate: a caller running on
+  # `schedule` passes it, a caller running on `push` does not.
   workflow_call:
     inputs:
       suite:
@@ -142,13 +161,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # web-pet's advisory job dispatches this workflow on every PR AND on every
-  # merge to main. Dev staging is deployed from main only, so the merge run
-  # retests the same build the 4 PM cron covers and just adds a Slack post per
-  # merge. Skip it here rather than in web-pet: web-pet's helper exits non-zero
-  # on any run conclusion other than `success`, and a run whose only job was
-  # skipped concludes `skipped`. With this job green the run concludes `success`
-  # even when `e2e` is skipped, so web-pet's verdict stays PASS.
+  # The one place that decides whether the suite actually runs. It lives here, and
+  # not in `on:`, because a trigger cannot read `vars`; and not in web-pet, because
+  # web-pet's helper exits non-zero on any run conclusion other than `success`, and
+  # a run whose only job was skipped concludes `skipped`. With this job green the
+  # run concludes `success` even when `e2e` is skipped, so web-pet's verdict stays
+  # PASS.
   route:
     name: Route dispatch
     runs-on: ubuntu-latest
@@ -157,9 +175,23 @@ jobs:
     steps:
       - id: decide
         env:
-          RUN_LABEL: ${{ inputs.run_label }}
+          # THE SWITCH. Unset or anything but `yes` means push, repository_dispatch
+          # and workflow_call start a run that stops right here. Set it to `yes` in
+          # Settings ▸ Secrets and variables ▸ Actions ▸ Variables to let them
+          # through again. schedule and workflow_dispatch ignore it entirely.
+          AUTO_TRIGGERS: ${{ vars.CI_AUTO_TRIGGERS }}
+          EVENT: ${{ github.event_name }}
+          RUN_LABEL: ${{ inputs.run_label || github.event.client_payload.run_label }}
         run: |
-          if [[ "$RUN_LABEL" == "web-pet push "* ]]; then
+          if [[ "$EVENT" != "schedule" && "$EVENT" != "workflow_dispatch" && "$AUTO_TRIGGERS" != "yes" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::'$EVENT' is switched off. Set the CI_AUTO_TRIGGERS repo variable to 'yes' to let it run the suite. The 4 PM cron and manual dispatch are unaffected."
+          # web-pet's advisory e2e-dev job dispatches on every PR AND every merge to
+          # main. dev staging is deployed from main only, so the merge run retests
+          # the build the 4 PM cron already covers and just adds a Slack post. This
+          # stays even with the switch on — it is dormant anyway while web-pet's
+          # RUN_E2E variable is `no`.
+          elif [[ "$RUN_LABEL" == "web-pet push "* ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::'$RUN_LABEL' is a merge-to-main dispatch — the suite runs on PRs and the 4 PM cron only."
           else

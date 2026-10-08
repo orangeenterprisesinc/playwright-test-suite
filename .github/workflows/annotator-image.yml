@@ -4,8 +4,12 @@ name: Build annotator image
 # GitHub Container Registry. annotate-video.yml then runs that image instead of
 # provisioning Python on a runner.
 #
-# Runs only when the annotator itself changes — the image is a stable artifact,
-# not something to rebuild on every commit to the test suite.
+# Manual dispatch only. It used to build on a push to main that touched the
+# annotator's own files, which fired exactly once in six weeks; since the
+# 2026-10-06 standup call it is dispatch-only, so rebuild the image by hand after
+# changing the Dockerfile, requirements.txt or either Python entry point. Unlike
+# e2e.yml's gated triggers there is no switch here — the push trigger was dropped
+# outright, so restoring it means editing the `on:` block.
 #
 # ~330 MB (python:3.12-slim + opencv + numpy). An earlier version bundled a
 # YOLOv8 detector for ~1.9 GB; it was removed after measurement showed the
@@ -15,14 +19,6 @@ name: Build annotator image
 # packages:write permission below is all the push needs.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/video-annotator/Dockerfile'
-      - 'tools/video-annotator/requirements.txt'
-      - 'tools/video-annotator/annotate_video.py'
-      - 'tools/video-annotator/make_cursors.py'
-      - '.github/workflows/annotator-image.yml'
   workflow_dispatch:
 
 concurrency:
