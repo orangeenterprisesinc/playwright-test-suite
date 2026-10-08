@@ -43,6 +43,17 @@ export class CrewTimeInPage extends CrewPunchPage {
     }
 
     /**
+     * Source the roster from crew membership. Unchecked, the form lists only employees who
+     * already have time cards for the crew (`employees-from-timecards`), which is empty for a
+     * fixture crew with no history; checked, it asks `crew-time-in/employees?crewCounter=`.
+     */
+    async useEmployeeCrew(): Promise<void> {
+        const box = this.page.getByRole('checkbox', { name: 'Use Employee Crew' });
+        if (!(await box.isChecked())) await box.check();
+        await expect(box).toBeChecked();
+    }
+
+    /**
      * Narrow the punch to named employees.
      *
      * The crew's members arrive **pre-checked**, so this deselects everything and
@@ -78,6 +89,8 @@ export class CrewTimeInPage extends CrewPunchPage {
     }): Promise<void> {
         await this.gotoNew();
         await this.setDateTime(opts.day, opts.hour, opts.minute);
+        // Before the crew and the rest: ticking it later blanked Field/Phase and Save then refused.
+        if (opts.employees) await this.useEmployeeCrew();
         await this.selectCrew(opts.crew);
         await this.selectRanch(opts.ranch);
         await this.selectField(opts.field);
