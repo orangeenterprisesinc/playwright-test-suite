@@ -41,8 +41,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # --quiet drops warnings, so only errors fail the gate and only errors show
+      # up as PR annotations. The suite carries ~60 pre-existing lint warnings
+      # (networkidle, waitForTimeout, not.toBeVisible) that would otherwise flag
+      # on every PR; run `npm run lint` locally to see them all.
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --quiet
 
       # A spec whose testCaseId has no row, an enabled row no spec claims, a
       # category that disagrees with the spec's folder, or a JSON mirror that has
