@@ -26,11 +26,13 @@ A merged spec **automatically joins the daily scheduled regression run** on
 `main` — there is no extra registration step beyond the runner row the spec
 already carries.
 
-Note what your PR does and does not get: `validate.yml` runs the static gates on
-it (typecheck, lint, runner and id checks — about two minutes, no browser), but
-**no suite runs on the PR or on the merge**. The 4 PM run is the first time your
-spec executes against dev staging. To see it run sooner, dispatch it yourself:
-`gh workflow run e2e.yml -f suite=journey -f grep=@YourTag`.
+Note what your PR does and does not get: **nothing runs on the PR or on the
+merge** — no static gates, no suite. The gates (typecheck, lint, runner and id
+checks) and the suite itself both run inside `e2e.yml`, which fires at 4 PM only,
+so that daily run is the first thing to exercise your spec. To check it sooner,
+run the gates locally (`npm run typecheck && npm run lint && npm run
+runner:check`) and dispatch the suite yourself: `gh workflow run e2e.yml -f
+suite=journey -f grep=@YourTag`.
 
 ### Per-feature coverage decisions
 

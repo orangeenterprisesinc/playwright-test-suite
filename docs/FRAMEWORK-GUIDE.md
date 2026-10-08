@@ -303,9 +303,10 @@ The mechanism spans four pieces:
 
 ## 8. GitHub CI
 
-Two workflows. `e2e.yml` runs the suites against dev staging and owns the repo's **only
-cron**; there is no separate orchestrator. `validate.yml` runs the static gates on every pull
-request — no browser, no app.
+One workflow. `e2e.yml` runs the suites against dev staging and owns the repo's **only
+cron**; there is no separate orchestrator. The static gates (typecheck, lint, the runner and
+id checks) run inside its job, so with the automatic triggers off they execute at 4 PM only —
+a pull request is not checked.
 
 **Nothing but the 4 PM cron starts a suite run.** On 2026-10-07, per the standup call to run
 end-to-end testing once a day, `e2e.yml` lost its `push: branches: [main]`,
@@ -348,16 +349,6 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
   over SQL, which is why the now-unused `DB_SERVER`/`DB_USER`/`DB_PASSWORD` secrets and
   `DB_CLIENT` variable may still exist in the repo settings — dev staging's SQL Server is
   VPC-private and stays that way.
-
-**[`validate.yml`](../.github/workflows/validate.yml) — "Validate" (every pull request)**
-- Triggers: `pull_request`. The gate that replaced the removed push-to-main trigger.
-- `npm ci` → `typecheck` → `lint` → `runner:check` → `webpet:ids:check` → `webpet:runner:check`.
-  No browser, no dev staging, no secrets, no Slack — ~2 min.
-- Each of these catches a failure class that a pass/fail column never shows: a spec whose
-  `testCaseId` has no runner row skips silently while the run reports green, and a webpet spec
-  importing `base.fixture` skips all 406 the same way.
-- `webpet:audit` is deliberately excluded — it reads the `webpet-lift-v1` tag, so it needs
-  `fetch-depth: 0`; it stays on the webpet leg of the scheduled run.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) with `suite: webpet`** — the migrated web-pet
 suite (see §9), running against app.ptdev.xyz as the second half of the daily dry run (below)

@@ -58,10 +58,10 @@ name: E2E
 # trigger. So a push still STARTS a run and `route` skips the suite a few
 # seconds later; the run is listed with its `e2e` job skipped.
 #
-# schedule and workflow_dispatch are never gated. The static gates that used to
-# ride along on the push trigger — typecheck, lint, runner:check,
-# webpet:ids:check, webpet:runner:check — now live in validate.yml, on every
-# pull request, without a browser.
+# schedule and workflow_dispatch are never gated. The static gates — typecheck,
+# lint, runner:check, webpet:ids:check, webpet:runner:check — run inside the e2e
+# job below, so with the triggers off they execute at 4 PM only; a PR is not
+# checked.
 on:
   schedule:
     # The daily dry run, ~4:00 PM IST (IST is UTC+5:30; cron is always UTC). Set a

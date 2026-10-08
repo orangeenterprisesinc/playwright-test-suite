@@ -917,7 +917,7 @@ gh workflow run e2e.yml -f suite=webpet -f batch=01
 
 Set `CI_AUTO_TRIGGERS` to `yes` in **Settings ▸ Secrets and variables ▸ Actions ▸ Variables** to turn them back on — no YAML edit, no PR, and it takes effect on the next event. `schedule` and `workflow_dispatch` ignore the switch entirely and always run.
 
-The switch cannot live in the `on:` block, because the `vars` context is not available to a trigger. A push therefore still *starts* a run; `route` then skips the suite within a few seconds, and the run is listed with its `e2e` job skipped. The static gates that used to ride along on the push trigger moved to `validate.yml` — see below.
+The switch cannot live in the `on:` block, because the `vars` context is not available to a trigger. A push therefore still *starts* a run; `route` then skips the suite within a few seconds, and the run is listed with its `e2e` job skipped. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4 PM only — a PR is not checked.
 
 Three things to know about the schedule:
 
@@ -974,28 +974,6 @@ jobs:
       - run: aws s3 sync artifacts/results "s3://.../test-results" --no-progress
         if: always() && env.SEND_S3 == 'yes'
 ```
-
-### The PR gate — `validate.yml`
-
-Since `e2e.yml` no longer runs the suite on a push to `main` by default, the checks that can fail *without* an app
-run on every pull request instead, in [`.github/workflows/validate.yml`](.github/workflows/validate.yml):
-
-```
-npm run typecheck          # tsc --noEmit over src + tests
-npm run lint               # eslint
-npm run runner:check       # journey runner rows ↔ specs ↔ JSON mirror
-npm run webpet:ids:check   # orphan/duplicate WP ids, base.fixture imports, leaked tags
-npm run webpet:runner:check
-```
-
-No browser, no dev staging, no secrets, no Slack — about two minutes. Each of these catches a
-class of failure that a pass/fail column never shows: a spec whose `testCaseId` has no runner
-row **skips silently while the run reports green**, and a webpet spec that imports
-`base.fixture` skips all 406 the same way.
-
-`npm run webpet:audit` is deliberately *not* here — it reads each spec's pre-conversion form
-out of the `webpet-lift-v1` tag, so it needs `fetch-depth: 0`. It stays on the webpet leg of
-the scheduled run.
 
 **CI-specific behavior:**
 - Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
