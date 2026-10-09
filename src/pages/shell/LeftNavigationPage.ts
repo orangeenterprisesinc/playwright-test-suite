@@ -43,12 +43,15 @@ export class LeftNavigationPage extends BasePage {
      * heading; the first match wins.
      */
     menuItem(name: string): Locator {
+        return this.menuItems(name).first();
+    }
+
+    private menuItems(name: string): Locator {
         return this.page
             .getByRole('link', { name, exact: true })
             .or(this.page.getByRole('button', { name, exact: true }))
             .or(this.page.getByRole('menuitem', { name, exact: true }))
-            .or(this.page.getByRole('treeitem', { name, exact: true }))
-            .first();
+            .or(this.page.getByRole('treeitem', { name, exact: true }));
     }
 
     /**
@@ -59,9 +62,17 @@ export class LeftNavigationPage extends BasePage {
      * starting state.
      */
     async expandGroup(group: string, child: string): Promise<void> {
-        if (await this.menuItem(child).isVisible().catch(() => false)) return;
-        await this.menuItem(group).click();
-        await this.menuItem(child).waitFor({ state: 'visible' });
+        const childItem = this.menuItem(child);
+        if (await childItem.isVisible().catch(() => false)) return;
+        // "Setup" is both a top-level group and File ▸ Administration ▸ Setup, and the nested one comes first
+        // in the DOM once Administration is open (e.g. after Preferences) — try each until the child shows.
+        for (const candidate of await this.menuItems(group).all()) {
+            if (!(await candidate.isVisible())) continue;
+            await candidate.click();
+            const shown = await childItem.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
+            if (shown) return;
+        }
+        await childItem.waitFor({ state: 'visible' });
     }
 
     /**
