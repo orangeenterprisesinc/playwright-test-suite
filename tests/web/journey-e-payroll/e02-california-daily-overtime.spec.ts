@@ -51,58 +51,63 @@ test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, 
             const buckets = await pages.transferToJobCards.previewOvertimeBuckets();
             expect(buckets, `${scenario.label}: the preview must show exactly ${expected.jobCards} job card`).toHaveLength(expected.jobCards);
 
+            // E2 is a known product red (daily-overtime calc). Value checks are SOFT so one run walks the
+            // whole flow and records EVERY discrepancy for later triage; length/structural gates stay hard so
+            // array access can't crash. The test still fails — soft failures are reported at the end.
             const card = buckets[0];
-            expect(card.job, `${scenario.label}: the previewed card must be E2 JOB`).toContain(run.job.name);
+            expect.soft(card.job, `${scenario.label}: the previewed card must be E2 JOB`).toContain(run.job.name);
             // The day: one automatic half-hour meal, deducted once; 11.50 gross becomes 11.00 net.
-            expect(card.grossTime, `${scenario.label}: gross hours`).toBe(expected.grossMinutes / 60);
-            expect(card.meal, `${scenario.label}: the automatic meal in hours`).toBe(expected.mealMinutes / 60);
-            expect(card.netTime, `${scenario.label}: net hours after the meal`).toBe(expected.netHours);
+            expect.soft(card.grossTime, `${scenario.label}: gross hours`).toBe(expected.grossMinutes / 60);
+            expect.soft(card.meal, `${scenario.label}: the automatic meal in hours`).toBe(expected.mealMinutes / 60);
+            expect.soft(card.netTime, `${scenario.label}: net hours after the meal`).toBe(expected.netHours);
             // The three buckets ARE the workflow, and they sum to the net day, not the gross.
-            expect(card.regularHours, `${scenario.label}: regular hours (first eight)`).toBe(expected.regularHours);
-            expect(card.overtime, `${scenario.label}: overtime hours (eight to ten, at 1.5x)`).toBe(expected.overtimeHours);
-            expect(card.doubleTime, `${scenario.label}: double-time hours (beyond ten, at 2x)`).toBe(expected.doubleTimeHours);
-            expect(
+            expect.soft(card.regularHours, `${scenario.label}: regular hours (first eight)`).toBe(expected.regularHours);
+            expect.soft(card.overtime, `${scenario.label}: overtime hours (eight to ten, at 1.5x)`).toBe(expected.overtimeHours);
+            expect.soft(card.doubleTime, `${scenario.label}: double-time hours (beyond ten, at 2x)`).toBe(expected.doubleTimeHours);
+            expect.soft(
                 card.regularHours + card.overtime + card.doubleTime,
                 `${scenario.label}: the three buckets must sum to the NET day (${expected.netHours}), not the gross`,
             ).toBe(expected.netHours);
             // The premium on the regular rate — the forty dollars that distinguish "the rule applied" from "it did not".
-            expect(card.amount, `${scenario.label}: amount = 8x20 + 2x30 + 1x40`).toBe(expected.totalAmount);
+            expect.soft(card.amount, `${scenario.label}: amount = 8x20 + 2x30 + 1x40`).toBe(expected.totalAmount);
 
             const totals = await pages.transferToJobCards.previewTotals();
-            expect(totals, `${scenario.label}: preview totals bar`).toEqual({ pieces: expected.pieces, jobCards: expected.jobCards, employees: expected.employees });
+            expect.soft(totals, `${scenario.label}: preview totals bar`).toEqual({ pieces: expected.pieces, jobCards: expected.jobCards, employees: expected.employees });
 
             // Corroborate the boundaries over the non-committing job-cards-preview, independent of grid formatting.
             const boundaries = await readPreviewBoundaries(run, { sessionApi });
             expect(boundaries, `${scenario.label}: one previewed card`).toHaveLength(expected.jobCards);
             const b = boundaries[0];
-            expect({ h: b.start.hour, m: b.start.minute }, `${scenario.label}: preview time-in`).toEqual({ h: capture.timeIn.hour, m: capture.timeIn.minute });
-            expect({ h: b.end.hour, m: b.end.minute }, `${scenario.label}: preview time-out`).toEqual({ h: capture.timeOut.hour, m: capture.timeOut.minute });
-            expect(b.grossMinutes, `${scenario.label}: preview gross minutes`).toBe(expected.grossMinutes);
-            expect(b.netMinutes, `${scenario.label}: preview net minutes`).toBe(expected.netMinutes);
-            expect(b.grossMinutes - b.netMinutes, `${scenario.label}: the meal the engine took`).toBe(expected.mealMinutes);
-            expect(b.grossMinutes, `${scenario.label}: gross matches the captured span`).toBe(minutes(capture.timeOut) - minutes(capture.timeIn));
+            expect.soft({ h: b.start.hour, m: b.start.minute }, `${scenario.label}: preview time-in`).toEqual({ h: capture.timeIn.hour, m: capture.timeIn.minute });
+            expect.soft({ h: b.end.hour, m: b.end.minute }, `${scenario.label}: preview time-out`).toEqual({ h: capture.timeOut.hour, m: capture.timeOut.minute });
+            expect.soft(b.grossMinutes, `${scenario.label}: preview gross minutes`).toBe(expected.grossMinutes);
+            expect.soft(b.netMinutes, `${scenario.label}: preview net minutes`).toBe(expected.netMinutes);
+            expect.soft(b.grossMinutes - b.netMinutes, `${scenario.label}: the meal the engine took`).toBe(expected.mealMinutes);
+            expect.soft(b.grossMinutes, `${scenario.label}: gross matches the captured span`).toBe(minutes(capture.timeOut) - minutes(capture.timeIn));
 
             // 6. Commit — tick each own Reference, never the header checkbox — then read the written card(s) back.
+            // The per-reference checkboxes live on the Time Cards tab; step 5 left us on the Job Cards preview.
+            await pages.transferToJobCards.openTimeCardsTab();
             const result = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
-            expect(result.jobCardsWritten, `${scenario.label}: exactly ${expected.jobCards} job card written`).toBe(expected.jobCards);
+            expect.soft(result.jobCardsWritten, `${scenario.label}: exactly ${expected.jobCards} job card written`).toBe(expected.jobCards);
 
             // 7. The committed card on screen.
             await pages.jobCards.applyDateRange(run.day);
-            await expect(pages.jobCards.rowsForCrew(run.crew.name), `${scenario.label}: one crew-scoped row (the day carries other tenants' cards)`).toHaveCount(expected.jobCards);
-            expect(await pages.jobCards.jobsForCrew(run.crew.name), `${scenario.label}: the card's Job cell`).toContain(run.job.name);
-            expect(await pages.jobCards.amountsForCrew(run.crew.name), `${scenario.label}: the card's Amount cell`).toEqual([expected.totalAmount]);
+            await expect.soft(pages.jobCards.rowsForCrew(run.crew.name), `${scenario.label}: one crew-scoped row (the day carries other tenants' cards)`).toHaveCount(expected.jobCards);
+            expect.soft(await pages.jobCards.jobsForCrew(run.crew.name), `${scenario.label}: the card's Job cell`).toContain(run.job.name);
+            expect.soft(await pages.jobCards.amountsForCrew(run.crew.name), `${scenario.label}: the card's Amount cell`).toEqual([expected.totalAmount]);
 
             // 8. Read-back over the GET — one card, the right job, not exported, not locked.
             const { cards, timeCards } = await readDailyOvertime(run, { sessionApi, testInfo });
             expect(cards, `${scenario.label}: one committed job card`).toHaveLength(expected.jobCards);
-            expect(Number(cards[0].jobCounter), `${scenario.label}: the committed card's job`).toBe(run.job.id);
-            expect(Boolean(cards[0].exported), `${scenario.label}: the fresh card is not exported`).toBe(false);
-            expect(Boolean(cards[0].locked), `${scenario.label}: the fresh card is not locked`).toBe(false);
+            expect.soft(Number(cards[0].jobCounter), `${scenario.label}: the committed card's job`).toBe(run.job.id);
+            expect.soft(Boolean(cards[0].exported), `${scenario.label}: the fresh card is not exported`).toBe(false);
+            expect.soft(Boolean(cards[0].locked), `${scenario.label}: the fresh card is not locked`).toBe(false);
 
             // 9. The calculation classifies the day; it does not rewrite the capture.
             expect(timeCards, `${scenario.label}: both time cards readable`).toHaveLength(expected.timeCards);
             for (const tc of timeCards) {
-                expect(Boolean(tc.transferred), `${scenario.label}: time card ${tc.timeCardCounter} must read transferred`).toBe(true);
+                expect.soft(Boolean(tc.transferred), `${scenario.label}: time card ${tc.timeCardCounter} must read transferred`).toBe(true);
             }
         } finally {
             // 10. The job card(s) by id, then the time cards, then the crew-scoped sweep.
