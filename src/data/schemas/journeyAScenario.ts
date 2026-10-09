@@ -139,3 +139,73 @@ export const PieceOutConfigCaseSchema = z
     });
 
 export type PieceOutConfigCase = z.infer<typeof PieceOutConfigCaseSchema>;
+
+// A5 — employee setup. The offsets feed runUniqueCode() in the flow (Barcode, Export Identifier, NFC and
+// RFID must be run-unique and distinct); the rest is typed into the form, then compared on reload, on the
+// wire and in the scan-device setup export.
+export const EmployeeSetupCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        employee: z
+            .object({
+                codeOffset: z.number().int().nonnegative(),
+                exportIdentifierOffset: z.number().int().nonnegative(),
+                nfcCodeOffset: z.number().int().nonnegative(),
+                rfidCodeOffset: z.number().int().nonnegative(),
+                department: z.string().min(1),
+                crew: z.string().min(1),
+                hourlyRate: z.string().min(1),
+                gender: z.string().min(1),
+                /** ISO, as the `type=date` input holds it and the wire stores it. */
+                dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                defaultRanch: z.string().min(1),
+                defaultField: z.string().min(1),
+                defaultJob: z.string().min(1),
+                waivedFirstMeal: z.boolean(),
+                waivedSecondMeal: z.boolean(),
+            })
+            .strict(),
+        device: z
+            .object({
+                /** 0 is PocketPDA — the same selection rule as A9. */
+                pocketDeviceType: z.number().int().nonnegative(),
+                missingMessage: z.string().min(1),
+            })
+            .strict(),
+        expected: z
+            .object({
+                /** The Pay Period trigger's text; the form defaults to it and the case never touches it. */
+                payPeriod: z.string().min(1),
+                wire: z
+                    .object({
+                        rate: z.number(),
+                        payPeriod: z.number().int(),
+                        gender: z.number().int(),
+                        nonNullKeys: z.array(z.string().min(1)).min(1),
+                    })
+                    .strict(),
+                export: z
+                    .object({
+                        section: z.string().regex(/^\w+_Records$/),
+                        crew: z.string().min(1),
+                        defaultJob: z.string().min(1),
+                    })
+                    .strict(),
+            })
+            .strict(),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const e = s.employee;
+        const offsets = [e.codeOffset, e.exportIdentifierOffset, e.nfcCodeOffset, e.rfidCodeOffset];
+        if (new Set(offsets).size !== offsets.length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['employee'],
+                message: 'the four code offsets must be distinct, or two identifiers of one employee would collide',
+            });
+        }
+    });
+
+export type EmployeeSetupCase = z.infer<typeof EmployeeSetupCaseSchema>;

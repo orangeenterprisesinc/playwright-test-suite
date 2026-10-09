@@ -8,3 +8,4 @@ export * from './random';
 export * from './userFactory';
 export * from './scanDeviceFactory';
 export * from './crewTableFactory';
+export * from './employeeFactory';
