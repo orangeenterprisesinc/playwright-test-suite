@@ -139,3 +139,66 @@ export const PieceOutConfigCaseSchema = z
     });
 
 export type PieceOutConfigCase = z.infer<typeof PieceOutConfigCaseSchema>;
+
+// A4 — crew setup. The lookups the case picks by label, the overrides it sets, the globals it compares
+// against (Preferences field ids = API keys) and what the wire must hold. Name and barcode are minted by the flow.
+const HexColor = z.string().regex(/^#[0-9a-f]{6}$/);
+const ClockTime = z.string().regex(/^\d{2}:\d{2}$/);
+
+export const CrewSetupCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        crew: z
+            .object({
+                /** Added to the run token for the barcode, keeping sibling crews of one run distinct. */
+                codeOffset: z.number().int().nonnegative(),
+                badgeColor: HexColor,
+                supervisor: z.string().min(1),
+                department: z.string().min(1),
+                defaultRanch: z.string().min(1),
+                defaultField: z.string().min(1),
+                defaultJob: z.string().min(1),
+            })
+            .strict(),
+        autoBreak: z
+            .object({
+                autoPaidBreakType: z.string().min(1),
+                autoReturnFromBreak: z.string().min(1),
+                breakLengths: z.string().min(1),
+            })
+            .strict(),
+        exerciseAndNotification: z
+            .object({
+                exerciseJob: z.string().min(1),
+                exerciseJobLengthMinutes: z.number().int().positive(),
+                /** A text input, and a string on the wire. */
+                breakAndMealNotification: z.string().min(1),
+                notifyUser: z.string().min(1),
+            })
+            .strict(),
+        dayStart: z.object({ from: ClockTime, to: ClockTime, fixedTime: ClockTime }).strict(),
+        globals: z
+            .object({
+                paidBreakLength: z.string().min(1),
+                notificationThreshold: z.string().min(1),
+                autoReturnFromBreak: z.string().min(1),
+            })
+            .strict(),
+        expected: z
+            .object({
+                createdToast: z.string().min(1),
+                editHeadingPrefix: z.string().min(1),
+                wire: z
+                    .object({
+                        autoPaidBreakType: z.number().int(),
+                        autoReturnFromBreak: z.number().int(),
+                        nonNullKeys: z.array(z.string().min(1)).min(1),
+                    })
+                    .strict(),
+            })
+            .strict(),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict();
+
+export type CrewSetupCase = z.infer<typeof CrewSetupCaseSchema>;

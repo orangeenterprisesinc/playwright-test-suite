@@ -1,0 +1,60 @@
+{
+  "_notes": [
+    "A4 — Crew setup (catalog A4, plan test-plans/journey-a/a04-crew-setup.md, runner row A4). Lookup names are protected fixture rows owned by journeys B, C, D and the suite login: the case only selects them. Name and barcode come from the flow (makeCrewName, runUniqueCode(codeOffset)); the cleanup step's {crewName} is bound by mintCrewSetup.",
+    "globals are Preferences field ids, which are also the API keys; the spec reads them on screen and never writes them. expected.wire holds the enum values and the lookup keys that GET /crews/{id} must return non-null."
+  ],
+  "crew": {
+    "codeOffset": 41,
+    "badgeColor": "#22c55e",
+    "supervisor": "C6 SUPERVISOR",
+    "department": "Guerrero",
+    "defaultRanch": "B1 RANCH",
+    "defaultField": "B1 FIELD",
+    "defaultJob": "B1 HARVEST"
+  },
+  "autoBreak": {
+    "autoPaidBreakType": "Time Employees Only",
+    "autoReturnFromBreak": "From Paid Break",
+    "breakLengths": "15,15"
+  },
+  "exerciseAndNotification": {
+    "exerciseJob": "D10 EXERCISE JOB",
+    "exerciseJobLengthMinutes": 10,
+    "breakAndMealNotification": "7",
+    "notifyUser": "Automation su"
+  },
+  "dayStart": {
+    "from": "18:00",
+    "to": "02:00",
+    "fixedTime": "19:00"
+  },
+  "globals": {
+    "paidBreakLength": "defaultPaidBreakLength",
+    "notificationThreshold": "notificationThreshold",
+    "autoReturnFromBreak": "requireReturnFromBreakTimeIn"
+  },
+  "expected": {
+    "createdToast": "Crew created",
+    "editHeadingPrefix": "Edit Crew: ",
+    "wire": {
+      "autoPaidBreakType": 2,
+      "autoReturnFromBreak": 1,
+      "nonNullKeys": [
+        "supervisorCounter",
+        "departmentCounter",
+        "defaultRanchCounter",
+        "defaultFieldCounter",
+        "defaultJobCounter",
+        "exerciseJobCounter",
+        "userToNotifyBreakAndMeal"
+      ]
+    }
+  },
+  "cleanup": [
+    {
+      "kind": "delete",
+      "entity": "crew",
+      "name": "{crewName}"
+    }
+  ]
+}

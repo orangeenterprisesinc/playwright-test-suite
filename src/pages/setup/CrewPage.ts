@@ -19,6 +19,58 @@ export interface NewCrewData {
     name: string;
     code: string;
     shortName?: string;
+    /** A swatch hex from the Badge Color popover. */
+    badgeColor?: string;
+    supervisor?: string;
+    department?: string;
+    defaultRanch?: string;
+    /** Offered only for the chosen ranch, so pick the ranch first. */
+    defaultField?: string;
+    defaultJob?: string;
+}
+
+export interface CrewAutoBreak {
+    autoPaidBreakType: string;
+    autoReturnFromBreak: string;
+    /** Comma-separated minutes, as typed into the field. */
+    breakLengths: string;
+}
+
+export interface CrewExerciseNotification {
+    exerciseJob: string;
+    exerciseJobLengthMinutes: number;
+    breakAndMealNotification: string;
+    notifyUser: string;
+}
+
+/** 24h `HH:mm`, as the `type=time` inputs take and report it. */
+export interface CrewDayStart {
+    from: string;
+    to: string;
+    fixedTime: string;
+}
+
+/** Every displayed value the A4 reload check compares; picker values carry no `<exportId> : ` prefix. */
+export interface CrewForm {
+    name: string;
+    exportIdentifier: string;
+    code: string;
+    badgeColor: string;
+    supervisor: string;
+    department: string;
+    defaultRanch: string;
+    defaultField: string;
+    defaultJob: string;
+    autoPaidBreakType: string;
+    autoReturnFromBreak: string;
+    breakLengths: string;
+    exerciseJob: string;
+    exerciseJobLengthMinutes: string;
+    breakAndMealNotification: string;
+    notifyUser: string;
+    dayStartFrom: string;
+    dayStartTo: string;
+    dayStartFixedTime: string;
 }
 
 /** The Break & Automation rule, by the labels the screen shows. */
@@ -48,6 +100,20 @@ export class CrewPage extends SetupScreenPage {
     readonly autoPaidBreakTypeSelect: Locator;
     readonly autoReturnFromBreakSelect: Locator;
     readonly breakLengthsInput: Locator;
+    readonly exportIdentifierInput: Locator;
+    /** No stable id: `label[for="badgeColor"]` points at nothing, so the trigger is found through its wrapper. */
+    readonly badgeColorTrigger: Locator;
+    readonly badgeColorDialog: Locator;
+    readonly supervisorCombobox: Locator;
+    readonly departmentCombobox: Locator;
+    readonly defaultRanchSelect: Locator;
+    readonly defaultFieldCombobox: Locator;
+    readonly defaultJobCombobox: Locator;
+    /** A text input, not a number: the wire value is a string. */
+    readonly breakAndMealNotificationInput: Locator;
+    readonly dayStartFromInput: Locator;
+    readonly dayStartToInput: Locator;
+    readonly dayStartFixedTimeInput: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -70,6 +136,20 @@ export class CrewPage extends SetupScreenPage {
         this.autoPaidBreakTypeSelect = page.locator('button#autoPaidBreakType');
         this.autoReturnFromBreakSelect = page.locator('button#autoReturnFromBreak');
         this.breakLengthsInput = page.locator('input#breakLengthMinutesCommaSeparated');
+        this.exportIdentifierInput = page.locator('#exportIdentifier');
+        this.badgeColorTrigger = page
+            .locator('div.space-y-1', { has: page.locator('label[for="badgeColor"]') })
+            .locator('button[data-slot="popover-trigger"]');
+        this.badgeColorDialog = page.getByRole('dialog');
+        this.supervisorCombobox = page.locator('input#supervisorCounter');
+        this.departmentCombobox = page.locator('input#departmentCounter');
+        this.defaultRanchSelect = page.locator('button#defaultRanchCounter');
+        this.defaultFieldCombobox = page.locator('input#defaultFieldCounter');
+        this.defaultJobCombobox = page.locator('input#defaultJobCounter');
+        this.breakAndMealNotificationInput = page.locator('input#breakAndMealNotification');
+        this.dayStartFromInput = page.locator('input#dayStartFrom');
+        this.dayStartToInput = page.locator('input#dayStartTo');
+        this.dayStartFixedTimeInput = page.locator('input#dayStartFixedTime');
         this.pickers = new PickerComponent(page);
     }
 
@@ -82,10 +162,96 @@ export class CrewPage extends SetupScreenPage {
         await this.codeInput.fill(data.code);
         if (data.shortName) await this.shortNameInput.fill(data.shortName);
         await this.nameInput.fill(data.name);
+        if (data.badgeColor) await this.pickBadgeColor(data.badgeColor);
+        if (data.supervisor) await this.pickers.pickCombobox(this.supervisorCombobox, data.supervisor);
+        if (data.department) {
+            // Disabled until /departments lands.
+            await expect(this.departmentCombobox).toBeEnabled();
+            await this.pickers.pickCombobox(this.departmentCombobox, data.department);
+        }
+        if (data.defaultRanch) await this.pickers.pickSelect(this.defaultRanchSelect, data.defaultRanch);
+        if (data.defaultField) await this.pickers.pickCombobox(this.defaultFieldCombobox, data.defaultField);
+        if (data.defaultJob) await this.pickers.pickCombobox(this.defaultJobCombobox, data.defaultJob);
     }
 
     async createCrew(data: NewCrewData): Promise<FormOutcome> {
         return this.createOnScreen(() => this.fillForm(data));
+    }
+
+    successToast(text: string): Locator {
+        return this.page.getByText(text, { exact: true });
+    }
+
+    heading(text: string): Locator {
+        return this.page.getByRole('heading', { name: text, level: 1, exact: true });
+    }
+
+    async pickBadgeColor(hex: string): Promise<void> {
+        await this.badgeColorTrigger.click();
+        await this.badgeColorDialog.getByRole('button', { name: hex, exact: true }).click();
+        await expect(this.badgeColorTrigger).toHaveText(hex);
+        await this.badgeColorDialog.getByRole('button', { name: 'Close' }).click();
+        await expect(this.badgeColorDialog).toBeHidden();
+    }
+
+    /** Fill only; the caller saves. `setBreakAutomation` stays the all-in-one path D10 uses. */
+    async fillAutoBreak(rule: CrewAutoBreak): Promise<void> {
+        await this.breakLengthsInput.fill(rule.breakLengths);
+        await this.pickers.pickSelect(this.autoReturnFromBreakSelect, rule.autoReturnFromBreak);
+        await this.pickers.pickSelect(this.autoPaidBreakTypeSelect, rule.autoPaidBreakType);
+    }
+
+    async fillExerciseAndNotification(rule: CrewExerciseNotification): Promise<void> {
+        // Jobs load after the form; picking before they land reads "Loading..." and can pick nothing.
+        await expect(this.exerciseJobCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        await this.pickers.pickCombobox(this.exerciseJobCombobox, rule.exerciseJob);
+        await this.exerciseJobLengthInput.fill(String(rule.exerciseJobLengthMinutes));
+        await this.breakAndMealNotificationInput.fill(rule.breakAndMealNotification);
+        await this.pickers.pickCombobox(this.notifyUserCombobox, rule.notifyUser);
+    }
+
+    async fillDayStart(day: CrewDayStart): Promise<void> {
+        // Filled straight after the previous save, From went out as null in the PUT while To/Fixed did not
+        // (trace 2026-10-09). Re-fill until all three hold together, so Save sends what the screen shows.
+        const fields: Array<[Locator, string]> = [
+            [this.dayStartFromInput, day.from],
+            [this.dayStartToInput, day.to],
+            [this.dayStartFixedTimeInput, day.fixedTime],
+        ];
+        await expect(async () => {
+            for (const [input, value] of fields) {
+                if ((await input.inputValue()) !== value) await input.fill(value);
+            }
+            for (const [input, value] of fields) await expect(input).toHaveValue(value, { timeout: 1_000 });
+        }).toPass({ timeout: 15_000 });
+    }
+
+    async readCrewForm(): Promise<CrewForm> {
+        await expect(this.exerciseJobCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        const trigger = async (select: Locator) => (await select.innerText()).trim();
+        // Pickers show "<exportId> : <name>"; a row without an export id reads " : C6 SUPERVISOR".
+        const picked = async (combobox: Locator) => (await combobox.inputValue()).replace(/^[^:]*: /, '').trim();
+        return {
+            name: await this.nameInput.inputValue(),
+            exportIdentifier: await this.exportIdentifierInput.inputValue(),
+            code: await this.codeInput.inputValue(),
+            badgeColor: await trigger(this.badgeColorTrigger),
+            supervisor: await picked(this.supervisorCombobox),
+            department: await picked(this.departmentCombobox),
+            defaultRanch: await trigger(this.defaultRanchSelect),
+            defaultField: await picked(this.defaultFieldCombobox),
+            defaultJob: await picked(this.defaultJobCombobox),
+            autoPaidBreakType: await trigger(this.autoPaidBreakTypeSelect),
+            autoReturnFromBreak: await trigger(this.autoReturnFromBreakSelect),
+            breakLengths: (await this.breakLengthsInput.inputValue()).trim(),
+            exerciseJob: await picked(this.exerciseJobCombobox),
+            exerciseJobLengthMinutes: await this.exerciseJobLengthInput.inputValue(),
+            breakAndMealNotification: await this.breakAndMealNotificationInput.inputValue(),
+            notifyUser: await picked(this.notifyUserCombobox),
+            dayStartFrom: await this.dayStartFromInput.inputValue(),
+            dayStartTo: await this.dayStartToInput.inputValue(),
+            dayStartFixedTime: await this.dayStartFixedTimeInput.inputValue(),
+        };
     }
 
     /** The user currently set to be notified, as the picker displays it. */
