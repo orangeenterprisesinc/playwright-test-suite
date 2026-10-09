@@ -1,0 +1,40 @@
+{
+  "_notes": [
+    "A5 · Employee setup (catalog A5, plan test-plans/journey-a/a05-employee-setup.md, runner row A5). Lookup rows (Guerrero, B1 CREW, B1 RANCH, B1 FIELD, B1 HARVEST) are protected fixtures; the case only selects them.",
+    "Offsets feed runUniqueCode(): 51-54 are free (B15 uses 1-3, A4 uses 41)."
+  ],
+  "employee": {
+    "codeOffset": 51,
+    "exportIdentifierOffset": 52,
+    "nfcCodeOffset": 53,
+    "rfidCodeOffset": 54,
+    "department": "Guerrero",
+    "crew": "B1 CREW",
+    "hourlyRate": "25",
+    "gender": "Male",
+    "dateOfBirth": "1996-06-11",
+    "defaultRanch": "B1 RANCH",
+    "defaultField": "B1 FIELD",
+    "defaultJob": "B1 HARVEST",
+    "waivedFirstMeal": true,
+    "waivedSecondMeal": true
+  },
+  "device": {
+    "pocketDeviceType": 0,
+    "missingMessage": "it needs an active pocket-class scan device to push the new employee to"
+  },
+  "expected": {
+    "payPeriod": "Hourly",
+    "wire": {
+      "rate": 25,
+      "payPeriod": 0,
+      "gender": 0,
+      "nonNullKeys": ["departmentCounter", "crewCounter", "defaultRanchCounter", "defaultFieldCounter", "defaultJobCounter"]
+    },
+    "export": { "section": "Employee_Records", "crew": "B1 CREW", "defaultJob": "B1 HARVEST" }
+  },
+  "cleanup": [
+    { "kind": "delete", "entity": "employee", "name": "{employeeName}" },
+    { "kind": "restore", "target": "deviceEmployeeMembership" }
+  ]
+}

@@ -1,10 +1,13 @@
 /**
  * Scan Devices ▸ create/edit — `/setup/scan-devices`, `/setup/scan-devices/<id>`.
  *
- * General, Crew and Field locators are confirmed against dev staging. The save toast,
- * the unsaved-changes bar and the Push control's name are still UNVERIFIED — they come
- * from a recording of a different on-prem build (WEBPET-1533) and are isolated in the
+ * General, Crew, Field and Employee locators are confirmed against dev staging, as is the
+ * save toast ("Scan device saved", 2026-10-09). The unsaved-changes bar is still UNVERIFIED —
+ * it comes from a recording of a different on-prem build (WEBPET-1533) and is isolated in the
  * exported constants below so a wrong string is a one-line fix, not a locator hunt.
+ *
+ * Push to Device bumps the row's version, so the open form is stale afterwards: a second Save
+ * returns 409 ("modified by another user"). Re-open the device before any later edit.
  */
 import { expect, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
@@ -13,7 +16,7 @@ import { BasePage } from '../BasePage';
 export const DEVICE_TYPE = { generic: '0' } as const;
 export const CONNECTIVITY_METHOD = { web: '4' } as const;
 
-/** UNVERIFIED on dev — sourced from the B15 recording only. */
+/** `savedToast` is verified on dev; the rest are sourced from the B15 recording only. */
 export const SCAN_DEVICE_STRINGS = {
     savedToast: 'Scan device saved',
     unsavedChangesHeading: 'Unsaved changes',
@@ -35,6 +38,8 @@ export interface ScanDeviceGeneral {
 export interface PushToDeviceOutcome {
     /** The inline panel's destination line, e.g. `Destination: ZZTEST_SD_X@silo`. */
     destination: string;
+    /** The export run the UI's own push created — observed from its response, not a test write. */
+    runId: number;
 }
 
 export class ScanDevicePage extends BasePage {
@@ -57,6 +62,10 @@ export class ScanDevicePage extends BasePage {
     readonly fieldCombobox: Locator;
     readonly ranchFieldAddButton: Locator;
     readonly ranchFieldRows: Locator;
+
+    readonly employeeSection: Locator;
+    readonly addEmployeeCombobox: Locator;
+    readonly employeeAddButton: Locator;
 
     readonly savedToast: Locator;
     readonly unsavedChangesBar: Locator;
@@ -89,6 +98,10 @@ export class ScanDevicePage extends BasePage {
         this.fieldCombobox = this.ranchFieldSection.getByRole('combobox').nth(1);
         this.ranchFieldAddButton = this.ranchFieldSection.getByRole('button', { name: 'Add' });
         this.ranchFieldRows = this.ranchFieldSection.locator('li');
+
+        this.employeeSection = page.locator('section#employee');
+        this.addEmployeeCombobox = page.locator('input#add-Employee');
+        this.employeeAddButton = this.employeeSection.getByRole('button', { name: 'Add', exact: true });
 
         this.savedToast = page.getByText(SCAN_DEVICE_STRINGS.savedToast);
         this.unsavedChangesBar = page.getByText(SCAN_DEVICE_STRINGS.unsavedChangesHeading);
@@ -207,6 +220,23 @@ export class ScanDevicePage extends BasePage {
         return this.ranchFieldRows.filter({ hasText: `${ranchName} | ${fieldLabel}` });
     }
 
+    /** A deleted employee renders here as `#<id>`, so a live row is matched by its `<exportIdentifier> : <name>` label. */
+    employeeRow(label: string): Locator {
+        return this.employeeSection.getByRole('row').filter({ hasText: label });
+    }
+
+    /** Typing the name part narrows the list (it holds every employee); the listbox is portaled, so the option is page-wide. */
+    async addEmployee(label: string): Promise<void> {
+        await this.employeeSection.scrollIntoViewIfNeeded();
+        await this.addEmployeeCombobox.fill(label.split(' : ').pop() ?? label);
+        const option = this.page.getByRole('option', { name: label, exact: true });
+        await option.waitFor({ state: 'visible', timeout: 15_000 });
+        await option.click();
+        await expect(this.employeeAddButton).toBeEnabled({ timeout: 15_000 });
+        await this.employeeAddButton.click();
+        await expect(this.employeeRow(label)).toBeVisible();
+    }
+
     /** Scoped to `id` because dev's scan-device save can double-fire. */
     async save(id: number): Promise<Response> {
         const [response] = await Promise.all([
@@ -234,10 +264,19 @@ export class ScanDevicePage extends BasePage {
      */
     async pushToDevice(): Promise<PushToDeviceOutcome> {
         await this.pushToDeviceButton.waitFor({ state: 'visible', timeout: 30_000 });
+        // Registered before the click: its `{ runId }` is what the setup-export read-back needs.
+        const pushed = this.page.waitForResponse(
+            (res) =>
+                res.request().method() === 'POST' &&
+                /\/connectivity\/export\/scan-devices\/\d+\/?$/.test(new URL(res.url()).pathname),
+            { timeout: 120_000 },
+        );
         await this.pushToDeviceButton.click();
         await expect(this.pushSucceeded).toBeVisible({ timeout: 120_000 });
+        await expect(this.pushDestination.first()).toContainText(new RegExp(`${PUSH_RESULT.destinationPrefix}\\s*\\S`));
         const destination = (await this.pushDestination.first().textContent())?.trim() ?? '';
-        return { destination };
+        const { runId } = (await (await pushed).json()) as { runId: number };
+        return { destination, runId };
     }
 }
 
