@@ -58,14 +58,15 @@ export class CrewTimeInPage extends CrewPunchPage {
      *
      * The crew's members arrive **pre-checked**, so this deselects everything and
      * ticks back the ones asked for — the opposite of the select-from-empty a reader
-     * would assume. Each checkbox is named by the employee's name alone: not the code,
-     * not "code - name".
+     * would assume. Each checkbox is labelled "code: name" (a blank code leaves a bare
+     * ": name"); each row also holds a second, unnamed checkbox, which the name filter skips.
      */
     async selectOnlyEmployees(names: string[]): Promise<void> {
         await this.deselectAllButton.waitFor({ state: 'visible', timeout: 25_000 });
         await this.deselectAllButton.click();
         for (const name of names) {
-            const box = this.page.getByRole('checkbox', { name, exact: true });
+            const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const box = this.page.getByRole('checkbox', { name: new RegExp(`(^|: )${escaped}$`) });
             await box.waitFor({ state: 'visible', timeout: 15_000 });
             await box.check();
             await expect(box, `'${name}' did not stay selected`).toBeChecked();

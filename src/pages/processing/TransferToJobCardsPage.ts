@@ -801,6 +801,8 @@ export class TransferToJobCardsPage extends BasePage {
     async openJobCardsTab(): Promise<void> {
         await this.jobCardsTab.click();
         await expect(this.previewGrid).toBeVisible({ timeout: 30_000 });
+        // The grid shows its header and a loading status before the data rows render.
+        await expect(this.previewGrid.getByRole('row', { name: /^Row \d+$/ }).first()).toBeVisible({ timeout: 30_000 });
     }
 
     async openTimeCardsTab(): Promise<void> {
