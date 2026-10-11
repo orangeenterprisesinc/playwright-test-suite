@@ -54,7 +54,15 @@ export async function pushSetupExport(
     const exportRes = await request.post(`connectivity/export/scan-devices/${deviceId}`, { data: {} });
     expect(exportRes.ok(), `POST export for device ${deviceId} failed with ${exportRes.status()}`).toBe(true);
     const { runId } = (await exportRes.json()) as { runId: number };
+    return readSetupExportSend(request, runId, deviceId);
+}
 
+/** Read-only half of the push: the file one device was sent in an export run. */
+export async function readSetupExportSend(
+    request: APIRequestContext,
+    runId: number,
+    deviceId: number,
+): Promise<{ runId: number; xml: string }> {
     const runRes = await request.get(`connectivity/export/scan-devices/runs/${runId}`);
     expect(runRes.ok(), `GET export run ${runId} failed with ${runRes.status()}`).toBe(true);
     const send = ((await runRes.json()) as { sends?: ExportSend[] }).sends?.find((s) => s.deviceCounter === deviceId);

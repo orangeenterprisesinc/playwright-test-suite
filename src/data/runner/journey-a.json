@@ -103,8 +103,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12633",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A6",
