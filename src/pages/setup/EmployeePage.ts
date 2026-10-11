@@ -172,8 +172,17 @@ export class EmployeePage extends SetupScreenPage {
 
     async readEmployeeForm(): Promise<EmployeeFormValues> {
         // Pickers show "<exportId> : <name>" when the row has an export id.
-        const label = async (picker: Locator) => (await picker.inputValue()).replace(/^\S+ : /, '');
+        // The pickers fill in after the form renders: empty until their options load, and the
+        // ranch select shows its raw counter id. Give them time, then read whatever is there so
+        // a genuinely unset picker still comes back empty.
+        const settled = async (read: () => Promise<string>, loaded: (v: string) => boolean): Promise<string> => {
+            await expect.poll(async () => loaded(await read()), { timeout: 10_000 }).toBe(true).catch(() => undefined);
+            return read();
+        };
+        const label = async (picker: Locator) =>
+            (await settled(() => picker.inputValue(), (v) => v !== '')).replace(/^\S+ : /, '');
         const text = async (trigger: Locator) => (await trigger.innerText()).trim();
+        const ranch = () => settled(() => text(this.defaultRanchSelect), (v) => v !== '' && !/^\d+$/.test(v));
         const on = async (toggle: Locator) => (await toggle.getAttribute('aria-checked')) === 'true';
         return {
             name: await this.nameInput.inputValue(),
@@ -187,7 +196,7 @@ export class EmployeePage extends SetupScreenPage {
             hireDate: await this.readHireDate(),
             gender: await text(this.genderSelect),
             dateOfBirth: await this.dateOfBirthInput.inputValue(),
-            defaultRanch: await text(this.defaultRanchSelect),
+            defaultRanch: await ranch(),
             defaultField: await label(this.defaultFieldCombobox),
             defaultJob: await label(this.defaultJobCombobox),
             nfcCode: await this.nfcCodeInput.inputValue(),

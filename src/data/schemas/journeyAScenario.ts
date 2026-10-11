@@ -141,8 +141,7 @@ export const PieceOutConfigCaseSchema = z
 export type PieceOutConfigCase = z.infer<typeof PieceOutConfigCaseSchema>;
 
 // A5 — employee setup. The offsets feed runUniqueCode() in the flow (Barcode, Export Identifier, NFC and
-// RFID must be run-unique and distinct); the rest is typed into the form, then compared on reload, on the
-// wire and in the scan-device setup export.
+// RFID must be run-unique and distinct); the rest is typed into the form, then compared on reload.
 export const EmployeeSetupCaseSchema = z
     .object({
         _notes: z.array(z.string()).optional(),
@@ -165,32 +164,10 @@ export const EmployeeSetupCaseSchema = z
                 waivedSecondMeal: z.boolean(),
             })
             .strict(),
-        device: z
-            .object({
-                /** 0 is PocketPDA — the same selection rule as A9. */
-                pocketDeviceType: z.number().int().nonnegative(),
-                missingMessage: z.string().min(1),
-            })
-            .strict(),
         expected: z
             .object({
                 /** The Pay Period trigger's text; the form defaults to it and the case never touches it. */
                 payPeriod: z.string().min(1),
-                wire: z
-                    .object({
-                        rate: z.number(),
-                        payPeriod: z.number().int(),
-                        gender: z.number().int(),
-                        nonNullKeys: z.array(z.string().min(1)).min(1),
-                    })
-                    .strict(),
-                export: z
-                    .object({
-                        section: z.string().regex(/^\w+_Records$/),
-                        crew: z.string().min(1),
-                        defaultJob: z.string().min(1),
-                    })
-                    .strict(),
             })
             .strict(),
         cleanup: z.array(CleanupStepSchema).default([]),

@@ -3,15 +3,11 @@ import { makeEmployeeName, makeUser, runUniqueCode } from '@data/generated';
 import type { EmployeeSetupCase, PieceOutConfigCase, UserSetupCase } from '@data/schemas/journeyAScenario';
 import type { NewUserData } from '@pages/admin/UsersPage';
 import type { NewEmployeeData } from '@pages/setup/EmployeePage';
-import { getEmployee, type EmployeeRecord } from '@utils/api/employeesApi';
 import { getPreferences } from '@utils/api/preferencesApi';
-import type { DeviceMembershipSnapshot } from '@utils/api/scanDevicesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
 import {
     findActiveDeviceOfType,
     pushSetupExport,
-    readSetupExportSend as readExportSend,
-    type ExportedDevice,
 } from '@utils/api/setupExportApi';
 import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
@@ -120,37 +116,17 @@ export interface EmployeeSetupRun {
                 | 'waivedFirstMeal' | 'waivedSecondMeal'
             >
         >;
-    /** The shared pocket device the employee is pushed to (never minted). */
-    device: ExportedDevice;
-    /** How the device's Employee section labels the row: `<exportIdentifier> : <name>`. */
-    employeeLabel: string;
-    /** Call right after the first save so teardown can take the employee off the shared device. */
-    recordEmployeeId(id: number): void;
-    /** After-phase teardown: delete the employee, then take its id off the device. */
+    /** After-phase teardown: delete the employee. */
     cleanup(): Promise<void>;
 }
 
-/**
- * Mints the employee's name and codes, finds the shared pocket device (a read) and registers the
- * after-phase cleanup. The membership restore needs the employee id, which only exists after the
- * on-screen save, so `recordEmployeeId` fills it into the snapshot entry.
- */
-export async function prepareEmployeeSetup(
-    scenario: EmployeeSetupCase,
-    sessionApi: APIRequestContext,
-    testInfo: TestInfo,
-): Promise<EmployeeSetupRun> {
+/** Mints the employee's name and codes and registers the after-phase cleanup. */
+export function prepareEmployeeSetup(scenario: EmployeeSetupCase, testInfo: TestInfo): EmployeeSetupRun {
     const spec = scenario.employee;
     const name = makeEmployeeName();
-    const exportIdentifier = runUniqueCode(spec.exportIdentifierOffset);
-    const device = await findActiveDeviceOfType(sessionApi, scenario.device.pocketDeviceType);
-    if (!device) throw new Error(`A5: ${scenario.device.missingMessage}`);
-
     const substituted = substituteTokens(scenario, { employeeName: name });
-    const membership: DeviceMembershipSnapshot = { deviceId: device.id };
-    const snapshots = new Map<string, unknown>([['deviceEmployeeMembership', membership]]);
     const cleanup = register(testInfo, 'A5 employee-setup cleanup', (api) =>
-        runCleanup(substituted.cleanup, api, testInfo, { phase: 'after', snapshots }),
+        runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
     );
     return {
         scenario: substituted,
@@ -158,7 +134,7 @@ export async function prepareEmployeeSetup(
             name,
             code: runUniqueCode(spec.codeOffset),
             lastName: name,
-            exportIdentifier,
+            exportIdentifier: runUniqueCode(spec.exportIdentifierOffset),
             nfcCode: runUniqueCode(spec.nfcCodeOffset),
             rfidCode: runUniqueCode(spec.rfidCodeOffset),
             crew: spec.crew,
@@ -172,21 +148,6 @@ export async function prepareEmployeeSetup(
             waivedFirstMeal: spec.waivedFirstMeal,
             waivedSecondMeal: spec.waivedSecondMeal,
         },
-        device,
-        employeeLabel: `${exportIdentifier} : ${name}`,
-        recordEmployeeId: (id) => {
-            membership.employeeId = id;
-        },
         cleanup,
     };
-}
-
-/** A5 read-back: what the New Employee screen stored, by wire key. */
-export async function readEmployee(api: APIRequestContext, id: number): Promise<EmployeeRecord> {
-    return getEmployee(api, id);
-}
-
-/** A5 read: the setup file an export run sent one device — the push itself is the on-screen click. */
-export async function readSetupExportSend(api: APIRequestContext, runId: number, deviceId: number) {
-    return readExportSend(api, runId, deviceId);
 }

@@ -1,5 +1,7 @@
 # A5 · Employee setup
 
+> **Scope update 2026-10-11 (UI only).** The spec now stops after the reload check. The API read-back (`GET employees/{id}`), the scan-device add/Save/Push and the setup-export read-back were removed: catalog step 6 (device sync) belongs with the device screens (A7/A14, WEBPET-1449). The sections below that describe the device, push, export and read-back steps, the `deviceEmployeeMembership` cleanup and `readEmployee`/`readSetupExportSend` in the flow are superseded. The page-object members (`ScanDevicePage.addEmployee`, `pushToDevice().runId`), `readSetupExportSend`, `employeeInExport` and the `deviceEmployeeMembership` restorer stay in the repo for A14.
+
 ## Application Overview
 
 Jira PET-12633 · recording `docs/media/a5-employee-setup-happy-path.webm` (WEBPET-1442 comment 101872, "Happy Path") · observations `.video-annotations/a5-employee-setup-happy-path/observations.md` (keyframes in `sheets/`, `dense/sheets/`).
@@ -177,7 +179,7 @@ The employee, the device membership and the push are all done on screen. No pref
 
 ```ts
 test.describe('A5 · Employee setup', { tag: ['@JourneyA', '@A5'] }, () => {
-    test('[Employee Setup] End-to-end: create an employee with identity, pay, time-card defaults, badges and meal waivers, verify it persists, and push it to a scan device.', {
+    test('[Employee Setup] End-to-end: create an employee with identity, pay, time-card defaults, badges and meal waivers, and verify it persists.', {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'A5' }],
     }, async ({ page, pages, sessionApi }, testInfo) => { … });
@@ -204,7 +206,7 @@ Resolved by the orchestrator on 2026-10-09:
 
 **Seed:** `tests/seed.spec.ts`
 
-#### 1.1. [Employee Setup] End-to-end: create an employee with identity, pay, time-card defaults, badges and meal waivers, verify it persists, and push it to a scan device.
+#### 1.1. [Employee Setup] End-to-end: create an employee with identity, pay, time-card defaults, badges and meal waivers, and verify it persists.
 
 **File:** `tests/web/journey-a-setup/a05-employee-setup.spec.ts`
 
