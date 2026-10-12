@@ -37,8 +37,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12668",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "E3",

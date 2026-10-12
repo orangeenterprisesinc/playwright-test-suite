@@ -1,0 +1,44 @@
+{
+    "_notes": [
+        "E2 — California daily overtime. One crew day (06:00 time-in, 17:30 time-out) is one job card.",
+        "The engine deducts one automatic half-hour meal (11.50 gross -> 11.00 net), then splits the NET",
+        "day into three buckets: 8 regular, 2 at 1.5x, 1 at 2x, carried in three separate columns.",
+        "Every derivation keys on net hours, never gross. The thresholds live in the legacy rule editor",
+        "(catalog A10) and are proven by consequence — the 8/2/1 split and the 260.00 amount."
+    ],
+    "workflow": "E2",
+    "label": "e02-california-daily-overtime",
+    "dayOffset": -14,
+    "rule": {
+        "name": "AG CA 2022",
+        "dailyOvertimeAfterHours": 8,
+        "doubleTimeAfterHours": 10,
+        "overtimeMultiplier": 1.5,
+        "doubleTimeMultiplier": 2
+    },
+    "capture": {
+        "timeIn": { "hour": 6, "minute": 0 },
+        "timeOut": { "hour": 17, "minute": 30 }
+    },
+    "expected": {
+        "timeCards": 2,
+        "jobCards": 1,
+        "hourlyRate": 20,
+        "grossMinutes": 690,
+        "mealMinutes": 30,
+        "netMinutes": 660,
+        "netHours": 11,
+        "employees": 1,
+        "pieces": 0,
+        "regularHours": 8,
+        "overtimeHours": 2,
+        "doubleTimeHours": 1,
+        "regularAmount": 160,
+        "overtimeAmount": 60,
+        "doubleTimeAmount": 40,
+        "totalAmount": 260
+    },
+    "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -14, "cardTypes": [0, 1] }
+    ]
+}
