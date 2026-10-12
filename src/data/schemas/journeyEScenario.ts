@@ -3,9 +3,9 @@ import { CleanupStepSchema } from './cleanupStep';
 
 // Journey E (weekly payroll close and export). E2 is California daily overtime: one crew day
 // (a time-in and a time-out, one job card) is split by the engine into three paid buckets —
-// the first eight net hours regular, hours eight to ten at time-and-a-half, the rest at double.
-// The refinements encode the plan's arithmetic so the data cannot drift out of agreement with
-// itself. Every derivation keys on NET hours (gross minus the unpaid meal), never on gross.
+// regular up to rule.dailyOvertimeAfterHours, time-and-a-half up to rule.doubleTimeAfterHours,
+// double beyond. The refinements encode the plan's arithmetic so the data cannot drift out of
+// agreement with itself. Every derivation keys on NET hours (gross minus any meal), never on gross.
 
 const TimeOfDay = z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }).strict();
 
@@ -38,7 +38,8 @@ export const JourneyE2DailyOvertimeCaseSchema = z
                 jobCards: z.number().int().positive(),
                 hourlyRate: z.number().positive(),
                 grossMinutes: z.number().int().positive(),
-                mealMinutes: z.number().int().positive(),
+                /** 0 when the crew has no lunch length; the flow refuses a crew whose lunch disagrees. */
+                mealMinutes: z.number().int().min(0),
                 netMinutes: z.number().int().positive(),
                 netHours: z.number().positive(),
                 employees: z.number().int().positive(),
@@ -64,11 +65,10 @@ export const JourneyE2DailyOvertimeCaseSchema = z
         if (s.dayOffset !== -14) issue(['dayOffset'], 'E2 owns day -14 (Journey B: 0..-9, C: -10, D6: -11, D9: -12, D10: -13)');
         if (!(minutes(capture.timeIn) < minutes(capture.timeOut))) issue(['capture'], 'timeIn must be before timeOut');
 
-        // The day: gross is the span, the meal is deducted once, net is what remains.
+        // The day: gross is the span, any meal is deducted once, net is what remains.
         if (expected.grossMinutes !== minutes(capture.timeOut) - minutes(capture.timeIn)) {
             issue(['expected', 'grossMinutes'], 'must equal timeOut - timeIn');
         }
-        if (!(expected.mealMinutes > 0)) issue(['expected', 'mealMinutes'], 'a zero meal describes a different environment — fail rather than pass silently');
         if (expected.netMinutes !== expected.grossMinutes - expected.mealMinutes) issue(['expected', 'netMinutes'], 'must equal grossMinutes - mealMinutes');
         if (expected.netHours !== expected.netMinutes / 60) issue(['expected', 'netHours'], 'must equal netMinutes / 60');
 

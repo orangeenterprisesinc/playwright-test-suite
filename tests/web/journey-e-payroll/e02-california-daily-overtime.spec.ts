@@ -1,6 +1,6 @@
 /**
- * Catalog workflow E2 — California daily overtime (one crew day split into eight regular hours, two at
- * time-and-a-half and one at double time, on the regular rate).
+ * Catalog workflow E2 — California daily overtime (one thirteen-hour crew day split into eight regular hours,
+ * four at time-and-a-half and one at double time, on the regular rate).
  * Data: src/data/journey-e/e02-california-daily-overtime.json · Plan: test-plans/journey-e/e02-california-daily-overtime.md
  */
 import { expect, test } from '@fixtures/base.fixture';
@@ -19,7 +19,7 @@ import {
 const minutes = (t: { hour: number; minute: number }) => t.hour * 60 + t.minute;
 
 test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, () => {
-    test('[Payroll] Split an eleven-hour net day into eight regular hours, two at time-and-a-half and one at double time.', {
+    test('[Payroll] Split a thirteen-hour day into eight regular hours, four at time-and-a-half and one at double time.', {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E2' }],
     }, async ({ sessionApi, pages }, testInfo) => {
@@ -51,25 +51,27 @@ test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, 
             const buckets = await pages.transferToJobCards.previewOvertimeBuckets();
             expect(buckets, `${scenario.label}: the preview must show exactly ${expected.jobCards} job card`).toHaveLength(expected.jobCards);
 
-            // E2 is a known product red (daily-overtime calc). Value checks are SOFT so one run walks the
-            // whole flow and records EVERY discrepancy for later triage; length/structural gates stay hard so
-            // array access can't crash. The test still fails — soft failures are reported at the end.
+            // Value checks are soft so a red run reports every bucket that disagrees at once; length and
+            // structural gates stay hard so array access can't crash.
             const card = buckets[0];
             expect.soft(card.job, `${scenario.label}: the previewed card must be E2 JOB`).toContain(run.job.name);
-            // The day: one automatic half-hour meal, deducted once; 11.50 gross becomes 11.00 net.
+            // E2 CREW has no lunch, so no meal is deducted and net equals gross.
             expect.soft(card.grossTime, `${scenario.label}: gross hours`).toBe(expected.grossMinutes / 60);
-            expect.soft(card.meal, `${scenario.label}: the automatic meal in hours`).toBe(expected.mealMinutes / 60);
-            expect.soft(card.netTime, `${scenario.label}: net hours after the meal`).toBe(expected.netHours);
+            expect.soft(card.meal, `${scenario.label}: the meal in hours`).toBe(expected.mealMinutes / 60);
+            expect.soft(card.netTime, `${scenario.label}: net hours`).toBe(expected.netHours);
             // The three buckets ARE the workflow, and they sum to the net day, not the gross.
-            expect.soft(card.regularHours, `${scenario.label}: regular hours (first eight)`).toBe(expected.regularHours);
-            expect.soft(card.overtime, `${scenario.label}: overtime hours (eight to ten, at 1.5x)`).toBe(expected.overtimeHours);
-            expect.soft(card.doubleTime, `${scenario.label}: double-time hours (beyond ten, at 2x)`).toBe(expected.doubleTimeHours);
+            expect.soft(card.regularHours, `${scenario.label}: regular hours (first ${scenario.rule.dailyOvertimeAfterHours})`).toBe(expected.regularHours);
+            expect.soft(card.overtime, `${scenario.label}: overtime hours (${scenario.rule.dailyOvertimeAfterHours} to ${scenario.rule.doubleTimeAfterHours}, at 1.5x)`).toBe(expected.overtimeHours);
+            expect.soft(card.doubleTime, `${scenario.label}: double-time hours (beyond ${scenario.rule.doubleTimeAfterHours}, at 2x)`).toBe(expected.doubleTimeHours);
             expect.soft(
                 card.regularHours + card.overtime + card.doubleTime,
                 `${scenario.label}: the three buckets must sum to the NET day (${expected.netHours}), not the gross`,
             ).toBe(expected.netHours);
             // The premium on the regular rate — the forty dollars that distinguish "the rule applied" from "it did not".
-            expect.soft(card.amount, `${scenario.label}: amount = 8x20 + 2x30 + 1x40`).toBe(expected.totalAmount);
+            expect.soft(
+                card.amount,
+                `${scenario.label}: amount = ${expected.regularAmount} + ${expected.overtimeAmount} + ${expected.doubleTimeAmount}`,
+            ).toBe(expected.totalAmount);
 
             const totals = await pages.transferToJobCards.previewTotals();
             expect.soft(totals, `${scenario.label}: preview totals bar`).toEqual({ pieces: expected.pieces, jobCards: expected.jobCards, employees: expected.employees });
@@ -91,7 +93,9 @@ test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, 
             const result = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
             expect.soft(result.jobCardsWritten, `${scenario.label}: exactly ${expected.jobCards} job card written`).toBe(expected.jobCards);
 
-            // 7. The committed card on screen.
+            // 7. The committed card on screen. Open the page fresh: the commit can land on Job Cards with the
+            // range already collapsed into an "Edit filter" chip, where the From/To inputs are not rendered.
+            await pages.jobCards.goto();
             await pages.jobCards.applyDateRange(run.day);
             await expect.soft(pages.jobCards.rowsForCrew(run.crew.name), `${scenario.label}: one crew-scoped row (the day carries other tenants' cards)`).toHaveCount(expected.jobCards);
             expect.soft(await pages.jobCards.jobsForCrew(run.crew.name), `${scenario.label}: the card's Job cell`).toContain(run.job.name);

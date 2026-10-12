@@ -186,9 +186,16 @@ export async function prepareJourneyE2(
             createBreakCardFromTimeIn: Number(storedCrew.createBreakCardFromTimeIn ?? 0),
             autoPaidBreakType: Number(storedCrew.autoPaidBreakType ?? 0),
             autoReturnFromBreak: Number(storedCrew.autoReturnFromBreak ?? 0),
+            lunchLengthMinutes: Number(storedCrew.lunchLengthMinutes ?? 0),
         },
-        `${scenario.label}: E2 CREW must carry no exercise job or break automation that would split the day`,
-    ).toEqual({ exerciseJobCounter: 0, createBreakCardFromTimeIn: 0, autoPaidBreakType: 0, autoReturnFromBreak: 0 });
+        `${scenario.label}: E2 CREW must carry no exercise job, break automation or lunch other than the scenario's meal`,
+    ).toEqual({
+        exerciseJobCounter: 0,
+        createBreakCardFromTimeIn: 0,
+        autoPaidBreakType: 0,
+        autoReturnFromBreak: 0,
+        lunchLengthMinutes: scenario.expected.mealMinutes,
+    });
 
     const storedEmployee = await getJson(sessionApi, `employees/${picker.id}`);
     const rateKeys = Object.keys(storedEmployee).filter((k) => /rate/i.test(k));
@@ -213,7 +220,8 @@ export async function prepareJourneyE2(
         );
     }
 
-    // Read, never written: a moved window or meal length must fail loudly rather than skip.
+    // Read, never written: a moved window must fail loudly rather than skip. The employeeMeal* keys are
+    // recorded only — PR #103 measured no meal from them on a crew day; the crew's lunch is checked above.
     const preferences = await getPreferences(sessionApi);
     if (!(Number(preferences.maximumDaysForTransferExport) >= Math.abs(scenario.dayOffset))) {
         throw new Error(
@@ -222,11 +230,6 @@ export async function prepareJourneyE2(
     }
     for (const key of ['employeeMealStart', 'employeeMealTime', 'employeeMinNetForMeal', 'timeDecimalRounding']) {
         testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
-    }
-    if (typeof preferences.employeeMealTime === 'number' && Math.round(preferences.employeeMealTime * 60) !== scenario.expected.mealMinutes) {
-        throw new Error(
-            `${scenario.label}: employeeMealTime=${preferences.employeeMealTime} h is ${Math.round(preferences.employeeMealTime * 60)} min, the scenario expects ${scenario.expected.mealMinutes}.`,
-        );
     }
 
     await allowApiWrites('cleanup', 'E2 before-phase sweep: crew job cards', () => sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }));

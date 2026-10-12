@@ -1,5 +1,13 @@
 # `E2` · California daily overtime
 
+**Revised 2026-10-12. This note supersedes the 11.5-hour arithmetic below.** PR #103's first run
+previewed the 06:00–17:30 day as 11.5 net = 8 regular + 3.5 at 1.5× + 0 at 2×, with no meal.
+That is the `AG CA 2022` rule working correctly: the 2022 agricultural schedule pays 1.5× after
+8 hours a day and **2× after 12**, not after 10 as the draft catalog says. `E2 CREW` has no lunch length,
+and the tenant's `employeeMeal*` preferences deducted nothing. The scenario is now **06:00–19:00, 13 h,
+no meal → 8 / 4 / 1, $320**. The flow refuses to run if the crew gains a lunch length. The catalog source
+document still says "double time after 10" and needs correcting by its owner.
+
 > **One worker, one job, one eleven-hour *net* day — and the day splits itself into three money buckets.**
 > A crew time-in at 06:00 and a crew time-out at 17:30 are two time cards and one job card. The engine
 > deducts an automatic half-hour meal, so 11.50 gross becomes 11.00 net — and what the workflow exists to
