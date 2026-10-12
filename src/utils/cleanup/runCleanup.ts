@@ -5,6 +5,7 @@ import { punchDay } from '../../data/journey-b/fixture';
 import { allowApiWrites } from '../api/writeGuard';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
+import { removeEmployeeFromDevice, type DeviceMembershipSnapshot } from '../api/scanDevicesApi';
 import { getJob, setJobRate } from '../api/setupEntitiesApi';
 import {
     getPreferences,
@@ -54,6 +55,7 @@ interface Restorer {
 //   stickerStartLocations → the two label-tracking preferences B7 arranges for its own extraction
 //   pieceOutPreferences   → the seven piece-out/sticker-roll preferences A9 writes through the UI
 //   d6JobPieceRate        → the fixture job's pieceRate (D6 raises it, restore puts it back)
+//   deviceEmployeeMembership → takes A5's employee id off the shared device (deleting the employee leaves a dangling row)
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
         snapshot: async (api, ctx) => (await getCrew(api, fixtureCrewId(ctx))).userToNotifyBreakAndMeal ?? null,
@@ -92,6 +94,14 @@ const RESTORERS: Record<string, Restorer> = {
         snapshot: async (api, ctx) => (await getJob(api, journeyJobId(ctx))).pieceRate ?? null,
         restore: async (api, snapshot, ctx) => {
             if (snapshot !== null) await setJobRate(api, journeyJobId(ctx), snapshot as number);
+        },
+    },
+    deviceEmployeeMembership: {
+        // No 'before' snapshot: the flow owns the Map entry and fills in employeeId once the save URL is known.
+        snapshot: async () => null,
+        restore: async (api, snapshot) => {
+            const { deviceId, employeeId } = snapshot as DeviceMembershipSnapshot;
+            if (employeeId !== undefined) await removeEmployeeFromDevice(api, deviceId, employeeId);
         },
     },
 };

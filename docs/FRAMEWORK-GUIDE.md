@@ -308,13 +308,13 @@ cron**; there is no separate orchestrator. The static gates (typecheck, lint, th
 id checks) run inside its job, so with the automatic triggers off they execute at 4 PM only —
 a pull request is not checked.
 
-**Nothing but the 4 PM cron starts a suite run.** On 2026-10-07, per the standup call to run
-end-to-end testing once a day, `e2e.yml` lost its `push: branches: [main]`,
-`repository_dispatch` (`run-playwright`, from web-pet) and `workflow_call` triggers; dev
-staging deploys from main only, so a merge run just re-tested the build the cron already
-covers, and a second run on the same dev tenant collides with the first
-([ADR 0007](adr/0007-journey-b-shared-tenant-and-import-deadline.md)). `workflow_dispatch`
-stays as the escape hatch for running one spec while you write it.
+**Nothing but the 4 PM cron starts a suite run.** Since 2026-10-08, per the standup call to
+run end-to-end testing once a day, a merge to main triggers nothing (`push:` commented out)
+and `repository_dispatch` / `workflow_call` are route-gated off — see the trigger bullet
+below for the mechanics. Dev staging deploys from main only, so a merge run just re-tested
+the build the cron already covers, and a second run on the same dev tenant collides with the
+first ([ADR 0007](adr/0007-journey-b-shared-tenant-and-import-deadline.md)).
+`workflow_dispatch` stays as the escape hatch for running one spec while you write it.
 
 The self-hosted `e2e-local.yml` / `webpet-e2e-local.yml` pair was **removed**, along with all
 local-execution support. They booted the app natively on one QA machine (SQL Server Express over
@@ -324,11 +324,12 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
 - Triggers: **`schedule` (`28 10 * * *`, ~4:00 PM IST — the daily dry run)** and manual
-  `workflow_dispatch`, both always allowed. `push: branches: [main]`, `workflow_call` and
-  `repository_dispatch` are still declared but **gated**: the `route` job skips the suite
-  unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes` (it is unset). Flip that variable
-  to re-enable them without a YAML change. The gate sits in a job, not in `on:`, because
-  `vars` is unavailable to a trigger — so a push starts a run that then skips.
+  `workflow_dispatch`, both always allowed. A merge to main triggers **nothing**: the
+  `push:` trigger is commented out, because a declared trigger always starts a (skipped) run
+  entry before a job-level gate can stop it — `vars` is unavailable in `on:`. `workflow_call`
+  and `repository_dispatch` stay declared but **gated**: the `route` job skips the suite
+  unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes` (it is unset); neither fires on a
+  merge or a PR, so declared they cost nothing.
 - Serves **both** suites via `matrix.suite` (`journey` | `webpet`) — see §9. The cron runs both
   serially; a dispatch runs the one it selected, or `both` to mirror the cron.
 - Runner: `ubuntu-latest` (GitHub-hosted); 90-min timeout, both suites.

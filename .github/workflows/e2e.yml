@@ -46,22 +46,23 @@ name: E2E
 # than being pinned as the code under test, which is what the removed
 # `ref: dry-run` / BRANCH_OVERRIDE pair used to arrange.
 #
-# ── THE 4 PM CRON RUNS; THE OTHER AUTOMATIC TRIGGERS SIT BEHIND A SWITCH ────
-# Per the 2026-10-06 standup call the suite runs once a day. `push:
-# branches: [main]`, `repository_dispatch` (run-playwright, from web-pet) and
-# `workflow_call` are still declared below, but the `route` job refuses them
-# unless the CI_AUTO_TRIGGERS repo variable is `yes`. It is unset, so they are
-# off — turn one back on in Settings ▸ Secrets and variables ▸ Actions ▸
-# Variables, with no YAML edit and no PR.
+# ── THE 4 PM CRON RUNS; EVERYTHING ELSE IS OFF ──────────────────────────────
+# Per the 2026-10-06 standup call the suite runs once a day. A merge to main
+# triggers NOTHING: the `push:` trigger is commented out below, because a
+# declared trigger always starts a run entry before any job-level gate can stop
+# it — `vars` is not readable in `on:` — and even a 9-second skipped entry per
+# merge was unwanted (run #967). To bring merge runs back, uncomment the two
+# push lines AND set the CI_AUTO_TRIGGERS repo variable to `yes`.
 #
-# The gate cannot live in `on:` — the `vars` context is not available to a
-# trigger. So a push still STARTS a run and `route` skips the suite a few
-# seconds later; the run is listed with its `e2e` job skipped.
+# `repository_dispatch` (run-playwright, from web-pet) and `workflow_call` stay
+# declared but gated: the `route` job refuses them unless CI_AUTO_TRIGGERS is
+# `yes`. Declared, they cost nothing — neither fires on a merge or a PR, and a
+# dispatch entry can only appear if web-pet actually posts one (its RUN_E2E
+# variable is `no` today).
 #
 # schedule and workflow_dispatch are never gated. The static gates — typecheck,
 # lint, runner:check, webpet:ids:check, webpet:runner:check — run inside the e2e
-# job below, so with the triggers off they execute at 4 PM only; a PR is not
-# checked.
+# job below, so they execute at 4 PM only; a PR is not checked.
 on:
   schedule:
     # The daily dry run, ~4:00 PM IST (IST is UTC+5:30; cron is always UTC). Set a
@@ -71,10 +72,12 @@ on:
     #
     # On this event the matrix below runs BOTH suites, one after the other.
     - cron: '28 10 * * *'
-  # push and repository_dispatch always run the journey suite: `inputs` is null on
-  # those events, so the matrix expression falls through to journey.
-  push:
-    branches: [main]
+  # OFF — see the header: even route-gated, a push left one skipped run entry
+  # per merge, and the ask is zero. To re-enable merge runs, uncomment these two
+  # lines and set CI_AUTO_TRIGGERS=yes. `inputs` is null on push (and on
+  # repository_dispatch), so the matrix falls through to the journey suite.
+  # push:
+  #   branches: [main]
   workflow_dispatch:
     inputs:
       suite:
@@ -175,10 +178,11 @@ jobs:
     steps:
       - id: decide
         env:
-          # THE SWITCH. Unset or anything but `yes` means push, repository_dispatch
-          # and workflow_call start a run that stops right here. Set it to `yes` in
-          # Settings ▸ Secrets and variables ▸ Actions ▸ Variables to let them
-          # through again. schedule and workflow_dispatch ignore it entirely.
+          # THE SWITCH. Unset or anything but `yes` means repository_dispatch and
+          # workflow_call (and push, if ever uncommented above) stop right here.
+          # Set it to `yes` in Settings ▸ Secrets and variables ▸ Actions ▸
+          # Variables to let them through. schedule and workflow_dispatch ignore
+          # it entirely.
           AUTO_TRIGGERS: ${{ vars.CI_AUTO_TRIGGERS }}
           EVENT: ${{ github.event_name }}
           RUN_LABEL: ${{ inputs.run_label || github.event.client_payload.run_label }}

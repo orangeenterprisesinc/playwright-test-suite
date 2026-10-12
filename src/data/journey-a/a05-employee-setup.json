@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "A5 \u00b7 Employee setup (catalog A5, plan test-plans/journey-a/a05-employee-setup.md, runner row A5). Lookup rows (Guerrero, B1 CREW, B1 RANCH, B1 FIELD, B1 HARVEST) are protected fixtures; the case only selects them.",
+    "Offsets feed runUniqueCode(): 51-54 are free (B15 uses 1-3, A4 uses 41)."
+  ],
+  "employee": {
+    "codeOffset": 51,
+    "exportIdentifierOffset": 52,
+    "nfcCodeOffset": 53,
+    "rfidCodeOffset": 54,
+    "department": "Guerrero",
+    "crew": "B1 CREW",
+    "hourlyRate": "25",
+    "gender": "Male",
+    "dateOfBirth": "1996-06-11",
+    "defaultRanch": "B1 RANCH",
+    "defaultField": "B1 FIELD",
+    "defaultJob": "B1 HARVEST",
+    "waivedFirstMeal": true,
+    "waivedSecondMeal": true
+  },
+  "expected": {
+    "payPeriod": "Hourly"
+  },
+  "cleanup": [
+    {
+      "kind": "delete",
+      "entity": "employee",
+      "name": "{employeeName}"
+    }
+  ]
+}

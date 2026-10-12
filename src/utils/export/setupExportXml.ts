@@ -57,3 +57,15 @@ export function pieceJobsInExport(xml: string, paymentTypes: readonly string[], 
         })
         .map((job) => job.match(/<Name>([^<]*)</)?.[1] ?? '(unnamed)');
 }
+
+/** The `<Employee>` in `section` whose `<Code>` is `code`, as tag → text (flat children only), or undefined. */
+export function employeeInExport(xml: string, code: string, section = 'Employee_Records'): Record<string, string> | undefined {
+    for (const employee of recordsBlock(xml, section).matchAll(/<Employee>(.*?)<\/Employee>/gs)) {
+        const fields: Record<string, string> = {};
+        for (const [, tag, value] of employee[1].matchAll(/<(\w+)>([^<]*)<\/\1>/g)) {
+            fields[tag] = value.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+        }
+        if (fields['Code'] === code) return fields;
+    }
+    return undefined;
+}

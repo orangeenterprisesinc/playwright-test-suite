@@ -1,12 +1,21 @@
 import type { APIRequestContext, TestInfo } from '@playwright/test';
-import { makeCrewName, makeUser, runUniqueCode } from '@data/generated';
-import type { CrewSetupCase, PieceOutConfigCase, UserSetupCase } from '@data/schemas/journeyAScenario';
+import { makeCrewName, makeEmployeeName, makeUser, runUniqueCode } from '@data/generated';
+import type {
+    CrewSetupCase,
+    EmployeeSetupCase,
+    PieceOutConfigCase,
+    UserSetupCase,
+} from '@data/schemas/journeyAScenario';
 import type { NewUserData } from '@pages/admin/UsersPage';
 import type { NewCrewData } from '@pages/setup/CrewPage';
+import type { NewEmployeeData } from '@pages/setup/EmployeePage';
 import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
-import { findActiveDeviceOfType, pushSetupExport } from '@utils/api/setupExportApi';
+import {
+    findActiveDeviceOfType,
+    pushSetupExport,
+} from '@utils/api/setupExportApi';
 import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
@@ -124,4 +133,53 @@ export async function pushSetupExportToDevice(api: APIRequestContext, deviceId: 
 /** A4 read-back: what `GET /crews/{id}` holds after the screen saved. */
 export async function readCrew(api: APIRequestContext, id: number): Promise<CrewRecord> {
     return getCrew(api, id);
+}
+
+export interface EmployeeSetupRun {
+    /** The case with `{employeeName}` substituted. */
+    scenario: EmployeeSetupCase;
+    /** The New Employee form data: the case's values over a run-unique name and four run-unique codes. */
+    employee: NewEmployeeData &
+        Required<
+            Pick<
+                NewEmployeeData,
+                | 'lastName' | 'exportIdentifier' | 'nfcCode' | 'rfidCode' | 'crew' | 'department' | 'hourlyRate'
+                | 'gender' | 'dateOfBirth' | 'defaultRanch' | 'defaultField' | 'defaultJob'
+                | 'waivedFirstMeal' | 'waivedSecondMeal'
+            >
+        >;
+    /** After-phase teardown: delete the employee. */
+    cleanup(): Promise<void>;
+}
+
+/** Mints the employee's name and codes and registers the after-phase cleanup. */
+export function prepareEmployeeSetup(scenario: EmployeeSetupCase, testInfo: TestInfo): EmployeeSetupRun {
+    const spec = scenario.employee;
+    const name = makeEmployeeName();
+    const substituted = substituteTokens(scenario, { employeeName: name });
+    const cleanup = register(testInfo, 'A5 employee-setup cleanup', (api) =>
+        runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
+    );
+    return {
+        scenario: substituted,
+        employee: {
+            name,
+            code: runUniqueCode(spec.codeOffset),
+            lastName: name,
+            exportIdentifier: runUniqueCode(spec.exportIdentifierOffset),
+            nfcCode: runUniqueCode(spec.nfcCodeOffset),
+            rfidCode: runUniqueCode(spec.rfidCodeOffset),
+            crew: spec.crew,
+            department: spec.department,
+            hourlyRate: spec.hourlyRate,
+            gender: spec.gender,
+            dateOfBirth: spec.dateOfBirth,
+            defaultRanch: spec.defaultRanch,
+            defaultField: spec.defaultField,
+            defaultJob: spec.defaultJob,
+            waivedFirstMeal: spec.waivedFirstMeal,
+            waivedSecondMeal: spec.waivedSecondMeal,
+        },
+        cleanup,
+    };
 }
