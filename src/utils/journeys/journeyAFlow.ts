@@ -1,8 +1,15 @@
 import type { APIRequestContext, TestInfo } from '@playwright/test';
-import { makeEmployeeName, makeUser, runUniqueCode } from '@data/generated';
-import type { EmployeeSetupCase, PieceOutConfigCase, UserSetupCase } from '@data/schemas/journeyAScenario';
+import { makeCrewName, makeEmployeeName, makeUser, runUniqueCode } from '@data/generated';
+import type {
+    CrewSetupCase,
+    EmployeeSetupCase,
+    PieceOutConfigCase,
+    UserSetupCase,
+} from '@data/schemas/journeyAScenario';
 import type { NewUserData } from '@pages/admin/UsersPage';
+import type { NewCrewData } from '@pages/setup/CrewPage';
 import type { NewEmployeeData } from '@pages/setup/EmployeePage';
+import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
 import {
@@ -33,6 +40,26 @@ export function mintUserSetup(scenario: UserSetupCase, _sessionApi: APIRequestCo
         runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
     );
     return { scenario: substituted, user, cleanup };
+}
+
+export interface CrewSetupRun {
+    /** The case with `{crewName}` substituted. */
+    scenario: CrewSetupCase;
+    /** The New Crew form data: the case's lookups over a run-unique name and barcode. */
+    crew: NewCrewData;
+    /** The case's cleanup steps, 'after' phase. */
+    cleanup(): Promise<void>;
+}
+
+export function mintCrewSetup(scenario: CrewSetupCase, _sessionApi: APIRequestContext, testInfo: TestInfo): CrewSetupRun {
+    const name = makeCrewName();
+    const { codeOffset, ...picked } = scenario.crew;
+    const crew: NewCrewData = { ...picked, name, code: runUniqueCode(codeOffset) };
+    const substituted = substituteTokens(scenario, { crewName: name });
+    const cleanup = register(testInfo, 'A4 crew-setup cleanup', (api) =>
+        runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
+    );
+    return { scenario: substituted, crew, cleanup };
 }
 
 export interface PieceOutConfigRun {
@@ -101,6 +128,11 @@ export async function findPocketDevice(api: APIRequestContext, deviceType: numbe
  */
 export async function pushSetupExportToDevice(api: APIRequestContext, deviceId: number) {
     return pushSetupExport(api, deviceId);
+}
+
+/** A4 read-back: what `GET /crews/{id}` holds after the screen saved. */
+export async function readCrew(api: APIRequestContext, id: number): Promise<CrewRecord> {
+    return getCrew(api, id);
 }
 
 export interface EmployeeSetupRun {

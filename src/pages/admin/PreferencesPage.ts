@@ -28,7 +28,7 @@
  * destroy the Journey B fixtures. Adding one here would make that a single click
  * away; see `src/utils/api/preferencesApi.ts` for the same refusal on the API side.
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
 /** The section headings this page object knows how to scroll to. */
@@ -81,6 +81,15 @@ export class PreferencesPage extends BasePage {
     /** Any preference control, by the field id the form binds. */
     field(fieldId: string): Locator {
         return this.page.locator(`#${fieldId}`);
+    }
+
+    /** An input's value or a Select's label; polls because the record hydrates after Save renders. */
+    async displayedValue(fieldId: string): Promise<string> {
+        const control = this.field(fieldId);
+        const isInput = (await control.evaluate((el) => el.tagName)) === 'INPUT';
+        const read = async () => (isInput ? await control.inputValue() : (await control.innerText()).trim());
+        await expect.poll(read, { message: `Preferences field '${fieldId}' stayed empty` }).not.toBe('');
+        return read();
     }
 
     /**
