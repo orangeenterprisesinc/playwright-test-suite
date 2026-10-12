@@ -204,7 +204,12 @@ export class CrewPage extends SetupScreenPage {
     async fillExerciseAndNotification(rule: CrewExerciseNotification): Promise<void> {
         // Jobs load after the form; picking before they land reads "Loading..." and can pick nothing.
         await expect(this.exerciseJobCombobox).not.toHaveAttribute('placeholder', /^Loading/);
-        await this.pickers.pickCombobox(this.exerciseJobCombobox, rule.exerciseJob);
+        // Picked straight after the previous save, the form re-hydrates and clears the pick (trace 2026-10-12:
+        // value "", Save disabled). Re-pick until it holds.
+        await expect(async () => {
+            await this.page.keyboard.press('Escape');
+            await this.pickers.pickCombobox(this.exerciseJobCombobox, rule.exerciseJob);
+        }).toPass({ timeout: 30_000 });
         await this.exerciseJobLengthInput.fill(String(rule.exerciseJobLengthMinutes));
         await this.breakAndMealNotificationInput.fill(rule.breakAndMealNotification);
         await this.pickers.pickCombobox(this.notifyUserCombobox, rule.notifyUser);
