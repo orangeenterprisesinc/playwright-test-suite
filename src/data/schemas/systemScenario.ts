@@ -28,6 +28,8 @@ export const NotificationEmailScenarioSchema = z
         notificationNamePrefix: z.string().min(5),
         /** `{stamp}` is replaced by a short clock stamp per run. */
         subjectTemplate: z.string().includes('{stamp}'),
+        /** Exact name of the reporting filter script the notification is built on. */
+        filterScriptName: z.string().min(1),
         expected: z
             .object({
                 jobStatus: z.string().min(1),

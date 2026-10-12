@@ -21,7 +21,7 @@
  * `Parameters<typeof test>[1]['page']` resolved to a different overload.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { deleteBillingCenter, ensureBillingCenter, type EnsuredBillingCenter } from './data-factory';
+import { deleteBillingCenter, demoteFromSu, ensureBillingCenter, lockIdentifierGate, type EnsuredBillingCenter } from './data-factory';
 import { sixCharRunToken } from '@utils/cleanup/runToken';
 
 // Unique per-run token: Customer_Name_Unique (and the Code/ExportIdentifier
@@ -101,8 +101,8 @@ test.describe('Setup > Billing Center — new form', { tag: ['@WebPet', '@wp-set
         // matched /new. submit() resolves against editUrlPattern instead.
         expect(await form.submit()).toBe('created');
         await expect(form.nameInput).toHaveValue(TEST_NAME);
-        // Name is read-only after first save.
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        // The edit form sits behind the identifier gate (WP-0005); the suite's SU session keeps it open.
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
     });
 
 });
@@ -124,13 +124,22 @@ test.describe('Setup > Billing Center — edit form', { tag: ['@WebPet', '@wp-se
         if (bc) await deleteBillingCenter(request, bc.id);
     });
 
-    test('[Billing Center] Verify that the name is read-only on an existing record.', {
+    test('[Billing Center] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0005' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-3088 rolled the identifier gate (readonly = !isNew && !(isSU || flag)) out to
+        // Billing Center; the name used to lock unconditionally. SU keeps it editable until demoted.
         const form = pages.billingCenterForm;
         if (!(await form.gotoEditOrForbidden(bc.id))) return;
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, { allowRecordNameModification: false });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        if (!(await form.gotoEditOrForbidden(bc.id))) return;
+        await gateSettled;
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
     });
 
     test('[Billing Center] Verify that the active toggle can be flipped and saved.', {

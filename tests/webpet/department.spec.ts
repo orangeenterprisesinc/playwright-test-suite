@@ -15,7 +15,7 @@
  * DepartmentListPage; action order and assertions are unchanged.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureDepartment, deleteDepartment, type EnsuredDepartment } from './data-factory';
+import { ensureDepartment, deleteDepartment, demoteFromSu, lockIdentifierGate, type EnsuredDepartment } from './data-factory';
 
 // This file creates its own Department via the API (cloned from an existing
 // record so the ~10 create-time validators are satisfied by construction)
@@ -132,14 +132,30 @@ test.describe('Edit department form', { tag: ['@WebPet', '@wp-setup', '@wp-depar
         await expect(form.codeInput).toHaveValue(dept.code);
     });
 
-    test('[Department] Verify that the name, barcode and export identifier are read-only.', {
+    test('[Department] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0140' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-3088 rolled the identifier gate (readonly = !isNew && !(isSU || flag)) out to
+        // Department; these fields used to lock unconditionally. SU keeps them editable until demoted.
         const form = pages.departmentForm;
         await form.gotoEdit(dept.id);
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordBarcodeModification: false,
+            allowRecordExportIdModify: false,
+        });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(dept.id);
+        await gateSettled;
+        await form.waitForForm();
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
         await expect(form.codeInput).toHaveAttribute('readonly', '');
         await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
     });

@@ -11,12 +11,13 @@ import { CrewPunchPage } from './CrewPunchPage';
 export class CrewTimeInPage extends CrewPunchPage {
     /** Sub-crew table. Crew-scoped: it only offers the chosen crew's tables. */
     readonly tableCombobox: Locator;
-    readonly deselectAllButton: Locator;
+    /** One button that flips between "Select All" and "Deselect All" with the roster's state. */
+    readonly selectAllToggle: Locator;
 
     constructor(page: Page) {
         super(page, '/input/crew-time-in/new', /New Crew Time In/i);
         this.tableCombobox = page.locator('#crewTableCounter');
-        this.deselectAllButton = page.getByRole('button', { name: /Deselect All/i });
+        this.selectAllToggle = page.getByRole('button', { name: /^(De)?select All$/i });
     }
 
     /**
@@ -54,28 +55,39 @@ export class CrewTimeInPage extends CrewPunchPage {
     }
 
     /**
-     * Narrow the punch to named employees.
-     *
-     * The crew's members arrive **pre-checked**, so this deselects everything and
-     * ticks back the ones asked for — the opposite of the select-from-empty a reader
-     * would assume. Each checkbox is named by the employee's name alone: not the code,
-     * not "code - name".
+     * A roster checkbox by employee name. Dev labels them "<code>: <name>" (seen 2026-10-12), and
+     * renders ": <name>" when the code is missing from the roster payload, so match the name as
+     * the label's tail, optionally behind a "<code>: " prefix.
+     */
+    employeeCheckbox(name: string): Locator {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return this.page.getByRole('checkbox', { name: new RegExp(`^(?:[^:]*:\\s*)?${escaped}$`) });
+    }
+
+    /** Punch the crew's whole roster, whichever state it arrives in. */
+    async selectAllEmployees(): Promise<void> {
+        await this.selectAllToggle.waitFor({ state: 'visible', timeout: 25_000 });
+        if (/^select all$/i.test((await this.selectAllToggle.innerText()).trim())) await this.selectAllToggle.click();
+        await expect(this.selectAllToggle).toHaveText(/^Deselect All$/i);
+    }
+
+    /**
+     * Narrow the punch to named employees: clear the roster, then tick back the ones asked for.
+     * The toggle reads "Deselect All" only while every member is checked, so clear through it
+     * when it says so — clicking "Select All" would do the opposite.
      */
     async selectOnlyEmployees(names: string[]): Promise<void> {
-        await this.deselectAllButton.waitFor({ state: 'visible', timeout: 25_000 });
-        await this.deselectAllButton.click();
+        await this.selectAllToggle.waitFor({ state: 'visible', timeout: 25_000 });
+        if (/^deselect all$/i.test((await this.selectAllToggle.innerText()).trim())) await this.selectAllToggle.click();
         for (const name of names) {
-            const box = this.page.getByRole('checkbox', { name, exact: true });
+            const box = this.employeeCheckbox(name);
             await box.waitFor({ state: 'visible', timeout: 15_000 });
             await box.check();
             await expect(box, `'${name}' did not stay selected`).toBeChecked();
         }
     }
 
-    /**
-     * Clock a crew in. Without `employees` the crew's whole membership is punched,
-     * which is the form's own default.
-     */
+    /** Clock a crew in. Without `employees` the crew's whole membership is punched. */
     async punchIn(opts: {
         day: string;
         hour: number;
@@ -89,8 +101,9 @@ export class CrewTimeInPage extends CrewPunchPage {
     }): Promise<void> {
         await this.gotoNew();
         await this.setDateTime(opts.day, opts.hour, opts.minute);
-        // Before the crew and the rest: ticking it later blanked Field/Phase and Save then refused.
-        if (opts.employees) await this.useEmployeeCrew();
+        // Always, and before the crew: the default timecard-sourced roster is empty for a fixture
+        // crew with no history, and ticking this later blanked Field/Phase so Save refused.
+        await this.useEmployeeCrew();
         await this.selectCrew(opts.crew);
         await this.selectRanch(opts.ranch);
         await this.selectField(opts.field);
@@ -98,6 +111,7 @@ export class CrewTimeInPage extends CrewPunchPage {
         // After the crew, which is what populates both the table picker and the roster.
         if (opts.table) await this.selectTable(opts.table);
         if (opts.employees) await this.selectOnlyEmployees(opts.employees);
+        else await this.selectAllEmployees();
         await this.save();
     }
 

@@ -7,7 +7,7 @@
  * two FK-selection skips.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureEquipment, deleteEquipment, type EnsuredEquipment } from './data-factory';
+import { ensureEquipment, deleteEquipment, demoteFromSu, lockIdentifierGate, type EnsuredEquipment } from './data-factory';
 
 // This file creates its own Equipment (with a resolved Equipment Type FK) via
 // the API instead of depending on a seeded "Forklift". Assert against the
@@ -149,19 +149,35 @@ test.describe('Edit equipment form', { tag: ['@WebPet', '@wp-setup', '@wp-equipm
         await expect(form.codeInput).toHaveValue(equip.code);
     });
 
-    test('[Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.', {
+    test('[Equipment] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user and the type is disabled.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0166' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-3088 rolled the identifier gate (readonly = !isNew && !(isSU || flag)) out to
+        // Equipment; these fields used to lock unconditionally. SU keeps them editable until demoted.
         const form = pages.equipmentForm;
         await form.gotoEdit(equip.id);
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
-        await expect(form.codeInput).toHaveAttribute('readonly', '');
-        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
         // Equipment Type (ParentPicker combobox) is disabled on existing records —
         // a combobox, so `disabled`, never `readonly`.
         await expect(form.equipmentTypePicker.comboboxInput).toBeDisabled();
+
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, {
+            allowRecordNameModification: false,
+            allowRecordBarcodeModification: false,
+            allowRecordExportIdModify: false,
+        });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(equip.id);
+        await gateSettled;
+        await form.waitForForm();
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
+        await expect(form.codeInput).toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).toHaveAttribute('readonly', '');
     });
 
     test('[Equipment] Verify that the active checkbox and hourly cost are editable.', {

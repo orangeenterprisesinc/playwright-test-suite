@@ -10,7 +10,7 @@
  * unchanged.
  */
 import { expect, test } from '@fixtures/webpet.fixture';
-import { ensureCustomer, deleteCustomer, type EnsuredCustomer } from './data-factory';
+import { ensureCustomer, deleteCustomer, demoteFromSu, lockIdentifierGate, type EnsuredCustomer } from './data-factory';
 
 // This file owns its own Customer, created fresh via the API (no dependency on
 // a seeded "DFV" row). `customerTypeName` is resolved from whatever the DB
@@ -150,17 +150,27 @@ test.describe('Edit customer form', { tag: ['@WebPet', '@wp-setup', '@wp-custome
         await expect(form.nameInput).toHaveValue(customer.name);
     });
 
-    test('[Customer] Verify that the name is read-only while barcode and export identifier stay editable.', {
+    test('[Customer] Verify that the name locks under the WEBPET-2006 gate for a non-SU user while barcode and export identifier stay editable.', {
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0117' },
-    }, async ({ pages }) => {
+    }, async ({ pages, page }) => {
+        // WEBPET-3088 rolled the identifier gate (readonly = !isNew && !(isSU || flag)) out to
+        // Customer; the name used to lock unconditionally. SU keeps it editable until demoted.
+        // `code` and `exportIdentifier` were never locked here (WEBPET-831, OPEN_QUESTIONS.md).
         const form = pages.customerForm;
-        // Unlike peer setup forms, CustomerFormPage locks only `name` on edit;
-        // `code` and `exportIdentifier` stay editable. Logged for SME review in
-        // OPEN_QUESTIONS.md (WEBPET-831) — flip back if they should be read-only.
         await form.gotoEdit(customer.id);
         await form.waitForForm();
-        await expect(form.nameInput).toHaveAttribute('readonly', '');
+        await expect(form.nameInput).not.toHaveAttribute('readonly', '');
+        await expect(form.codeInput).not.toHaveAttribute('readonly', '');
+        await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
+
+        await demoteFromSu(page);
+        await lockIdentifierGate(page, { allowRecordNameModification: false });
+        const gateSettled = page.waitForResponse((res) => res.url().includes('/api/setup-identifier-preferences'));
+        await form.gotoEdit(customer.id);
+        await gateSettled;
+        await form.waitForForm();
+        await expect(form.nameInput).toHaveAttribute('readonly', '', { timeout: 15_000 });
         await expect(form.codeInput).not.toHaveAttribute('readonly', '');
         await expect(form.exportIdentifierInput).not.toHaveAttribute('readonly', '');
     });
