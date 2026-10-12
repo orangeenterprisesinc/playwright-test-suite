@@ -209,8 +209,7 @@ export default defineConfig({
     // default. Override per run with the CLI `--timeout`.
     //
     // 120 not 110: a01-user-setup was already finishing around 117s wall with no
-    // test.slow() of its own, so the margin was gone before per-action
-    // screenshots added their few seconds.
+    // test.slow() of its own.
     timeout: 120 * 1000,
 
     // Per-assertion budget for web-first auto-retrying `expect(...)` matchers.
@@ -289,11 +288,6 @@ export default defineConfig({
         // Full artifact capture on every test. Traces and videos provide
         // complete step-by-step debugging. To trim artifact size/time, switch
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
-        //
-        // Not 'on': that is a single shot at the END of the test, which is now
-        // just a duplicate of the last assertion frame that
-        // src/fixtures/instrumentation/actionShots.ts captures. The failure shot
-        // is not a duplicate — the runner takes it at the moment of failure.
         screenshot: 'only-on-failure',
         trace: 'on',
         // 480p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
