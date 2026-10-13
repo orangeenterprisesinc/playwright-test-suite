@@ -91,9 +91,17 @@ export async function dispatchNotification(setup: NotificationEmailSetup, sessio
     const all = await listFilterScripts(sessionApi);
     const reporting = all.filter((s) => s.executeReport !== false);
     if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, jobUnreachable: false, cleanup };
+    // By name, not position: dev's script list is shared and a newly added row can sort first.
+    const script = reporting.find((s) => s.name === setup.scenario.filterScriptName);
+    if (!script) {
+        throw new Error(
+            `No reporting filter script named '${setup.scenario.filterScriptName}'. Reporting scripts: ` +
+                JSON.stringify(reporting.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
+        );
+    }
     const notificationId = await createNotification(sessionApi, {
         name: notificationName,
-        filterScriptCounter: reporting[0].filterScriptCounter,
+        filterScriptCounter: script.filterScriptCounter,
         emailSubject: subject,
         usersCounter: userId,
     });

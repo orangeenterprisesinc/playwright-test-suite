@@ -5,12 +5,13 @@
     "Mail settings are written when the deployment has none — the product stores this password in clear text and cannot be given an encrypted one; encryption is a later phase. Writing beats demanding: dev resets wipe the preferences and a check-only run would leave CI red until someone re-ran a manual setup. NOTIFY_SMTP_WRITE=0 makes the run read-only (environment, read by the flow, not data).",
     "recipientTag: the recipient is EMAIL_TO's first address — the same one the framework's own reporter would mail, never a committed literal — plus-addressed per run as +ui005-<clock>. A user is soft-deleted, never purged, and its email stays reserved, so reusing EMAIL_TO verbatim meant the second run ever got 409 userEmailInUse at create and this test could pass exactly once per address. The tag routes to the same mailbox, so a human can still eyeball the mail.",
     "notificationNamePrefix must be the residue sweep's uid prefix for notifications (cleanupTargets.ts); the flow appends uid(), which carries the full clock so the sweep can date a leftover. subjectTemplate's {stamp} is a short clock stamp from src/data/generated.",
-    "The filter script has to produce a report: dispatch renders one and attaches it, so a script with executeReport=false comes back failed / 'render failed' with nothing sent. Dev returns exactly such a row (DashBoardTimeInReviewOfCrewProductivity) FIRST, which is what made taking scripts[0] fail — the flow takes the first REPORTING script; the content is not asserted, only that there is something to render.",
+    "The filter script has to produce a report: dispatch renders one and attaches it, so a script with executeReport=false comes back failed / 'render failed' with nothing sent. Dev returns exactly such a row (DashBoardTimeInReviewOfCrewProductivity) FIRST, which is what made taking scripts[0] fail. Taking the first REPORTING script failed next: 'All Job-cards in September 2026' (id 29) was on dev by the 2026-10-11 nightly, it sorts first, and notify-now answers 400 notification.spec_load_failed for it. filterScriptName pins the long-lived seeded script instead; the content is not asserted, only that there is something to render.",
     "expected: the job settles complete and reports exactly one recipient whose status is success, zero failed, at least one successful. cleanup: the notification first (it references the user), then the user — both by the minted names."
   ],
   "recipientTag": "ui005",
   "notificationNamePrefix": "ZZ NOTIF CHECK ",
   "subjectTemplate": "PET Tiger notification check {stamp}",
+  "filterScriptName": "Employee Badge Script",
   "expected": {
     "jobStatus": "complete",
     "recipientStatus": "success",

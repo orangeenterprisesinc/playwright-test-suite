@@ -1,0 +1,47 @@
+{
+    "_notes": [
+        "E2 — California daily overtime. One crew day (06:00 time-in, 19:00 time-out) is one job card.",
+        "AG CA 2022 is the 2022 agricultural schedule: 1.5x after 8 hours a day, 2x after 12. A 13-hour day splits into",
+        "8 regular, 4 at 1.5x and 1 at 2x, carried in three separate columns. The draft catalog said double time after 10;",
+        "PR #103 measured 11.5 h as 8 regular + 3.5 at 1.5x + 0 at 2x, which is the 12-hour schedule, so the day was lengthened.",
+        "No meal: E2 CREW has no lunch length, and PR #103 measured a meal of 0 on this crew. The tenant's employeeMeal*",
+        "preferences did not deduct one. The flow refuses to run if the crew gains a lunch length.",
+        "Every derivation keys on net hours, never gross. The thresholds live in the legacy rule editor",
+        "(catalog A10) and are proven by consequence — the 8/4/1 split and the 320.00 amount."
+    ],
+    "workflow": "E2",
+    "label": "e02-california-daily-overtime",
+    "dayOffset": -14,
+    "rule": {
+        "name": "AG CA 2022",
+        "dailyOvertimeAfterHours": 8,
+        "doubleTimeAfterHours": 12,
+        "overtimeMultiplier": 1.5,
+        "doubleTimeMultiplier": 2
+    },
+    "capture": {
+        "timeIn": { "hour": 6, "minute": 0 },
+        "timeOut": { "hour": 19, "minute": 0 }
+    },
+    "expected": {
+        "timeCards": 2,
+        "jobCards": 1,
+        "hourlyRate": 20,
+        "grossMinutes": 780,
+        "mealMinutes": 0,
+        "netMinutes": 780,
+        "netHours": 13,
+        "employees": 1,
+        "pieces": 0,
+        "regularHours": 8,
+        "overtimeHours": 4,
+        "doubleTimeHours": 1,
+        "regularAmount": 160,
+        "overtimeAmount": 120,
+        "doubleTimeAmount": 40,
+        "totalAmount": 320
+    },
+    "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -14, "cardTypes": [0, 1] }
+    ]
+}
