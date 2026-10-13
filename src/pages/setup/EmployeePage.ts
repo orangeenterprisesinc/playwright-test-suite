@@ -67,8 +67,28 @@ export interface EmployeeFormValues {
     active: boolean;
 }
 
+/** A light read to compare before and after an import; `readEmployeeForm` waits too long on empty pickers for that. */
+export interface EmployeeProfileSummary {
+    name: string;
+    code: string;
+    exportIdentifier: string;
+    lastName: string;
+    crew: string;
+    payPeriod: string;
+    hireDate: string;
+    rfidCode: string;
+    active: boolean;
+}
+
 export class EmployeePage extends SetupScreenPage {
     readonly nameInput: Locator;
+    readonly generalSection: Locator;
+    readonly faceIrisLabel: Locator;
+    readonly clearTemplateButton: Locator;
+    readonly photoGroup: Locator;
+    readonly photoClearButton: Locator;
+    readonly photoImage: Locator;
+    readonly irisSection: Locator;
     readonly codeInput: Locator;
     readonly firstNameInput: Locator;
     readonly lastNameInput: Locator;
@@ -119,6 +139,15 @@ export class EmployeePage extends SetupScreenPage {
         this.waivedFirstMealSwitch = page.getByRole('switch', { name: 'Waived First Meal' });
         this.waivedSecondMealSwitch = page.getByRole('switch', { name: 'Waived Second Meal' });
         this.createdToast = page.locator('[data-sonner-toast][data-type="success"]', { hasText: 'Employee created' });
+        this.generalSection = page.locator('section#general');
+        // Absent until the tenant has a face/iris device (WEBPET-2415 gate).
+        this.faceIrisLabel = this.generalSection.getByText('Face-Iris Template', { exact: true });
+        this.clearTemplateButton = page.getByRole('button', { name: 'Clear template' });
+        // Crew and Hire Date also have a "Clear" button, so Photo's is scoped through its own label group.
+        this.photoGroup = this.generalSection.locator('[data-slot="label"]').filter({ hasText: /^Photo$/ }).locator('..');
+        this.photoClearButton = this.photoGroup.getByRole('button', { name: 'Clear', exact: true });
+        this.photoImage = this.photoGroup.locator('img');
+        this.irisSection = page.locator('section#iris');
         this.pickers = new PickerComponent(page);
     }
 
@@ -220,6 +249,66 @@ export class EmployeePage extends SetupScreenPage {
     async setHomeCrew(crewName: string): Promise<void> {
         if (PickerComponent.labelPattern(crewName).test(await this.readHomeCrew())) return;
         await this.pickers.pickCombobox(this.crewCombobox, crewName);
+        await this.saveEdit();
+    }
+
+    /** `Face: Enrolled` / `Left iris: Not enrolled` … chip for one slot. */
+    faceIrisChip(slot: string): Locator {
+        return this.generalSection.getByText(new RegExp(`^${slot}: (Enrolled|Not enrolled)$`));
+    }
+
+    /** Slot → the status part of its chip; throws when a chip is missing, so callers poll it. */
+    async readFaceIrisChips(slots: readonly string[]): Promise<Record<string, string>> {
+        const entries: [string, string][] = [];
+        for (const slot of slots) {
+            const text = await this.faceIrisChip(slot).innerText({ timeout: 15_000 });
+            entries.push([slot, text.slice(text.indexOf(': ') + 2).trim()]);
+        }
+        return Object.fromEntries(entries);
+    }
+
+    async readPhotoSize(): Promise<{ width: number; height: number }> {
+        await expect(this.photoImage).toBeVisible();
+        await expect
+            .poll(() => this.photoImage.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+            .toBe(true);
+        return this.photoImage.evaluate((img: HTMLImageElement) => ({ width: img.naturalWidth, height: img.naturalHeight }));
+    }
+
+    /** "Iris / Face Enrollment" rows: `dt` label → `dd` badge text. */
+    async readIrisEnrollment(): Promise<Record<string, string>> {
+        await this.irisSection.waitFor({ state: 'visible', timeout: 15_000 });
+        const rows = await this.irisSection
+            .locator('dl > div')
+            .evaluateAll((items) =>
+                items.map((item): [string, string] => [
+                    item.querySelector('dt')?.textContent?.trim() ?? '',
+                    item.querySelector('dd')?.textContent?.trim() ?? '',
+                ]),
+            );
+        return Object.fromEntries(rows);
+    }
+
+    async readProfileSummary(): Promise<EmployeeProfileSummary> {
+        // The crew picker fills in after the form renders; an unset crew still reads empty.
+        await expect(this.crewCombobox).not.toHaveValue('', { timeout: 10_000 }).catch(() => undefined);
+        return {
+            name: await this.nameInput.inputValue(),
+            code: await this.codeInput.inputValue(),
+            exportIdentifier: await this.exportIdentifierInput.inputValue(),
+            lastName: await this.lastNameInput.inputValue(),
+            crew: (await this.readHomeCrew()).replace(/^\S+ : /, ''),
+            payPeriod: (await this.payPeriodSelect.innerText()).trim(),
+            hireDate: await this.readHireDate(),
+            rfidCode: await this.rfidCodeInput.inputValue(),
+            active: (await this.activeSwitch.getAttribute('aria-checked')) === 'true',
+        };
+    }
+
+    /** Identification ▸ Cards ▸ RFID Code; `saveEdit` waits for the PUT and re-opens the record. */
+    async setRfidCode(code: string): Promise<void> {
+        await this.rfidCodeInput.fill(code);
+        await expect(this.unsavedChangesBar).toBeVisible();
         await this.saveEdit();
     }
 }

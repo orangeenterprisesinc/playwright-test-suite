@@ -30,6 +30,8 @@ import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
 import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
 import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
 import { ImportInternetPage } from '../pages/connectivity/ImportInternetPage';
+import { ImportSingleFolderPage } from '../pages/connectivity/ImportSingleFolderPage';
+import { ImportLogPage } from '../pages/connectivity/ImportLogPage';
 import { ScanDevicePage } from '../pages/setup/ScanDevicePage';
 import { CrewTablePage } from '../pages/setup/CrewTablePage';
 import { RanchPage } from '../pages/setup/RanchPage';
@@ -87,6 +89,10 @@ export interface PageObjects {
     // ── Connectivity ────────────────────────────────────────────────
     /** Connectivity ▸ Import ▸ Internet — the office's relay pull (Journey B). */
     readonly importInternet: ImportInternetPage;
+    /** Connectivity ▸ Import ▸ Single Folder — manual device-file upload (A6). */
+    readonly importSingleFolder: ImportSingleFolderPage;
+    /** Connectivity ▸ Import ▸ Import Log — the Internet Import Log grid (A6). */
+    readonly importLog: ImportLogPage;
 }
 
 /**
@@ -122,5 +128,7 @@ export function createPageObjects(page: Page): PageObjects {
         get crewPieceOut() { return lazy('crewPieceOut', () => new CrewPieceOutPage(page)); },
         get crewTimeOut() { return lazy('crewTimeOut', () => new CrewTimeOutPage(page)); },
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
+        get importSingleFolder() { return lazy('importSingleFolder', () => new ImportSingleFolderPage(page)); },
+        get importLog() { return lazy('importLog', () => new ImportLogPage(page)); },
     };
 }

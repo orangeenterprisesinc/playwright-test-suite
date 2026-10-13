@@ -249,3 +249,79 @@ export const EmployeeSetupCaseSchema = z
     });
 
 export type EmployeeSetupCase = z.infer<typeof EmployeeSetupCaseSchema>;
+
+// A6 — biometric enrollment. The reader is replaced by a run-built IrisID device file, so the case holds the
+// file's shape, the preference the photo rule depends on, and what the employee, the import and the log show.
+const TemplateSizes = z
+    .object({
+        irisTemplateLeft: z.number().int().positive(),
+        irisFaceTemplate: z.number().int().positive(),
+        irisTemplateRight: z.number().int().positive(),
+    })
+    .strict();
+
+export const BiometricEnrollmentCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
+        employee: z
+            .object({
+                codeOffset: z.number().int().nonnegative(),
+                exportIdentifierOffset: z.number().int().nonnegative(),
+                rfidCodeOffset: z.number().int().nonnegative(),
+                crew: z.string().min(1),
+            })
+            .strict(),
+        device: z
+            .object({
+                prefix: z.string().min(1),
+                /** First char of the 3-char Reference Prefix; the last two come from the run token. */
+                referenceLead: z.string().length(1),
+                type: z.enum(['irisId']),
+            })
+            .strict(),
+        deviceFile: z
+            .object({
+                fileStem: z.string().min(1),
+                /** Bytes per template; base64 grows them by 4/3. */
+                templateBytes: TemplateSizes,
+                picture: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }).strict(),
+            })
+            .strict(),
+        preferenceGate: z.object({ key: z.string().min(1), expected: z.boolean(), message: z.string().min(1) }).strict(),
+        expected: z
+            .object({
+                notEnrolled: z.string().min(1),
+                enrolled: z.string().min(1),
+                faceIrisSlots: z.array(z.string().min(1)).min(1),
+                irisEnrolled: z.array(z.string().min(1)).min(1),
+                irisNotEnrolled: z.array(z.string().min(1)),
+                base64Lengths: TemplateSizes,
+                importStatus: z.string().min(1),
+                importSummary: z.string().min(1),
+                log: z
+                    .object({
+                        source: z.string().min(1),
+                        status: z.string().min(1),
+                        recordsImported: z.string().min(1),
+                        recordsFailed: z.string().min(1),
+                    })
+                    .strict(),
+            })
+            .strict(),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const e = s.employee;
+        const offsets = [e.codeOffset, e.exportIdentifierOffset, e.rfidCodeOffset];
+        if (new Set(offsets).size !== offsets.length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['employee'],
+                message: 'the three code offsets must be distinct, or two identifiers of one employee would collide',
+            });
+        }
+    });
+
+export type BiometricEnrollmentCase = z.infer<typeof BiometricEnrollmentCaseSchema>;

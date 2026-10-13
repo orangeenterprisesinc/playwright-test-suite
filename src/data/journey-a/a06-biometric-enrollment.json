@@ -1,0 +1,48 @@
+{
+  "_notes": [
+    "A6 · Biometric enrollment (catalog A6, plan test-plans/journey-a/a06-biometric-enrollment.md, runner row A6; PET-12634, re-test WEBPET-1443). The reader is replaced by a run-built IrisID device file imported on screen through Single Folder; employee and IrisID scan device are created on screen and deleted in teardown.",
+    "Offsets feed runUniqueCode(): 61-63 are free (B15 uses 1-3, A4 41, A5 51-54).",
+    "templateBytes 540/2151/540 give base64 lengths 720/2868/720, the real file's. Templates are random per run and the picture is a canvas-drawn JPEG: no real biometric data is committed.",
+    "Device prefix ZZTEST_IR_ is distinct from B15's ZZTEST_SD_ so the two never collide on name, reference prefix or mailbox in one worker."
+  ],
+  "annotations": [
+    { "type": "out-of-scope", "description": "Fingerprint enrollment: WEBPET-3777 (no Finger Template section on the employee form)" },
+    { "type": "not-automatable", "description": "Live capture, kiosk recognition/siting and card enrolment on the reader need IrisID hardware" }
+  ],
+  "employee": {
+    "codeOffset": 61,
+    "exportIdentifierOffset": 62,
+    "rfidCodeOffset": 63,
+    "crew": "B1 CREW"
+  },
+  "device": {
+    "prefix": "ZZTEST_IR_",
+    "referenceLead": "I",
+    "type": "irisId"
+  },
+  "deviceFile": {
+    "fileStem": "From-IrisId",
+    "templateBytes": { "irisTemplateLeft": 540, "irisFaceTemplate": 2151, "irisTemplateRight": 540 },
+    "picture": { "width": 96, "height": 96 }
+  },
+  "preferenceGate": {
+    "key": "faceIdPicturesOverwriteEmployeePictures",
+    "expected": true,
+    "message": "the device picture only replaces the employee photo when faceIdPicturesOverwriteEmployeePictures is on"
+  },
+  "expected": {
+    "notEnrolled": "Not enrolled",
+    "enrolled": "Enrolled",
+    "faceIrisSlots": ["Face", "Left iris", "Right iris"],
+    "irisEnrolled": ["Iris (Left)", "Iris (Right)", "Iris Face"],
+    "irisNotEnrolled": ["Face"],
+    "base64Lengths": { "irisTemplateLeft": 720, "irisFaceTemplate": 2868, "irisTemplateRight": 720 },
+    "importStatus": "Completed",
+    "importSummary": "1 imported, 0 failed",
+    "log": { "source": "Folder upload", "status": "Completed", "recordsImported": "1", "recordsFailed": "0" }
+  },
+  "cleanup": [
+    { "kind": "delete", "entity": "employee", "name": "{employeeName}" },
+    { "kind": "delete", "entity": "scanDevice", "name": "{deviceName}" }
+  ]
+}
