@@ -269,6 +269,13 @@ test.describe('A6 · Biometric enrollment', { tag: ['@JourneyA', '@A6'] }, () =>
 13. Teardown (automatic, pass or fail): drain the device mailbox, then `runCleanup` deletes the employee (`{employeeName}`) and the scan device (`{deviceName}`).
     - expect: not asserted; the `E2EEmp_` / `ZZTEST_IR_` residue sweeps are the backstop
 
+## Confirmed on the first green runs (2026-10-13, su, dev staging)
+
+- The importer accepts random template bytes and the builder's `26.01.22` header version: 1 imported / 0 failed.
+- The Face-Iris Template panel renders once the run's IrisID device exists.
+- The photo keeps its 96×96 natural size, and the pushed file carries the imported template bytes unchanged.
+- The left sidebar has its own "Import" button, so the Single Folder locators are scoped to `main`.
+
 ## Risks for the Healer
 
 - **Import worker latency**: dev can leave an uploaded file at `received` for minutes. A `waitForResult` timeout with the chip still pending is environment trouble, not a product bug. Check the Import Log row / `GET connectivity/import/runs/{runId}` before touching anything.
