@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { JourneyDFixtureSchema, type JourneyD9Fixture, type JourneyD10Fixture } from '../schemas/journeyDFixture';
+import { JourneyDFixtureSchema, type JourneyD3Fixture, type JourneyD9Fixture, type JourneyD10Fixture } from '../schemas/journeyDFixture';
 
 // Typed accessor over fixture.json, validated once per process — same shape as journey-c/fixture.ts.
 const FIXTURE = JourneyDFixtureSchema.parse(
@@ -18,4 +18,9 @@ export function journeyD9Fixture(): JourneyD9Fixture {
 export function journeyD10Fixture(): JourneyD10Fixture {
     if (!FIXTURE.d10) throw new Error('src/data/journey-d/fixture.json has no "d10" block');
     return FIXTURE.d10;
+}
+
+export function journeyD3Fixture(): JourneyD3Fixture {
+    if (!FIXTURE.d3) throw new Error('src/data/journey-d/fixture.json has no "d3" block');
+    return FIXTURE.d3;
 }

@@ -335,7 +335,7 @@ export function lineagePrefixesThroughAttempt(scenario: JourneyBScenario, attemp
 }
 
 /** Attach the envelope, push it to `to`, attach the relay's answer. The caller asserts `send.success`. */
-export async function sendEnvelope(run: MintedRun, envelope: EnvelopeView, to: string, testInfo: TestInfo, suffix = ''): Promise<SendResult> {
+export async function sendEnvelope(run: Pick<MintedRun, 'deviceAddress'>, envelope: EnvelopeView, to: string, testInfo: TestInfo, suffix = ''): Promise<SendResult> {
     await testInfo.attach(`device-export${suffix}.xml`, { body: envelope.xml, contentType: 'application/xml' });
     const send = await sendToRelay({ url: relayConfig().url, from: run.deviceAddress, to, xml: envelope.xml, fileName: envelope.fileName });
     await testInfo.attach(`relay-send${suffix}.txt`, {

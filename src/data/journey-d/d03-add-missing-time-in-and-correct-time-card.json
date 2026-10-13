@@ -1,0 +1,33 @@
+{
+  "_notes": [
+    "D3 - Add missing time-in and correct time card (catalog D3, plan test-plans/journey-d/d03-add-missing-time-in-and-correct-time-card.md, runner row D3). dayOffset -15 is D3's own fixture day, inside maximumDaysForTransferExport = 21.",
+    "The Time In carries no Ranch, Field or Job, so the Transfer screen flags it Blocking with two issues (missing Field, missing Job/Phase). The Time Out is mandatory: an unpaired Time In on a fixture day poisons transfers.",
+    "correction names fixture keys; the flow resolves them to the B1 RANCH / B1 FIELD / D3 JOB rows."
+  ],
+  "workflow": "D3",
+  "label": "d03-add-missing-time-in-and-correct-time-card",
+  "dayOffset": -15,
+  "records": [
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employee": "picker", "crew": "crew", "time": "07:00" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employee": "picker", "crew": "crew", "time": "15:30" }
+  ],
+  "correction": { "ranch": "ranch", "field": "field", "phase": "job" },
+  "expected": {
+    "timeCards": 2,
+    "statusBefore": "Blocking",
+    "statusAfter": "Ready",
+    "emptyCell": "—",
+    "blockingIssuesFixed": 2,
+    "jobCards": 0
+  },
+  "annotations": [
+    {
+      "type": "not-automatable",
+      "description": "Catalog step 2 (right-click Add Time In with an inherited template), the add-meal-return and delete-duplicate variations, and survives-a-re-transfer are out of scope: D3 mirrors WEBPET-2048's edit-in-place path and commits nothing (D4/D5 own transfer and reverse). The Manually Edited Records row colour is tenant-configurable; the Manually edited pill is asserted instead."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["8019"], "dayOffset": -15, "cardTypes": [0, 1] },
+    { "kind": "unremovable", "entity": "importRun", "reason": "The Connectivity import run keeps an audit row; D3 cannot remove it" }
+  ]
+}
