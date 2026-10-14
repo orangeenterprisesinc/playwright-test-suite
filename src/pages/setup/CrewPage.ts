@@ -232,7 +232,11 @@ export class CrewPage extends SetupScreenPage {
     }
 
     async readCrewForm(): Promise<CrewForm> {
-        await expect(this.exerciseJobCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        // Every picker list loads after the form, and Field's only after Ranch resolves: an
+        // inputValue read mid-load is "" (A4 on CI, 2026-10-14 — defaultField came back empty).
+        for (const combobox of [this.supervisorCombobox, this.departmentCombobox, this.defaultFieldCombobox, this.defaultJobCombobox, this.exerciseJobCombobox, this.notifyUserCombobox]) {
+            await expect(combobox).not.toHaveAttribute('placeholder', /^Loading/);
+        }
         const trigger = async (select: Locator) => (await select.innerText()).trim();
         // Pickers show "<exportId> : <name>"; a row without an export id reads " : C6 SUPERVISOR".
         const picked = async (combobox: Locator) => (await combobox.inputValue()).replace(/^[^:]*: /, '').trim();
