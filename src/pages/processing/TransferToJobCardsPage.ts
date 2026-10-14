@@ -135,6 +135,10 @@ export class TransferToJobCardsPage extends BasePage {
      * the caller must treat absence as a renderable state, not an error.
      */
     readonly panelGpsValue: Locator;
+    /** "New record" menu trigger — Add Time-In / Add Time-Out (D5). */
+    readonly newRecordButton: Locator;
+    /** The Time Out side panel; same shape as {@link timeInPanel}. Inferred from the shared form — verify on the first run. */
+    readonly timeOutPanel: Locator;
 
     /** `/transfer-to-job-cards/analyze` responses since the last {@link analyze} call. */
     private analyzeResponses: Array<{ status: number; code?: string }> = [];
@@ -187,6 +191,12 @@ export class TransferToJobCardsPage extends BasePage {
         this.panelEmployeeValue = this.comboboxByLabel('Employee');
         this.panelWorkCrewValue = this.comboboxByLabel('Work Crew');
         this.panelGpsValue = this.timeInPanel.getByRole('textbox', { name: /^GPS Reading\b/ });
+        this.newRecordButton = page.getByTestId('v2-add-record-trigger');
+        this.timeOutPanel = page
+            .locator('div')
+            .filter({ has: page.getByRole('heading', { name: /^Time Out$/i }) })
+            .filter({ has: page.getByRole('button', { name: /^Save$/i }) })
+            .last();
     }
 
     async goto(): Promise<void> {
@@ -534,7 +544,7 @@ export class TransferToJobCardsPage extends BasePage {
      * grid row, not a navigation, so it is asserted visible rather than waited
      * for via `goto`.
      */
-    async openRow(timeCardCounter: number): Promise<void> {
+    async openRow(timeCardCounter: number, panel: 'Time In' | 'Time Out' = 'Time In'): Promise<void> {
         // Click the date cell, not the Reference span: a truncated cell swaps
         // itself for a tooltip trigger on mouseenter, and the click that
         // follows the hover never reaches the row (dev build of 2026-10-14).
@@ -543,7 +553,7 @@ export class TransferToJobCardsPage extends BasePage {
         // "Loading…" until the Time In detail fetch returns, and that fetch has
         // been observed taking >15s on dev staging (2026-08-21). The locator
         // requires the panel's Cancel button, which only renders after the load.
-        await this.timeInPanel.waitFor({ state: 'visible', timeout: 45_000 });
+        await (panel === 'Time Out' ? this.timeOutPanel : this.timeInPanel).waitFor({ state: 'visible', timeout: 45_000 });
     }
 
     /** Close the panel without saving or deleting — the only exit this suite uses. */
@@ -796,22 +806,26 @@ export class TransferToJobCardsPage extends BasePage {
      * Ranch is a button combobox; Field and Phase are input autocompletes. Their options render in a
      * portal outside the panel, and Field stays disabled until a Ranch is set.
      */
-    async pickPanelOption(label: 'Ranch' | 'Field' | 'Phase', name: string): Promise<void> {
+    async pickOption(scope: Locator, label: 'Ranch' | 'Field' | 'Phase', name: string): Promise<void> {
         const option = this.page.getByRole('option', { name, exact: true });
+        const control = scope.getByRole('combobox', { name: new RegExp(`^${label}\\b`) });
         if (label === 'Ranch') {
-            await this.panelRanchValue.click({ timeout: 15_000 });
+            await control.click({ timeout: 15_000 });
             await option.click({ timeout: 15_000 });
-            await expect(this.panelRanchValue).toContainText(name);
+            await expect(control).toContainText(name);
             return;
         }
-        const input = label === 'Field' ? this.panelFieldValue : this.panelPhaseValue;
-        await expect(input).toBeEnabled({ timeout: 15_000 });
-        await input.click({ timeout: 15_000 });
+        await expect(control).toBeEnabled({ timeout: 15_000 });
+        await control.click({ timeout: 15_000 });
         // The input stops resolving by its label while the list is open, so narrow by keyboard, not fill().
         const listed = await option.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
         if (!listed) await this.page.keyboard.type(name);
         await option.click({ timeout: 15_000 });
-        await expect(input).toHaveValue(name);
+        await expect(control).toHaveValue(name);
+    }
+
+    async pickPanelOption(label: 'Ranch' | 'Field' | 'Phase', name: string): Promise<void> {
+        await this.pickOption(this.timeInPanel, label, name);
     }
 
     async correctTimeIn(values: { ranch: string; field: string; phase: string }): Promise<void> {
@@ -825,10 +839,85 @@ export class TransferToJobCardsPage extends BasePage {
         await this.panelSaveButton.click();
     }
 
-    async waitForReanalyze(): Promise<void> {
-        await this.timeInPanel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined);
+    async waitForReanalyze(panel: Locator = this.timeInPanel): Promise<void> {
+        await panel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined);
         await this.page.getByRole('button', { name: /Analyzing/i }).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
         await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 90_000 });
+    }
+
+    // ── Reverse and redo (D5) — Add Time-In / Add Time-Out dialogs, Time Out panel, toasts ──
+
+    addRecordDialog(kind: 'timeIn' | 'timeOut'): Locator {
+        return this.page.getByRole('dialog', { name: kind === 'timeIn' ? 'Add Time-In' : 'Add Time-Out' });
+    }
+
+    async openAddRecord(kind: 'timeIn' | 'timeOut'): Promise<void> {
+        // The previous Save closes its dialog asynchronously; a second trigger click under the overlay is lost.
+        await expect(this.page.getByRole('dialog', { name: /^Add Time-(In|Out)$/ })).toBeHidden({ timeout: 30_000 });
+        await this.newRecordButton.click({ timeout: 15_000 });
+        await this.page.getByTestId(`v2-add-record-item-${kind}`).click({ timeout: 15_000 });
+        await this.addRecordDialog(kind).waitFor({ state: 'visible', timeout: 15_000 });
+    }
+
+    /** Options are labelled "<exportIdentifier> : NAME", so the match is on the tail. */
+    private async pickEmployee(dialog: Locator, employee: string): Promise<void> {
+        await dialog.getByRole('combobox', { name: 'Employee *' }).click({ timeout: 15_000 });
+        await this.page.keyboard.type(employee);
+        const tail = employee.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        await this.page.getByRole('option', { name: new RegExp(`: ${tail}$`) }).click({ timeout: 15_000 });
+    }
+
+    private async saveAddRecord(dialog: Locator): Promise<void> {
+        const save = dialog.getByRole('button', { name: 'Save', exact: true });
+        await expect(save).toBeEnabled({ timeout: 15_000 });
+        await save.click();
+    }
+
+    /** Fill and Save the open Add Time-In dialog. Work Crew auto-fills from the employee's home crew. */
+    async addTimeIn(values: { day: string; time: string; employee: string; crew: string; ranch: string; field: string; phase: string }): Promise<void> {
+        const dialog = this.addRecordDialog('timeIn');
+        await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${values.day}T${values.time}`);
+        await this.pickEmployee(dialog, values.employee);
+        const crewInput = dialog.getByRole('combobox', { name: /^Work Crew\b/ });
+        const prefilled = await expect(crewInput).toHaveValue(values.crew, { timeout: 10_000 }).then(() => true, () => false);
+        if (!prefilled) {
+            await crewInput.click({ timeout: 15_000 });
+            await this.page.keyboard.type(values.crew);
+            await this.page.getByRole('option', { name: values.crew }).first().click({ timeout: 15_000 });
+            await expect(crewInput).toHaveValue(values.crew);
+        }
+        await this.pickOption(dialog, 'Ranch', values.ranch);
+        await this.pickOption(dialog, 'Field', values.field);
+        await this.pickOption(dialog, 'Phase', values.phase);
+        await this.saveAddRecord(dialog);
+    }
+
+    /** Fill and Save the open Add Time-Out dialog: only Date / Time and Employee are required. */
+    async addTimeOut(values: { day: string; time: string; employee: string }): Promise<void> {
+        const dialog = this.addRecordDialog('timeOut');
+        await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${values.day}T${values.time}`);
+        await this.pickEmployee(dialog, values.employee);
+        await this.saveAddRecord(dialog);
+    }
+
+    async setPanelDateTime(panel: Locator, day: string, hhmm: string): Promise<void> {
+        await panel.getByRole('textbox', { name: /^Date \/ Time/ }).fill(`${day}T${hhmm}`);
+    }
+
+    async saveTimeOutPanel(): Promise<void> {
+        await this.timeOutPanel.getByRole('button', { name: /^Save$/ }).click();
+    }
+
+    recordToast(text: string): Locator {
+        return this.page.getByText(text, { exact: true });
+    }
+
+    transferCompleteToast(jobCards: number, timeCards: number): Locator {
+        return this.page.getByText(`Transfer complete — ${jobCards} job card${jobCards === 1 ? '' : 's'} written, ${timeCards} time cards transferred.`);
+    }
+
+    get reversedToast(): Locator {
+        return this.page.getByText('Transfer run reversed', { exact: true });
     }
 
     // ── Crew piece-out distribution (D9) — readers, the Work Crew filter and the Job Cards tab ──

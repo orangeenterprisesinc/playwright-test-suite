@@ -198,3 +198,37 @@ export async function executeTransfer(
         await new Promise((r) => setTimeout(r, 1_500));
     }
 }
+
+/** One entry of `GET transfer-to-job-cards/runs` (the audit list, newest first). */
+export interface TransferRunRecord {
+    transferRunCounter: number;
+    auditGroupId?: string;
+    authorCounter: number;
+    authorName?: string;
+    runAtUtc: string;
+    jobCardCount: number;
+    timeCardCount: number;
+    jobCardsModified: number;
+    status: string;
+}
+
+/** Read-only: the transfer runs, body `{ runs }` (measured 2026-10-15). A reversed run stays listed, with a non-`active` status. */
+export async function listTransferRuns(request: APIRequestContext): Promise<TransferRunRecord[]> {
+    const res = await request.get('transfer-to-job-cards/runs');
+    if (!res.ok()) {
+        throw new Error(`GET transfer-to-job-cards/runs failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
+    }
+    const body = (await res.json()) as { runs?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+    const runs = Array.isArray(body) ? body : (body.runs ?? []);
+    return runs.map((r) => ({
+        transferRunCounter: Number(r.transferRunCounter),
+        auditGroupId: r.auditGroupId == null ? undefined : String(r.auditGroupId),
+        authorCounter: Number(r.authorCounter),
+        authorName: r.authorName == null ? undefined : String(r.authorName),
+        runAtUtc: String(r.runAtUtc ?? ''),
+        jobCardCount: Number(r.jobCardCount ?? 0),
+        timeCardCount: Number(r.timeCardCount ?? 0),
+        jobCardsModified: Number(r.jobCardsModified ?? 0),
+        status: String(r.status ?? ''),
+    }));
+}
