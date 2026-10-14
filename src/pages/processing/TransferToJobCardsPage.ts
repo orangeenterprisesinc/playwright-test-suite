@@ -115,9 +115,10 @@ export class TransferToJobCardsPage extends BasePage {
      * The Time In side panel opened from a row — title "Time In", fields
      * Reference / Date-Time / Ranch / Field / Phase / Employee / Work Crew /
      * GPS Reading, footer Delete / Cancel / Save. Scoped to the innermost `div`
-     * carrying both the heading and the Cancel button: any ancestor wrapping the
+     * carrying both the heading and the Save button: any ancestor wrapping the
      * panel also satisfies the same `has` filters, so `.last()` picks the
-     * tightest container rather than the whole page shell.
+     * tightest container rather than the whole page shell. Save rather than
+     * Cancel, because a dirty form relabels Cancel to "Discard changes".
      */
     readonly timeInPanel: Locator;
     readonly panelCancelButton: Locator;
@@ -177,7 +178,7 @@ export class TransferToJobCardsPage extends BasePage {
         this.timeInPanel = page
             .locator('div')
             .filter({ has: page.getByRole('heading', { name: /^Time In$/i }) })
-            .filter({ has: page.getByRole('button', { name: /^Cancel$/i }) })
+            .filter({ has: page.getByRole('button', { name: /^Save$/i }) })
             .last();
         this.panelCancelButton = this.timeInPanel.getByRole('button', { name: /^Cancel$/i });
         this.panelRanchValue = this.comboboxByLabel('Ranch');
@@ -729,6 +730,102 @@ export class TransferToJobCardsPage extends BasePage {
         const response = await executed;
         const body = (await response?.json().catch(() => null)) as { jobId?: string } | null;
         return body?.jobId ?? null;
+    }
+
+    // ── Blocking-exception correction (D3) — pills, banner, Time In panel edit ──
+
+    /** Leading integer of a progress pill ("6\nBlocking"). NaN until it renders, so a poll keeps waiting. */
+    private async pillCount(testId: string): Promise<number> {
+        const text = await this.page.getByTestId(testId).innerText({ timeout: 1_000 }).catch(() => '');
+        return Number((/^\s*([\d,]+)/.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
+    }
+
+    async blockingCount(): Promise<number> {
+        return this.pillCount('v2-progress-pill-blocking');
+    }
+
+    async readyCount(): Promise<number> {
+        return this.pillCount('v2-progress-pill-ready');
+    }
+
+    get blockingBanner(): Locator {
+        return this.pageRoot.getByText(/^\d+ blocking issues? to resolve before transfer$/);
+    }
+
+    blockingBannerFor(count: number): Locator {
+        return this.pageRoot.getByText(new RegExp(`^${count} blocking issues? to resolve before transfer$`));
+    }
+
+    rowManuallyEdited(timeCardCounter: number): Locator {
+        return this.cellAt(this.rowCells(timeCardCounter), 19).getByText('Manually edited', { exact: true });
+    }
+
+    rowField(timeCardCounter: number): Locator {
+        return this.cellAt(this.rowCells(timeCardCounter), 7);
+    }
+
+    rowJob(timeCardCounter: number): Locator {
+        return this.cellAt(this.rowCells(timeCardCounter), 8);
+    }
+
+    rowRanch(timeCardCounter: number): Locator {
+        return this.cellAt(this.rowCells(timeCardCounter), 11);
+    }
+
+    get panelSaveButton(): Locator {
+        return this.timeInPanel.getByRole('button', { name: /^Save$/ });
+    }
+
+    get panelErrorChip(): Locator {
+        return this.timeInPanel.getByText(/^\d+ errors?$/);
+    }
+
+    // A pristine panel with no Ranch shows this hint under a disabled Field; "This field is required" only appears once touched.
+    get panelFieldNeedsRanch(): Locator {
+        return this.timeInPanel.getByText('Select a Ranch first', { exact: true });
+    }
+
+    get savedToast(): Locator {
+        return this.page.getByText('Time In record saved', { exact: true });
+    }
+
+    /**
+     * Ranch is a button combobox; Field and Phase are input autocompletes. Their options render in a
+     * portal outside the panel, and Field stays disabled until a Ranch is set.
+     */
+    async pickPanelOption(label: 'Ranch' | 'Field' | 'Phase', name: string): Promise<void> {
+        const option = this.page.getByRole('option', { name, exact: true });
+        if (label === 'Ranch') {
+            await this.panelRanchValue.click({ timeout: 15_000 });
+            await option.click({ timeout: 15_000 });
+            await expect(this.panelRanchValue).toContainText(name);
+            return;
+        }
+        const input = label === 'Field' ? this.panelFieldValue : this.panelPhaseValue;
+        await expect(input).toBeEnabled({ timeout: 15_000 });
+        await input.click({ timeout: 15_000 });
+        // The input stops resolving by its label while the list is open, so narrow by keyboard, not fill().
+        const listed = await option.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
+        if (!listed) await this.page.keyboard.type(name);
+        await option.click({ timeout: 15_000 });
+        await expect(input).toHaveValue(name);
+    }
+
+    async correctTimeIn(values: { ranch: string; field: string; phase: string }): Promise<void> {
+        await this.pickPanelOption('Ranch', values.ranch);
+        await this.pickPanelOption('Field', values.field);
+        await this.pickPanelOption('Phase', values.phase);
+    }
+
+    // Click only: the toast is short-lived, so the caller asserts it straight away.
+    async savePanel(): Promise<void> {
+        await this.panelSaveButton.click();
+    }
+
+    async waitForReanalyze(): Promise<void> {
+        await this.timeInPanel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined);
+        await this.page.getByRole('button', { name: /Analyzing/i }).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
+        await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 90_000 });
     }
 
     // ── Crew piece-out distribution (D9) — readers, the Work Crew filter and the Job Cards tab ──

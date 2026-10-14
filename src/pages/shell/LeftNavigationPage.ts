@@ -63,6 +63,10 @@ export class LeftNavigationPage extends BasePage {
      */
     async expandGroup(group: string, child: string): Promise<void> {
         const childItem = this.menuItem(child);
+        // `.all()` below does not wait, and right after a goto('/') the dashboard has not rendered the
+        // sidebar yet: it would see no candidates, click nothing, and hang on the final wait (2026-10-13).
+        await this.menuItems(group).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
+        // Re-checked after the render: the group may already be open, and a click would collapse it.
         if (await childItem.isVisible().catch(() => false)) return;
         // "Setup" is both a top-level group and File ▸ Administration ▸ Setup, and the nested one comes first
         // in the DOM once Administration is open (e.g. after Preferences) — try each until the child shows.
@@ -72,7 +76,7 @@ export class LeftNavigationPage extends BasePage {
             const shown = await childItem.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
             if (shown) return;
         }
-        await childItem.waitFor({ state: 'visible' });
+        await childItem.waitFor({ state: 'visible', timeout: 10_000 });
     }
 
     /**

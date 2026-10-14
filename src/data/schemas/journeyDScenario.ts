@@ -249,3 +249,57 @@ export const JourneyD10SegmentCaseSchema = z
     });
 
 export type JourneyD10SegmentCase = z.infer<typeof JourneyD10SegmentCaseSchema>;
+
+// D3 — a device Time In arrives with no Ranch, Field or Job and is corrected on the time card.
+// The record shape has no ranch/field/job keys at all, which is what keeps the Time In context-less.
+
+const D3Record = z
+    .object({
+        node: z.enum(['TimeCard', 'TimeOut']),
+        part: z.enum(['TI', 'TO']),
+        employeeSource: z.enum(['BarcodeBadge']),
+        employee: z.literal('picker'),
+        crew: z.literal('crew'),
+        time: z.string().regex(/^\d{2}:\d{2}$/),
+    })
+    .strict();
+
+export const JourneyD3CorrectionCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('D3'),
+        label: z.string().min(1),
+        dayOffset: z.number().int(),
+        records: z.array(D3Record).length(2),
+        correction: z.object({ ranch: z.literal('ranch'), field: z.literal('field'), phase: z.literal('job') }).strict(),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                statusBefore: z.string().min(1),
+                statusAfter: z.string().min(1),
+                emptyCell: z.string().min(1),
+                blockingIssuesFixed: z.number().int().positive(),
+                jobCards: z.number().int().min(0),
+            })
+            .strict(),
+        annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) =>
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        // Journey B owns 0..-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14.
+        if (s.dayOffset !== -15) issue(['dayOffset'], 'D3 owns fixture day -15');
+        if (s.expected.jobCards !== 0) issue(['expected', 'jobCards'], 'D3 commits nothing, so no job card is expected');
+        const timeIn = s.records.filter((r) => r.part === 'TI');
+        const timeOut = s.records.filter((r) => r.part === 'TO');
+        if (timeIn.length !== 1 || timeOut.length !== 1) issue(['records'], 'exactly one TI and one TO record');
+        else if (timeIn[0].time >= timeOut[0].time) issue(['records'], 'the Time In must precede the Time Out');
+        const sweepsOwnCards = s.cleanup.some(
+            (step) => step.kind === 'timeCards' && step.dayOffset === s.dayOffset && [0, 1].every((t) => step.cardTypes?.includes(t)),
+        );
+        if (!sweepsOwnCards) issue(['cleanup'], 'a timeCards cleanup step for the fixture day with cardTypes [0, 1] is required');
+    });
+
+export type JourneyD3CorrectionCase = z.infer<typeof JourneyD3CorrectionCaseSchema>;

@@ -1,9 +1,9 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
-import { JOURNEY_D_FIXTURE, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
+import { JOURNEY_D_FIXTURE, journeyD3Fixture, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
-import type { JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import type { JourneyD3CorrectionCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
 import { analyzeTransfer, previewJobCards, readExecuteJob, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
@@ -21,6 +21,11 @@ import {
     ensureJobOnScreen,
     ensureRanchOnScreen,
 } from '@utils/fixtureRows/ensureOnScreen';
+import { relayConfig } from '@config/relay.config';
+import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
+import { deliverAndVerifyCards } from '@utils/api/officeVerification';
+import { envelopeView, sendEnvelope } from '@utils/journeys/journeyBFlow';
+import { buildEnvelope, exportFileName, lineagePrefix, punchMoment, type DeviceRecord } from '@utils/relay/exportEnvelope';
 
 // Journey D's first workflow, and a real transfer: D6 cannot be arranged read-only, so this layer
 // seeds a whole day of its own time cards, runs transfer-to-job-cards/execute scoped to its own
@@ -897,4 +902,194 @@ export async function readSplit(
     const wanted = new Set((run.ctx.cards ?? []).map((c) => c.timeCardCounter));
     const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
     return { cards, timeCards };
+}
+
+// ── D3 — Add missing time-in and correct time card ───────────────────────────────────────────
+
+export interface JourneyD3Run {
+    scenario: JourneyD3CorrectionCase;
+    ranch: EnsuredRecord;
+    field: EnsuredRecord;
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    job: EnsuredRecord;
+    punchDate: Date;
+    day: string;
+    /** Stays empty (D3 writes no job card); satisfies TransferRun for openScopedCandidates. */
+    jobCardIds: number[];
+    cleanup(): Promise<void>;
+    readonly ctx: CleanupContext;
+}
+
+export interface D3Seed extends SeedResult {
+    /** The imported Time In as stored before the correction. */
+    timeIn: OfficeTimeCard;
+    timeInId: number;
+    timeOutId: number;
+}
+
+/** Three Setup forms may run on a cold fixture and the relay pull shares one import deadline. */
+export function journeyD3TimeoutMs(testInfo: TestInfo): number {
+    return Math.max(360_000, journeyBTestTimeoutMs(testInfo) + 240_000);
+}
+
+/**
+ * Builds D3's fixture rows on screen and runs the before-phase sweep. The job-card sweep is
+ * defensive: D3 writes none, but a hand-made transfer would block the time-card delete.
+ */
+export async function prepareJourneyD3(
+    scenario: JourneyD3CorrectionCase,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<JourneyD3Run> {
+    const { sessionApi, testInfo, pages } = opts;
+    const F = journeyD3Fixture();
+    const substituted = substituteTokens(scenario, {});
+    for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
+
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const picker = await ensureEmployeeOnScreen({ ...F.picker, homeCrew: { id: crew.id, name: crew.name } }, deps);
+    const job = await ensureJobOnScreen(
+        { code: F.job.code, name: F.job.name, paymentType: F.job.paymentType, hourlyRate: F.job.hourlyRate },
+        deps,
+    );
+
+    // runCleanup's 'timeCards' step reads only `employees`.
+    const office = { ranch, field, job, crew, employees: new Map([[picker.code, picker]]) } as unknown as OfficeFixture;
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
+    const punchDate = punchDay(substituted.dayOffset);
+    const day = isoDay(punchDate);
+
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
+        await runCleanup(substituted.cleanup, api, testInfo, ctx);
+        await allowApiWrites('cleanup', 'D3 teardown: crew-scoped day sweep', () =>
+            sweepOwnTimeCards(api, { day, crewCounter: crew.id }),
+        ).catch(() => undefined);
+    };
+    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
+    const cleanup = async (): Promise<void> => {
+        await finishCleanup(sessionApi);
+        registration?.complete();
+    };
+
+    await allowApiWrites('cleanup', 'D3 before-phase sweep: crew job cards', () =>
+        sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+    await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
+    await allowApiWrites('cleanup', 'D3 before-phase sweep: crew time cards', () =>
+        sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+
+    return { scenario: substituted, ranch, field, crew, picker, job, punchDate, day, jobCardIds: [], cleanup, ctx };
+}
+
+/**
+ * Pushes a device envelope holding a Time In with no Ranch, Field or Job plus its Time Out, and
+ * imports it on screen. `deliverAndVerifyCards` asserts the Time In arrived with null ranch/field/job.
+ */
+export async function seedBlockingTimeInDay(
+    run: JourneyD3Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<D3Seed> {
+    const { sessionApi, testInfo, pages } = opts;
+    const device = relayConfig();
+    const prefix = lineagePrefix(run.scenario.workflow, testInfo.retry);
+    const records: DeviceRecord[] = run.scenario.records.map((r) => {
+        const [hour, minute] = r.time.split(':').map(Number);
+        return {
+            node: r.node,
+            part: r.part,
+            employeeSource: r.employeeSource,
+            employeeCode: run.picker.code,
+            crewCode: run.crew.code,
+            at: punchMoment(hour, minute, run.punchDate),
+        };
+    });
+    const built = buildEnvelope({ deviceAddress: device.from, prefix, at: records[0].at, records });
+    const fileName = exportFileName(prefix);
+    const envelope = envelopeView(built.xml, built.references, fileName, prefix);
+    const [timeInReference, timeOutReference] = envelope.references;
+
+    const send = await allowApiWrites('device', 'D3: PET Pocket envelope with a context-less Time In', () =>
+        sendEnvelope({ deviceAddress: device.from }, envelope, device.office, testInfo),
+    );
+    expect(send.success, `the relay must accept the D3 envelope: ${send.body}`).toBe(true);
+
+    const result = await deliverAndVerifyCards({
+        sessionApi,
+        pages,
+        testInfo,
+        xml: envelope.xml,
+        crewId: run.crew.id,
+        ranchId: run.ranch.id,
+        expected: [
+            { employeeCode: run.picker.code, employeeId: run.picker.id, reference: timeInReference, fieldId: null, jobId: null, ranchId: null },
+            { employeeCode: run.picker.code, employeeId: run.picker.id, reference: timeOutReference },
+        ],
+        label: run.scenario.label,
+        fileName,
+        lineagePrefixes: Array.from({ length: testInfo.retry + 1 }, (_, attempt) => lineagePrefix(run.scenario.workflow, attempt)),
+        punchDate: run.punchDate,
+        cardType: null,
+        sweep: false,
+    });
+    // Recorded before any assertion, so teardown knows the cards even when one fails.
+    run.ctx.cards = result.cards;
+
+    const timeIn = result.cards.find((c) => String(c.reference) === timeInReference);
+    const timeOut = result.cards.find((c) => String(c.reference) === timeOutReference);
+    if (!timeIn || !timeOut) throw new Error(`${run.scenario.label}: the import did not return both own time cards.`);
+    return {
+        timeCardCounters: [timeIn.timeCardCounter, timeOut.timeCardCounter],
+        timeIn,
+        timeInId: timeIn.timeCardCounter,
+        timeOutId: timeOut.timeCardCounter,
+    };
+}
+
+/** Each own row's status, recorded as an annotation; the Issues panel is attached before the fix. */
+export async function captureOwnRows(
+    run: JourneyD3Run,
+    opts: { testInfo: TestInfo; pages: PageObjects },
+    seed: D3Seed,
+    phase: 'before' | 'after',
+): Promise<Record<number, string>> {
+    const transfer = opts.pages.transferToJobCards;
+    const statuses: Record<number, string> = {};
+    for (const id of seed.timeCardCounters) statuses[id] = await transfer.rowStatusText(id);
+    opts.testInfo.annotations.push({
+        type: `own-row-status-${phase}`,
+        description: `${run.scenario.label}: Time In ${seed.timeInId}=${statuses[seed.timeInId]}, Time Out ${seed.timeOutId}=${statuses[seed.timeOutId]}`,
+    });
+    if (phase === 'before') {
+        await opts.testInfo.attach('issue-groups-before.json', {
+            body: JSON.stringify(await transfer.issueGroupTexts(), null, 2),
+            contentType: 'application/json',
+        });
+    }
+    return statuses;
+}
+
+/** Read-only: the Time In as stored after the correction, and the crew's job cards on the day. */
+export async function readCorrection(
+    run: JourneyD3Run,
+    opts: { sessionApi: APIRequestContext },
+    seed: D3Seed,
+): Promise<{ timeIn: OfficeTimeCard; jobCards: JobCardRecord[] }> {
+    const timeIn = (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).find((c) => c.timeCardCounter === seed.timeInId);
+    if (!timeIn) throw new Error(`${run.scenario.label}: time card ${seed.timeInId} is gone from ${run.day}.`);
+    const jobCards = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+    for (const card of jobCards) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+    return { timeIn, jobCards };
+}
+
+export async function remainingOwnTimeCards(run: JourneyD3Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
+    const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
+    return cards.filter((c) => Number(c.crewCounter) === run.crew.id);
 }

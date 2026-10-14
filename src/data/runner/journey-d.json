@@ -60,8 +60,9 @@
                 "regression"
             ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12662",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "D4",

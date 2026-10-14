@@ -28,6 +28,8 @@ const D10Block = z
     })
     .strict();
 
+const D3Block = z.object({ crew: Entity, picker: Entity, job: D10Job }).strict();
+
 // Journey D owns its own crew, pickers and job so a recalculate day never shares an employee-day
 // with any other journey under workers=2; ranch/field are Journey B's, reused read-only.
 export const JourneyDFixtureSchema = z
@@ -43,9 +45,11 @@ export const JourneyDFixtureSchema = z
             .strict(),
         d9: D9Block.optional(),
         d10: D10Block.optional(),
+        d3: D3Block.optional(),
     })
     .strict();
 
 export type JourneyDFixture = z.infer<typeof JourneyDFixtureSchema>;
 export type JourneyD9Fixture = z.infer<typeof D9Block>;
 export type JourneyD10Fixture = z.infer<typeof D10Block>;
+export type JourneyD3Fixture = z.infer<typeof D3Block>;
