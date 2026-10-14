@@ -303,3 +303,54 @@ export const JourneyD3CorrectionCaseSchema = z
     });
 
 export type JourneyD3CorrectionCase = z.infer<typeof JourneyD3CorrectionCaseSchema>;
+
+// D8 — Delete to recycle and restore. Four run-unique scratch crops: index 0 is deleted from its
+// form and restored from Deleted Records, indexes 1..3 are multi-deleted and undone as one batch.
+// No fixture day and no fixture rows.
+
+const text = z.string().min(1);
+
+export const JourneyD8RecycleCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('D8'),
+        label: text,
+        crops: z.object({ prefix: text, count: z.number().int() }).strict(),
+        expected: z
+            .object({
+                editHeadingPrefix: text,
+                createdToast: text,
+                deleteDialogText: text,
+                deletedToast: text,
+                deletedRecordsLabel: text,
+                deletedPlural: text,
+                restoredToast: text,
+                bulkDialogText: text,
+                bulkToast: text,
+                recordType: text,
+                field: text,
+                performedBy: text,
+                undoDialogText: text,
+                undoneToast: text,
+                statusBefore: text,
+                statusAfter: text,
+                batchSize: z.number().int().positive(),
+            })
+            .strict(),
+        annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) =>
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        if (!s.crops.prefix.startsWith('E2ECrop_')) issue(['crops', 'prefix'], "must start with 'E2ECrop_' so the residue sweep reclaims leftovers");
+        if (s.crops.count !== 4) issue(['crops', 'count'], 'D8 uses exactly four crops: one single delete and a batch of three');
+        if (s.expected.batchSize !== s.crops.count - 1) issue(['expected', 'batchSize'], 'the batch is every crop but the single-delete one');
+        for (const key of ['cropA', 'cropB', 'cropC', 'cropD']) {
+            const has = s.cleanup.some((step) => step.kind === 'delete' && step.entity === 'crop' && step.name === `{${key}}`);
+            if (!has) issue(['cleanup'], `a delete crop step for {${key}} is required`);
+        }
+    });
+
+export type JourneyD8RecycleCase = z.infer<typeof JourneyD8RecycleCaseSchema>;

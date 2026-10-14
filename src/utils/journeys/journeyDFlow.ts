@@ -3,7 +3,10 @@ import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
 import { JOURNEY_D_FIXTURE, journeyD3Fixture, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
-import type { JourneyD3CorrectionCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import type { JourneyD3CorrectionCase, JourneyD8RecycleCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import { getRecordStatus, listBulkDeleteHistory, listDeleted, type BulkHistoryRow } from '@utils/api/recycleBinApi';
+import { uniqueName, RUN_TOKEN } from '@utils/cleanup/runToken';
+import { register } from '@utils/cleanup/cleanupScope';
 import { analyzeTransfer, previewJobCards, readExecuteJob, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
@@ -1092,4 +1095,129 @@ export async function readCorrection(
 export async function remainingOwnTimeCards(run: JourneyD3Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
     const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
     return cards.filter((c) => Number(c.crewCounter) === run.crew.id);
+}
+
+// ── D8 — Delete to recycle and restore ───────────────────────────────────────────────────────
+// No fixture day: four run-unique crops are created, deleted and restored on screen. Every call
+// here is a read except the teardown, which soft-deletes whichever own crop is still live. The
+// recycle bin is never emptied and no history row is ever undone from here.
+
+export interface BulkDeleteBatch {
+    id: number;
+    createdOn: string;
+    recordCount: number;
+    authorName: string;
+    undoneOn: string | null;
+    undoable: boolean;
+    /** The Performed cell text the Reverse Multi Delete screen shows for `createdOn`. */
+    performedText: string;
+}
+
+export interface JourneyD8Run {
+    scenario: JourneyD8RecycleCase;
+    /** A is deleted from its form; B, C and D are the multi-deleted batch. */
+    names: [string, string, string, string];
+    /** `<prefix>_<RUN_TOKEN>_`: unique to this run, used to filter the Crop list. */
+    stem: string;
+    ids: Map<string, number>;
+    cleanup(): Promise<void>;
+}
+
+export function prepareJourneyD8(scenario: JourneyD8RecycleCase, opts: { testInfo: TestInfo }): JourneyD8Run {
+    const { testInfo } = opts;
+    const { prefix } = scenario.crops;
+    const names: [string, string, string, string] = [uniqueName(prefix), uniqueName(prefix), uniqueName(prefix), uniqueName(prefix)];
+    const stem = `${prefix}_${RUN_TOKEN}_`;
+    const substituted = substituteTokens(scenario, { cropA: names[0], cropB: names[1], cropC: names[2], cropD: names[3] });
+    for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
+
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>() };
+    // The scope drains this on teardown even after a timeout; deleteByName is a no-op for a crop already in the bin.
+    const cleanup = register(testInfo, `${substituted.label} cleanup`, (api) => runCleanup(substituted.cleanup, api, testInfo, ctx));
+    return { scenario: substituted, names, stem, ids: new Map<string, number>(), cleanup };
+}
+
+/** Recorded straight after the save, before any assertion, so cleanup and the reads know the id. */
+export function recordCropId(run: JourneyD8Run, name: string, id: number): void {
+    run.ids.set(name, id);
+}
+
+export function cropIdOf(run: JourneyD8Run, name: string): number {
+    const id = run.ids.get(name);
+    if (id === undefined) throw new Error(`${run.scenario.label}: no id was recorded for crop '${name}'`);
+    return id;
+}
+
+/** `live` = GET crops/{id} is 200; `binned` = 404 but listed in crops/deleted; `absent` = neither. */
+export async function cropState(opts: { sessionApi: APIRequestContext }, id: number): Promise<'live' | 'binned' | 'absent'> {
+    if ((await getRecordStatus(opts.sessionApi, 'crops', id)) === 200) return 'live';
+    const binned = (await listDeleted(opts.sessionApi, 'crops')).some((r) => Number(r.cropCounter) === id);
+    return binned ? 'binned' : 'absent';
+}
+
+/** Position in `GET crops/deleted`, which is also the Deleted Crops grid's row order. */
+export async function deletedCropIndex(opts: { sessionApi: APIRequestContext }, id: number): Promise<number> {
+    const index = (await listDeleted(opts.sessionApi, 'crops')).findIndex((r) => Number(r.cropCounter) === id);
+    if (index < 0) throw new Error(`crop ${String(id)} is not in GET crops/deleted`);
+    return index;
+}
+
+/** Highest bulk-delete history id before this run deletes anything. */
+export async function bulkDeleteHead(opts: { sessionApi: APIRequestContext }): Promise<number> {
+    const rows = await listBulkDeleteHistory(opts.sessionApi);
+    return rows.reduce((max, r) => Math.max(max, r.id), 0);
+}
+
+/** `createdOn` is naive; the browser shows it verbatim as `M/D/YYYY, h:mm:ss AM|PM`. */
+export function performedText(createdOn: string): string {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/.exec(createdOn);
+    if (!m) throw new Error(`bulk-update-history createdOn is not a naive timestamp: ${JSON.stringify(createdOn)}`);
+    const [, year, month, day, hh, mm, ss] = m;
+    const hour = Number(hh);
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${Number(month)}/${Number(day)}/${year}, ${hour12}:${mm}:${ss} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
+function toBatch(row: BulkHistoryRow): BulkDeleteBatch {
+    return {
+        id: row.id,
+        createdOn: row.createdOn,
+        recordCount: row.recordCount,
+        authorName: row.authorName,
+        undoneOn: row.undoneOn,
+        undoable: row.undoable,
+        performedText: performedText(row.createdOn),
+    };
+}
+
+/**
+ * The one Crop batch created since `sinceId`. Refuses (throws) on zero after 15 s, on more than
+ * one, or on a row that is not this run's: the id it returns is the only one ever undone.
+ */
+export async function findOwnBatch(run: JourneyD8Run, opts: { sessionApi: APIRequestContext }, sinceId: number): Promise<BulkDeleteBatch> {
+    const { expected } = run.scenario;
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+        const fresh = (await listBulkDeleteHistory(opts.sessionApi)).filter((r) => r.id > sinceId && r.tableName === expected.recordType);
+        if (fresh.length > 1) {
+            throw new Error(`${run.scenario.label}: refusing to pick a batch — ${fresh.length} new ${expected.recordType} history rows since ${sinceId}: ${JSON.stringify(fresh.map((r) => r.id))}`);
+        }
+        if (fresh.length === 1) {
+            const row = fresh[0];
+            if (row.recordCount !== expected.batchSize || row.authorName !== expected.performedBy || row.undoneOn !== null || !row.undoable) {
+                throw new Error(`${run.scenario.label}: refusing to pick a batch — row ${row.id} is not this run's: ${JSON.stringify(row)}`);
+            }
+            return toBatch(row);
+        }
+        if (Date.now() > deadline) {
+            throw new Error(`${run.scenario.label}: no new ${expected.recordType} bulk-delete history row appeared after ${sinceId}.`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+}
+
+export async function readBatch(opts: { sessionApi: APIRequestContext }, id: number): Promise<BulkDeleteBatch> {
+    const row = (await listBulkDeleteHistory(opts.sessionApi)).find((r) => r.id === id);
+    if (!row) throw new Error(`bulk-update-history row ${String(id)} is not in the list`);
+    return toBatch(row);
 }
