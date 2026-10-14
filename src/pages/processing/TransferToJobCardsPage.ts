@@ -535,7 +535,10 @@ export class TransferToJobCardsPage extends BasePage {
      * for via `goto`.
      */
     async openRow(timeCardCounter: number): Promise<void> {
-        await this.rowFor(timeCardCounter).click();
+        // Click the date cell, not the Reference span: a truncated cell swaps
+        // itself for a tooltip trigger on mouseenter, and the click that
+        // follows the hover never reaches the row (dev build of 2026-10-14).
+        await this.cellAt(this.rowCells(timeCardCounter), 5).click();
         // 45s, not 15s: the panel shell opens instantly but its body sits on
         // "Loading…" until the Time In detail fetch returns, and that fetch has
         // been observed taking >15s on dev staging (2026-08-21). The locator
