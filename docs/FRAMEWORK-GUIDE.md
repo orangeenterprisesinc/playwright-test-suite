@@ -305,10 +305,10 @@ The mechanism spans four pieces:
 
 One workflow. `e2e.yml` runs the suites against dev staging and owns the repo's **only
 cron**; there is no separate orchestrator. The static gates (typecheck, lint, the runner and
-id checks) run inside its job, so with the automatic triggers off they execute at 4:30 PM only —
+id checks) run inside its job, so with the automatic triggers off they execute at 4:45 PM only —
 a pull request is not checked.
 
-**Nothing but the 4:30 PM cron starts a suite run.** Since 2026-10-08, per the standup call to
+**Nothing but the 4:45 PM cron starts a suite run.** Since 2026-10-08, per the standup call to
 run end-to-end testing once a day, a merge to main triggers nothing (`push:` commented out)
 and `repository_dispatch` / `workflow_call` are route-gated off — see the trigger bullet
 below for the mechanics. Dev staging deploys from main only, so a merge run just re-tested
@@ -323,7 +323,7 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
 `TEST_ENV` defaults to `dev`.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **`schedule` (`58 10 * * *`, ~4:30 PM IST — the daily dry run)** and manual
+- Triggers: **`schedule` (`13 11 * * *`, ~4:45 PM IST — the daily dry run)** and manual
   `workflow_dispatch`, both always allowed. A merge to main triggers **nothing**: the
   `push:` trigger is commented out, because a declared trigger always starts a (skipped) run
   entry before a job-level gate can stop it — `vars` is unavailable in `on:`. `workflow_call`
@@ -358,7 +358,7 @@ the opt-in projects, and gates the run behind `typecheck`, `webpet:ids:check` an
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
-**The daily dry run** is `e2e.yml`'s cron (`58 10 * * *`, ~4:30 PM IST), which runs both suites from
+**The daily dry run** is `e2e.yml`'s cron (`13 11 * * *`, ~4:45 PM IST), which runs both suites from
 one workflow via a serialised matrix:
 
 ```
