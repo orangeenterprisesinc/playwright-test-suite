@@ -227,10 +227,7 @@ export function buildCrewTimeInEnvelope({
 
     const xml =
         '<OrangeExportFile>' +
-        `<Header>${DEVICE_VERSION},${iso},Created By Export, Android PET` +
-        '<Version>1</Version>' +
-        `<DeviceWebMail>${esc(deviceAddress)}</DeviceWebMail>` +
-        '</Header>' +
+        envelopeHeader(deviceAddress, iso) +
         `<TimeCard_Records LookupContents="${LOOKUP_CONTENTS}">` +
         rows.join('') +
         '</TimeCard_Records>' +
@@ -358,6 +355,15 @@ export const DEVICE_SCHEMA = {
             firstCode: 'FirstCode',
             reference: 'Reference',
             updateTime: 'UpdateTime',
+        },
+    },
+    /** The reader's enrollment export: `Employee_Records` rows carrying picture and templates (A6). */
+    biometric: {
+        tags: {
+            picture: 'Picture',
+            irisTemplateLeft: 'IrisTemplateLeft',
+            irisFaceTemplate: 'IrisFaceTemplate',
+            irisTemplateRight: 'IrisTemplateRight',
         },
     },
 } as const;
@@ -609,10 +615,7 @@ export function buildEnvelope({
 
     const xml =
         '<OrangeExportFile>' +
-        `<Header>${DEVICE_VERSION},${iso},Created By Export, Android PET` +
-        '<Version>1</Version>' +
-        `<DeviceWebMail>${esc(deviceAddress)}</DeviceWebMail>` +
-        '</Header>' +
+        envelopeHeader(deviceAddress, iso) +
         sections +
         buildCodeHistorySection(codeHistory, records.length, prefix) +
         '</OrangeExportFile>';
@@ -670,4 +673,69 @@ function buildCodeHistorySection(
         blocks.join('') +
         `</${employeeRecordsTag}>`
     );
+}
+
+function envelopeHeader(deviceAddress: string, iso: string): string {
+    return (
+        `<Header>${DEVICE_VERSION},${iso},Created By Export, Android PET` +
+        '<Version>1</Version>' +
+        `<DeviceWebMail>${esc(deviceAddress)}</DeviceWebMail>` +
+        '</Header>'
+    );
+}
+
+export interface BiometricEnrollment {
+    employeeCode: string;
+    picture?: string;
+    irisTemplateLeft?: string;
+    irisFaceTemplate?: string;
+    irisTemplateRight?: string;
+}
+
+// The real IrisID file's element order. A FingerScanner file adds FingerprintTemplate/EnrollmentScore here.
+const BIOMETRIC_FIELDS: ReadonlyArray<readonly [Exclude<keyof BiometricEnrollment, 'employeeCode'>, string]> = [
+    ['picture', DEVICE_SCHEMA.biometric.tags.picture],
+    ['irisTemplateLeft', DEVICE_SCHEMA.biometric.tags.irisTemplateLeft],
+    ['irisFaceTemplate', DEVICE_SCHEMA.biometric.tags.irisFaceTemplate],
+    ['irisTemplateRight', DEVICE_SCHEMA.biometric.tags.irisTemplateRight],
+];
+
+/**
+ * A reader's enrollment export: `<Employee_Records LookupContents="Employee:Code">` with one
+ * `<Employee>` per enrollment. Absent fields are omitted, not emitted empty. UpdateTime defaults to
+ * now so it is newer than an employee created moments earlier.
+ */
+export function buildBiometricEnrollmentEnvelope({
+    deviceAddress,
+    at = new Date(),
+    enrollments,
+}: {
+    deviceAddress: string;
+    at?: Date;
+    enrollments: BiometricEnrollment[];
+}): { xml: string } {
+    const G = DEVICE_SCHEMA.grid;
+    const iso = deviceIso(at);
+    const recordsTag = `${G.employee}${DEVICE_SCHEMA.recordsSuffix}`;
+    const rows = enrollments.map((enrollment) => {
+        const fields = BIOMETRIC_FIELDS.flatMap(([key, tag]) => {
+            const value = enrollment[key];
+            return value === undefined ? [] : [xmlTag(tag, value)];
+        });
+        return (
+            `<${G.employee}>` +
+            xmlTag(DEVICE_SCHEMA.tags.updateTime, iso) +
+            xmlTag(G.code, enrollment.employeeCode) +
+            fields.join('') +
+            `</${G.employee}>`
+        );
+    });
+    const xml =
+        '<OrangeExportFile>' +
+        envelopeHeader(deviceAddress, iso) +
+        `<${recordsTag} ${DEVICE_SCHEMA.attributes.lookupContents}="${G.lookupEmployeeByCode}">` +
+        rows.join('') +
+        `</${recordsTag}>` +
+        '</OrangeExportFile>';
+    return { xml };
 }

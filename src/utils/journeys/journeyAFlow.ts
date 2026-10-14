@@ -1,6 +1,9 @@
-import type { APIRequestContext, TestInfo } from '@playwright/test';
-import { makeCrewName, makeEmployeeName, makeUser, runUniqueCode } from '@data/generated';
+import { writeFile } from 'node:fs/promises';
+import type { APIRequestContext, Page, TestInfo } from '@playwright/test';
+import { relayConfig } from '@config/relay.config';
+import { makeCrewName, makeEmployeeName, makeScanDevice, makeUser, runUniqueCode } from '@data/generated';
 import type {
+    BiometricEnrollmentCase,
     CrewSetupCase,
     EmployeeSetupCase,
     PieceOutConfigCase,
@@ -9,17 +12,24 @@ import type {
 import type { NewUserData } from '@pages/admin/UsersPage';
 import type { NewCrewData } from '@pages/setup/CrewPage';
 import type { NewEmployeeData } from '@pages/setup/EmployeePage';
+import { DEVICE_TYPE, type ScanDeviceGeneral } from '@pages/setup/ScanDevicePage';
 import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
 import {
     findActiveDeviceOfType,
     pushSetupExport,
+    readSetupExportSend,
 } from '@utils/api/setupExportApi';
 import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
+import { RUN_TOKEN } from '@utils/cleanup/runToken';
 import { substituteTokens } from '@utils/data/scenarioLoader';
+import { employeeInExport } from '@utils/export/setupExportXml';
+import { randomTemplate, syntheticPortraitJpeg } from '@utils/relay/biometricPayload';
+import { buildBiometricEnrollmentEnvelope, DEVICE_SCHEMA } from '@utils/relay/exportEnvelope';
+import { drainMailbox } from '@utils/relay/relayClient';
 
 // Journey A: the spec drives the setup screens itself; this layer mints what a case cannot hold
 // (a run-unique user) and binds the minted name into the case's cleanup steps.
@@ -181,5 +191,118 @@ export function prepareEmployeeSetup(scenario: EmployeeSetupCase, testInfo: Test
             waivedSecondMeal: spec.waivedSecondMeal,
         },
         cleanup,
+    };
+}
+
+export interface BiometricEnrollmentRun {
+    /** The case with `{employeeName}` and `{deviceName}` substituted. */
+    scenario: BiometricEnrollmentCase;
+    employee: NewEmployeeData & Required<Pick<NewEmployeeData, 'lastName' | 'exportIdentifier' | 'crew'>>;
+    rfidCode: string;
+    device: ScanDeviceGeneral;
+    deviceType: string;
+    /** How the device's Employee picker labels the employee. */
+    deviceLabel: string;
+    cleanup(): Promise<void>;
+}
+
+type TemplateKey = keyof BiometricEnrollmentCase['deviceFile']['templateBytes'];
+
+export interface BiometricDeviceFile {
+    path: string;
+    fileName: string;
+    templates: Record<TemplateKey, string>;
+    picture: { width: number; height: number };
+}
+
+export interface PushedEmployee {
+    name: string;
+    rfidCode: string;
+    /** Whitespace-stripped, keyed like `BiometricDeviceFile.templates`. */
+    templates: Record<TemplateKey, string>;
+    fields: Record<string, string>;
+}
+
+/** Reads the photo-rule gate, mints the run's identifiers and registers teardown before anything is created. */
+export async function prepareBiometricEnrollment(
+    scenario: BiometricEnrollmentCase,
+    sessionApi: APIRequestContext,
+    testInfo: TestInfo,
+): Promise<BiometricEnrollmentRun> {
+    for (const annotation of scenario.annotations) testInfo.annotations.push(annotation);
+    testInfo.slow();
+
+    const gate = scenario.preferenceGate;
+    if ((await readStoredPreferences(sessionApi))[gate.key] !== gate.expected) throw new Error(gate.message);
+
+    const spec = scenario.employee;
+    const name = makeEmployeeName();
+    const exportIdentifier = runUniqueCode(spec.exportIdentifierOffset);
+    const device = makeScanDevice(scenario.device.prefix, scenario.device.referenceLead);
+    const substituted = substituteTokens(scenario, { employeeName: name, deviceName: device.name });
+    const relay = relayConfig();
+    const cleanup = register(testInfo, 'A6 biometric-enrollment cleanup', async (api) => {
+        // The push queues a file for a mailbox nothing pulls.
+        await drainMailbox(relay.url, device.webMailAddress).catch(() => undefined);
+        await runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' });
+    });
+    return {
+        scenario: substituted,
+        employee: { name, code: runUniqueCode(spec.codeOffset), lastName: name, exportIdentifier, crew: spec.crew },
+        rfidCode: runUniqueCode(spec.rfidCodeOffset),
+        device,
+        deviceType: DEVICE_TYPE[scenario.device.type],
+        deviceLabel: `${exportIdentifier} : ${name}`,
+        cleanup,
+    };
+}
+
+/** Builds the IrisID reader's own export for the run's employee and writes it where Single Folder can upload it. */
+export async function writeBiometricDeviceFile(
+    run: BiometricEnrollmentRun,
+    page: Page,
+    testInfo: TestInfo,
+): Promise<BiometricDeviceFile> {
+    const { fileStem, templateBytes, picture: size } = run.scenario.deviceFile;
+    const templates: Record<TemplateKey, string> = {
+        irisTemplateLeft: randomTemplate(templateBytes.irisTemplateLeft),
+        irisFaceTemplate: randomTemplate(templateBytes.irisFaceTemplate),
+        irisTemplateRight: randomTemplate(templateBytes.irisTemplateRight),
+    };
+    const picture = await syntheticPortraitJpeg(page, size.width, size.height);
+    const { xml } = buildBiometricEnrollmentEnvelope({
+        deviceAddress: run.device.webMailAddress,
+        enrollments: [{ employeeCode: run.employee.code, picture, ...templates }],
+    });
+    const fileName = `${fileStem}-${RUN_TOKEN}-a${String(testInfo.retry)}.xml`;
+    const path = testInfo.outputPath(fileName);
+    await writeFile(path, xml, 'utf8');
+    await testInfo.attach(fileName, { path, contentType: 'application/xml' });
+    return { path, fileName, templates, picture: size };
+}
+
+/** Read-back of the file the push sent to the device: the employee row with its RFID code and templates. */
+export async function readPushedEmployee(
+    api: APIRequestContext,
+    testInfo: TestInfo,
+    runId: number,
+    deviceId: number,
+    employeeCode: string,
+): Promise<PushedEmployee | undefined> {
+    const { xml } = await readSetupExportSend(api, runId, deviceId);
+    await testInfo.attach('pushed-setup-export.xml', { body: xml, contentType: 'application/xml' });
+    const fields = employeeInExport(xml, employeeCode);
+    if (!fields) return undefined;
+    const T = DEVICE_SCHEMA.biometric.tags;
+    const stripped = (tag: string) => (fields[tag] ?? '').replace(/\s+/g, '');
+    return {
+        name: fields.Name ?? '',
+        rfidCode: fields.RfidCode ?? '',
+        templates: {
+            irisTemplateLeft: stripped(T.irisTemplateLeft),
+            irisFaceTemplate: stripped(T.irisFaceTemplate),
+            irisTemplateRight: stripped(T.irisTemplateRight),
+        },
+        fields,
     };
 }

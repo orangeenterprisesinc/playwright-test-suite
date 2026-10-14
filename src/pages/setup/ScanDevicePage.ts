@@ -12,8 +12,8 @@
 import { expect, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
-/** Only the pocket-class type gets a Crew section; immutable after create. */
-export const DEVICE_TYPE = { generic: '0' } as const;
+/** Only the pocket-class type gets a Crew section; immutable after create. 18 is "IrisID IT100". */
+export const DEVICE_TYPE = { generic: '0', irisId: '18' } as const;
 export const CONNECTIVITY_METHOD = { web: '4' } as const;
 
 /** `savedToast` is verified on dev; the rest are sourced from the B15 recording only. */
@@ -66,6 +66,7 @@ export class ScanDevicePage extends BasePage {
     readonly employeeSection: Locator;
     readonly addEmployeeCombobox: Locator;
     readonly employeeAddButton: Locator;
+    readonly includeEmployeeSwitch: Locator;
 
     readonly savedToast: Locator;
     readonly unsavedChangesBar: Locator;
@@ -102,6 +103,8 @@ export class ScanDevicePage extends BasePage {
         this.employeeSection = page.locator('section#employee');
         this.addEmployeeCombobox = page.locator('input#add-Employee');
         this.employeeAddButton = this.employeeSection.getByRole('button', { name: 'Add', exact: true });
+        // "Include Employee" on device 1308, "Include Employees" in the device-51 recording.
+        this.includeEmployeeSwitch = this.employeeSection.getByRole('switch', { name: /^Include Employees?$/ });
 
         this.savedToast = page.getByText(SCAN_DEVICE_STRINGS.savedToast);
         this.unsavedChangesBar = page.getByText(SCAN_DEVICE_STRINGS.unsavedChangesHeading);
@@ -145,12 +148,12 @@ export class ScanDevicePage extends BasePage {
     }
 
     /** The id comes from the create response — dev's save redirect is unreliable. */
-    async createDevice(general: ScanDeviceGeneral): Promise<number> {
+    async createDevice(general: ScanDeviceGeneral, deviceType: string = DEVICE_TYPE.generic): Promise<number> {
         await this.gotoNew();
         await this.nameInput.fill(general.name);
 
         await this.generalSelect(0).click();
-        await this.selectOption(DEVICE_TYPE.generic).click();
+        await this.selectOption(deviceType).click();
 
         await this.referencePrefixInput.fill(general.referencePrefix);
 
@@ -223,6 +226,15 @@ export class ScanDevicePage extends BasePage {
     /** A deleted employee renders here as `#<id>`, so a live row is matched by its `<exportIdentifier> : <name>` label. */
     employeeRow(label: string): Locator {
         return this.employeeSection.getByRole('row').filter({ hasText: label });
+    }
+
+    // Click only when off: a second click would switch it back.
+    async setIncludeEmployee(): Promise<void> {
+        await this.employeeSection.scrollIntoViewIfNeeded();
+        if ((await this.includeEmployeeSwitch.getAttribute('aria-checked')) === 'false') {
+            await this.includeEmployeeSwitch.click();
+        }
+        await expect(this.includeEmployeeSwitch).toHaveAttribute('aria-checked', 'true');
     }
 
     /** Typing the name part narrows the list (it holds every employee); the listbox is portaled, so the option is page-wide. */

@@ -112,7 +112,7 @@
             "id": "A6",
             "workflow": "A6",
             "journey": "A",
-            "category": "api",
+            "category": "ui",
             "testName": "biometricEnrollment",
             "testTitle": "Biometric enrollment",
             "testDescription": "Enroll employees on iris or face (preferred) or fingerprint so kiosks can identify them, with card or badge fallback for those who cannot enroll. The detailed enrollment-capture sequence is library-limited.",
@@ -129,8 +129,9 @@
                 "regression"
             ],
             "demo": true,
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12634",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "A7",
