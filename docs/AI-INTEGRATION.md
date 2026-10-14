@@ -95,7 +95,7 @@ Playwright agents never see `annotations.json` — their input is the plan.
 
 In CI, `annotator-image.yml` publishes the container to GHCR and
 `annotate-video.yml` runs it against a direct video URL. Both are manual dispatch
-only (`ubuntu-latest`) — nothing but `e2e.yml`'s 4 PM cron runs automatically,
+only (`ubuntu-latest`) — nothing but `e2e.yml`'s 4:30 PM cron runs automatically,
 so rebuild the image by hand after changing the annotator's Dockerfile or Python
 entry points. Keyframes show the live app and this repo is public, so the artifact
 ships them gpg-encrypted — set repo secret `ANNOTATION_ARCHIVE_PASSPHRASE` and

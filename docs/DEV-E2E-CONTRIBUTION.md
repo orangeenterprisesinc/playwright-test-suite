@@ -28,7 +28,7 @@ already carries.
 
 Note what your PR does and does not get: **nothing runs on the PR or on the
 merge** — no static gates, no suite. The gates (typecheck, lint, runner and id
-checks) and the suite itself both run inside `e2e.yml`, which fires at 4 PM only,
+checks) and the suite itself both run inside `e2e.yml`, which fires at 4:30 PM only,
 so that daily run is the first thing to exercise your spec. To check it sooner,
 run the gates locally (`npm run typecheck && npm run lint && npm run
 runner:check`) and dispatch the suite yourself: `gh workflow run e2e.yml -f

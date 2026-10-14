@@ -25,7 +25,7 @@ name: E2E
 # validation steps, test command, S3 prefix, artifact names — is switched on that
 # one value, which reaches the job as `matrix.suite`.
 #
-# The 4 PM IST cron runs BOTH, one after the other (`max-parallel: 1`): they hit
+# The 4:30 PM IST cron runs BOTH, one after the other (`max-parallel: 1`): they hit
 # the same dev-staging data and the webpet suite mutates it, so they must never
 # overlap. A dispatch can ask for the same pair with suite=both; push and
 # repository_dispatch always run journey alone.
@@ -46,7 +46,7 @@ name: E2E
 # than being pinned as the code under test, which is what the removed
 # `ref: dry-run` / BRANCH_OVERRIDE pair used to arrange.
 #
-# ── THE 4 PM CRON RUNS; EVERYTHING ELSE IS OFF ──────────────────────────────
+# ── THE 4:30 PM CRON RUNS; EVERYTHING ELSE IS OFF ──────────────────────────────
 # Per the 2026-10-06 standup call the suite runs once a day. A merge to main
 # triggers NOTHING: the `push:` trigger is commented out below, because a
 # declared trigger always starts a run entry before any job-level gate can stop
@@ -62,16 +62,20 @@ name: E2E
 #
 # schedule and workflow_dispatch are never gated. The static gates — typecheck,
 # lint, runner:check, webpet:ids:check, webpet:runner:check — run inside the e2e
-# job below, so they execute at 4 PM only; a PR is not checked.
+# job below, so they execute at 4:30 PM only; a PR is not checked.
 on:
   schedule:
-    # The daily dry run, ~4:00 PM IST (IST is UTC+5:30; cron is always UTC). Set a
+    # The daily dry run, ~4:30 PM IST (IST is UTC+5:30; cron is always UTC). Set a
     # couple of minutes early and deliberately off :00 and :30 — those are the most
     # contended minutes on GitHub's scheduler, and a run asked for at exactly 4:00
     # once landed at 4:21. Scheduled runs are best-effort; expect some slip.
     #
+    # The time cannot come from a repo variable: GitHub evaluates `on:` before any
+    # `vars` context exists, so this literal is the only place it is set. Moved
+    # from 10:28 (4 PM) on 2026-10-14.
+    #
     # On this event the matrix below runs BOTH suites, one after the other.
-    - cron: '28 10 * * *'
+    - cron: '58 10 * * *'
   # OFF — see the header: even route-gated, a push left one skipped run entry
   # per merge, and the ask is zero. To re-enable merge runs, uncomment these two
   # lines and set CI_AUTO_TRIGGERS=yes. `inputs` is null on push (and on
@@ -81,7 +85,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: 'Which suite to run. `both` mirrors the 4 PM cron (journey then webpet, serial).'
+        description: 'Which suite to run. `both` mirrors the 4:30 PM cron (journey then webpet, serial).'
         type: choice
         required: false
         default: journey
@@ -155,7 +159,7 @@ on:
 
 # `github.workflow` is the CALLER's name inside a reusable workflow, so it keeps an
 # orchestrated run and a direct push/dispatch in separate groups.
-# `github.event_name` is in the group so a push to main cannot cancel the 4 PM run
+# `github.event_name` is in the group so a push to main cannot cancel the 4:30 PM run
 # mid-suite — they would otherwise share `refs/heads/main` and the nightly WebPet
 # leg runs for over an hour. Both matrix legs belong to one run, so they share this
 # group harmlessly.
@@ -189,15 +193,15 @@ jobs:
         run: |
           if [[ "$EVENT" != "schedule" && "$EVENT" != "workflow_dispatch" && "$AUTO_TRIGGERS" != "yes" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::'$EVENT' is switched off. Set the CI_AUTO_TRIGGERS repo variable to 'yes' to let it run the suite. The 4 PM cron and manual dispatch are unaffected."
+            echo "::notice::'$EVENT' is switched off. Set the CI_AUTO_TRIGGERS repo variable to 'yes' to let it run the suite. The 4:30 PM cron and manual dispatch are unaffected."
           # web-pet's advisory e2e-dev job dispatches on every PR AND every merge to
           # main. dev staging is deployed from main only, so the merge run retests
-          # the build the 4 PM cron already covers and just adds a Slack post. This
+          # the build the 4:30 PM cron already covers and just adds a Slack post. This
           # stays even with the switch on — it is dormant anyway while web-pet's
           # RUN_E2E variable is `no`.
           elif [[ "$RUN_LABEL" == "web-pet push "* ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::'$RUN_LABEL' is a merge-to-main dispatch — the suite runs on PRs and the 4 PM cron only."
+            echo "::notice::'$RUN_LABEL' is a merge-to-main dispatch — the suite runs on PRs and the 4:30 PM cron only."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -568,7 +572,7 @@ jobs:
           echo "ALLURE_REPORT_URL=https://${S3_REPORT_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${PREFIX}/allure-report/index.html" >> "$GITHUB_ENV"
 
       # ── One journey run at a time against the shared dev tenant ──────────────
-      # Two runs of this workflow overlapped on 2026-09-16 (the 4 PM cron plus a
+      # Two runs of this workflow overlapped on 2026-09-16 (the then-4 PM cron plus a
       # workflow_dispatch from a feature branch) and collided on dev: each one's
       # Trigger Import drained the OTHER's relay envelopes, so specs waited out
       # their import budget on a run holding none of their files, and late imports
