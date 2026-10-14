@@ -65,17 +65,33 @@ name: E2E
 # job below, so they execute at 4:45 PM only; a PR is not checked.
 on:
   schedule:
-    # The daily dry run, ~4:45 PM IST (IST is UTC+5:30; cron is always UTC). Set a
-    # couple of minutes early and deliberately off :00 and :30 — those are the most
-    # contended minutes on GitHub's scheduler, and a run asked for at exactly 4:00
-    # once landed at 4:21. Scheduled runs are best-effort; expect some slip.
+    # The daily dry run. WHICH slot runs is the E2E_RUN_TIME_IST repo variable
+    # (default 16:45); every other slot below is a ~10 s skipped entry. GitHub
+    # evaluates `on:` before any `vars` context exists, so the time cannot be put
+    # in the cron line itself — this grid plus the `route` gate is the only way to
+    # change the time from Settings instead of a PR.
     #
-    # The time cannot come from a repo variable: GitHub evaluates `on:` before any
-    # `vars` context exists, so this literal is the only place it is set. Moved
-    # from 10:28 (4 PM) on 2026-10-14.
+    # One entry per 15-minute slot, 3:00–6:00 PM IST (IST is UTC+5:30; cron is
+    # always UTC). Each fires two minutes early and deliberately off :00 and :30 —
+    # those are the most contended minutes on GitHub's scheduler, and a run asked
+    # for at exactly 4:00 once landed at 4:21. Scheduled runs are best-effort;
+    # expect some slip. `route` maps `github.event.schedule` (the cron string that
+    # fired) back to its IST label, so slip cannot land a tick in the wrong slot.
     #
     # On this event the matrix below runs BOTH suites, one after the other.
-    - cron: '13 11 * * *'
+    - cron: '28 9 * * *'   # 15:00 IST
+    - cron: '43 9 * * *'   # 15:15
+    - cron: '58 9 * * *'   # 15:30
+    - cron: '13 10 * * *'  # 15:45
+    - cron: '28 10 * * *'  # 16:00
+    - cron: '43 10 * * *'  # 16:15
+    - cron: '58 10 * * *'  # 16:30
+    - cron: '13 11 * * *'  # 16:45 (default)
+    - cron: '28 11 * * *'  # 17:00
+    - cron: '43 11 * * *'  # 17:15
+    - cron: '58 11 * * *'  # 17:30
+    - cron: '13 12 * * *'  # 17:45
+    - cron: '28 12 * * *'  # 18:00
   # OFF — see the header: even route-gated, a push left one skipped run entry
   # per merge, and the ask is zero. To re-enable merge runs, uncomment these two
   # lines and set CI_AUTO_TRIGGERS=yes. `inputs` is null on push (and on
@@ -163,8 +179,11 @@ on:
 # mid-suite — they would otherwise share `refs/heads/main` and the nightly WebPet
 # leg runs for over an hour. Both matrix legs belong to one run, so they share this
 # group harmlessly.
+# `github.event.schedule` (empty outside `schedule`) keeps each cron slot in its
+# own group: with the 15-minute grid above, the next slot's skip-tick would
+# otherwise share the group with the real run and cancel it mid-suite.
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.schedule }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -190,7 +209,27 @@ jobs:
           AUTO_TRIGGERS: ${{ vars.CI_AUTO_TRIGGERS }}
           EVENT: ${{ github.event_name }}
           RUN_LABEL: ${{ inputs.run_label || github.event.client_payload.run_label }}
+          # THE CLOCK. HH:MM IST on the 15-minute grid declared under `on.schedule`
+          # (15:00–18:00). Unset, or off the grid, means 16:45.
+          RUN_TIME_IST: ${{ vars.E2E_RUN_TIME_IST }}
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
+          if [[ "$EVENT" == "schedule" ]]; then
+            # '13 11 * * *' -> 11:13 UTC -> +2 min early offset, +5:30 -> 16:45 IST.
+            read -r m h _ <<< "$SCHEDULE"
+            total=$(( (10#$h * 60 + 10#$m + 2 + 330) % 1440 ))
+            slot=$(printf '%02d:%02d' $(( total / 60 )) $(( total % 60 )))
+            wanted="${RUN_TIME_IST:-16:45}"
+            if ! [[ "$wanted" =~ ^1[5-8]:(00|15|30|45)$ ]] || [[ "$wanted" > "18:00" ]]; then
+              echo "::warning::E2E_RUN_TIME_IST='$wanted' is not a 15-minute slot between 15:00 and 18:00 IST — running at 16:45 instead."
+              wanted="16:45"
+            fi
+            if [[ "$slot" != "$wanted" ]]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::$slot IST slot — the suite runs at $wanted (E2E_RUN_TIME_IST)."
+              exit 0
+            fi
+          fi
           if [[ "$EVENT" != "schedule" && "$EVENT" != "workflow_dispatch" && "$AUTO_TRIGGERS" != "yes" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::'$EVENT' is switched off. Set the CI_AUTO_TRIGGERS repo variable to 'yes' to let it run the suite. The 4:45 PM cron and manual dispatch are unaffected."

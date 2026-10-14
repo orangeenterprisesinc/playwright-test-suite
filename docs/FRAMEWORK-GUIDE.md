@@ -323,7 +323,7 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
 `TEST_ENV` defaults to `dev`.
 
 **[`e2e.yml`](../.github/workflows/e2e.yml) — "E2E" (dev staging)**
-- Triggers: **`schedule` (`13 11 * * *`, ~4:45 PM IST — the daily dry run)** and manual
+- Triggers: **`schedule` (a 15-minute cron grid, 3–6 PM IST; the `E2E_RUN_TIME_IST` repo variable picks the slot, default 16:45 — the daily dry run)** and manual
   `workflow_dispatch`, both always allowed. A merge to main triggers **nothing**: the
   `push:` trigger is commented out, because a declared trigger always starts a (skipped) run
   entry before a job-level gate can stop it — `vars` is unavailable in `on:`. `workflow_call`
@@ -358,7 +358,7 @@ the opt-in projects, and gates the run behind `typecheck`, `webpet:ids:check` an
 `webpet:runner:check` before a browser starts — those catch the failure modes that report
 green (a dropped test, an orphaned id, a leaked journey tag).
 
-**The daily dry run** is `e2e.yml`'s cron (`13 11 * * *`, ~4:45 PM IST), which runs both suites from
+**The daily dry run** is `e2e.yml`'s cron (the slot named by the `E2E_RUN_TIME_IST` repo variable, default 16:45 IST), which runs both suites from
 one workflow via a serialised matrix:
 
 ```
