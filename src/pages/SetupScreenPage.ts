@@ -282,9 +282,10 @@ export abstract class SetupScreenPage extends BasePage {
         await committed;
         if (barWasVisible) await expect(this.unsavedChangesBar).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
 
-        // Back onto the record if the save returned to the list, so the caller's next
-        // read sees the form and not the grid.
-        if (!this.editUrlPattern.test(this.page.url())) await this.gotoEditById(id, name);
+        // Always re-open: a form left in place re-hydrates asynchronously after the save and wipes whatever
+        // the caller fills next, while its toHaveValue check has already passed (A4 day start, 2026-10-13).
+        // A fresh load has hydrated once Name reads back, so the next fill sticks.
+        await this.gotoEditById(id, name);
     }
 
     // ── Active ──────────────────────────────────────────────────────
