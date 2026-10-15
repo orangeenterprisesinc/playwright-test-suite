@@ -54,8 +54,9 @@ import { createCrewTimeIn, punchTime } from './crewTimeInApi';
 
 /** What one imported card must look like, keyed by the device's employee code. */
 export interface ExpectedCard {
-    employeeCode: string;
-    employeeId: number;
+    employeeCode: string | null;
+    /** `null`: a crew piece-out the office stores with no employee. */
+    employeeId: number | null;
     /**
      * Omit both for a punch the office links to no work context. A time-out row
      * ships `Employee` and `Crew` only (`LookupContents="Employee:Code|Crew:Code"`),
@@ -173,7 +174,7 @@ function groupByContext(
     for (const card of expected) {
         // Unlinked punches (a time-out carries no field/job) have no context to
         // group by, and POST /time-cards/crew-time-in cannot create one anyway.
-        if (card.fieldId == null || card.jobId == null) continue;
+        if (card.fieldId == null || card.jobId == null || card.employeeId === null) continue;
         const key = `${card.fieldId}:${card.jobId}`;
         const group = groups.get(key) ?? {
             fieldId: card.fieldId,
@@ -488,7 +489,7 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
     // assertions depend on.
     if (sweep) {
         const swept = await sweepFixtureCards(sessionApi, {
-            employeeIds: [...expected.map((c) => c.employeeId), ...absentEmployeeIds],
+            employeeIds: [...expected.flatMap((c) => (c.employeeId === null ? [] : [c.employeeId])), ...absentEmployeeIds],
             day: punchDay,
         });
         if (swept.removed || swept.failed) {
@@ -561,9 +562,9 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
         // nine-rung fallback ladder that can land on a same-named employee or the
         // "Undefined Employee" row, which passes a non-null check while pointing at
         // the wrong person.
-        const card = want.reference ? byReference.get(want.reference) : byEmployee.get(want.employeeId);
+        const card = want.reference ? byReference.get(want.reference) : want.employeeId === null ? undefined : byEmployee.get(want.employeeId);
         expect(card, `no imported card linked to employee ${want.employeeCode}`).toBeDefined();
-        expect(card!.employeeCounter).toBe(want.employeeId);
+        expect(card!.employeeCounter ?? null).toBe(want.employeeId);
         expect(card!.crewCounter).toBe(crewId);
         // A card that declares no field/job is an unlinked punch (a time-out):
         // the device sends no work context for it, so Ranch is null too and the
@@ -702,7 +703,9 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
             const byReference = new Map(cards.map((c) => [String(c.reference ?? ''), c]));
             const panelCard = panelExpected.reference
                 ? byReference.get(panelExpected.reference)
-                : byEmployee.get(panelExpected.employeeId);
+                : panelExpected.employeeId === null
+                  ? undefined
+                  : byEmployee.get(panelExpected.employeeId);
             expect(panelCard, 'panel candidate must have a matching office card').toBeDefined();
             await transferPage.openRow(panelCard!.timeCardCounter);
             // Ranch is a custom lookup widget — its displayed name is a real

@@ -8,6 +8,8 @@ export const CleanupStepSchema = z.discriminatedUnion('kind', [
         employeeCodes: z.array(z.string().min(1)).min(1),
         dayOffset: z.number().int().max(0),
         cardTypes: z.array(z.number().int()).optional(),
+        // The seeded office crew's code: also sweeps that crew's employee-less cards (a crew piece-out).
+        crewCodes: z.array(z.string().min(1)).min(1).optional(),
     }).strict(),
     // Named snapshot/restore pair implemented in runCleanup (4c/4d register the first).
     z.object({ kind: z.literal('restore'), target: z.string().min(1) }).strict(),

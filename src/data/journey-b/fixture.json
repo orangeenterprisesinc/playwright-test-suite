@@ -34,6 +34,13 @@
       "name": "B10 LUNCH",
       "paymentType": "Time"
     },
+    "pieceJob": {
+      "code": "4204",
+      "name": "B8 PIECE JOB",
+      "paymentType": "Piece",
+      "pieceRate": 1,
+      "hourlyRate": 1
+    },
     "crew": {
       "code": "5001",
       "name": "B1 CREW"

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const Entity = z.object({ code: z.string().regex(/^[1-9]\d{3,}$/), name: z.string().min(1) }).strict();
 const Job = Entity.extend({ paymentType: z.string() }).strict();
+const PieceJob = Entity.extend({ paymentType: z.literal('Piece'), pieceRate: z.number().positive(), hourlyRate: z.number().positive() }).strict();
 
 export const JourneyBFixtureSchema = z
     .object({
@@ -9,7 +10,7 @@ export const JourneyBFixtureSchema = z
         entities: z
             .object({
                 ranch: Entity, field: Entity, field2: Entity,
-                job: Job, job2: Job, mealJob: Job,
+                job: Job, job2: Job, mealJob: Job, pieceJob: PieceJob,
                 crew: Entity,
                 present: z.array(Entity).min(1),
                 absentee: Entity,
