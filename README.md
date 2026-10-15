@@ -903,10 +903,10 @@ gh workflow run e2e.yml -f suite=journey
 gh workflow run e2e.yml -f suite=webpet -f batch=01
 ```
 
-**The daily dry run is `e2e.yml`'s own cron** (`13 11 * * *`, ~4:45 PM IST), and it runs **both** suites one after the other via a serialised matrix:
+**The daily dry run is `e2e.yml`'s own cron** — a grid of 15-minute slots from 3:00 to 6:00 PM IST, of which the **`E2E_RUN_TIME_IST`** repo variable picks one (default `16:45`); the other slots skip in the `route` job. It runs **both** suites one after the other via a serialised matrix:
 
 ```
-3:58 PM IST   e2e.yml  →  matrix suite=journey  →  its own Slack report
+~4:43 PM IST  e2e.yml  →  matrix suite=journey  →  its own Slack report
                                    ↓ (max-parallel: 1)
                           matrix suite=webpet   →  its own Slack report
 ```
@@ -922,10 +922,11 @@ Two mechanisms arrange this, because GitHub offers no single one that does both 
 
 `schedule` and `workflow_dispatch` are never gated and always run. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4:45 PM only — a PR is not checked.
 
-Three things to know about the schedule:
+Four things to know about the schedule:
 
+- **The time is a repo variable, not a cron edit.** GitHub evaluates `on:` before `vars` exists, so the cron line cannot read a variable; instead `e2e.yml` declares every 15-minute slot between 15:00 and 18:00 IST and the `route` job runs the suite only on the slot that equals `E2E_RUN_TIME_IST` (`HH:MM`, default `16:45`; an off-grid value warns and falls back). Every other slot is a ~10 s skipped run entry — the price of changing the time from Settings. `route` identifies the slot from `github.event.schedule`, the cron string that fired, so a late tick never lands in the wrong slot.
 - **It fires from `main` only.** GitHub runs `schedule:` from the default branch; a cron block on any other branch is accepted and then never triggers. So a scheduled run tests `main`, and `dry-run` is kept in step with it rather than being the pinned code under test.
-- **Expect it to start late.** GitHub queues scheduled runs best-effort and has fired this 20+ minutes past the hour. It sits at 3:58 rather than 4:00 because `:00` and `:30` are the most contended minutes, but nothing removes the delay — which is why nothing in the reporting states a fixed clock time.
+- **Expect it to start late.** GitHub queues scheduled runs best-effort and has fired this 20+ minutes past the hour. Each slot fires two minutes early and off `:00`/`:30` because those are the most contended minutes, but nothing removes the delay — which is why nothing in the reporting states a fixed clock time.
 - **There is no pre-run announcement.** `dry-run-reminder.yml` was removed; `scripts/notify/slack-reminder.ts` survives as a CLI if it is ever wanted back.
 
 Each suite keeps its own tests, artifacts, Allure report and Slack message — nothing is merged. `e2e.yml` also accepts a manual `workflow_dispatch`, the escape hatch for running one spec against dev staging while you write it, plus `workflow_call` and `repository_dispatch` when `CI_AUTO_TRIGGERS` is `yes` (a merge to main triggers nothing); none of those post a Slack message (see the Slack section below).
@@ -937,7 +938,9 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 ```yaml
 on:
   schedule:
-    - cron: '13 11 * * *'   # ~4:45 PM IST — the only ungated automatic trigger
+    - cron: '28 9 * * *'    # 15:00 IST ─┐ one entry per 15-minute slot, 15:00–18:00;
+    # … 11 more …                       #  │ `route` runs only the slot equal to
+    - cron: '28 12 * * *'   # 18:00 IST ─┘ E2E_RUN_TIME_IST (default 16:45)
   workflow_dispatch:                     # always allowed; costs nothing until clicked
     inputs: [suite, grep, scope, batch, workers, run_label]
   # push:                               # commented out — a merge to main must
@@ -948,9 +951,10 @@ on:
     types: [run-playwright]              # ─┘ is `yes`
 
 # github.event_name is in the group so a manual dispatch cannot cancel the 4:45 PM
-# run mid-suite — both fire from refs/heads/main.
+# run mid-suite — both fire from refs/heads/main. github.event.schedule keeps
+# each cron slot apart, so the next slot's skip-tick cannot cancel the real run.
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.schedule }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
