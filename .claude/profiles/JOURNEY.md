@@ -45,11 +45,14 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
 ## UI-first (binding for tests/web/**)
 
 A journey spec does on screen everything a user does on screen. The app's HTTP API may
-be used only for four things:
+be used only for three things ((a) keeps its letter because code comments cite (b)–(d)):
 
-* **(a) configuration** — preference/settings writes in a before-hook (Admin ▸
-  Preferences keys, notification SMTP settings) and the `session/me` / `preferences`
-  reads that gate a scenario;
+* **(a) — withdrawn 2026-10-15.** There is no configuration allowance. A preference a
+  screen exposes (Admin ▸ Preferences, the crew's notify user, a job's rate) is set on
+  that screen through its page object; a key no screen exposes (SMTP mail settings,
+  `undefinedEmployee`) is an **environment gate**: the spec reads it, annotates
+  `environment-gate: <key>` and fails by name — never writes it. The `session/me` /
+  `preferences` reads that gate a scenario are reads under (d);
 * **(b) cleanup** — the before-phase sweep of a previous run's residue and the
   after-test teardown (`runCleanup`, `cleanupScope`, residue sweep, fixture reconcile,
   recycle-bin restore of a fixture row);
@@ -72,10 +75,11 @@ prefix: they are deleted by id, from ids recorded under (d).
 Enforced twice. ESLint bans `@utils/api/*`, `@utils/relay/*`, `@utils/cleanup/*` and
 `sessionApi.post|put|patch|delete` from specs — specs reach the API only through
 `@utils/journeys/*`. At run time `src/utils/api/writeGuard.ts` rejects any
-POST/PUT/PATCH/DELETE made outside `allowApiWrites('preference'|'cleanup'|'device',
-reason, fn)`; `UI_FIRST_GUARD=warn` annotates the test (`ui-first-violation`),
-`enforce` throws `UiFirstViolation`. `npm run ui-first:audit` lists a run's
-violations. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
+POST/PUT/PATCH/DELETE made outside `allowApiWrites('cleanup'|'device', reason, fn)`;
+`UI_FIRST_GUARD=warn` annotates the test (`ui-first-violation`), `enforce` throws
+`UiFirstViolation`. `npm run ui-first:audit` lists a run's violations. **CI runs
+`enforce`** (`e2e.yml`, overridable through the `UI_FIRST_GUARD` repo variable), so a
+new spec is verified locally with `UI_FIRST_GUARD=enforce` before it is pushed. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
 API seeding is part of its frozen baseline.
 
 Why the rule exists: D6 was the first journey driven entirely on screen, and doing

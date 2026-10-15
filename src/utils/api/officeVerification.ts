@@ -8,9 +8,11 @@ import {
     newImportDeadline,
     NO_STORAGE_REASON,
     waitForImportFiles,
+    waitForImportRun,
     type ImportDeadline,
     type ImportFileResult,
     type ImportRunResult,
+    type InternetPullResult,
 } from './connectivityImportApi';
 import {
     CARD_TYPE,
@@ -462,6 +464,35 @@ async function importViaInternetUi(
     }
 
     return { transport: 'device-import', references, thisAttemptFailures, peerDrained: ourFileNeverPulled };
+}
+
+/**
+ * Connectivity ▸ Import ▸ Internet ▸ Trigger Import on screen, then follow the run it started. The
+ * caller judges `pull.status` and the files: a peer worker's drain can take our envelope into its own run.
+ */
+export async function pullFromRelayInternetUi(
+    pages: PageObjects,
+    sessionApi: APIRequestContext,
+    opts: { deadline: ImportDeadline; testInfo: TestInfo; label?: string },
+): Promise<{ pull: InternetPullResult; run?: ImportRunResult }> {
+    const { deadline, testInfo, label = 'pull' } = opts;
+    await pages.leftNav.navigate();
+    await pages.leftNav.openViaMenu(['Connectivity', 'Import', 'Internet'], '/connectivity/import/internet');
+    await pages.importInternet.heading.waitFor({ state: 'visible', timeout: 15_000 });
+
+    const outcome = await pages.importInternet.triggerImport();
+    await testInfo.attach(`internet-import-${label}.json`, {
+        body: JSON.stringify(outcome, null, 2),
+        contentType: 'application/json',
+    });
+    await testInfo.attach(`internet-import-${label}.png`, {
+        body: await pages.importInternet.screenshot(),
+        contentType: 'image/png',
+    });
+
+    const pull: InternetPullResult = outcome.api;
+    const run = pull.runId > 0 ? await waitForImportRun(sessionApi, pull.runId, deadline, {}, testInfo) : undefined;
+    return { pull, run };
 }
 
 /**

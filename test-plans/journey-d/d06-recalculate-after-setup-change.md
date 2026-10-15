@@ -208,8 +208,9 @@ The page object exposes `applyDateRange(day)`, `enableSelection()`, `selectByRef
 
 ## Preconditions
 
-- [ ] `prepareJourneyD` ensures ranch/field from `seedOfficeFixture`, then `D6 CREW`, the two
-      `D6 …` employees and `D6 JOB` (piece, `overtimeRulesCounter` = lowest id) — idempotent, never deletes.
+- [ ] `prepareJourneyD` ensures, on screen through `ensureOnScreen` (existence is a GET, the create
+      and repair are UI), Journey B's ranch/field, then `D6 CREW`, the two `D6 …` employees (active,
+      home crew `D6 CREW`) and `D6 JOB` (piece, active) — idempotent, never deletes.
 - [ ] Session API authenticated (`sessionApi`); CSRF double-submit as in `apiLogin.ts`.
 - [ ] `allowRecalculateFromJobCard` read and asserted `true` (it already is on dev — do **not** flip it).
 - [ ] **Before-phase recovery sweep on the fixture day**, run before anything is seeded, so a crashed
@@ -222,6 +223,30 @@ The page object exposes `applyDateRange(day)`, `enableSelection()`, `selectByRef
          The sweep must also match `crewCounter === D6 CREW && jobCounter === D6 JOB` on that day.
 - [ ] `PROTECTED_NAME_PATTERNS` already contains `/^D\d{1,2} /` (module-load assertion in
       `cleanupTargets.ts` runs first).
+
+## API allowances
+
+Every call this spec makes outside the browser. **A step a user performs on screen has no row here**
+— the fixture-row forms, the three punch forms, the Setup ▸ Job rate change, the date scope, the
+analyze, the Work Crew filter, the ticking of rows, the commit, the Recalculate and the
+`/input/job-cards` load are all UI and appear nowhere below.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| preference gate read | `GET preferences` | read | `allowRecalculateFromJobCard` must already be `true`; never written |
+| fixture-row existence lookup | `GET crews` · `GET employees` · `GET jobs` · `GET ranches` · `GET fields` (+ `GET <entity>/{id}` for the repair check) | read | `ensureOnScreen`: existence is a GET, the create and the repair are UI |
+| binned fixture row restore | `POST <entity>/{id}/restore` | cleanup | undoes someone else's deletion rather than creating anything; already wrapped in `allowApiWrites('cleanup', ...)` inside `ensureOnScreen` |
+| recalc-run baseline | `GET job-cards/recalc-runs` | read | the max `recalcRunCounter` before the run touches anything |
+| before-phase sweep — own job cards | `GET job-cards?from&to` → `DELETE job-cards/{id}` | cleanup | a crashed previous run's cards must go before the day can be re-seeded; deleting the card resets its sources |
+| before-phase sweep — own time cards | `GET time-cards?from&to` → `DELETE time-cards/{id}` | cleanup | crew-scoped, because the piece-out has no employee and the punches have no job |
+| sync point between the punch forms | `GET time-cards?from&to` | read | the Crew Time Out form only offers employees with an **open** time-in |
+| record this run's time-card ids + References | `GET time-cards?from&to` | read | the roster guard and cleanup both key on them, recorded **before** any assertion runs |
+| read back the written cards | `GET job-cards?from&to` · `GET job-cards/{id}` · `GET time-cards?from&to` | read | records the job-card ids for cleanup on every poll before the count is asserted; corroborates the on-screen numbers |
+| after-phase teardown — job cards | `DELETE job-cards/{id}` (with `{rowversion}`) | cleanup | by explicit id, one at a time; registered by the flow |
+| after-phase teardown — time cards | `DELETE time-cards/{id}` | cleanup | by id, from the ids recorded above |
+| restore `d6JobPieceRate` | `GET jobs/{id}` → `PUT jobs/{id}` via `setJobRate` | cleanup | the restore step puts the piece rate back after the on-screen change |
+
+No write to a preference or setup record outside a screen; the piece-rate change is Setup ▸ Job on screen.
 
 ## Cleanup
 
@@ -242,7 +267,7 @@ and deletes with `204`.
 
 | Phase | Step | How |
 |---|---|---|
-| after, 1 | **[imperative]** delete D6's own job cards | for each id in the execute envelope's `days[].jobCardCounters`: `GET /job-cards/{id}` → `DELETE /job-cards/{id} {rowversion: version}`. Best-effort, logged, never fails the test. **Must run first.** |
+| after, 1 | **[imperative]** delete D6's own job cards | for each id in the execute envelope's `days[].jobCardCounters`: `GET /job-cards/{id}` → `DELETE /job-cards/{id} {rowversion: version}`. Best-effort, logged, never fails the test, under `allowApiWrites('cleanup', …)`. **Must run first.** |
 | after, 2 | **[declarative]** `{ kind:'timeCards', employeeCodes:['8002','8003'], dayOffset:-11, cardTypes:[0,1] }` | the crew piece-out is `cardType 0` with `employeeCounter: null`, so the flow hands `runCleanup` the five card ids it created rather than relying on the employee filter |
 | after, 3 | **[declarative]** `{ kind:'restore', target:'d6JobPieceRate' }` | new restorer in `runCleanup.ts`'s `RESTORERS`: snapshot `GET /jobs/{id}.pieceRate` before, `setJobRate` back after |
 | after, 4 | **[nothing]** setup rows | `D6 CREW` / `D6 PICKER ONE` / `D6 PICKER TWO` / `D6 JOB` are permanent fixture, never deleted, protected by `/^D\d{1,2} /` |
@@ -281,7 +306,7 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
 
 **Steps:**
 
-1. `prepareJourneyD(scenario, { sessionApi, testInfo })` — ensure the fixture, assert
+1. `prepareJourneyD(scenario, { sessionApi, testInfo, pages })` — ensure the fixture on screen, assert
    `allowRecalculateFromJobCard === true`, run the before-phase recovery sweep (job cards first,
    then time cards), capture the current max `recalcRunCounter` from `GET /job-cards/recalc-runs`.
 2. `setJobRate(job, rate.before)` (annotate `precondition: rate v1`), then seed the day:

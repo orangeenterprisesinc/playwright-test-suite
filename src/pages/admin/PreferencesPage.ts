@@ -32,7 +32,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
 /** The section headings this page object knows how to scroll to. */
-export type PreferencesSection = 'Pocket' | 'Traceability - Stickers';
+export type PreferencesSection = 'Pocket' | 'Traceability - Stickers' | 'Connectivity' | 'Job';
 
 /**
  * @extends BasePage
@@ -135,6 +135,19 @@ export class PreferencesPage extends BasePage {
         );
         await this.saveButton.click();
         return (await response).status();
+    }
+
+    /** Save only when something changed; null when Save is disabled (the form already matches what is stored). */
+    async saveIfDirty(): Promise<number | null> {
+        if (await this.saveButton.isDisabled()) return null;
+        return this.save();
+    }
+
+    /** Tick or untick a checkbox button by its exact accessible name (the real input is hidden behind it). */
+    async setChecked(label: string, on: boolean): Promise<void> {
+        const box = this.page.getByRole('checkbox', { name: label, exact: true });
+        await box.scrollIntoViewIfNeeded();
+        await box.setChecked(on);
     }
 }
 

@@ -304,17 +304,30 @@ assignedPrefix (`B7`). `GET /time-cards` cardType 0 → per reference: `employee
 - [ ] Employees `6005` / `6006` / **`6007`**, ranch `4001`, field `4101`, job `4201`, crew `5001`
       exist (`seedOfficeFixture` plus `ensureEmployee(F.sticker[2])`, as B4/B5/B6 do).
 - [ ] `DEVICE_RELAY_FROM` / `DEVICE_RELAY_URL` / `DEVICE_RELAY_SERVER` set. Transport is
-      **internet** (`POST connectivity/import/internet`) — the WebMail leg the recording shows.
-      Never `OFFICE_TRANSPORT_SUBSTITUTE`.
+      **internet**: Trigger Import on Connectivity ▸ Import ▸ Internet — the WebMail leg the
+      recording shows. Never `OFFICE_TRANSPORT_SUBSTITUTE`.
 - [x] **N3** — module state is **documented, not enforced** (`module-gate-asserted` annotation, the
       B5/B6 pattern from `366fa89`). `PiecePayment` is absent from `PT_MODULES` (PET-12689) but gates
       piece *payment*, not capture, so every B7 requirement is provable through the API without it.
       `LabelTraceability` **is** licensed and is asserted hard — the importer drops the whole
       code-history grid without it.
-- [x] **N1** — the label-tracking start locations are **arranged through the API** by the spec
-      (`PUT /preferences` `employeeCodeStartLocation=1`, `rollCodeStartLocation=8`) and restored in a
-      `finally` that wraps the whole run. `assignRollsDaily` is never sent: flipping it true clears
+- [x] **N1** — the label-tracking start locations (`employeeCodeStartLocation=1`,
+      `rollCodeStartLocation=8`) are set on Preferences ▸ Traceability - Stickers, restored by the
+      cleanup step. `assignRollsDaily` is never sent: flipping it true clears
       `AlternateCode` on every Employee row, irreversibly.
+
+## API allowances
+
+Trigger Import and the Preferences save are on screen — no row.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| device envelope push | relay `UploadFile` | device | the handheld itself |
+| import run read-back | `GET connectivity/import/runs/{runId}` | read | follows the run Trigger Import started |
+| reference poll | `GET time-cards?from&to` | read | proves ownership of the imported cards |
+| preference gates + read-back | `GET preferences`, `GET session/me` | read | gates the scenario; proves the saved start locations |
+| start-location snapshot/restore | `GET`/`PUT preferences` | cleanup | restore step |
+| before/after card sweep | `DELETE time-cards/{id}` | cleanup | by id |
 
 ## Cleanup
 

@@ -14,11 +14,11 @@ test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }
         annotation: [
             { type: 'testCaseId', description: 'C6' },
         ],
-    }, async ({ page, sessionApi }, testInfo) => {
+    }, async ({ page, sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(CrewTableCaseSchema, testInfo);
-        const run = await prepareJourneyC(scenario, { sessionApi, testInfo });
+        const run = await prepareJourneyC(scenario, { sessionApi, testInfo, pages });
 
-        const capture = await captureByTable(run, { sessionApi, testInfo });
+        const capture = await captureByTable(run, { sessionApi, testInfo, pages });
         expect(capture.onTable).toHaveLength(scenario.expected!.cardsOnTable);
         for (const row of capture.onTable) {
             expect(row.crewTableCounter).toBe(run.table!.crewTableCounter);

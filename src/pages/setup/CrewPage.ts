@@ -274,6 +274,9 @@ export class CrewPage extends SetupScreenPage {
      * Save never enables.
      */
     async setNotifyUser(userName: string): Promise<void> {
+        // The user list loads after the form; an inputValue read before it lands is "", so an
+        // already-correct crew looks different, gets re-picked, stays clean and Save never enables.
+        await expect(this.notifyUserCombobox).not.toHaveAttribute('placeholder', /^Loading/);
         if (PickerComponent.labelPattern(userName).test(await this.readNotifyUser())) return;
         await this.pickers.pickCombobox(this.notifyUserCombobox, userName);
         await this.saveEdit();

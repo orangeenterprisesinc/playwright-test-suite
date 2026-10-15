@@ -16,12 +16,7 @@ import { DEVICE_TYPE, type ScanDeviceGeneral } from '@pages/setup/ScanDevicePage
 import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
-import {
-    findActiveDeviceOfType,
-    pushSetupExport,
-    readSetupExportSend,
-} from '@utils/api/setupExportApi';
-import { deleteUserById, findUserIdByName } from '@utils/api/usersApi';
+import { findActiveDeviceOfType, readSetupExportSend } from '@utils/api/setupExportApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
 import { RUN_TOKEN } from '@utils/cleanup/runToken';
@@ -39,7 +34,7 @@ export interface UserSetupRun {
     scenario: UserSetupCase;
     /** The New User form data: the case's fields over a run-unique name, initials and email. */
     user: NewUserData;
-    /** The case's cleanup steps, 'after' phase — a no-op for a user the test already deleted as its own step. */
+    /** The case's cleanup steps, 'after' phase — deletes the minted user (no screen offers a delete). */
     cleanup(): Promise<void>;
 }
 
@@ -100,22 +95,7 @@ export async function preparePieceOutConfig(
 }
 
 // The API edge of journey A. Specs may not import @utils/api/* (UI-first lint), so every
-// read A1 and A9 need passes through here. Each is named for what it is: a read, or a write
-// that is still a workflow step and will move on screen.
-
-/** A1 step 6 read: the created user's id, for the delete that follows. */
-export async function findUserId(api: APIRequestContext, name: string): Promise<number | null> {
-    return findUserIdByName(api, name);
-}
-
-/**
- * A1 step 6 write. The catalog step is "delete", the product offers only deactivate, and this
- * is the API standing in until `UsersPage.deactivate()` replaces it. Deliberately not wrapped
- * in an allowance — the UI-first guard is meant to flag it.
- */
-export async function deleteUserAsWorkflowStep(api: APIRequestContext, id: number): Promise<void> {
-    await deleteUserById(api, id);
-}
+// read A9 needs passes through here.
 
 /** A9 read: the module gates, read before anything is written so a section cannot assert vacuously. */
 export async function readModuleGates(api: APIRequestContext): Promise<Record<string, unknown>> {
@@ -132,12 +112,9 @@ export async function findPocketDevice(api: APIRequestContext, deviceType: numbe
     return findActiveDeviceOfType(api, deviceType);
 }
 
-/**
- * A9 write: Push to Device. A user action on the Scan Device form, standing in as an API POST
- * until `ScanDevicePage.pushToDevice()` replaces it — so it too is left for the guard to flag.
- */
-export async function pushSetupExportToDevice(api: APIRequestContext, deviceId: number) {
-    return pushSetupExport(api, deviceId);
+/** A9 read-back: the setup file the screen's Push to Device sent, by the run id the screen's own POST returned. */
+export async function readSetupExportSent(api: APIRequestContext, runId: number, deviceId: number) {
+    return readSetupExportSend(api, runId, deviceId);
 }
 
 /** A4 read-back: what `GET /crews/{id}` holds after the screen saved. */

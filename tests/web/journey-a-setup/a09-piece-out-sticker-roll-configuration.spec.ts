@@ -9,10 +9,11 @@ import { pieceJobsInExport, preferenceInExport } from '@utils/export/setupExport
 import {
     findPocketDevice,
     preparePieceOutConfig,
-    pushSetupExportToDevice,
     readModuleGates,
+    readSetupExportSent,
     readStoredPreferences,
 } from '@utils/journeys/journeyAFlow';
+import { withPreferencesLock } from '@utils/sync/preferencesLock';
 
 test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@JourneyA', '@A9'] }, () => {
 
@@ -39,46 +40,54 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         const prefs = pages.preferences;
         const barcodeLabel = screen.barcodeFunctionLabels[write.stickers.pieceTraceabilityBarcodeFunction];
         const written = { ...write.pocket, ...write.stickers };
-        await prefs.gotoPreferences();
 
-        // The section WEBPET-1446 originally failed for want of.
-        await expect(prefs.sectionHeading(screen.stickerSection)).toBeVisible();
+        // Save sends the whole form, so load → set → save → reload runs under the cross-worker lock.
+        const stored = await withPreferencesLock(async () => {
+            await prefs.gotoPreferences();
 
-        // Written by the import engine, never by an operator.
-        await expect(prefs.field(screen.readOnlyField)).toHaveJSProperty('readOnly', true);
+            // The section WEBPET-1446 originally failed for want of.
+            await expect(prefs.sectionHeading(screen.stickerSection)).toBeVisible();
 
-        // The piece bounds live on Pocket, not on the sticker section.
-        await prefs.gotoSection(screen.pocketSection);
-        for (const [fieldId, value] of Object.entries(write.pocket)) await prefs.setValue(fieldId, value);
+            // Written by the import engine, never by an operator.
+            await expect(prefs.field(screen.readOnlyField)).toHaveJSProperty('readOnly', true);
 
-        // and the barcode function is chosen by its label and must persist as the wire value.
-        await prefs.gotoSection(screen.stickerSection);
-        for (const [fieldId, value] of Object.entries(write.stickers)) {
-            if (fieldId === screen.barcodeFunctionField) await prefs.choose(fieldId, barcodeLabel);
-            else await prefs.setValue(fieldId, value);
-        }
+            // The piece bounds live on Pocket, not on the sticker section.
+            await prefs.gotoSection(screen.pocketSection);
+            for (const [fieldId, value] of Object.entries(write.pocket)) await prefs.setValue(fieldId, value);
 
-        const saveStatus = await prefs.save();
-        expect(expected.savedStatuses, `PUT preferences answered ${saveStatus}`).toContain(saveStatus);
+            // and the barcode function is chosen by its label and must persist as the wire value.
+            await prefs.gotoSection(screen.stickerSection);
+            for (const [fieldId, value] of Object.entries(write.stickers)) {
+                if (fieldId === screen.barcodeFunctionField) await prefs.choose(fieldId, barcodeLabel);
+                else await prefs.setValue(fieldId, value);
+            }
 
-        // Reopen and confirm the screen comes back with what was saved.
-        await prefs.gotoPreferences();
-        for (const [fieldId, value] of Object.entries(written)) {
-            if (fieldId === screen.barcodeFunctionField) await expect(prefs.field(fieldId)).toContainText(barcodeLabel);
-            else await expect(prefs.field(fieldId)).toHaveValue(String(value));
-        }
+            const saveStatus = await prefs.save();
+            expect(expected.savedStatuses, `PUT preferences answered ${saveStatus}`).toContain(saveStatus);
 
-        const stored = await readStoredPreferences(sessionApi);
+            // Reopen and confirm the screen comes back with what was saved.
+            await prefs.gotoPreferences();
+            for (const [fieldId, value] of Object.entries(written)) {
+                if (fieldId === screen.barcodeFunctionField) await expect(prefs.field(fieldId)).toContainText(barcodeLabel);
+                else await expect(prefs.field(fieldId)).toHaveValue(String(value));
+            }
+
+            return readStoredPreferences(sessionApi);
+        });
+
         expect(stored[screen.barcodeFunctionField], 'stored as the wire value, not the label')
             .toBe(write.stickers.pieceTraceabilityBarcodeFunction);
         for (const [key, value] of Object.entries(written)) {
             if (key !== screen.barcodeFunctionField) expect(stored[key]).toBe(value);
         }
 
-        // Push the setup file to one device and read it back.
+        // Push the setup file to one device and read it back. The device is shared: opened, never saved.
         const device = await findPocketDevice(sessionApi, deviceSpec.pocketDeviceType);
         expect(device, deviceSpec.missingMessage).not.toBeNull();
-        const { xml } = await pushSetupExportToDevice(sessionApi, device!.id);
+        await pages.scanDevice.gotoEdit(device!.id);
+        await pages.scanDevice.waitForEditReady();
+        const { runId } = await pages.scanDevice.pushToDevice();
+        const { xml } = await readSetupExportSent(sessionApi, runId, device!.id);
         await testInfo.attach('setup-export.xml', { body: xml, contentType: 'text/xml' });
 
         // Proves the selection landed on a device type that actually carries the piece

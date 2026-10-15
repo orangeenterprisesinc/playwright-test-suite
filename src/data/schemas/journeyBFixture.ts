@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 const Entity = z.object({ code: z.string().regex(/^[1-9]\d{3,}$/), name: z.string().min(1) }).strict();
-const Job = Entity.extend({ paymentType: z.string() }).strict();
+// The string ensureOnScreen's JobSpec takes, not the numeric wire enum.
+const Job = Entity.extend({ paymentType: z.enum(['Time', 'Piece']) }).strict();
 
 export const JourneyBFixtureSchema = z
     .object({

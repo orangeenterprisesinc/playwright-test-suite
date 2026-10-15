@@ -42,7 +42,7 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
         expect(seed.timeCardCounters, 'the day must be seeded with exactly the three punches').toHaveLength(expected.timeCards);
 
         // 3. Designate the paid-break job as late as possible; cleanup owns the restore from here on.
-        await designatePaidBreakJob(run, { sessionApi });
+        await designatePaidBreakJob(run, { sessionApi, pages });
 
         // 4-5. Scope the day, analyze, narrow to the crew, guard the roster — nothing has committed.
         const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);

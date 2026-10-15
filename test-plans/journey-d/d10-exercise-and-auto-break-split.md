@@ -21,8 +21,8 @@
 >   job cards by explicit id, one at a time, each with its own rowversion.
 > * The preview tab's **"Remove all (N)"** and **"Remove from transfer"** are never used — they
 >   silently change what the commit would write.
-> * **New for D10:** the spec writes one shared tenant preference (`paidBreakJob`). It must be set as
->   late as possible and restored with `0` in the after phase. See §API allowances.
+> * **New for D10:** the spec sets one shared tenant preference (`paidBreakJob`) on the Preferences
+>   screen. It is set as late as possible and cleared with `0` in the after phase. See §API allowances.
 
 Source: no recording; office surface and the whole split measured live **2026-10-05**
 (app.ptdev.xyz, `su`). Sibling plan: `test-plans/journey-d/d09-group-piece-out-distribution.md`.
@@ -310,8 +310,7 @@ Work Crew filter, the Job Cards preview tab, the ticking of rows, the commit and
 | fixture-row existence | `GET crews` · `employees` · `jobs` · `ranches` · `fields` (+ `GET <entity>/{id}`) | read | `ensureOnScreen`: existence is a GET, create/repair is UI |
 | binned fixture restore | `POST <entity>/{id}/restore` | cleanup | undoes a deletion rather than creating; already wrapped inside `ensureOnScreen` |
 | crew rule read-back | `GET crews/{id}` | read | proves the eight fields the screen just saved actually persisted, before the day is seeded |
-| **designate the paid-break job** | `PUT preferences {paidBreakJob: <D10 BREAK JOB id>}` | **configuration** | the crew record has no paid-break job field — the designation exists only as a tenant preference (the deployed bundle builds its break-job set from `paidBreakJob` / `zeroTimeBreakJob` / `paidBreakOffClockJob`, all `null` on dev). Wrapped in `allowApiWrites('preference', …)`. Written **after** the day is seeded and **immediately before** the transfer, so the shared-state window is as short as the transfer itself |
-| **restore it** | `PUT preferences {paidBreakJob: 0}` | **configuration** | `0` clears an FK preference back to `null`; `null` is ignored by the partial-PUT guard (measured 2026-10-05 — do **not** rely on `restorePreferences`, whose snapshot of `null` is a silent no-op). Imperative, and the **first** step of the after phase so a later failure cannot strand it |
+| **restore it** | `PUT preferences {paidBreakJob: 0}` | cleanup | the Paid Break Job select has no "None" option, so clearing stays an API cleanup. `0` clears an FK preference back to `null`; `null` is ignored by the partial-PUT guard (measured 2026-10-05 — do **not** rely on `restorePreferences`, whose snapshot of `null` is a silent no-op). Imperative, and the **first** step of the after phase so a later failure cannot strand it |
 | before-phase sweep — job cards | `GET job-cards?from&to` → `DELETE job-cards/{id}` | cleanup | a crashed previous run's cards must go before the day can be re-seeded |
 | before-phase sweep — time cards | `GET time-cards?from&to` → `DELETE time-cards/{id}` | cleanup | crew-scoped |
 | punch sync point | `GET time-cards?from&to` | read | the Crew Time Out form only offers employees with an **open** time-in, so the flow waits until the saved time-ins are readable |
@@ -325,6 +324,8 @@ Work Crew filter, the Job Cards preview tab, the ticking of rows, the commit and
 No DB. No UI delete. No `bulk-delete`. No reverse. No write to any setup record other than D10's own
 crew, which is a workflow step performed on screen.
 
+Paid Break Job is set on Preferences ▸ Job ▸ Job Assignments — no row.
+
 ## Cleanup
 
 **The order is not hygiene — it is the only escape hatch.** `lockTCsAfterTransferToJCs = true`, so
@@ -334,7 +335,7 @@ time card is `transferred:false` and deletes with `204`.
 
 | Phase | Step | How |
 |---|---|---|
-| after, 1 | **[imperative]** restore the preference | `PUT preferences {paidBreakJob: 0}`, then `GET preferences` to confirm it reads `null`. **First**, because it is the only tenant-wide state this spec touches |
+| after, 1 | **[imperative]** restore the preference | `PUT preferences {paidBreakJob: 0}` under `allowApiWrites('cleanup', …)`, then `GET preferences` to confirm it reads `null`. **First**, because it is the only tenant-wide state this spec touches |
 | after, 2 | **[imperative]** delete D10's own job cards | for each id recorded from the scoped `GET /job-cards`: `GET /job-cards/{id}` → `DELETE /job-cards/{id} {rowversion: version}`. Best-effort, logged, never fails the test |
 | after, 3 | **[declarative]** `{ kind:'timeCards', employeeCodes:['8015'], dayOffset:-13, cardTypes:[0,1] }` | the flow hands `runCleanup` the exact three card ids it created |
 | after, 4 | **[imperative]** crew-scoped day sweep | `GET /time-cards?from=day&to=day` filtered to `crewCounter === D10 CREW`, `DELETE` each survivor — the belt to step 3's braces |
@@ -386,7 +387,7 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
    readable; Crew Time In at `capture.breakStart` with Phase = `D10 BREAK JOB` — **the break start,
    with no return punch**; Crew Time Out at `capture.timeOut`. Record the three time-card ids and
    References from the scoped GET.
-3. **Designate the paid-break job**: `allowApiWrites('preference', …, () => putPreferences({ paidBreakJob: breakJob.id }))`,
+3. **Designate the paid-break job** on screen: Preferences ▸ Job ▸ Paid Break Job = D10 BREAK JOB → Save; read back over GET preferences,
    and register the `0` restore with the cleanup scope in the same breath, so the restore is owned
    before anything can fail.
 4. **Catalog step 1 begins — on screen, before anything commits.** Transfer screen → scope to the

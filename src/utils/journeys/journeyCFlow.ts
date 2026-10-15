@@ -1,20 +1,30 @@
+import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
+import type { PageObjects } from '@fixtures/pages.fixture';
 import { makeCrewTableName } from '@data/generated';
 import { JOURNEY_C_FIXTURE } from '@data/journey-c/fixture';
-import { punchDay } from '@data/journey-b/fixture';
+import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import type { CrewTableCase } from '@data/schemas/journeyCScenario';
-import { ensureCrewTable, type CrewTableRecord } from '@utils/api/crewTablesApi';
-import { createCrewTimeIn, listCrewTimeIns, punchTime, type CrewTimeInRow } from '@utils/api/crewTimeInApi';
-import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
-import { ensureCrew, ensureEmployee, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
-import { CARD_TYPE, findByReferences, isoDay } from '@utils/api/timeCardsApi';
+import type { CrewTableRecord } from '@utils/api/crewTablesApi';
+import { listCrewTimeIns, type CrewTimeInRow } from '@utils/api/crewTimeInApi';
+import type { OfficeFixture } from '@utils/api/officeFixture';
+import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import { CARD_TYPE, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { currentScope } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
+import {
+    ensureCrewOnScreen,
+    ensureCrewTableOnScreen,
+    ensureEmployeeOnScreen,
+    ensureFieldOnScreen,
+    ensureJobOnScreen,
+    ensureRanchOnScreen,
+} from '@utils/fixtureRows/ensureOnScreen';
 
 // Journey C: the kiosk is the real capture surface and has no office-side automation. This layer
 // owns the office half: the crew and its workers, the table (minted name or fixed fixture row), the
-// crew time-in that stands in for the kiosk sync, and the day's punches grouped by table.
+// punches entered on Input > Batch > Crew Time In, and the day's punches grouped by table.
 
 export interface JourneyCRun {
     /** The case with `{tableName}` substituted. */
@@ -40,15 +50,17 @@ export interface JourneyCRun {
 }
 
 /**
- * Seeds the office side, sweeps the fixture day, and binds the table name into the case. A minted
- * table is created by the spec on screen (C6); the fixture table is ensured here (C6).
+ * Ensures the office side on screen (ranch, field, job, crew, its members, the fixture table),
+ * sweeps the fixture day, and binds the table name into the case. A minted table is created by the
+ * spec on screen; the fixture table is ensured here.
  */
 export async function prepareJourneyC(
     scenario: CrewTableCase,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
 ): Promise<JourneyCRun> {
-    const { sessionApi, testInfo } = opts;
+    const { sessionApi, testInfo, pages } = opts;
     const F = JOURNEY_C_FIXTURE;
+    const B = JOURNEY_B_FIXTURE;
     const tableName = scenario.table.source === 'minted' ? makeCrewTableName() : F.table.name;
     const substituted = substituteTokens(scenario, { tableName });
     for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
@@ -62,17 +74,28 @@ export async function prepareJourneyC(
         registration?.complete();
     };
 
-    // Journey B's rows give the punch its ranch/field/job; the crew and members are Journey C's own.
-    const office = await seedOfficeFixture(sessionApi);
-    office.crew = await ensureCrew(sessionApi, F.crew);
-    office.employees = new Map<string, EnsuredRecord>();
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: B.ranch.code, name: B.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: B.field.code, name: B.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    const job = await ensureJobOnScreen({ code: B.job.code, name: B.job.name, paymentType: B.job.paymentType }, deps);
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew, and
+    // the Crew Time In roster comes from crew membership.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const homeCrew = { id: crew.id, name: crew.name };
+    const employees = new Map<string, EnsuredRecord>();
     for (const person of [...F.tableWorkers, F.supervisor]) {
-        office.employees.set(person.code, await ensureEmployee(sessionApi, person));
+        employees.set(person.code, await ensureEmployeeOnScreen({ ...person, homeCrew }, deps));
     }
+
+    // Cleanup reads only `employees`; the rest of OfficeFixture is Journey B's, so this is deliberately partial.
+    const office = { ranch, field, job, crew, employees } as unknown as OfficeFixture;
     ctx.office = office;
-    const supervisor = office.employees.get(F.supervisor.code)!;
+    const supervisor = employees.get(F.supervisor.code)!;
     const member = (code: string): EnsuredRecord => {
-        const hit = office.employees.get(code);
+        const hit = employees.get(code);
         if (!hit) throw new Error(`${substituted.label}: code '${code}' is not in the Journey C fixture`);
         return hit;
     };
@@ -81,11 +104,14 @@ export async function prepareJourneyC(
 
     const table =
         substituted.table.source === 'fixture'
-            ? await ensureCrewTable(sessionApi, {
-                  name: tableName,
-                  crewCounter: office.crew.id,
-                  supervisorCounter: substituted.table.withSupervisor ? supervisor.id : null,
-              })
+            ? await ensureCrewTableOnScreen(
+                  {
+                      name: tableName,
+                      crew: homeCrew,
+                      supervisor: substituted.table.withSupervisor ? { id: supervisor.id, name: supervisor.name } : undefined,
+                  },
+                  deps,
+              )
             : null;
 
     const punchDate = punchDay(substituted.dayOffset);
@@ -104,54 +130,59 @@ export interface CaptureResult {
 }
 
 /**
- * Clock the run's workers in against the table through `POST time-cards/crew-time-in`, the write
- * the kiosk's sync would perform, and the off-table members with no table. It is a substitute for
- * the transport, not for the assertions: it proves the office stores and groups the punches by
- * table, not the device-to-office pipeline.
+ * Clock the run's workers in against the table on Input > Batch > Crew Time In, then the off-table
+ * members with no table, and read the day's punches back. The card ids are recorded before the
+ * caller asserts anything, so cleanup knows them even when an assertion fails.
  */
 export async function captureByTable(
     run: JourneyCRun,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
 ): Promise<CaptureResult> {
-    const { sessionApi, testInfo } = opts;
+    const { sessionApi, testInfo, pages } = opts;
     if (!run.table) throw new Error(`${run.scenario.label}: no table record to capture against`);
     if (!run.workers.length) throw new Error(`${run.scenario.label}: no capture.workerCodes, nothing to clock in`);
-    testInfo.annotations.push({
-        type: 'transport-substitute',
-        description:
-            'Punches were written through POST time-cards/crew-time-in (the write the kiosk sync performs) ' +
-            'with the table selected; the kiosk itself is out of automated scope.',
-    });
     const { hour, minute } = run.scenario.punch;
     const context = {
-        dateTime: punchTime(hour, minute, run.punchDate),
-        crewCounter: run.office.crew.id,
-        ranchCounter: run.office.ranch.id,
-        fieldCounter: run.office.field.id,
-        jobCounter: run.office.job.id,
+        day: run.day,
+        hour,
+        minute,
+        crew: run.office.crew.name,
+        ranch: run.office.ranch.name,
+        field: run.office.field.name,
+        job: run.office.job.name,
     };
-    const onTable = await createCrewTimeIn(sessionApi, {
-        ...context,
-        employeeIds: run.workers.map((w) => w.id),
-        crewTableCounter: run.table.crewTableCounter,
-    });
-    const offTable = run.offTable.length
-        ? await createCrewTimeIn(sessionApi, { ...context, employeeIds: run.offTable.map((w) => w.id), crewTableCounter: null })
-        : { created: 0, references: [] };
-    const references = [...onTable.references, ...offTable.references];
 
-    // The generic card list is what cleanup deletes by; the crew-time-in list is what carries the table.
-    run.ctx.cards = await findByReferences(sessionApi, references, {
-        from: run.day,
-        to: run.day,
-        cardType: CARD_TYPE.timeIn,
-        timeoutMs: 30_000,
-        testInfo,
-    });
+    await pages.crewTimeIn.punchIn({ ...context, table: run.tableName, employees: run.workers.map((w) => w.name) });
+    if (run.offTable.length) {
+        await pages.crewTimeIn.punchIn({ ...context, employees: run.offTable.map((w) => w.name) });
+    }
+
+    const crewId = run.office.crew.id;
+    const employeeIds = new Set([...run.workers, ...run.offTable].map((w) => w.id));
+    const expectedCount = run.workers.length + run.offTable.length;
+    let cards: OfficeTimeCard[] = [];
+    await expect(async () => {
+        cards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter(
+            (c) =>
+                Number(c.crewCounter) === crewId &&
+                Number(c.cardType) === CARD_TYPE.timeIn &&
+                c.transferred !== true &&
+                employeeIds.has(Number(c.employeeCounter)),
+        );
+        expect(cards).toHaveLength(expectedCount);
+    }).toPass({ timeout: 60_000 });
+    run.ctx.cards = cards;
+
+    const references = cards.map((c) => String(c.reference ?? ''));
     const rows = await listCrewTimeIns(sessionApi, { from: run.day, to: run.day });
     const byReference = new Map(rows.map((r) => [String(r.reference ?? ''), r]));
-    const pick = (refs: string[]) => refs.map((ref) => byReference.get(ref)).filter((r): r is CrewTimeInRow => r !== undefined);
-    const result = { references, onTable: pick(onTable.references), offTable: pick(offTable.references) };
+    const found = references.map((ref) => byReference.get(ref)).filter((r): r is CrewTimeInRow => r !== undefined);
+    const tableId = run.table.crewTableCounter;
+    const result: CaptureResult = {
+        references,
+        onTable: found.filter((r) => Number(r.crewTableCounter ?? 0) === tableId),
+        offTable: found.filter((r) => Number(r.crewTableCounter ?? 0) !== tableId),
+    };
     await testInfo.attach(`crew-time-in-${run.scenario.label}.json`, { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
     return result;
 }

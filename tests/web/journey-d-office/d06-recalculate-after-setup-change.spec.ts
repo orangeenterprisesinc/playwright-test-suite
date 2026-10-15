@@ -30,7 +30,7 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
         test.setTimeout(360_000);
 
         const scenario = await loadScenario(JourneyDRecalculateCaseSchema, testInfo);
-        const run = await prepareJourneyD(scenario, { sessionApi, testInfo });
+        const run = await prepareJourneyD(scenario, { sessionApi, testInfo, pages });
 
         // 2. Set the starting rate on screen, then seed the day: crew time-in -> crew piece-out -> crew time-out.
         await setRateOnScreen(run, { pages, testInfo }, scenario.rate.before, 'rate v1 (the starting rate)');

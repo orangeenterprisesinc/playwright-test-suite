@@ -6,8 +6,8 @@
             "journey": "A",
             "category": "ui",
             "testName": "endToEndCreateVerifyEditDeleteUser",
-            "testTitle": "End-to-end: create a user, verify it in the Users list, edit it, then delete it",
-            "testDescription": "Verify the full user lifecycle — create a user with all fields, confirm it is listed, open it for edit, then delete it and confirm it is gone.",
+            "testTitle": "End-to-end: create a user, verify it in the Users list, edit it, then deactivate it",
+            "testDescription": "Verify the full user lifecycle — create a user with all fields, confirm it is listed, open it for edit, then deactivate it and confirm it still lists as inactive.",
             "segments": [
                 "all"
             ],

@@ -23,6 +23,7 @@ import { LoginPage } from '../pages/shell/LoginPage';
 import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { PreferencesPage } from '../pages/admin/PreferencesPage';
+import { NotificationsPage } from '../pages/admin/NotificationsPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { JobCardsPage } from '../pages/processing/JobCardsPage';
 import { ViewJobCardsPage } from '../pages/processing/ViewJobCardsPage';
@@ -60,6 +61,8 @@ export interface PageObjects {
     readonly users: UsersPage;
     /** Global Preferences — Pocket and Traceability - Stickers sections (A9). */
     readonly preferences: PreferencesPage;
+    /** Setup ▸ Notifications, `/setup/notifications` — UI-005 builds and fires one on screen. */
+    readonly notifications: NotificationsPage;
     /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
     readonly scanDevice: ScanDevicePage;
     /** Setup ▸ Table — pack-house sub-crew tables, `/setup/crew-tables` (C6). */
@@ -128,6 +131,7 @@ export function createPageObjects(page: Page): PageObjects {
         get leftNav() { return lazy('leftNav', () => new LeftNavigationPage(page)); },
         get users() { return lazy('users', () => new UsersPage(page)); },
         get preferences() { return lazy('preferences', () => new PreferencesPage(page)); },
+        get notifications() { return lazy('notifications', () => new NotificationsPage(page)); },
         get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
         get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },

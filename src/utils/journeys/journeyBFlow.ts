@@ -8,20 +8,20 @@ import {
     annotateIfImportCircuitOpen,
     journeyBTestTimeoutMs,
     newImportDeadline,
-    pullFromRelayInternet,
     type ImportFileResult,
 } from '@utils/api/connectivityImportApi';
-import { getCrew, setCrewNotifyUser, type CrewRecord } from '@utils/api/crewsApi';
+import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import {
     assertTransferGrid as assertTransferGridScreen,
     deliverAndVerifyCards,
+    pullFromRelayInternetUi,
     transferGridRowFor,
     type ExpectedCard,
     type OfficeVerificationResult,
     type TransferGridResult,
 } from '@utils/api/officeVerification';
-import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
+import { getPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
@@ -31,6 +31,7 @@ import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
+import { withPreferencesLock } from '@utils/sync/preferencesLock';
 import {
     buildCrewTimeInEnvelope,
     buildEnvelope,
@@ -473,16 +474,38 @@ export async function journeyBPreconditions(
     };
 }
 
-async function setStickerStartLocations(api: APIRequestContext, scenario: JourneyBScenario, gates: JourneyBGates, testInfo: TestInfo): Promise<void> {
+// Set on Preferences ▸ Traceability - Stickers. A value the screen already shows is left alone, so a
+// repeat run saves nothing; the GET read-back is the proof either way.
+async function setStickerStartLocations(
+    pages: PageObjects,
+    api: APIRequestContext,
+    scenario: JourneyBScenario,
+    gates: JourneyBGates,
+    testInfo: TestInfo,
+): Promise<void> {
     const { employeeCodeStartLocation, rollCodeStartLocation } = scenario.sticker!;
+    const want = { employeeCodeStartLocation, rollCodeStartLocation };
     const before = gates.preferences ?? {};
-    await putPreferences(api, { employeeCodeStartLocation, rollCodeStartLocation });
+    const saved = await withPreferencesLock(async () => {
+        const prefs = pages.preferences;
+        await prefs.gotoPreferences();
+        await prefs.gotoSection('Traceability - Stickers');
+        for (const [key, value] of Object.entries(want)) {
+            if ((await prefs.displayedValue(key)) !== String(value)) await prefs.setValue(key, value);
+        }
+        const status = await prefs.saveIfDirty();
+        const stored = await getPreferences(api);
+        for (const [key, value] of Object.entries(want)) {
+            expect(Number(stored[key]), `${scenario.label}: Preferences ▸ Traceability - Stickers must store ${key}`).toBe(value);
+        }
+        return status !== null;
+    });
     testInfo.annotations.push({
         type: 'preferences-arranged',
         description:
             `employeeCodeStartLocation ${String(before.employeeCodeStartLocation)} → ${employeeCodeStartLocation}, ` +
-            `rollCodeStartLocation ${String(before.rollCodeStartLocation)} → ${rollCodeStartLocation}; ` +
-            'both restored after the run. assignRollsDaily is never sent.',
+            `rollCodeStartLocation ${String(before.rollCodeStartLocation)} → ${rollCodeStartLocation}` +
+            `${saved ? '' : ' (already set, nothing saved)'}; both restored after the run. assignRollsDaily is never sent.`,
     });
 }
 
@@ -584,8 +607,15 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     // `restore` steps snapshot here — before any precondition changes what they guard.
     await runCleanup(cleanupSteps, sessionApi, testInfo, { phase: 'before', office, snapshots });
     const notifyUser = run.scenario.preconditions?.includes('crewNotifyUser') ? await findNotifiableUser(sessionApi) : null;
-    if (notifyUser) await setCrewNotifyUser(sessionApi, office.crew.id, notifyUser.usersCounter);
-    if (run.scenario.preconditions?.includes('stickerStartLocations')) await setStickerStartLocations(sessionApi, run.scenario, gates, testInfo);
+    if (notifyUser) {
+        if (!pages) throw new Error(`${run.scenario.label}: the crew's Notify User is set on Setup ▸ Crew — destructure { pages } in the spec`);
+        await pages.crew.gotoEditById(office.crew.id, office.crew.name);
+        await pages.crew.setNotifyUser(notifyUser.name);
+    }
+    if (run.scenario.preconditions?.includes('stickerStartLocations')) {
+        if (!pages) throw new Error(`${run.scenario.label}: the sticker start locations are set on Preferences — destructure { pages } in the spec`);
+        await setStickerStartLocations(pages, sessionApi, run.scenario, gates, testInfo);
+    }
 
     const built = buildScenarioEnvelopes(run);
     const recordReferences = run.scenario.records.map(() => '');
@@ -610,6 +640,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     const codeHistorySnapshot = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
 
     if (run.scenario.verification === 'none') {
+        if (!pages) throw new Error(`${run.scenario.label}: Trigger Import runs on Connectivity ▸ Import ▸ Internet — destructure { pages } in the spec`);
         // Every device in turn — one sync must land before the next, or the code-history grid and the
         // piece-outs race inside a single import and the reconciliation fails on processing order alone.
         // One deadline for the whole flow: both pulls and the reference poll share it.
@@ -619,7 +650,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         for (const device of built) {
             const send = await sendEnvelope(run, device.envelope, relayConfig().office, testInfo, `-${device.id}`);
             expect(send.success, `relay rejected the ${device.id} export: ${send.body}`).toBe(true);
-            const { pull, run: pulledRun } = await pullFromRelayInternet(sessionApi, { deadline, testInfo });
+            const { pull, run: pulledRun } = await pullFromRelayInternetUi(pages, sessionApi, { deadline, testInfo, label: device.id });
             await testInfo.attach(`import-run-${device.id}.json`, { body: JSON.stringify({ pull, run: pulledRun }, null, 2), contentType: 'application/json' });
             // A peer worker's drain still holding the lease (`warning` + `already-running`, WEBPET-2996)
             // ingests our envelope into its own run — the reference poll below still proves ownership.
