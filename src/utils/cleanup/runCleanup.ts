@@ -188,7 +188,16 @@ async function sweepBefore(
         return id;
     });
     const day = isoDay(punchDay(step.dayOffset));
-    const swept = await sweepFixtureCards(api, { employeeIds, day, ...(step.cardTypes ? { cardTypes: step.cardTypes } : {}) });
+    const crewIds = step.crewCodes?.map((code) => {
+        if (ctx.office?.crew.code !== code) throw new Error(`timeCards cleanup: crew code '${code}' is not the seeded office crew`);
+        return ctx.office.crew.id;
+    });
+    const swept = await sweepFixtureCards(api, {
+        employeeIds,
+        day,
+        ...(step.cardTypes ? { cardTypes: step.cardTypes } : {}),
+        ...(crewIds ? { crewIds } : {}),
+    });
     if (swept.removed || swept.failed) {
         testInfo.annotations.push({
             type: 'pre-run-sweep',
