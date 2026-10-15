@@ -1,0 +1,45 @@
+{
+  "_notes": [
+    "D5 - Reverse and redo (catalog D5, plan test-plans/journey-d/d05-reverse-and-redo.md, runner row D5). dayOffset -16 is D5's own fixture day (B 0..-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14, D3 -15), inside maximumDaysForTransferExport = 21.",
+    "The Time Out is deliberately wrong (11:00): it is transferred, reversed from Job Cards, corrected to 15:00 on the time card and re-transferred.",
+    "context names fixture keys; the flow resolves them to the B1 RANCH / B1 FIELD / D5 JOB rows."
+  ],
+  "workflow": "D5",
+  "label": "d05-reverse-and-redo",
+  "dayOffset": -16,
+  "timeIn": { "hour": 7, "minute": 0 },
+  "wrongTimeOut": { "hour": 11, "minute": 0 },
+  "correctedTimeOut": { "hour": 15, "minute": 0 },
+  "context": { "ranch": "ranch", "field": "field", "phase": "job" },
+  "expected": {
+    "timeCards": 2,
+    "status": "Ready",
+    "grossHeader": "Gross Time",
+    "firstTransfer": { "jobCards": 1, "grossHours": 4 },
+    "redo": { "workCards": 1, "grossHours": 8, "netHours": 8 },
+    "reverseDialog": {
+      "title": "Reverse this transfer?",
+      "text": "returns the source time cards to their un-transferred state"
+    },
+    "toasts": {
+      "timeInCreated": "Time In record created",
+      "timeOutCreated": "Time Out record created",
+      "reversed": "Transfer run reversed",
+      "timeOutSaved": "Time Out record saved"
+    }
+  },
+  "annotations": [
+    {
+      "type": "known-issue",
+      "description": "WEBPET-3823: after the Time Out correction is saved, the Job Cards tab preview keeps the pre-save 4 h card (the preview is requested before the save commits and never refreshed), so the spec reopens the screen and re-analyses before reading the preview. The correction itself is proved on the time card via the API before that."
+    },
+    {
+      "type": "not-automatable",
+      "description": "The four catalog variations (late-found time card, wrong crew job, export-identifier mismatch, bad group piece-out distribution), the Transfer screen's own Reverse, the edited-job-card confirm path and the export/lock-blocked path are deferred: D5 covers the WEBPET-2050 happy path only."
+    }
+  ],
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["8021"], "dayOffset": -16, "cardTypes": [0, 1] },
+    { "kind": "unremovable", "entity": "transferRun", "reason": "Runs N (reversed) and M stay in the transfer-run audit list; deleting M's card by id leaves it listed" }
+  ]
+}
