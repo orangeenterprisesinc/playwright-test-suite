@@ -1,0 +1,56 @@
+{
+  "_notes": [
+    "B8 — Crew piece-out (catalog B8, plan test-plans/journey-b/b08-crew-piece-out.md, PET-12646 automation / WEBPET-1527 manual, runner row B8). Transport, not simulation, happy path only. The transfer is never committed (D9 owns it) and the Transfer screen is scoped by crew only (WEBPET-2139).",
+    "A crew piece-out is a PieceOut row with no Employee and no EmployeeSource tag; the importer stores it with a NULL employee and synthesizes no time-in. The two crew-outs are required: with no time-out the day plans 0 job cards. Time-outs carry crew only, like B11 and the device sample.",
+    "pieceJob 4204 is ensured on screen (fixtureRowsOnScreen). 4 pieces stays under maximumNumberOfPieces 5; one shared crew-in and crew-out makes every split rule give 2 / 2. dayOffset -17 is B8's own fixture day (0..-16 are taken).",
+    "cleanup: the members' cards plus the fixture crew's employee-less cards on the day (crewCodes) are swept before the import, so B8 self-heals a killed run's leftover; the run's five cards are deleted after.",
+    "transfer.jobCards counts PIECE-BEARING preview cards: B1 CREW's Exercise Job (4000-General, 10 min) adds one pieceless card per member at the day start, which is crew setup, not the split under test."
+  ],
+  "workflow": "B8",
+  "label": "B8",
+  "dayOffset": -17,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "cards",
+  "cardType": null,
+  "modules": [
+    { "key": "PiecePayment", "label": "Piece Payment" }
+  ],
+  "fixtureRowsOnScreen": ["pieceJob"],
+  "preconditions": ["pieceLimits"],
+  "records": [
+    { "node": "TimeCard", "part": "CI", "employeeSource": "Crew", "employeeCode": "6001", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4204", "time": "07:00" },
+    { "node": "TimeCard", "part": "CI", "employeeSource": "Crew", "employeeCode": "6002", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4204", "time": "07:00" },
+    { "node": "PieceOut", "part": "PO", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4204", "pieces": 4, "time": "10:00" },
+    { "node": "TimeOut", "part": "CO", "employeeSource": "Crew", "employeeCode": "6001", "crewCode": "5001", "time": "11:00" },
+    { "node": "TimeOut", "part": "CO", "employeeSource": "Crew", "employeeCode": "6002", "crewCode": "5001", "time": "11:00" }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard", "PieceOut", "TimeOut"],
+      "referenceParts": ["CI", "CI", "PO", "CO", "CO"],
+      "employeeSources": { "Crew": 4 },
+      "pieceCounts": { "4": 1 },
+      "absentInSection": { "PieceOut": ["Employee", "EmployeeSource"] }
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "pieces": 0 },
+      { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "pieces": 0 },
+      { "record": 2, "employeeCode": null, "fieldCode": "4101", "jobCode": "4204", "cardType": 0, "pieces": 4 },
+      { "record": 3, "employeeCode": "6001", "cardType": 0, "pieces": 0 },
+      { "record": 4, "employeeCode": "6002", "cardType": 0, "pieces": 0 }
+    ],
+    "transfer": {
+      "members": ["6001", "6002"],
+      "crewEmployeeCell": "—",
+      "pieceOutType": "Piece Out",
+      "payByPiece": "Yes",
+      "piecesTotal": 4,
+      "piecesPerMember": 2,
+      "jobCards": 2
+    }
+  },
+  "cleanup": [
+    { "kind": "timeCards", "employeeCodes": ["6001", "6002"], "crewCodes": ["5001"], "dayOffset": -17 }
+  ]
+}

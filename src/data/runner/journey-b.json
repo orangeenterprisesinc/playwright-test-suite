@@ -159,7 +159,7 @@
             "id": "B8",
             "workflow": "B8",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "crewPieceOut",
             "testTitle": "Crew piece-out",
             "testDescription": "Record a single piece total for a crew whose output is counted collectively (for example a machine line with ground pickers), with per-person distribution deferred. The split to individuals happens at Transfer to Job Card.",
@@ -173,8 +173,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12646",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B9",

@@ -54,7 +54,8 @@ export const ExpectedCardJsonSchema = z
         // 0-based index into `records`; the flow mints references in record order and
         // copies the record's gps/traceabilityCode onto the expectation.
         record: z.number().int().nonnegative(),
-        employeeCode: EmployeeRef,
+        /** `null` asserts the office stores NO employee (a crew piece-out); the record must be an employee-less piece-out. */
+        employeeCode: EmployeeRef.nullable(),
         /** `null` asserts the office stored NO field for this card (the record carried none). */
         fieldCode: Code.nullable().optional(),
         jobCode: Code.nullable().optional(),
@@ -105,6 +106,19 @@ export const ExpectedEnvelopeJsonSchema = z
         pieceCounts: z.record(z.string(), z.number().int()).optional(),
         /** The code-history grid's `<AlternateCode>` texts, document order. */
         alternateCodes: z.array(z.string().min(1)).optional(),
+    })
+    .strict();
+
+/** The Transfer screen, crew-scoped and before any commit (B8): the crew row, then the preview's per-member split. */
+const TransferExpectationJsonSchema = z
+    .object({
+        members: z.array(Code).min(1),
+        crewEmployeeCell: z.string().min(1),
+        pieceOutType: z.string().min(1),
+        payByPiece: z.string().min(1),
+        piecesTotal: z.number().int().positive(),
+        piecesPerMember: z.number().int().positive(),
+        jobCards: z.number().int().positive(),
     })
     .strict();
 
@@ -173,7 +187,9 @@ export const JourneyBScenarioSchema = z
             .optional(),
         /** Clock-out questions the answer rows link against — discovered-or-created by Name before the envelope is built. */
         questions: z.array(QuestionSpecJsonSchema).optional(),
-        preconditions: z.array(z.enum(['crewNotifyUser', 'undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations'])).optional(),
+        preconditions: z.array(z.enum(['crewNotifyUser', 'undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations', 'pieceLimits'])).optional(),
+        /** Fixture rows (fixture.json) the flow ensures on screen through the New form before anything is sent. */
+        fixtureRowsOnScreen: z.array(z.enum(['pieceJob'])).min(1).optional(),
         hooks: z
             .object({ beforeImport: z.enum(['codeHistorySnapshot']).optional(), afterImport: z.enum(['codeHistoryDelta']).optional() })
             .strict()
@@ -216,6 +232,7 @@ export const JourneyBScenarioSchema = z
                     })
                     .strict()
                     .optional(),
+                transfer: TransferExpectationJsonSchema.optional(),
                 relay: z.object({ subject: z.string().min(1) }).strict().optional(),
                 intervals: z
                     .array(z.object({ from: z.number().int().nonnegative(), to: z.number().int().nonnegative(), ms: z.number().int() }).strict())
@@ -282,6 +299,21 @@ export const JourneyBScenarioSchema = z
             if (s.devices && (!a.device || !deviceIds.has(a.device))) issue(['codeHistory', i, 'device'], 'a multi-device scenario names the sending device on every roll assignment');
             if (!s.sticker) issue(['codeHistory', i], 'the roll’s FirstCode is split at sticker.rollCodeStartLocation — add a sticker block');
         });
+        s.expected.cards.forEach((c, i) => {
+            const r = s.records[c.record];
+            if (c.employeeCode === null && r && (r.employeeCode !== undefined || r.pieces === undefined)) {
+                issue(['expected', 'cards', i, 'employeeCode'], 'a null employee must point at an employee-less piece-out record');
+            }
+        });
+        const transfer = s.expected.transfer;
+        if (transfer) {
+            const crewPieces = s.records.filter((r) => r.employeeCode === undefined && r.pieces !== undefined).reduce((sum, r) => sum + (r.pieces ?? 0), 0);
+            if (transfer.piecesPerMember * transfer.members.length !== transfer.piecesTotal || transfer.piecesTotal !== crewPieces) {
+                issue(['expected', 'transfer', 'piecesTotal'], 'piecesPerMember x members must equal piecesTotal, which must equal the employee-less piece-out pieces');
+            }
+            if (transfer.jobCards !== transfer.members.length) issue(['expected', 'transfer', 'jobCards'], 'the preview proposes one job card per member');
+            if (!s.fixtureRowsOnScreen?.includes('pieceJob')) issue(['fixtureRowsOnScreen'], "expected.transfer needs the piece job: add 'pieceJob'");
+        }
         if (s.codes?.suffixes?.length && s.codes.parts?.length) issue(['codes', 'parts'], 'use suffixes or parts, not both');
         if ((s.codes?.suffixes?.length || s.codes?.parts?.length) && s.codes.basis !== 'prefix' && !s.codes.length) {
             issue(['codes', 'length'], 'minted codes need their digit length');

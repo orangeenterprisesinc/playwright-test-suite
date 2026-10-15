@@ -24,6 +24,8 @@ import {
 import { getPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
+import { listJobCards, type JobCardRecord } from '@utils/api/jobCardsApi';
+import { ensureJobOnScreen } from '@utils/fixtureRows/ensureOnScreen';
 import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
 import { findByReferences, getTimeOutDetail, isoDay, listTimeCards, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
 import { analyzeTransfer, type AnalyzeException, type AnalyzeResult } from '@utils/api/transferToJobCardsApi';
@@ -357,11 +359,12 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         [F.field.code, { office: office.field, name: F.field.name }],
         [F.field2.code, { office: office.field2, name: F.field2.name }],
     ]);
-    const jobs = new Map([
+    const jobs = new Map<string, { office: { id: number }; name: string }>([
         [F.job.code, { office: office.job, name: F.job.name }],
         [F.job2.code, { office: office.job2, name: F.job2.name }],
         [F.mealJob.code, { office: office.mealJob, name: F.mealJob.name }],
     ]);
+    if (office.pieceJob) jobs.set(F.pieceJob.code, { office: office.pieceJob, name: F.pieceJob.name });
     const ranches = new Map([[F.ranch.code, { office: office.ranch, name: F.ranch.name }]]);
     const employeeNames = new Map([...F.present, F.absentee, ...F.sticker, ...(scenario.extraEmployees ?? [])].map((e) => [e.code, e.name]));
     const bound = <V>(kind: string, map: Map<string, V>, code: string): V => {
@@ -370,7 +373,7 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         return hit;
     };
     return scenario.expected.cards.map((want) => {
-        const employee = bound('employee', office.employees, want.employeeCode);
+        const employee = want.employeeCode === null ? null : bound('employee', office.employees, want.employeeCode);
         const record = scenario.records[want.record];
         const field = want.fieldCode ? bound('field', fields, want.fieldCode) : undefined;
         const job = want.jobCode ? bound('job', jobs, want.jobCode) : undefined;
@@ -379,14 +382,14 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         const contextId = (code: string | null | undefined, hit?: { office: { id: number } }) => (code === null ? null : hit?.office.id);
         return {
             employeeCode: want.employeeCode,
-            employeeId: employee.id,
+            employeeId: employee?.id ?? null,
             reference: recordReferences[want.record],
             fieldId: contextId(want.fieldCode, field),
             jobId: contextId(want.jobCode, job),
             ...(want.ranchCode !== undefined ? { ranchId: contextId(want.ranchCode, ranch) } : {}),
             gps: record.gps,
             traceabilityCode: record.traceabilityCode,
-            ...(want.panel ? { ranchName: F.ranch.name, fieldName: field?.name, jobName: job?.name, employeeName: employeeNames.get(want.employeeCode), crewName: F.crew.name } : {}),
+            ...(want.panel ? { ranchName: F.ranch.name, fieldName: field?.name, jobName: job?.name, employeeName: want.employeeCode === null ? undefined : employeeNames.get(want.employeeCode), crewName: F.crew.name } : {}),
         };
     });
 }
@@ -431,9 +434,24 @@ export interface JourneyBGates {
     /** The raw value, for the caller's remediation message. */
     undefinedEmployeeRaw: unknown;
     requireJobInEmpPieceOut: boolean;
+    /** Live `minimumNumberOfPieces` / `maximumNumberOfPieces` — read only when the scenario names 'pieceLimits', else null. */
+    pieceLimits: { minimum: number; maximum: number } | null;
 }
 
-const PREFERENCE_PRECONDITIONS = new Set(['undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations']);
+const PREFERENCE_PRECONDITIONS = new Set(['undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations', 'pieceLimits']);
+
+// Read, never written: the crew-total split depends on these, and a moved value should fail by name, not as a wrong share.
+function readPieceLimits(scenario: JourneyBScenario, preferences: Record<string, unknown>, testInfo: TestInfo): JourneyBGates['pieceLimits'] {
+    if (!scenario.preconditions?.includes('pieceLimits')) return null;
+    testInfo.annotations.push({
+        type: 'preferences-read',
+        description:
+            `pieceOutIncludesOnlyTimeInEmployees=${String(preferences.pieceOutIncludesOnlyTimeInEmployees)}, ` +
+            `distributeCrewPiecesByHours=${String(preferences.distributeCrewPiecesByHours)}, ` +
+            `minimumNumberOfPieces=${String(preferences.minimumNumberOfPieces)}, maximumNumberOfPieces=${String(preferences.maximumNumberOfPieces)} (read, never written)`,
+    });
+    return { minimum: Number(preferences.minimumNumberOfPieces), maximum: Number(preferences.maximumNumberOfPieces) };
+}
 
 /**
  * The module flags and preferences the scenario declares. Modules are annotated, never failed here:
@@ -462,7 +480,7 @@ export async function journeyBPreconditions(
         }
     }
     if (!(scenario.preconditions ?? []).some((p) => PREFERENCE_PRECONDITIONS.has(p))) {
-        return { modules, preferences: null, undefinedEmployeeId: 0, undefinedEmployeeRaw: undefined, requireJobInEmpPieceOut: false };
+        return { modules, preferences: null, undefinedEmployeeId: 0, undefinedEmployeeRaw: undefined, requireJobInEmpPieceOut: false, pieceLimits: null };
     }
     const preferences = await getPreferences(sessionApi);
     return {
@@ -471,6 +489,7 @@ export async function journeyBPreconditions(
         undefinedEmployeeId: Number(preferences.undefinedEmployee),
         undefinedEmployeeRaw: preferences.undefinedEmployee,
         requireJobInEmpPieceOut: preferences.requireJobInEmpPieceOut === true,
+        pieceLimits: readPieceLimits(scenario, preferences, testInfo),
     };
 }
 
@@ -593,6 +612,10 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     const office = await seedOfficeFixture(sessionApi);
     ctx.office = office;
     for (const extra of scenario.extraEmployees ?? []) office.employees.set(extra.code, await ensureEmployee(sessionApi, extra));
+    if (scenario.fixtureRowsOnScreen?.includes('pieceJob')) {
+        if (!pages) throw new Error(`${scenario.label}: fixtureRowsOnScreen drives the New Job form — destructure { pages } in the spec`);
+        office.pieceJob = await ensureJobOnScreen({ ...F.pieceJob }, { api: sessionApi, pages, testInfo });
+    }
     const gates = opts.gates ?? (await journeyBPreconditions(scenario, { sessionApi, testInfo }));
     // The configured fallback owner joins the employee map under its own name, so a scenario names
     // it exactly like a barcode — expected cards and the cleanup sweep both resolve it.
@@ -636,7 +659,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     let importRun: OfficeVerificationResult | null = null;
     let before: CodeHistoryRow[][] | null = null;
     let after: CodeHistoryRow[][] | null = null;
-    const hookEmployeeIds = [...new Set(expectedCards.map((c) => c.employeeId))];
+    const hookEmployeeIds = [...new Set(expectedCards.flatMap((c) => (c.employeeId === null ? [] : [c.employeeId])))];
     const codeHistorySnapshot = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
 
     if (run.scenario.verification === 'none') {
@@ -735,8 +758,8 @@ export function assertExpectedCards(run: JourneyBRun, expected: ExpectedCardJson
         const reference = run.recordReferences[want.record];
         const card = byReference.get(reference);
         expect(card, `no imported card for record ${want.record} (${reference}, employee ${want.employeeCode})`).toBeDefined();
-        expect(card!.employeeCounter, `record ${want.record} must bind to employee ${want.employeeCode}`).toBe(
-            run.office.employees.get(want.employeeCode)!.id,
+        expect(card!.employeeCounter ?? null, `record ${want.record} must bind to employee ${want.employeeCode ?? 'none (a crew piece-out)'}`).toBe(
+            want.employeeCode === null ? null : run.office.employees.get(want.employeeCode)!.id,
         );
         if (want.cardType !== undefined) expect(Number(card!.cardType), `cardType of record ${want.record}`).toBe(want.cardType);
         if (want.employeeSourceText !== undefined) {
@@ -788,14 +811,18 @@ export function timeOutDetailOf(run: JourneyBRun, index: number): Promise<Office
 }
 
 /** The code-history rows an employee carries — B7 reads them back after the import. */
-export function codeHistoryOf(run: JourneyBRun, employeeCode: string): Promise<CodeHistoryRow[]> {
+export function codeHistoryOf(run: JourneyBRun, expectedCode: string | null): Promise<CodeHistoryRow[]> {
+    if (expectedCode === null) throw new Error(`${run.label}: the expected card names no employee`);
+    const employeeCode = expectedCode;
     const id = run.office.employees.get(employeeCode)?.id;
     if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
     return getCodeHistory(run.sessionApi, id);
 }
 
 /** Office cards of one type the fixture day holds for an employee — B6's WEBPET-1409 synthesis guard. */
-export async function cardsForEmployee(run: JourneyBRun, employeeCode: string, cardType: number): Promise<OfficeTimeCard[]> {
+export async function cardsForEmployee(run: JourneyBRun, expectedCode: string | null, cardType: number): Promise<OfficeTimeCard[]> {
+    if (expectedCode === null) throw new Error(`${run.label}: the expected card names no employee`);
+    const employeeCode = expectedCode;
     const id = run.office.employees.get(employeeCode)?.id;
     if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
     const cards = await listTimeCards(run.sessionApi, { from: run.day, to: run.day, cardType });
@@ -817,6 +844,58 @@ function testInfoAttach(run: JourneyBRun, name: string, body: unknown): Promise<
 /** The Transfer grid row for record `index`, or `null` when the analyze flag is off (annotated). */
 export async function openTransferGridRow(pages: PageObjects, run: JourneyBRun, index: number): Promise<Locator | null> {
     return transferGridRowFor({ pages, testInfo: run.testInfo, cards: run.cards, card: cardOf(run, index).card, punchDate: run.punchDate, label: run.label });
+}
+
+// Untransferred only: a transferred card is never a transfer candidate and can never be deleted (409),
+// so manual walkthroughs leave them on fixture days for good (day -17 holds two since 2026-10-12).
+/** The fixture crew's open (untransferred) cards on the run's day, any type — the crew-day guard. */
+export async function crewCardsOnDay(run: JourneyBRun): Promise<OfficeTimeCard[]> {
+    const cards = await listTimeCards(run.sessionApi, { from: run.day, to: run.day });
+    return cards.filter((c) => Number(c.crewCounter) === run.office.crew.id && c.transferred !== true);
+}
+
+/** The fixture crew's job cards on the run's day for the given members — the no-commit proof. */
+export async function crewJobCardsOnDay(run: JourneyBRun, memberCodes: string[]): Promise<JobCardRecord[]> {
+    const memberIds = new Set(memberCodes.map((code) => run.office.employees.get(code)!.id));
+    const cards = await listJobCards(run.sessionApi, { from: run.day, to: run.day });
+    return cards.filter((c) => Number(c.crewCounter) === run.office.crew.id && memberIds.has(Number(c.employeeCounter)));
+}
+
+export function memberName(run: JourneyBRun, code: string): string {
+    const hit = [...F.present, F.absentee, ...F.sticker, ...(run.scenario.extraEmployees ?? [])].find((e) => e.code === code);
+    if (!hit) throw new Error(`${run.label}: employee code '${code}' has no fixture name`);
+    return hit.name;
+}
+
+/**
+ * Transfer to Job Cards for the run's day, analyzed, then narrowed by the Work Crew column filter —
+ * never an employee-level scope, which hides a crew piece-out row (WEBPET-2139). Throws, naming both
+ * sets, unless the screen offers exactly this run's references. Never selects, never transfers.
+ */
+export async function openCrewTransferCandidates(pages: PageObjects, run: JourneyBRun): Promise<string[]> {
+    const transfer = pages.transferToJobCards;
+    const own = run.recordReferences.filter((r) => r !== '');
+
+    await transfer.goto();
+    await transfer.scopeToDay(run.day);
+    await transfer.analyzeCandidates({ expected: own.length });
+    await transfer.filterByCrew(F.crew.name);
+    // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
+    await expect
+        .poll(async () => [...(await transfer.candidateReferences())].sort(), { timeout: 30_000 })
+        .toEqual([...own].sort())
+        .catch(() => undefined);
+
+    const candidates = await transfer.candidateReferences();
+    const outsiders = candidates.filter((r) => !own.includes(r));
+    if (candidates.length !== own.length || outsiders.length) {
+        throw new Error(
+            `${run.label}: the crew-scoped screen offered ${candidates.length} candidate(s) ${JSON.stringify(candidates)}` +
+                (outsiders.length ? `, of which ${JSON.stringify(outsiders)} are not this run's` : '') +
+                `. This run imported ${JSON.stringify(own)}.`,
+        );
+    }
+    return candidates;
 }
 
 export type { AnalyzeException };
