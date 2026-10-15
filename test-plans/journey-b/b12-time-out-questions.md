@@ -472,10 +472,19 @@ The **unexpected** answer for each question is derived at runtime from the store
       when `isReferenced` is true. **Fixture-prefixed** because dev's own `Break` is referenced
       with a null `requiredResponse` and the FK matches on `Name` (N3).
 - [x] `Crew 5001`'s `userToNotifyBreakAndMeal` points at a `Users` row that has an
-      `EmailAddress` — set through `PUT /crews/{id}` (read-modify-write with `version`),
-      original value recorded for restore. Currently `null` on dev; the user is **discovered**
+      `EmailAddress` — set on Setup ▸ Crew (Notify User picker), original value
+      recorded for restore. Currently `null` on dev; the user is **discovered**
       as the first with a non-empty `emailAddress` — never a hard-coded id or address, and
       never `Su`, whose address is empty (N4).
+
+## API allowances
+
+The Notify User change is on screen (Setup ▸ Crew) — no row.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| notify-user discovery | `GET users` | read | first active user with a non-empty email |
+| restore | `PUT crews/{id}` | cleanup | puts the original notify user back |
 
 ## Cleanup
 

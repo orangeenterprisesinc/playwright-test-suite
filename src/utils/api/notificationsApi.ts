@@ -1,18 +1,18 @@
 import type { APIRequestContext } from '@playwright/test';
-import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 
 /**
- * The Notification module's send path — the one place PET Tiger reports whether
- * an email actually left the server.
+ * Read-side helpers for the Notification module's send path — the one place PET Tiger reports whether
+ * an email actually left the server. Everything that changes state (mail settings, the notification,
+ * Notify Now) happens on screen; see `NotificationsPage` and `PreferencesPage`. What stays here is
+ * the GET reads and the teardown delete.
  *
  * Two things make this the only assertable email channel in the product:
  *
  * - **Its SMTP comes from database preferences**, not the API's environment. The
  *   resolver reads the `RealTimeSMTP*` group and falls back to `WinSMTP*`
- *   (`input/notification_smtp_prefs.go`), both surfaced by `GET`/`PUT
- *   /preferences` as one normalised `smtp*` group. Every other mailer — the
- *   clock-out flag notification included — takes the process-wide sender chosen
- *   from env at startup, which no test can influence.
+ *   (`input/notification_smtp_prefs.go`), both surfaced by `GET /preferences` as one normalised
+ *   `smtp*` group. Every other mailer — the clock-out flag notification included — takes the
+ *   process-wide sender chosen from env at startup, which no test can influence.
  * - **`notify-now` reports per recipient.** The job result carries `success` /
  *   `failed` / `skipped` plus the transport's own error string, so a broken
  *   configuration fails loudly instead of silently dropping the message. There is
@@ -35,12 +35,11 @@ import { ConfigProperties, getConfigValue } from '../../config/configProperties'
  * decide, not the writer's — making this key use the framework's existing
  * `Encrypted=true` capability is a product change, not something a test can do.
  *
- * Storing it encrypted is a **deferred phase** (team decision 2026-08-31), so
- * {@link ensureSmtpConfigured} writes the plaintext settings when a deployment
+ * Storing it encrypted is a **deferred phase** (team decision 2026-08-31), so the
+ * run types the plaintext settings into Preferences ▸ Connectivity ▸ Notification when a deployment
  * has none. That is deliberate rather than careless: dev resets wipe the
  * preferences, and a run that only *checked* would leave CI red after every reset
- * until someone re-ran a manual setup. Pass `allowWrite: false` (or
- * `NOTIFY_SMTP_WRITE=0`) to make a run read-only.
+ * until someone re-ran a manual setup. `NOTIFY_SMTP_WRITE=0` makes a run read-only.
  *
  * Use a **dedicated sending mailbox**, not a personal account — the recipient can
  * still be a person. That bounds the exposure to a disposable credential until the
@@ -71,66 +70,22 @@ export async function getSmtpPreferences(request: APIRequestContext): Promise<Sm
     return Object.fromEntries(Object.entries(body).filter(([k]) => /^smtp/i.test(k))) as SmtpPreferences;
 }
 
-/** What {@link ensureSmtpConfigured} found, and whether it changed anything. */
+/** What the deployment's mail settings read as, and whether this run changed them. */
 export interface SmtpConfigureResult {
     configured: boolean;
     wrote: boolean;
     preferences: SmtpPreferences;
 }
 
-/**
- * Confirm the deployment can send notification mail, writing the settings only
- * when explicitly allowed.
- *
- * **Writes when the deployment has none.** Encryption is a later phase, so the
- * plaintext settings are written rather than demanded — otherwise every dev reset
- * would leave CI red until a human re-ran a setup step. Pass `allowWrite: false`
- * (the spec honours `NOTIFY_SMTP_WRITE=0`) for a read-only run.
- *
- * `PUT /preferences` replaces the record, so the current body is read and echoed
- * back with only the SMTP group changed.
- */
-export async function ensureSmtpConfigured(
-    request: APIRequestContext,
-    opts: { allowWrite?: boolean } = {},
-): Promise<SmtpConfigureResult> {
-    const current = await getSmtpPreferences(request);
-    const alreadyConfigured = (current.smtpServer ?? '') !== '' && current.smtpPasswordSet === true;
-    if (alreadyConfigured) return { configured: true, wrote: false, preferences: current };
-    if (opts.allowWrite === false) {
-        return { configured: false, wrote: false, preferences: current };
-    }
+/** A host is stored and a password is set. */
+export function isSmtpConfigured(prefs: SmtpPreferences): boolean {
+    return (prefs.smtpServer ?? '') !== '' && prefs.smtpPasswordSet === true;
+}
 
-    const host = getConfigValue(ConfigProperties.SMTP_HOST);
-    const user = getConfigValue(ConfigProperties.SMTP_USER);
-    const password = getConfigValue(ConfigProperties.SMTP_PASSWORD);
-    const from = getConfigValue(ConfigProperties.EMAIL_FROM) ?? user;
-    if (!host || !user || !password) {
-        throw new Error(
-            'SMTP_HOST / SMTP_USER / SMTP_PASSWORD are not all set — cannot configure notification SMTP. ' +
-                'These come from the environment (CI passes them from repository secrets), never from the repo.',
-        );
-    }
-
-    const existing = await request.get('preferences');
-    const body = (await existing.json()) as Record<string, unknown>;
-    const res = await request.put('preferences', {
-        data: {
-            ...body,
-            smtpServer: host,
-            smtpPort: SMTP_IMPLICIT_TLS_PORT,
-            smtpUser: user,
-            smtpPassword: password,
-            smtpFromAddress: from,
-            smtpAuthenticate: true,
-            smtpUseSsl: true,
-        },
-        headers: { 'Content-Type': 'application/json' },
-    });
-    if (!res.ok()) {
-        throw new Error(`PUT preferences failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`);
-    }
-    return { configured: true, wrote: true, preferences: await getSmtpPreferences(request) };
+/** Read the mail settings; never writes. */
+export async function readSmtpState(request: APIRequestContext): Promise<SmtpConfigureResult> {
+    const preferences = await getSmtpPreferences(request);
+    return { configured: isSmtpConfigured(preferences), wrote: false, preferences };
 }
 
 /** A filter script a Notification can be built on (`GET /filter-scripts`). */
@@ -156,46 +111,19 @@ export async function listFilterScripts(request: APIRequestContext): Promise<Fil
     return (Array.isArray(body) ? body : []) as FilterScript[];
 }
 
-/** `ReportFormatList` values (`setup/notification.go`). PDF is the safe default. */
-export const REPORT_FORMAT = { pdf: 101, htmlAttachment: 106, htmlBody: 107, text: 108 } as const;
-
-/**
- * Create a Notification with one email recipient.
- *
- * `timeOfDay1` must be `HH:MM:SS` — `HH:MM` is rejected as
- * `Invalid first time of day.` `locationType` is deliberately absent: the server
- * derives it and refuses a client-supplied value.
- */
-export async function createNotification(
-    request: APIRequestContext,
-    spec: {
-        name: string;
-        filterScriptCounter: number;
-        emailSubject: string;
-        usersCounter: number;
-        reportFormat?: number;
-    },
-): Promise<number> {
-    const res = await request.post('notifications', {
-        data: {
-            name: spec.name,
-            filterScriptCounter: spec.filterScriptCounter,
-            emailSubject: spec.emailSubject,
-            active: true,
-            recipients: [
-                {
-                    usersCounter: spec.usersCounter,
-                    timeOfDay1: '08:00:00',
-                    reportFormat: spec.reportFormat ?? REPORT_FORMAT.pdf,
-                },
-            ],
-        },
-        headers: { 'Content-Type': 'application/json' },
-    });
+/** The id of a notification by exact name, for when the on-screen save does not land on `/setup/notifications/{id}`. */
+export async function findNotificationIdByName(request: APIRequestContext, name: string): Promise<number | null> {
+    const res = await request.get('notifications');
     if (!res.ok()) {
-        throw new Error(`POST notifications failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`);
+        throw new Error(`GET notifications failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
     }
-    return ((await res.json()) as { notificationCounter: number }).notificationCounter;
+    const body = (await res.json()) as unknown;
+    const rows = Array.isArray(body)
+        ? body
+        : ((body as { items?: unknown[]; data?: unknown[] }).items ?? (body as { data?: unknown[] }).data ?? []);
+    const wanted = name.trim();
+    const hit = (rows as { name?: string; notificationCounter?: number }[]).find((r) => (r.name ?? '').trim() === wanted);
+    return hit?.notificationCounter ?? null;
 }
 
 /** Best-effort teardown — a cleanup failure must never turn a green assert red. */
@@ -234,26 +162,16 @@ export interface NotifyJob {
 export type NotifyNowResult = { ok: true; job: NotifyJob } | { ok: false; reason: 'job-store-unreachable' };
 
 /**
- * Send the notification now and wait for the job to reach a terminal state.
- *
- * `scope: 'all'` is the legacy "Yes" arm: every active recipient, **ignoring the
- * per-recipient date limits** — which is what stops a schedule window from
- * silently filtering the recipient out of a run.
+ * Poll a Notify Now job (fired by the screen's All Recipients button) to a terminal state.
+ * All Recipients is the legacy "Yes" arm: every active recipient, **ignoring the per-recipient date
+ * limits** — which is what stops a schedule window from silently filtering the recipient out.
  */
-export async function notifyNow(
+export async function pollNotifyNowJob(
     request: APIRequestContext,
     id: number,
+    jobId: string,
     opts: { timeoutMs?: number } = {},
 ): Promise<NotifyNowResult> {
-    const fired = await request.post(`notifications/${id}/notify-now`, {
-        data: { scope: 'all' },
-        headers: { 'Content-Type': 'application/json' },
-    });
-    if (!fired.ok()) {
-        throw new Error(`POST notify-now failed with ${fired.status()}: ${(await fired.text()).slice(0, 400)}`);
-    }
-    const { jobId } = (await fired.json()) as { jobId: string };
-
     const deadline = Date.now() + (opts.timeoutMs ?? 120_000);
     for (;;) {
         const res = await request.get(`notifications/${id}/notify-now/${jobId}`);

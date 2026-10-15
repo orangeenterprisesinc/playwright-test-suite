@@ -109,9 +109,9 @@ route to the agents.
 Generic contracts. Domain knowledge comes from the profile named in the
 invocation, never from this document. Shared constraint for every stage: there is no
 DB access from tests. In the **journey** suite (`tests/web/**`) setup is driven on
-screen and the app's API is confined to four allowances — configuration, cleanup,
-device simulation, read-only reads (the UI-first rule in
-[profiles/JOURNEY.md](profiles/JOURNEY.md)). The Planner names every allowed call in
+screen and the app's API is confined to three allowances — cleanup, device simulation,
+read-only reads (the UI-first rule in [profiles/JOURNEY.md](profiles/JOURNEY.md)); a
+preference is set on its screen or gated, never written. The Planner names every allowed call in
 its handoff, the Generator wraps each one in
 `allowApiWrites(allowance, reason, fn)`, and the **Healer never resolves a red
 `UiFirstViolation` by adding an allowance** — the violation means a step belongs on

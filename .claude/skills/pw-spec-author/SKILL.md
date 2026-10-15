@@ -114,11 +114,12 @@ ESLint enforces the boundary: `tests/web/**/*.spec.ts` may not import `@utils/ap
 `apiRequest` (`config/lint/.eslintrc.json`) — specs reach all of it through
 `@utils/journeys/*`. That is the import half of the **UI-first rule**
 (`.claude/profiles/JOURNEY.md`): a journey spec does on screen everything a user does on
-screen, and the API is confined to configuration, cleanup, device simulation and
-read-only reads. The run-time half is `src/utils/api/writeGuard.ts` — any write a flow
-makes under an allowance is wrapped in `allowApiWrites('preference'|'cleanup'|'device',
-reason, fn)`; an unwrapped write annotates the test `ui-first-violation` and, under
-`UI_FIRST_GUARD=enforce`, throws. Never add an allowance to make a red test green.
+screen, and the API is confined to cleanup, device simulation and read-only reads (a
+preference is set on its screen, or gated — never written). The run-time half is
+`src/utils/api/writeGuard.ts` — any write a flow makes under an allowance is wrapped in
+`allowApiWrites('cleanup'|'device', reason, fn)`; an unwrapped write annotates the test
+`ui-first-violation` and, under `UI_FIRST_GUARD=enforce` (CI's mode), throws. Never add
+an allowance to make a red test green.
 
 Journey B: `runJourneyBScenario` / `runRelayEcho` +
 `assertExpectedCards` / `assertTransferGrid` from `src/utils/journeys/journeyBFlow.ts`, then

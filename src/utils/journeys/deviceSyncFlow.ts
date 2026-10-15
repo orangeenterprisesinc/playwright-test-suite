@@ -5,7 +5,8 @@ import { makeScanDevice, runUniqueCode } from '@data/generated';
 import type { DeviceSyncScenario } from '@data/schemas/journeyBScenario';
 import { cleanupTarget } from '@data/static/shared/cleanupTargets';
 import type { ScanDeviceGeneral } from '@pages/setup/ScanDevicePage';
-import { ensureCrew, ensureField, ensureRanch, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import { ensureCrewOnScreen, ensureFieldOnScreen, ensureRanchOnScreen } from '@utils/fixtureRows/ensureOnScreen';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
 import { uniqueName } from '@utils/cleanup/runToken';
@@ -16,7 +17,7 @@ import { ackRetrieved, drainMailbox, pullFromRelay, type PulledMessage } from '@
 // B15 runs the pipeline the other way round: the OFFICE serializes the setup a scoped scan device
 // receives and pushes it to that device's mailbox; the test pulls the envelope back and reads it.
 // Nothing here builds XML — setupExportXml.ts parses what the office sent. Three stages so the
-// spec asserts between them: mint → scope (API rows + device UI) → push and pull.
+// spec asserts between them: mint → scope (setup forms + device UI) → push and pull.
 
 type EntityKey = keyof DeviceSyncScenario['entities'];
 type Minted = { code: string; name: string };
@@ -79,7 +80,7 @@ export interface DeviceScopeOptions {
     testInfo: TestInfo;
 }
 
-/** Creates the setup rows, then the device through the UI, scopes it to the crew and the ranch/field, saves. Cleanup is registered with the scope up front, so a mid-way failure still unwinds. */
+/** Creates the setup rows on their forms, then the device, scopes it to the crew and the ranch/field, saves. Cleanup is registered with the scope up front, so a mid-way failure still unwinds. */
 export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOptions): Promise<DeviceScopeRun> {
     const { sessionApi, pages, testInfo } = opts;
     const { scenario, relay, device } = minted;
@@ -91,9 +92,13 @@ export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOp
         await runCleanup(scenario.cleanup, api, testInfo, { phase: 'after' });
     });
     const section = (key: EntityKey) => scenario.entities[key].section;
-    const ranch: ScopedEntity = { ...(await ensureRanch(sessionApi, minted.minted.ranch)), section: section('ranch') };
-    const crew: ScopedEntity = { ...(await ensureCrew(sessionApi, minted.minted.crew)), section: section('crew') };
-    const field: ScopedEntity = { ...(await ensureField(sessionApi, { ...minted.minted.field, ranchCounter: ranch.id })), section: section('field') };
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch: ScopedEntity = { ...(await ensureRanchOnScreen(minted.minted.ranch, deps)), section: section('ranch') };
+    const crew: ScopedEntity = { ...(await ensureCrewOnScreen(minted.minted.crew, deps)), section: section('crew') };
+    const field: ScopedEntity = {
+        ...(await ensureFieldOnScreen({ ...minted.minted.field, ranch: { id: ranch.id, name: ranch.name } }, deps)),
+        section: section('field'),
+    };
 
     const deviceId = await pages.scanDevice.createDevice(device);
     await pages.scanDevice.gotoEdit(deviceId);

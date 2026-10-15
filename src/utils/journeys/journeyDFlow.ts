@@ -7,8 +7,8 @@ import type { JourneyD3CorrectionCase, JourneyD5ReverseCase, JourneyD8RecycleCas
 import { getRecordStatus, listBulkDeleteHistory, listDeleted, type BulkHistoryRow } from '@utils/api/recycleBinApi';
 import { uniqueName, RUN_TOKEN } from '@utils/cleanup/runToken';
 import { analyzeTransfer, listTransferRuns, previewJobCards, readExecuteJob, type ExecuteResult, type TransferRunRecord } from '@utils/api/transferToJobCardsApi';
-import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
-import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import type { OfficeFixture } from '@utils/api/officeFixture';
+import { getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
 import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
@@ -16,6 +16,7 @@ import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope, register } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
+import { withPreferencesLock } from '@utils/sync/preferencesLock';
 import {
     ensureCrewOnScreen,
     ensureEmployeeOnScreen,
@@ -94,50 +95,53 @@ async function sweepOwnTimeCards(request: APIRequestContext, opts: { day: string
     }
 }
 
-/**
- * Make the fixture rows usable by the OFFICE FORMS, not just by the API.
- *
- * The API takes an explicit `employeeIds` list and a `jobCounter`, so it happily punches inactive
- * employees who belong to no crew, against an inactive job — and the spec stayed green on a fixture
- * no human could have built in the product. The forms are stricter, and each rule below was a
- * separate red run: an inactive employee is not offered ("No employees found for this crew"), an
- * employee with no home crew is not either, and an inactive job is missing from the Phase picker.
- */
-async function ensureFixtureUsable(request: APIRequestContext, opts: { crewId: number; employeeIds: number[]; jobId: number }): Promise<void> {
-    for (const id of opts.employeeIds) {
-        const employee = (await (await request.get(`employees/${id}`)).json()) as Record<string, unknown>;
-        if (employee.active === true && Number(employee.crewCounter) === opts.crewId) continue;
-        const { employeeCounter: _drop, ...body } = employee;
-        await request.put(`employees/${id}`, { data: { ...body, active: true, crewCounter: opts.crewId } });
-    }
-    const job = (await (await request.get(`jobs/${opts.jobId}`)).json()) as Record<string, unknown>;
-    if (job.active !== true) {
-        const { jobCounter: _drop, ...body } = job;
-        await request.put(`jobs/${opts.jobId}`, { data: { ...body, active: true } });
-    }
-}
-
 async function maxRecalcRunCounter(request: APIRequestContext): Promise<number> {
     const runs = await listRecalcRuns(request);
     return runs.reduce((max, run) => Math.max(max, Number(run.recalcRunCounter)), 0);
 }
 
 /**
- * Seeds the office half of Journey D (crew, two pickers, piece job), runs the before-phase
- * recovery sweep (job cards first, then time cards — a crashed previous run must not poison this
- * one), asserts the toolbar gate is already open, and captures the recalc-run baseline.
+ * Builds the office half of Journey D on screen (ranch, field, crew, two pickers, piece job —
+ * existence is a GET, the create and any repair are UI), runs the before-phase recovery sweep
+ * (job cards first, then time cards — a crashed previous run must not poison this one), asserts
+ * the toolbar gate is already open, and captures the recalc-run baseline.
  */
 export async function prepareJourneyD(
     scenario: JourneyDRecalculateCase,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
 ): Promise<JourneyDRun> {
-    const { sessionApi, testInfo } = opts;
+    const { sessionApi, testInfo, pages } = opts;
     const F = JOURNEY_D_FIXTURE;
     const substituted = substituteTokens(scenario, {});
     for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
 
-    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [] };
-    const JOURNEY_D_FIXTURE_CREW_ID = { value: 0 };
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const homeCrew = { id: crew.id, name: crew.name };
+    const pickerOne = await ensureEmployeeOnScreen({ ...F.pickerOne, homeCrew }, deps);
+    const pickerTwo = await ensureEmployeeOnScreen({ ...F.pickerTwo, homeCrew }, deps);
+    const job = await ensureJobOnScreen(
+        { code: F.job.code, name: F.job.name, paymentType: F.job.paymentType, pieceRate: substituted.rate.before },
+        deps,
+    );
+
+    // runCleanup reads `employees` (timeCards step) and `job.id` (d6JobPieceRate restore); the rest of
+    // OfficeFixture is Journey B's, so this is deliberately partial.
+    const office = {
+        ranch,
+        field,
+        job,
+        crew,
+        employees: new Map([pickerOne, pickerTwo].map((p) => [p.code, p] as const)),
+    } as unknown as OfficeFixture;
+
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
     const jobCardIds: number[] = [];
     // Job cards must go first: a transferred time card cannot be deleted (409
     // record.transferred_delete) and the transfer reverse is blocked once a card has been
@@ -148,42 +152,31 @@ export async function prepareJourneyD(
     // this — that case is covered by the before-phase sweep at the top of prepareJourneyD, which
     // wipes this test's own scope on every start regardless of what a previous run left.
     const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
-        for (const id of jobCardIds) {
-            try {
-                const card = await getJobCard(api, id);
-                await deleteJobCard(api, id, card.version);
-            } catch (error) {
-                await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
-                    body: error instanceof Error ? error.message : String(error),
-                    contentType: 'text/plain',
-                });
+        await allowApiWrites('cleanup', 'D6 teardown: own job cards by id', async () => {
+            for (const id of jobCardIds) {
+                try {
+                    const card = await getJobCard(api, id);
+                    await deleteJobCard(api, id, card.version);
+                } catch (error) {
+                    await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
+                        body: error instanceof Error ? error.message : String(error),
+                        contentType: 'text/plain',
+                    });
+                }
             }
-        }
+        });
         await runCleanup(substituted.cleanup, api, testInfo, ctx);
         // The declarative timeCards step filters by employee code, so it never sees the crew
         // piece-out (employeeCounter is null on it). Sweep the day by crew to finish the job.
-        await sweepOwnTimeCards(api, { day: isoDay(punchDay(substituted.dayOffset)), crewCounter: JOURNEY_D_FIXTURE_CREW_ID.value }).catch(() => undefined);
+        await allowApiWrites('cleanup', 'D6 teardown: crew-scoped day sweep', () =>
+            sweepOwnTimeCards(api, { day: isoDay(punchDay(substituted.dayOffset)), crewCounter: crew.id }),
+        ).catch(() => undefined);
     };
     const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
     const cleanup = async (): Promise<void> => {
         await finishCleanup(sessionApi);
         registration?.complete();
     };
-
-    // Journey B's ranch/field give the punch its context; the crew, pickers and job are Journey D's own.
-    const office = await seedOfficeFixture(sessionApi);
-    const crew = await ensureCrew(sessionApi, F.crew);
-    const pickerOne = await ensureEmployee(sessionApi, F.pickerOne);
-    const pickerTwo = await ensureEmployee(sessionApi, F.pickerTwo);
-    const job = await ensureJob(sessionApi, { code: F.job.code, name: F.job.name, paymentType: F.job.paymentType });
-    JOURNEY_D_FIXTURE_CREW_ID.value = crew.id;
-    office.crew = crew;
-    office.job = job;
-    office.employees.set(pickerOne.code, pickerOne);
-    office.employees.set(pickerTwo.code, pickerTwo);
-    ctx.office = office;
-
-    await ensureFixtureUsable(sessionApi, { crewId: crew.id, employeeIds: [pickerOne.id, pickerTwo.id], jobId: job.id });
 
     const preferences = await getPreferences(sessionApi);
     if (preferences.allowRecalculateFromJobCard !== true) {
@@ -196,9 +189,13 @@ export async function prepareJourneyD(
     const punchDate = punchDay(substituted.dayOffset);
     const day = isoDay(punchDate);
 
-    await sweepOwnJobCards(sessionApi, { day, crewCounter: crew.id, jobCounter: job.id });
+    await allowApiWrites('cleanup', 'D6 before-phase sweep: own job cards', () =>
+        sweepOwnJobCards(sessionApi, { day, crewCounter: crew.id, jobCounter: job.id }),
+    );
     await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
-    await sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id });
+    await allowApiWrites('cleanup', 'D6 before-phase sweep: crew time cards', () =>
+        sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
+    );
 
     const recalcBaseline = await maxRecalcRunCounter(sessionApi);
 
@@ -698,7 +695,7 @@ export async function prepareJourneyD10(
         // null; null would be ignored by the partial PUT.
         if (preference.designated) {
             try {
-                await allowApiWrites('preference', 'D10 teardown: clear paidBreakJob', () => putPreferences(api, { paidBreakJob: 0 }));
+                await allowApiWrites('cleanup', 'D10 teardown: clear paidBreakJob', () => putPreferences(api, { paidBreakJob: 0 }));
                 const after = await getPreferences(api);
                 if (after.paidBreakJob !== null && after.paidBreakJob !== undefined) throw new Error(`paidBreakJob still reads ${String(after.paidBreakJob)}`);
                 preference.designated = false;
@@ -826,15 +823,31 @@ export async function seedExerciseAndBreakDay(
 }
 
 /**
- * Designate the break job as the tenant's paid-break job. `paidBreakJob` is the only place that
- * designation lives, so this is configuration; it is written as late as possible, and the flag is
- * raised first so cleanup restores it even if the PUT itself fails halfway.
+ * Designate the break job as the tenant's paid-break job on Preferences ▸ Job ▸ Job Assignments. It
+ * is set as late as possible, and the flag is raised first so cleanup restores it even if the save
+ * fails halfway. The select has no "None" option, so the restore stays an API cleanup.
  */
-export async function designatePaidBreakJob(run: JourneyD10Run, opts: { sessionApi: APIRequestContext }): Promise<void> {
+export async function designatePaidBreakJob(
+    run: JourneyD10Run,
+    opts: { sessionApi: APIRequestContext; pages: PageObjects },
+): Promise<void> {
+    const { sessionApi, pages } = opts;
+    const breakJob = run.jobs.breakJob;
     run.preference.designated = true;
-    await allowApiWrites('preference', `D10: designate ${run.jobs.breakJob.name} as the paid-break job`, () =>
-        putPreferences(opts.sessionApi, { paidBreakJob: run.jobs.breakJob.id }),
-    );
+    await withPreferencesLock(async () => {
+        const prefs = pages.preferences;
+        await prefs.gotoPreferences();
+        await prefs.gotoSection('Job');
+        if ((await prefs.displayedValue('paidBreakJob').catch(() => '')) !== breakJob.name) {
+            await prefs.choose('paidBreakJob', breakJob.name);
+            await prefs.saveIfDirty();
+        }
+        const stored = await getPreferences(sessionApi);
+        expect(
+            Number(stored.paidBreakJob),
+            `${run.scenario.label}: Preferences ▸ Job ▸ Paid Break Job must store ${breakJob.name} (id ${breakJob.id})`,
+        ).toBe(breakJob.id);
+    });
 }
 
 /** Non-committing analyze for the crew's day: how many time cards it plans, and any blocking exception codes. */

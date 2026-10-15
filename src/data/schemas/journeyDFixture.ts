@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 const Entity = z.object({ code: z.string().regex(/^[1-9]\d{3,}$/), name: z.string().min(1) }).strict();
 
-// D9's own rows. `paymentType` is the string ensureOnScreen's JobSpec takes, not the numeric enum
-// the D6 block carries.
+// `paymentType` is the string ensureOnScreen's JobSpec takes, not the numeric wire enum.
 const D9Block = z
     .object({
         crew: Entity,
@@ -42,7 +41,7 @@ export const JourneyDFixtureSchema = z
                 crew: Entity,
                 pickerOne: Entity,
                 pickerTwo: Entity,
-                job: Entity.extend({ paymentType: z.number().int() }).strict(),
+                job: Entity.extend({ paymentType: z.enum(['Time', 'Piece']) }).strict(),
             })
             .strict(),
         d9: D9Block.optional(),

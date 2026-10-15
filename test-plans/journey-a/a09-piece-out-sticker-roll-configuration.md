@@ -131,6 +131,20 @@ them but never writes them, avoiding a concurrent-write race against dev.
       "Guka Phone Pocket" (type 0). `A9` picks an active device at run time rather
       than hardcoding an id, and annotates an `environment-gate` if none is active.
 
+## API allowances
+
+A step a user performs on screen has **no row here** — the Preferences edits and save, and Push to Device (the screen's button), are all UI.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| module gate | `GET session/me` | read | `LabelTraceability` must be licensed or the section assertions pass vacuously |
+| pocket device lookup | `GET scan-devices` | read | picks an existing active pocket-class device; never mints one |
+| stored-value read-back | `GET preferences` | read | proves the saved wire values |
+| pushed file read-back | `GET connectivity/export/scan-devices/runs/{runId}` | read | `runId` from the screen's own push POST |
+| preference snapshot/restore | `GET`/`PUT preferences` (7 keys) | cleanup | restore step |
+
+Push to Device is the screen's button — no row.
+
 ## Cleanup
 
 A9 creates no persistent setup entity; it mutates the single global Preferences record

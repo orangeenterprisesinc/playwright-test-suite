@@ -44,13 +44,14 @@ test.afterAll(async () => {
 });
 
 /** A fresh guarded context plus the annotation sink the guard would push to. */
-async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay' }) {
+async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay'; defaultAllowance?: 'cleanup' | 'device' }) {
     process.env.UI_FIRST_GUARD = opts.mode;
     const annotations: Array<{ type: string; description?: string }> = [];
     const raw = await request.newContext({ baseURL });
     const ctx = guardApiContext(raw, {
         label: opts.label ?? 'unit',
         kind: opts.kind,
+        defaultAllowance: opts.defaultAllowance,
         baseURL,
         // Only `annotations` is read by the guard; a whole TestInfo is not needed.
         testInfo: { annotations } as never,
@@ -140,7 +141,7 @@ test.describe('UI-first write guard', () => {
         // callback across ticks, which is where a naive implementation loses context.
         const { ctx, raw, annotations } = await guarded({ mode: 'enforce' });
         let attempts = 0;
-        await allowApiWrites('preference', 'B7 stickerStartLocations', async () => {
+        await allowApiWrites('cleanup', 'restore stickerStartLocations', async () => {
             await expect(async () => {
                 attempts += 1;
                 await ctx.put('preferences', { data: {} });
@@ -168,6 +169,37 @@ test.describe('UI-first write guard', () => {
         expect(typeof ctx.storageState).toBe('function');
         await ctx.dispose();
         await expect(ctx.get('crews')).rejects.toThrow();
+    });
+
+    test('a context with a standing allowance passes its writes, and an ambient one still wins', async () => {
+        // The residue sweep and the fixture reconcile are cleanup from first call to last.
+        const { ctx, raw, annotations } = await guarded({ mode: 'enforce', label: 'residueSweep', defaultAllowance: 'cleanup' });
+        await ctx.delete('ranches/9');
+        await allowApiWrites('cleanup', 'restore a binned row', () => ctx.post('ranches/9/restore', { data: {} }));
+        expect(violations(annotations)).toHaveLength(0);
+
+        const ledger = readLedger();
+        expect(ledger).toHaveLength(2);
+        expect(ledger[0], 'the standing allowance names the context as its reason').toMatchObject({
+            type: 'allowed', method: 'DELETE', allowance: 'cleanup', reason: 'residueSweep',
+        });
+        expect(ledger[1], 'the innermost declaration wins').toMatchObject({
+            type: 'allowed', method: 'POST', reason: 'restore a binned row',
+        });
+        await raw.dispose();
+    });
+
+    test('relay traffic never matches the Transfer screen’s read-only POSTs', async () => {
+        // The relay is a different API entirely; only its `device` allowance lets a POST through.
+        const { ctx, raw } = await guarded({ mode: 'enforce', label: 'relay', kind: 'relay' });
+        await expect(ctx.post('transfer-to-job-cards/analyze/1', { data: {} })).rejects.toThrow(UiFirstViolation);
+        await raw.dispose();
+
+        const relay = await guarded({ mode: 'enforce', label: 'relay', kind: 'relay', defaultAllowance: 'device' });
+        await relay.ctx.post('UploadFile', { data: {} });
+        expect(violations(relay.annotations)).toHaveLength(0);
+        expect(readLedger().at(-1)).toMatchObject({ type: 'allowed', allowance: 'device', label: 'relay' });
+        await relay.raw.dispose();
     });
 
     test('off mode hands back the context itself', async () => {

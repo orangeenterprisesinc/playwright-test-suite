@@ -14,7 +14,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         annotation: [
             { type: 'testCaseId', description: 'B7' },
         ],
-    }, async ({ sessionApi }, testInfo) => {
+    }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const gates = await journeyBPreconditions(scenario, { sessionApi, testInfo });
         // 0 would leave the importer binding nothing, so the card's employee would be NULL rather
@@ -28,7 +28,7 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
                 + `Employee record. Got: ${JSON.stringify(gates.undefinedEmployeeRaw)}`,
         ).toBe(true);
 
-        const run = await runJourneyBScenario(scenario, { sessionApi, testInfo, gates });
+        const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo, gates });
         // run.scenario is the loaded file with the minted prefixes and stickers substituted.
         const { records, expected, sticker } = run.scenario;
         const [assignedPrefix] = run.codes;

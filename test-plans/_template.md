@@ -97,14 +97,16 @@ the create or repair is UI.
 
 ## API allowances
 
-Every call this spec makes outside the browser, and which of the four allowances in
+Every call this spec makes outside the browser, and which of the three allowances in
 the UI-first rule covers it. A step a user performs on screen has **no row here**.
-Allowance is one of `configuration` · `cleanup` · `device` · `read`.
+Allowance is one of `cleanup` · `device` · `read`. There is no configuration allowance:
+a preference a screen exposes is set on that screen, and a preference with no screen is
+a read-only gate (read it, annotate `environment-gate`, fail by name).
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|
 | before-hook preference read | `GET preferences` | read | gates the scenario |
-| before-hook preference write | `PUT preferences` | configuration | the screen has no control for it |
+| preference snapshot / restore | `GET` / `PUT preferences` | cleanup | the restore step puts back what the screen changed |
 | device envelope push | `POST …/UploadFile` (relay) | device | the handheld itself |
 | read-back after the screen saved | `GET <entity>?<scope>` | read | records ids before the assertions run |
 | after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id |

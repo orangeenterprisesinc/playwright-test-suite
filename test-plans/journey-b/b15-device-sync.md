@@ -150,18 +150,28 @@ Element census of the real file: 1,187 `<Employee>`, 225 `<Job>`, 109 `<Crop>`,
 ## Preconditions
 
 - Dev staging reachable; `npm run test:dev`.
-- A scan device owned by the run, created via API — never edit a shared device.
+- A scan device owned by the run, created on screen (Setup ▸ Scan Devices) — never edit a shared device.
   `PocketPDA` (type 0 "Generic") is the pocket-class type that receives a Crew
   section; type is immutable after create.
 - Connectivity method **Web** with a run-unique mailbox; Sync Folder empty.
-- One run-unique crew and one run-unique ranch + field to assign.
+- One run-unique crew, ranch and field, created on screen (Setup ▸ Ranch / Crew / Field), to assign.
+
+## API allowances
+
+A step a user performs on screen has **no row here** — the Ranch, Crew and Field forms, the scan-device form and Push to Device are all UI.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| existence | `GET ranches` · `GET crews` · `GET fields` | read | `ensureOnScreen`: existence is a GET, the create is UI |
+| relay mailbox drain/pull/ack | relay | device | the handheld itself |
+| after-phase deletes | `DELETE scan-devices` / `crews` / `fields` / `ranches` by name | cleanup | by minted name, registered first |
 
 ## Cleanup
 
-Through the API only — there is no DB access.
+Teardown is the registered `DELETE` by minted name — there is no DB access.
 
-- Deactivate/remove the scan device created by the run.
-- Remove crew/ranch/field fixtures via `setupEntitiesApi`.
+- Remove the scan device created by the run.
+- Remove the crew/ranch/field rows by their minted names.
 - Prefix every fixture name with the run token so the residue sweep can reclaim it.
 - Export-log rows are append-only; they are not cleaned up. Assert on the run the
   test created (by device and timestamp window), never on row count.

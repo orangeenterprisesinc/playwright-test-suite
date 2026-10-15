@@ -47,7 +47,8 @@ back*. Ids are stable — append, never re-sort.
 - If Initials match those of an existing user, then PET Tiger shall keep Save disabled, display "Already in use", and remain on the New User form.
 - PET Tiger shall limit Initials to 3 characters.
 - PET Tiger shall offer exactly the 17 documented Role options, in the documented order, each one selectable.
-- When a user is deleted, PET Tiger shall remove it from the Users list and release its Name, Initials and Email Address for reuse.
+- When an existing user is deactivated on the Edit User form, PET Tiger shall keep it in the Users list and show it as inactive ("No").
+- Deleting a user is not offered on any screen; the run removes its user in teardown (`DELETE /users/{id}`). _not automatable as a workflow step: no UI delete_
 - When an existing user is opened for edit, PET Tiger shall load its saved values into the form.
 - When a serial is applied, PET Tiger shall enable the modules and ceilings it encodes. _not automatable: serials are generated in the legacy PET Setup (Delphi) tool, which has no web surface (catalog steps 2–3)_
 
@@ -121,6 +122,15 @@ encodes, which any new setup screen will also hit:**
 None — an authenticated session is enough, supplied by the shared
 `auth-setup` project via `.auth/user.json`.
 
+## API allowances
+
+A step a user performs on screen has **no row here** — create, list, filter, edit and deactivate are all UI.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| after-phase teardown | `GET users` → `DELETE users/{id}` (rowversion) | cleanup | registered by `mintUserSetup`, by minted name |
+| cleanup safety net (residue sweep) | `DELETE users/{id}` | cleanup | `'QA User '` prefix |
+
 ## Cleanup
 
 PET Tiger has **no delete action for users in the UI**. Removal goes through
@@ -130,7 +140,7 @@ rowversion-guarded, so a delete reads the record's `version` first.
 
 | Entity | Prefix | Route |
 |---|---|---|
-| `user` | `QA User ` | `DELETE /users/{id}` |
+| `user` | `QA User ` | `DELETE /users/{id}` — teardown only, never a workflow step |
 
 Registered in [`cleanupTargets.ts`](../../src/data/static/shared/cleanupTargets.ts) with
 the delete call in
@@ -143,10 +153,10 @@ the delete call in
 
 | id | Title | Tags | enabled |
 |---|---|---|---|
-| `A1` | End-to-end: create a user, verify it in the Users list, edit it, then delete it | `smoke\|high-level\|regression` | 1 |
+| `A1` | End-to-end: create a user, verify it in the Users list, edit it, then deactivate it | `smoke\|high-level\|regression` | 1 |
 
 `A1` holds the file's single `smoke` slot: it is the widest path through the
-workflow (create → list → edit → delete).
+workflow (create → list → edit → deactivate).
 
 `A1` was previously "every Role option is selectable **and** a
 non-administrator user can be created" — two outcomes in one case. It now covers

@@ -8,12 +8,14 @@
  * — `allowApiWrites(allowance, reason, fn)` — and every API context is wrapped so an
  * undeclared write is seen.
  *
- * Four allowances exist; three of them are writes:
- *   preference — configuration a screen does not expose, written in a before-hook
- *   cleanup    — residue sweeps, teardown, recycle-bin restores
- *   device     — PET Pocket envelopes through the Post Office relay: it *is* the handheld
- * The fourth, read-only, needs no declaration: GET and HEAD always pass, as do the two
+ * Three allowances exist; two of them are writes:
+ *   cleanup — residue sweeps, teardown, recycle-bin restores
+ *   device  — PET Pocket envelopes through the Post Office relay: it *is* the handheld
+ * The third, read-only, needs no declaration: GET and HEAD always pass, as do the two
  * non-committing POSTs the Transfer screen uses to preview work.
+ * There is no configuration allowance (withdrawn 2026-10-15): a preference a screen
+ * exposes is set on that screen, and one no screen exposes is an environment gate the
+ * spec reads and fails by name — never a write.
  *
  * Modes (`UI_FIRST_GUARD`): `off` disables the check, `warn` (default) annotates the
  * test and records the violation, `enforce` throws before the request is sent.
@@ -26,7 +28,7 @@ import { Logger } from '../logger';
 
 const logger = new Logger('UiFirstGuard');
 
-export type WriteAllowance = 'preference' | 'cleanup' | 'device';
+export type WriteAllowance = 'cleanup' | 'device';
 export type GuardMode = 'off' | 'warn' | 'enforce';
 
 /** The annotation an in-test violation leaves behind; `ui-first-audit` reads these. */
@@ -68,9 +70,9 @@ export class UiFirstViolation extends Error {
             `UI-first violation: ${record.method} ${record.url} (${record.label}) was made through the API.\n` +
                 `  at ${record.frames.join('\n  ← ')}\n` +
                 'A step a user performs on screen is driven on screen. If this call really is ' +
-                'configuration, cleanup or device simulation, wrap it in ' +
-                "allowApiWrites('preference'|'cleanup'|'device', reason, fn) — and never wrap it " +
-                'just to make a red test green.',
+                'cleanup or device simulation, wrap it in ' +
+                "allowApiWrites('cleanup'|'device', reason, fn) — and never wrap it " +
+                'just to make a red test green. A preference is set on its screen, or gated.',
         );
         this.name = 'UiFirstViolation';
     }
@@ -89,7 +91,7 @@ export function guardMode(): GuardMode {
 }
 
 /**
- * Declare that the writes `fn` makes are one of the four allowances.
+ * Declare that the writes `fn` makes are one of the two write allowances.
  *
  * `reason` is mandatory and lands in the ledger, so `ui-first:audit --allowed` reads as
  * prose rather than a list of URLs. Nesting is fine — the innermost declaration wins.

@@ -35,18 +35,17 @@ where they read their mail settings, and that difference decides testability:
 So this spec does not cover B12's notification and does not claim to. That half
 stays a named gate in its own plan.
 
-## Acceptance criteria (EARS)
+## Expected outcomes
 
 The `UI-` prefix is the suite's generic **system** prefix, not a claim that this
-is a UI test — `scripts/runner/check.js` accepts only `[A-F]\d{1,2}` (a catalog
-workflow) or `UI` for a requirement id, so a new `NOTIF`/`SYS` prefix would mean
-editing that shared gate. Reusing `UI` keeps this change out of framework code.
+is a UI test.
 
-| id | Requirement | Cases |
-|---|---|---|
-| `UI-R4` | Where notification mail settings are configured, when a notification is sent with Notify Now, PET Tiger shall dispatch it to each active recipient and report that recipient's outcome. | `UI-005` |
+- When a notification built on a reporting filter script, with one active
+  recipient, is sent with Notify Now ▸ All Recipients, PET Tiger shall complete
+  the job and report that recipient as success with 0 failed.
+- Message arrival in a mailbox — _not asserted: side effect_.
 
-One requirement, one test. The assertion is the **job result**, not a mailbox:
+One test. The assertion is the **job result**, not a mailbox:
 `status: "complete"`, one result for the one recipient, `results[0].status:
 "success"`, `failed: 0`, `successful >= 1`. A message arriving in an inbox is a
 side effect — useful for a human eyeball, never what makes this pass.
@@ -88,8 +87,9 @@ simply does not use it — so making it encrypted at rest is a **product change*
 and it is a **deferred phase** (team decision 2026-08-31). This spec therefore
 uses the settings as they are.
 
-**The run configures a deployment that has none**, rather than demanding it be
-set up first. That is a deliberate trade: dev resets clear the preferences, and a
+**The run sets them on Preferences ▸ Connectivity ▸ Notification** when a
+deployment has none, rather than demanding it be set up first. That is a
+deliberate trade: dev resets clear the preferences, and a
 check-only run would leave CI red after every reset until a human re-ran a setup
 step. `NOTIFY_SMTP_WRITE=0` makes any single run read-only.
 
@@ -107,17 +107,26 @@ Two things to keep in view until the encryption phase lands:
 
 | What | How |
 |---|---|
-| The Notification | `deleteNotification` in a `finally`; a failure is attached as a warning, never raised |
-| The recipient user | `deleteUserById` in the same `finally`; its name carries the prefix global teardown sweeps, so an early death still cleans up |
+| The Notification | `runCleanup` delete by minted name (cleanup), registered before anything is created; a failure is attached as a warning, never raised |
+| The recipient user | `runCleanup` delete by minted name (cleanup); its name carries the prefix global teardown sweeps, so an early death still cleans up |
 | Mail settings | **not touched at all** by a normal run — deployment configuration, not test data |
 
-No SQL. Setup and teardown go through the app's API.
+No SQL. The mail settings, the user and the notification are made on screen; the
+API only reads and tears down.
+
+## API allowances
+
+| What | Call | Allowance | Notes |
+|---|---|---|---|
+| smtp / script / user-id reads | `GET preferences`, `GET filter-scripts`, `GET users` | read | settings are typed on Preferences ▸ Connectivity ▸ Notification; `GET notifications` resolves the id by name only if the save returns to the list |
+| job result | `GET notifications/{id}/notify-now/{jobId}` | read | the screen's own results dialog is evidence only; this poll is the verdict |
+| teardown | `DELETE notifications/{id}`, `DELETE users/{id}` | cleanup | by minted name |
 
 ## Test cases
 
-| id | Title | Req | Tags | enabled |
-|---|---|---|---|---|
-| `UI-005` | Notification email dispatch | `UI-R4` | `regression` | **1** |
+| id | Title | Tags | enabled |
+|---|---|---|---|
+| `UI-005` | Notification email dispatch | `regression` | **1** |
 
 ```ts
 test.describe('Notification email', { tag: ['@System'] }, () => {
@@ -125,9 +134,8 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'UI-005' },
-            { type: 'requirement', description: 'UI-R4' },
         ],
-    }, async ({ sessionApi }, testInfo) => { /* … */ });
+    }, async ({ sessionApi, pages }, testInfo) => { /* … */ });
 });
 ```
 

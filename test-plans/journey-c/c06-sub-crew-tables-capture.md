@@ -1,11 +1,9 @@
 # `C6` · Sub-crew ("tables") capture
 
-> **Transport substitute, office half only.** Kiosk capture is device-only. `C6` clocks a table
-> of three in through `POST time-cards/crew-time-in` with
-> `crewTableCounter` — the same write `/scan/crew-time-in` performs, standing in for the kiosk
-> sync (wording as in `crewTimeInApi.ts`: a substitute for the transport, not for the assertions).
-> It then verifies the cards by id, the table→crew roll-up at data level, and the Table on the
-> Crew Time In edit form. Reports are not on the web yet (PET-12682).
+> **Office half only.** Kiosk capture is device-only. `C6` enters the punches on Input ▸ Batch ▸
+> Crew Time In (table selected, then none). It then verifies the cards by id, the table→crew
+> roll-up at data level, and the Table on the Crew Time In edit form. Reports are not on the web
+> yet (PET-12682).
 
 Source: no recording; office surface confirmed live 2026-09-25 (app.ptdev.xyz, `su`).
 Manual source WEBPET-2035 (passed QA 2026-09-03).
@@ -40,14 +38,14 @@ Manual source WEBPET-2035 (passed QA 2026-09-03).
 
 | # | Catalog step | Office surface (live 2026-09-25) | Automatable? |
 |---|---|---|---|
-| 1 | Assign workers to a table under a supervisor | Setup ▸ Table `/setup/crew-tables`: grid **"Tables"** (Name / Crew / Supervisor / Active). New form: `Name *`, `Crew *` (required combobox), `Supervisor` (combobox of **active employees**, `GET employees/lookup?limit=101&search=`, not crew-scoped), Active switch in the header. Save enables once Name + Crew are set. | precondition — the table is ensured through `POST /crew-tables`, not driven on screen |
-| 2 | Capture time and pieces by table | Input ▸ Crew Time In (Batch group) `/input/crew-time-in/new`: `Table` combobox under `Crew *`. With no crew it lists **all** tables; with a crew it lists only that crew's; changing crew clears it. After a crew is picked an `Employees *` checklist appears. Crew Time In edit form `/input/crew-time-in/{timeCardCounter}` shows `Table`. **Time In New/Edit forms have no Table field.** | time: **yes** — via the transport substitute. Pieces: — deferred, no crew piece-out helper. Kiosk capture: — not automatable: device capture; office receives the punches |
+| 1 | Assign workers to a table under a supervisor | Setup ▸ Table `/setup/crew-tables`: grid **"Tables"** (Name / Crew / Supervisor / Active). New form: `Name *`, `Crew *` (required combobox), `Supervisor` (combobox of **active employees**, `GET employees/lookup?limit=101&search=`, not crew-scoped), Active switch in the header. Save enables once Name + Crew are set. | precondition — ensured on Setup ▸ Table when missing |
+| 2 | Capture time and pieces by table | Input ▸ Crew Time In (Batch group) `/input/crew-time-in/new`: `Table` combobox under `Crew *`. With no crew it lists **all** tables; with a crew it lists only that crew's; changing crew clears it. After a crew is picked an `Employees *` checklist appears. Crew Time In edit form `/input/crew-time-in/{timeCardCounter}` shows `Table`. **Time In New/Edit forms have no Table field.** | time: **yes** — entered on the Crew Time In form. Pieces: — deferred, no crew piece-out helper. Kiosk capture: — not automatable: device capture; office receives the punches |
 | 3 | Report by table or roll up to the crew | No web surface | — not automatable: reports not migrated to web (PET-12682); roll-up asserted at data level |
 
 ## Expected outcomes
 
-- When a table is saved on Setup ▸ Table with a name, crew and supervisor, PET Tiger shall list it under that crew and return it from `GET /crew-tables`. _not asserted: table setup is this workflow's precondition, ensured through the API_
-- When workers of a crew are clocked in with a table selected, PET Tiger shall create one Time In card per worker, each carrying the table's `crewTableCounter` (and `crewTableName`) and the crew's `crewCounter`, readable from `GET time-cards/crew-time-in?from&to`.
+- When a table is saved on Setup ▸ Table with a name, crew and supervisor, PET Tiger shall list it under that crew and return it from `GET /crew-tables`. _not asserted: table setup is this workflow's precondition, ensured on Setup ▸ Table when missing_
+- When workers of a crew are clocked in on the Crew Time In form with a table selected, PET Tiger shall create one Time In card per worker, each carrying the table's `crewTableCounter` (and `crewTableName`) and the crew's `crewCounter`, readable from `GET time-cards/crew-time-in?from&to`.
 - When the crew's day is grouped by `crewTableCounter`, the groups shall partition the crew's Time In total exactly (table count + no-table count = crew count), and the Crew Time In edit form shall show the table in `Table`.
 - Where a report parameter selects "by table" or "roll up to crew", PET Tiger shall report output per table or for the whole crew. _not automatable: reports not migrated to web (PET-12682)_
 - When a worker punches at the kiosk with a table selected, PET Pocket/kiosk shall capture the punch against that table. _not automatable: device capture; office receives the punches_
@@ -77,14 +75,28 @@ export identifier, otherwise the bare name. The grid renders the supervisor surn
 - Scenario: `src/data/journey-c/c06-sub-crew-tables-capture.json` (`{ shared, cases }`), validated
   by `CrewTableCaseSchema`. C6 has no `capture`; C6 has `capture.workerCodes`
   `["7002","7003","7004"]` and `expected { cardType: 1, cardsOnTable: 3, cardsOffTable: 0 }`.
-- Specs import only `@utils/journeys/journeyCFlow` (no `@utils/api/*`). C6 creates its table
-  through a flow helper wrapping `crewTablesApi.createCrewTable`.
+- Specs import only `@utils/journeys/journeyCFlow` (no `@utils/api/*`). The fixture table is
+  ensured on screen by `ensureCrewTableOnScreen` (Setup ▸ Table) when missing.
 
 ## Preconditions
 
-- [ ] `prepareJourneyC` ensures the fixture and runs the before-phase sweep for 7002–7004 on day −10.
+- [ ] `prepareJourneyC` ensures the fixture on screen (ranch, field, job, crew, the four employees with the C6 crew as home crew, the table) and runs the before-phase sweep for 7002–7005 on day −10.
 - [ ] Session API authenticated (`sessionApi`); CSRF double-submit as in `apiLogin.ts`.
 - [ ] GET `/crew-tables/{id}` answering 200 on dev (O1) — without it no table can be cleaned up.
+
+## API allowances
+
+Every call this spec makes outside the browser. **A step a user performs on screen has no row here**
+— the fixture rows' New/Edit forms and the Crew Time In punches are UI.
+
+| Step / call | Endpoint | Allowance | Why |
+|---|---|---|---|
+| fixture-row existence lookup | `GET crews` · `GET employees` · `GET jobs` · `GET ranches` · `GET fields` · `GET crew-tables` (+ `GET <entity>/{id}` for the repair check) | read | `ensureOnScreen`: existence is a GET, the create and the repair are UI |
+| binned fixture row restore | `POST <entity>/{id}/restore` | cleanup | undoes someone else's deletion; wrapped in `allowApiWrites('cleanup', ...)` inside `ensureOnScreen`. Not available for tables (`GET crew-tables/deleted` answers 500) |
+| punch read-back | `GET time-cards?from&to` · `GET time-cards/crew-time-in?from&to` | read | scoped to day −10 + the C6 crew + the four fixture employees, untransferred; the ids are recorded before any assertion |
+| card sweep before/after | `DELETE time-cards/{id}` | cleanup | the `timeCards` cleanup step, by the ids recorded above |
+
+No write to a setup record outside a screen.
 
 ## Cleanup
 
@@ -103,8 +115,8 @@ export identifier, otherwise the bare name. The grid renders the supervisor surn
 | `C6` | Clock a table of three in and roll the day up to the crew | `regression` | workflow | 1 |
 
 **Steps:**
-1. `prepareJourneyC` — seed the crew, its members and the fixture table, and sweep the fixture day.
-2. `captureByTable` (annotation `transport-substitute`). Expect 3 on-table punches and 1 off-table.
+1. `prepareJourneyC` — ensure the crew, its members and the fixture table on screen, and sweep the fixture day.
+2. `captureByTable` — Crew Time In with the table selected (three workers), then with no table (the supervisor). Expect 3 on-table punches and 1 off-table.
 3. Read `GET time-cards/crew-time-in?from=day&to=day`, filtered to the returned references. Expect:
    - 3 rows;
    - each row's `crewTableCounter` = the table id and `crewTableName` = the table name;

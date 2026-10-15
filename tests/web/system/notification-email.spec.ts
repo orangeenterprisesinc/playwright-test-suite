@@ -13,9 +13,9 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         annotation: [
             { type: 'testCaseId', description: 'UI-005' },
         ],
-    }, async ({ sessionApi }, testInfo) => {
+    }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(NotificationEmailScenarioSchema, testInfo);
-        const setup = await prepareNotificationEmail(scenario, sessionApi, testInfo);
+        const setup = await prepareNotificationEmail(scenario, { sessionApi, pages, testInfo });
         expect(
             setup.smtp.configured,
             'This deployment has no notification mail settings and this run was told not to write them ' +
@@ -25,7 +25,7 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
         ).toBe(true);
         expect(setup.nominated, 'EMAIL_TO is not set — nowhere to send the notification').toBeTruthy();
 
-        const run = await dispatchNotification(setup, sessionApi, testInfo);
+        const run = await dispatchNotification(setup, { sessionApi, pages, testInfo });
         if (run.jobUnreachable) {
             testInfo.annotations.push({
                 type: 'notify-now-job-store-unreachable',
@@ -43,7 +43,6 @@ test.describe('Notification email', { tag: ['@System'] }, () => {
                 JSON.stringify(run.scripts.all.map((s) => ({ id: s.filterScriptCounter, name: s.name }))),
         ).toBeGreaterThan(0);
 
-        // UI-R4 — dispatched, and reported per recipient
         const job = run.job!;
         expect(job.status, `notify-now did not settle: ${JSON.stringify(job)}`).toBe(want.jobStatus);
         const results = job.results ?? [];

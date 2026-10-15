@@ -1,7 +1,7 @@
 {
   "_notes": [
     "C6 - Sub-crew ('tables') capture, office half (catalog C6, plan test-plans/journey-c/c06-sub-crew-tables-capture.md, runner row C6). dayOffset -10 is Journey C's own fixture day, distinct from Journey B's 0...-9 block, so the two suites never collide on the same day's cards.",
-    "table.source 'fixture' targets the fixed 'C6 TABLE A' row from src/data/journey-c/fixture.json, ensured through the API and never deleted: GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so DELETE has no rowversion to send and a run-unique table would leak one row per run.",
+    "table.source 'fixture' targets the fixed 'C6 TABLE A' row from src/data/journey-c/fixture.json, ensured on screen (Setup > Table) when missing and never deleted: GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so DELETE has no rowversion to send and a run-unique table would leak one row per run.",
     "The capture clocks the three fixture table workers (7002-7004) in against the table and the fixture supervisor (7005) in with no table, so the roll-up partitions a non-trivial 3 on-table + 1 off-table = 4, not a trivial 3 = 3 / 0 off."
   ],
   "workflow": "C6",
@@ -17,7 +17,7 @@
     },
     {
       "type": "not-automatable",
-      "description": "Kiosk capture is device-only; the office receives the punches. The table is set up through the API rather than on Setup > Table, which is a precondition, not the workflow."
+      "description": "Kiosk capture is device-only; the office receives the punches, entered here on Input > Batch > Crew Time In. The table is ensured on screen (Setup > Table) when missing; that is a precondition, not the workflow."
     },
     {
       "type": "deferred",

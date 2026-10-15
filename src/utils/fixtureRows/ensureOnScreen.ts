@@ -18,6 +18,7 @@
  */
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '../../fixtures/pages.fixture';
+import { listCrewTables, type CrewTableRecord } from '../api/crewTablesApi';
 import {
     findByCode,
     restoreFromRecycleBin,
@@ -297,6 +298,54 @@ const JOB: EntitySpec<JobSpec> = {
         await pages.job.setActive(true);
     },
 };
+
+export interface CrewTableSpec {
+    name: string;
+    crew: { id: number; name: string };
+    supervisor?: { id: number; name: string };
+}
+
+/**
+ * Tables carry no code, so the generic core cannot key them: existence is name + crew (uniqueness is
+ * per crew). No repair and no recycle-bin restore — `GET crew-tables/{id}` and `/deleted` both 500 on dev.
+ */
+export async function ensureCrewTableOnScreen(
+    spec: CrewTableSpec,
+    deps: OnScreenDeps,
+): Promise<CrewTableRecord & { source: 'existing' | 'created' }> {
+    const find = async (): Promise<CrewTableRecord | undefined> =>
+        (await listCrewTables(deps.api)).find(
+            (t) => String(t.name ?? '').trim() === spec.name.trim() && Number(t.crewCounter) === spec.crew.id,
+        );
+
+    const existing = await find();
+    if (existing) return { ...existing, source: 'existing' };
+
+    const outcome = await deps.pages.crewTable.createTable({
+        name: spec.name,
+        crew: spec.crew.name,
+        supervisor: spec.supervisor?.name,
+    });
+    if (outcome === 'created') {
+        annotate(deps, 'fixture-created-on-screen', `Table '${spec.name}' under crew '${spec.crew.name}'`);
+        return {
+            crewTableCounter: deps.pages.crewTable.savedTableId(),
+            name: spec.name,
+            crewCounter: spec.crew.id,
+            supervisorCounter: spec.supervisor?.id ?? null,
+            source: 'created',
+        };
+    }
+    // Lookup-then-create is not atomic: a rejection can be another worker winning the race.
+    const raced = await find();
+    if (!raced) {
+        throw new Error(
+            `The New Table form rejected '${spec.name}' under crew '${spec.crew.name}' and no such table ` +
+                'exists afterwards, so it was not a lost race. Open the form and read what it is refusing.',
+        );
+    }
+    return { ...raced, source: 'existing' };
+}
 
 // ── Public API ──────────────────────────────────────────────────────
 
