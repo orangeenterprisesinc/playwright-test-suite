@@ -25,6 +25,7 @@ import { UsersPage } from '../pages/admin/UsersPage';
 import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { JobCardsPage } from '../pages/processing/JobCardsPage';
+import { ViewJobCardsPage } from '../pages/processing/ViewJobCardsPage';
 import { JobPage } from '../pages/setup/JobPage';
 import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
 import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
@@ -70,6 +71,9 @@ export interface PageObjects {
 
     /** View ▸ Job Card — the recalculate screen, `/input/job-cards` (D6). */
     readonly jobCards: JobCardsPage;
+
+    /** View ▸ Job Cards, `/view/job-cards` — where a transfer lands; carries Reverse (D5). */
+    readonly viewJobCards: ViewJobCardsPage;
 
     /** Setup ▸ Job — the job record D6 re-rates on screen. */
     readonly job: JobPage;
@@ -128,6 +132,7 @@ export function createPageObjects(page: Page): PageObjects {
         get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
         get jobCards() { return lazy('jobCards', () => new JobCardsPage(page)); },
+        get viewJobCards() { return lazy('viewJobCards', () => new ViewJobCardsPage(page)); },
         get job() { return lazy('job', () => new JobPage(page)); },
         get ranch() { return lazy('ranch', () => new RanchPage(page)); },
         get field() { return lazy('field', () => new FieldPage(page)); },

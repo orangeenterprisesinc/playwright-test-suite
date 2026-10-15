@@ -1,20 +1,19 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
-import { JOURNEY_D_FIXTURE, journeyD3Fixture, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
+import { JOURNEY_D_FIXTURE, journeyD3Fixture, journeyD5Fixture, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
-import type { JourneyD3CorrectionCase, JourneyD8RecycleCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
+import type { JourneyD3CorrectionCase, JourneyD5ReverseCase, JourneyD8RecycleCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
 import { getRecordStatus, listBulkDeleteHistory, listDeleted, type BulkHistoryRow } from '@utils/api/recycleBinApi';
 import { uniqueName, RUN_TOKEN } from '@utils/cleanup/runToken';
-import { register } from '@utils/cleanup/cleanupScope';
-import { analyzeTransfer, previewJobCards, readExecuteJob, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
+import { analyzeTransfer, listTransferRuns, previewJobCards, readExecuteJob, type ExecuteResult, type TransferRunRecord } from '@utils/api/transferToJobCardsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import { ensureCrew, ensureEmployee, ensureJob, getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
 import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
-import { currentScope } from '@utils/cleanup/cleanupScope';
+import { currentScope, register } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import {
@@ -348,11 +347,13 @@ export async function commitTransfer(
 
     const cards = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
     const jobCardCounters = cards.map((c) => c.jobCardCounter);
+    // The execute job is the only place the run id is reported; D5 needs it to guard the reverse.
+    const finished = await readExecuteJob(sessionApi, jobId).catch(() => undefined);
     return {
         status: 'complete',
         jobCardsWritten: jobCardCounters.length,
         timeCardsTransferred: seed.timeCardCounters.length,
-        transferRunCounter: 0,
+        transferRunCounter: finished?.transferRunCounter ?? 0,
         jobCardCounters,
         raw: cards,
     };
@@ -1095,6 +1096,348 @@ export async function readCorrection(
 export async function remainingOwnTimeCards(run: JourneyD3Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
     const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
     return cards.filter((c) => Number(c.crewCounter) === run.crew.id);
+}
+
+// ── D5 — Reverse and redo ────────────────────────────────────────────────────────────────────
+
+/** `jobPaymentType` of a Non-Labor job (WEBPET job payment types: 8 = Non-Labor). */
+const NON_LABOR_PAYMENT_TYPE = 8;
+
+export interface JourneyD5Run {
+    scenario: JourneyD5ReverseCase;
+    ranch: EnsuredRecord;
+    field: EnsuredRecord;
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    job: EnsuredRecord;
+    punchDate: Date;
+    day: string;
+    startedAt: Date;
+    /** `GET session/me`'s user id — the `authorCounter` a run of this test must carry. */
+    sessionUserId: number;
+    /** Filled by {@link commitTransfer} and {@link readRedo}; the teardown deletes these by id. */
+    jobCardIds: number[];
+    cleanup(): Promise<void>;
+    readonly ctx: CleanupContext;
+}
+
+export interface D5Seed extends SeedResult {
+    timeInId: number;
+    timeOutId: number;
+    timeInReference: string;
+    timeOutReference: string;
+}
+
+/** Three Setup forms on a cold fixture, two transfers and one reverse. */
+export function journeyD5TimeoutMs(_testInfo: TestInfo): number {
+    return 420_000;
+}
+
+/** `HH:MM` of a scenario time of day. */
+export function clock(t: { hour: number; minute: number }): string {
+    return `${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`;
+}
+
+function isOwnD5JobCard(run: { crew: EnsuredRecord; picker: EnsuredRecord }, c: JobCardRecord): boolean {
+    return Number(c.crewCounter) === run.crew.id || Number(c.employeeCounter) === run.picker.id;
+}
+
+async function sweepPickerJobCards(request: APIRequestContext, opts: { day: string; crewCounter: number; employeeCounter: number }): Promise<void> {
+    const cards = (await listJobCards(request, { from: opts.day, to: opts.day })).filter(
+        (c) => Number(c.crewCounter) === opts.crewCounter || Number(c.employeeCounter) === opts.employeeCounter,
+    );
+    for (const card of cards) await deleteJobCard(request, card.jobCardCounter, card.version);
+}
+
+/**
+ * Builds D5's fixture rows on screen, gates on the preferences the reverse path depends on, reads the
+ * session user (the author a run of this test must carry) and runs the before-phase sweep: job cards
+ * first, because a transferred time card cannot be deleted.
+ */
+export async function prepareJourneyD5(
+    scenario: JourneyD5ReverseCase,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<JourneyD5Run> {
+    const { sessionApi, testInfo, pages } = opts;
+    const F = journeyD5Fixture();
+    const substituted = substituteTokens(scenario, {});
+    for (const annotation of substituted.annotations) testInfo.annotations.push(annotation);
+
+    const deps = { api: sessionApi, pages, testInfo };
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const picker = await ensureEmployeeOnScreen({ ...F.picker, homeCrew: { id: crew.id, name: crew.name } }, deps);
+    const job = await ensureJobOnScreen(
+        { code: F.job.code, name: F.job.name, paymentType: F.job.paymentType, hourlyRate: F.job.hourlyRate },
+        deps,
+    );
+
+    // runCleanup's 'timeCards' step reads only `employees`.
+    const office = { ranch, field, job, crew, employees: new Map([[picker.code, picker]]) } as unknown as OfficeFixture;
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
+    const punchDate = punchDay(substituted.dayOffset);
+    const day = isoDay(punchDate);
+    const jobCardIds: number[] = [];
+
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
+        await allowApiWrites('cleanup', 'D5 teardown: own job cards by id', async () => {
+            for (const id of jobCardIds) {
+                try {
+                    const card = await getJobCard(api, id);
+                    await deleteJobCard(api, id, card.version);
+                } catch (error) {
+                    await testInfo.attach(`cleanup-warning-jobCard-${id}`, {
+                        body: error instanceof Error ? error.message : String(error),
+                        contentType: 'text/plain',
+                    });
+                }
+            }
+        });
+        await runCleanup(substituted.cleanup, api, testInfo, ctx);
+        await allowApiWrites('cleanup', 'D5 teardown: crew-scoped day sweep', () =>
+            sweepOwnTimeCards(api, { day, crewCounter: crew.id }),
+        ).catch(() => undefined);
+    };
+    const registration = currentScope(testInfo)?.add(`${substituted.label} cleanup`, finishCleanup);
+    const cleanup = async (): Promise<void> => {
+        await finishCleanup(sessionApi);
+        registration?.complete();
+    };
+
+    // Read, never written: a moved gate must fail loudly rather than skip.
+    const preferences = await getPreferences(sessionApi);
+    if (preferences.viewJobCardsAfterTransfer !== true) {
+        throw new Error(
+            `${substituted.label}: viewJobCardsAfterTransfer is not true on this environment — the reverse path starts from the Job Cards screen the transfer navigates to.`,
+        );
+    }
+    if (!(Number(preferences.maximumDaysForTransferExport) >= Math.abs(substituted.dayOffset))) {
+        throw new Error(
+            `${substituted.label}: maximumDaysForTransferExport=${String(preferences.maximumDaysForTransferExport)} is below the fixture day ${substituted.dayOffset}.`,
+        );
+    }
+    for (const key of ['mealPenaltyRule', 'paidBreakPenaltyRule']) {
+        testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
+    }
+
+    const meRes = await sessionApi.get('session/me');
+    if (!meRes.ok()) throw new Error(`GET session/me failed with ${meRes.status()}`);
+    const me = (await meRes.json()) as Record<string, unknown>;
+    const user = (me.user ?? {}) as Record<string, unknown>;
+    const sessionUserId = Number(user.userId ?? me.userCounter ?? me.userId ?? user.userCounter ?? user.id ?? me.id);
+    if (!Number.isFinite(sessionUserId)) {
+        throw new Error(`${substituted.label}: GET session/me names no user id (keys: ${Object.keys(me).join(', ')}).`);
+    }
+    const startedAt = new Date();
+
+    await allowApiWrites('cleanup', 'D5 before-phase sweep: own job cards', () =>
+        sweepPickerJobCards(sessionApi, { day, crewCounter: crew.id, employeeCounter: picker.id }),
+    );
+    await runCleanup(substituted.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
+    await allowApiWrites('cleanup', 'D5 before-phase sweep: crew time cards', () =>
+        sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
+    );
+
+    return { scenario: substituted, ranch, field, crew, picker, job, punchDate, day, startedAt, sessionUserId, jobCardIds, cleanup, ctx };
+}
+
+/**
+ * Creates the day's two time cards on screen — Add Time-In (07:00) and the deliberately wrong Add
+ * Time-Out (11:00) — then reads them back and records both before anything is asserted. The picker
+ * is the filter: the Time Out carries no Work Crew, so a crew filter would miss it.
+ */
+export async function seedOnScreenDay(
+    run: JourneyD5Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+): Promise<D5Seed> {
+    const { sessionApi, pages } = opts;
+    const { timeIn, wrongTimeOut, context, expected } = run.scenario;
+    const transfer = pages.transferToJobCards;
+    const names = { ranch: run[context.ranch].name, field: run[context.field].name, phase: run[context.phase].name };
+
+    await transfer.goto();
+    await transfer.scopeToDay(run.day);
+    await transfer.openAddRecord('timeIn');
+    await transfer.addTimeIn({ day: run.day, time: clock(timeIn), employee: run.picker.name, crew: run.crew.name, ...names });
+    await expect(transfer.recordToast(expected.toasts.timeInCreated), `${run.scenario.label}: the Time In must save`).toBeVisible();
+
+    await transfer.openAddRecord('timeOut');
+    await transfer.addTimeOut({ day: run.day, time: clock(wrongTimeOut), employee: run.picker.name });
+    await expect(transfer.recordToast(expected.toasts.timeOutCreated), `${run.scenario.label}: the Time Out must save`).toBeVisible();
+
+    let own: OfficeTimeCard[] = [];
+    await expect(async () => {
+        own = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.employeeCounter) === run.picker.id);
+        // Recorded on every poll, so teardown knows the cards even when the count is wrong.
+        run.ctx.cards = own;
+        expect(own).toHaveLength(expected.timeCards);
+    }).toPass({ timeout: 30_000 });
+
+    const timeInCard = own.find((c) => Number(c.cardType) === CARD_TYPE.timeIn);
+    const timeOutCard = own.find((c) => Number(c.cardType) === CARD_TYPE.timeOut);
+    if (!timeInCard || !timeOutCard) {
+        throw new Error(`${run.scenario.label}: expected one Time In and one Time Out for ${run.picker.name} on ${run.day}, found card types ${JSON.stringify(own.map((c) => c.cardType))}.`);
+    }
+    if (own.some((c) => c.transferred)) throw new Error(`${run.scenario.label}: a freshly created time card already reads transferred.`);
+    return {
+        timeCardCounters: own.map((c) => c.timeCardCounter),
+        timeInId: timeInCard.timeCardCounter,
+        timeOutId: timeOutCard.timeCardCounter,
+        timeInReference: String(timeInCard.reference),
+        timeOutReference: String(timeOutCard.reference),
+    };
+}
+
+/** The slice of a D5 run the shared transfer helpers read. Crew-scoped, never filtered by crew on screen. */
+function ownDayView(run: JourneyD5Run, expectedJobCards: number) {
+    return {
+        scenario: { label: run.scenario.label, expected: { jobCards: expectedJobCards } },
+        crew: run.crew,
+        day: run.day,
+        jobCardIds: run.jobCardIds,
+        ctx: run.ctx,
+    };
+}
+
+/**
+ * Re-load the day on the Transfer screen and guard the roster. Runs WITHOUT a crew filter: the execute
+ * re-plans the whole day, so the screen must offer exactly this run's two References and nothing else.
+ */
+export async function reanalyzeOwnDay(
+    run: JourneyD5Run,
+    opts: { pages: PageObjects },
+    seed: D5Seed,
+    expectedJobCards: number,
+): Promise<string[]> {
+    return openScopedCandidates(ownDayView(run, expectedJobCards), { pages: opts.pages }, seed);
+}
+
+/**
+ * Analyze, guard, tick the two own rows by Reference and commit. `toastSeen` is armed before the click:
+ * the "Transfer complete" toast is gone by the time the poll in commitTransfer returns.
+ */
+export async function transferOwnDay(
+    run: JourneyD5Run,
+    opts: { sessionApi: APIRequestContext; pages: PageObjects },
+    seed: D5Seed,
+    expectedJobCards: number,
+): Promise<ExecuteResult & { toastSeen: boolean }> {
+    const view = ownDayView(run, expectedJobCards);
+    const candidates = await openScopedCandidates(view, { pages: opts.pages }, seed);
+    const toast = opts.pages.transferToJobCards
+        .transferCompleteToast(expectedJobCards, seed.timeCardCounters.length)
+        .waitFor({ state: 'visible', timeout: 150_000 })
+        .then(() => true, () => false);
+    const result = await commitTransfer(view, opts, seed, candidates);
+    return { ...result, toastSeen: await toast };
+}
+
+/**
+ * Refuses (throws, clicks nothing) unless the run on screen is this test's own. The Job Cards Reverse
+ * posts `runs/{transferRun}/reverse` for the URL's id, so that id is checked against the execute job,
+ * the audit list and the day's job cards.
+ */
+export async function guardReversibleRun(
+    run: JourneyD5Run,
+    opts: { sessionApi: APIRequestContext; pages: PageObjects; testInfo: TestInfo },
+    transfer: ExecuteResult,
+): Promise<TransferRunRecord> {
+    const refuse = (why: string): never => {
+        throw new Error(`${run.scenario.label}: refusing to reverse — ${why}`);
+    };
+    const param = opts.pages.viewJobCards.transferRunParam();
+    if (!(param > 0)) refuse(`the Job Cards URL carries no transferRun (${String(param)}).`);
+    if (param !== transfer.transferRunCounter) refuse(`the URL's transferRun ${param} is not this test's execute run ${transfer.transferRunCounter}.`);
+
+    const runs = await listTransferRuns(opts.sessionApi);
+    const record = runs.find((r) => r.transferRunCounter === param);
+    if (!record) return refuse(`run ${param} is not in the transfer-run list.`);
+    if (record.status !== 'active') refuse(`run ${param} is ${record.status}, not active.`);
+    if (record.authorCounter !== run.sessionUserId) refuse(`run ${param} was written by user ${record.authorCounter}, not session user ${run.sessionUserId}.`);
+    const stamp = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(record.runAtUtc) ? record.runAtUtc : `${record.runAtUtc}Z`;
+    if (!(Date.parse(stamp) >= run.startedAt.getTime() - 60_000)) refuse(`run ${param} (${record.runAtUtc}) predates this test's start.`);
+    if (record.jobCardCount !== 1 || record.timeCardCount !== 2 || record.jobCardsModified !== 0) {
+        refuse(`run ${param} reads ${record.jobCardCount} job card(s), ${record.timeCardCount} time card(s), ${record.jobCardsModified} modified — expected 1, 2, 0.`);
+    }
+
+    const dayIds = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c)).map((c) => c.jobCardCounter);
+    if (JSON.stringify([...dayIds].sort()) !== JSON.stringify([...transfer.jobCardCounters].sort())) {
+        refuse(`the day's own job cards ${JSON.stringify(dayIds)} are not exactly this transfer's ${JSON.stringify(transfer.jobCardCounters)}.`);
+    }
+    // An annotation, not a refusal: the reverse targets an explicit id, so a newer run by another worker is harmless.
+    if (runs[0] && runs[0].transferRunCounter !== param) {
+        opts.testInfo.annotations.push({ type: 'newer-transfer-run', description: `run ${runs[0].transferRunCounter} is newer than this test's run ${param}` });
+    }
+    return record;
+}
+
+/**
+ * The state after the reverse: the day's own job cards, the seeded time cards and whether the run is
+ * still listed as active. Polls up to 30 s for the unwind to settle and returns the last read either
+ * way; the caller asserts.
+ */
+export async function readAfterReverse(
+    run: JourneyD5Run,
+    opts: { sessionApi: APIRequestContext },
+    seed: D5Seed,
+    reversed: { runId: number; jobCardIds: number[] },
+): Promise<{ timeCards: OfficeTimeCard[]; dayJobCardIds: number[]; runStillActive: boolean }> {
+    const wanted = new Set(seed.timeCardCounters);
+    const read = async () => ({
+        dayJobCardIds: (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c)).map((c) => c.jobCardCounter),
+        timeCards: (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter)),
+        runStillActive: (await listTransferRuns(opts.sessionApi)).some((r) => r.transferRunCounter === reversed.runId && r.status === 'active'),
+    });
+    const settled = (s: Awaited<ReturnType<typeof read>>) =>
+        !s.dayJobCardIds.some((id) => reversed.jobCardIds.includes(id)) && s.timeCards.every((c) => c.transferred === false) && !s.runStillActive;
+    const deadline = Date.now() + 30_000;
+    let last = await read();
+    while (!settled(last) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 1_500));
+        last = await read();
+    }
+    return last;
+}
+
+/** Read-only: the seeded time cards as they stand now. */
+export async function readSeedTimeCards(run: JourneyD5Run, opts: { sessionApi: APIRequestContext }, seed: D5Seed): Promise<OfficeTimeCard[]> {
+    const wanted = new Set(seed.timeCardCounters);
+    return (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
+}
+
+/**
+ * Every own job card after the re-transfer, split into the work card(s), a tolerated meal-penalty
+ * card (non-labor, or "meal penalty" in the job name) and anything else. Ids are recorded into
+ * `run.jobCardIds` before the caller asserts.
+ */
+export async function readRedo(
+    run: JourneyD5Run,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    seed: D5Seed,
+): Promise<{ work: JobCardRecord[]; penalty: JobCardRecord[]; other: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
+    const { sessionApi } = opts;
+    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c));
+    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
+
+    const isPenalty = (c: JobCardRecord): boolean =>
+        Number(c.jobPaymentType) === NON_LABOR_PAYMENT_TYPE || /meal penalty/i.test(String(c.jobName ?? c.job ?? ''));
+    const work = cards.filter((c) => Number(c.jobCounter) === run.job.id);
+    const rest = cards.filter((c) => !work.includes(c));
+    const penalty = rest.filter(isPenalty);
+    const other = rest.filter((c) => !isPenalty(c));
+    return { work, penalty, other, timeCards: await readSeedTimeCards(run, { sessionApi }, seed) };
+}
+
+/** What the picker still has on the fixture day — the Time Out carries no crew, so this is by employee. */
+export async function remainingPickerTimeCards(run: JourneyD5Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
+    const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
+    return cards.filter((c) => Number(c.employeeCounter) === run.picker.id);
 }
 
 // ── D8 — Delete to recycle and restore ───────────────────────────────────────────────────────

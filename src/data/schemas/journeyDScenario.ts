@@ -304,6 +304,72 @@ export const JourneyD3CorrectionCaseSchema = z
 
 export type JourneyD3CorrectionCase = z.infer<typeof JourneyD3CorrectionCaseSchema>;
 
+// D5 — a wrong Time Out is transferred, reversed from Job Cards, corrected on the time card and
+// re-transferred. The refinements pin the arithmetic so the data cannot drift out of agreement with itself.
+
+export const JourneyD5ReverseCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('D5'),
+        label: z.string().min(1),
+        dayOffset: z.number().int(),
+        timeIn: TimeOfDay,
+        wrongTimeOut: TimeOfDay,
+        correctedTimeOut: TimeOfDay,
+        context: z.object({ ranch: z.literal('ranch'), field: z.literal('field'), phase: z.literal('job') }).strict(),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                status: z.string().min(1),
+                grossHeader: z.string().min(1),
+                firstTransfer: z.object({ jobCards: z.number().int().positive(), grossHours: z.number().positive() }).strict(),
+                redo: z
+                    .object({ workCards: z.number().int().positive(), grossHours: z.number().positive(), netHours: z.number().positive() })
+                    .strict(),
+                reverseDialog: z.object({ title: z.string().min(1), text: z.string().min(1) }).strict(),
+                toasts: z
+                    .object({
+                        timeInCreated: z.string().min(1),
+                        timeOutCreated: z.string().min(1),
+                        reversed: z.string().min(1),
+                        timeOutSaved: z.string().min(1),
+                    })
+                    .strict(),
+            })
+            .strict(),
+        annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) =>
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        // Journey B owns 0..-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14, D3 -15.
+        if (s.dayOffset !== -16) issue(['dayOffset'], 'D5 owns fixture day -16');
+        if (!(minutes(s.timeIn) < minutes(s.wrongTimeOut) && minutes(s.wrongTimeOut) < minutes(s.correctedTimeOut))) {
+            issue(['wrongTimeOut'], 'timeIn < wrongTimeOut < correctedTimeOut');
+        }
+        if (s.expected.firstTransfer.grossHours * 60 !== minutes(s.wrongTimeOut) - minutes(s.timeIn)) {
+            issue(['expected', 'firstTransfer', 'grossHours'], 'must equal wrongTimeOut - timeIn');
+        }
+        if (s.expected.redo.grossHours * 60 !== minutes(s.correctedTimeOut) - minutes(s.timeIn)) {
+            issue(['expected', 'redo', 'grossHours'], 'must equal correctedTimeOut - timeIn');
+        }
+        if (s.expected.redo.netHours !== s.expected.redo.grossHours) {
+            issue(['expected', 'redo', 'netHours'], 'D5 CREW has no lunch length, so net equals gross');
+        }
+        const sweepsOwnCards = s.cleanup.some(
+            (step) =>
+                step.kind === 'timeCards' &&
+                step.dayOffset === s.dayOffset &&
+                step.employeeCodes?.includes('8021') &&
+                [0, 1].every((t) => step.cardTypes?.includes(t)),
+        );
+        if (!sweepsOwnCards) issue(['cleanup'], "a timeCards cleanup step for ['8021'] on the fixture day with cardTypes [0, 1] is required");
+    });
+
+export type JourneyD5ReverseCase = z.infer<typeof JourneyD5ReverseCaseSchema>;
+
 // D8 — Delete to recycle and restore. Four run-unique scratch crops: index 0 is deleted from its
 // form and restored from Deleted Records, indexes 1..3 are multi-deleted and undone as one batch.
 // No fixture day and no fixture rows.
