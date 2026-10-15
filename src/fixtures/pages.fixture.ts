@@ -39,6 +39,9 @@ import { RanchPage } from '../pages/setup/RanchPage';
 import { FieldPage } from '../pages/setup/FieldPage';
 import { CrewPage } from '../pages/setup/CrewPage';
 import { EmployeePage } from '../pages/setup/EmployeePage';
+import { CropPage } from '../pages/setup/CropPage';
+import { DeletedRecordsPage } from '../pages/admin/DeletedRecordsPage';
+import { BulkDeleteHistoryPage } from '../pages/admin/BulkDeleteHistoryPage';
 
 /**
  * Every page object, lazily constructed.
@@ -84,6 +87,12 @@ export interface PageObjects {
     readonly crew: CrewPage;
     /** Setup ▸ Employee, `/setup/employees`. */
     readonly employee: EmployeePage;
+    /** Setup ▸ Crop, `/setup/crops` — D8's scratch records, deleted and restored on screen. */
+    readonly crop: CropPage;
+    /** File ▸ Administration ▸ Deleted Records and the per-entity Deleted page (D8). */
+    readonly deletedRecords: DeletedRecordsPage;
+    /** File ▸ Restore or Reverse ▸ Reverse Multi Delete (D8). */
+    readonly bulkDeleteHistory: BulkDeleteHistoryPage;
 
     // ── Input ▸ Batch — the office crew punches (D6 arrange) ──
     readonly crewTimeIn: CrewTimeInPage;
@@ -129,6 +138,9 @@ export function createPageObjects(page: Page): PageObjects {
         get field() { return lazy('field', () => new FieldPage(page)); },
         get crew() { return lazy('crew', () => new CrewPage(page)); },
         get employee() { return lazy('employee', () => new EmployeePage(page)); },
+        get crop() { return lazy('crop', () => new CropPage(page)); },
+        get deletedRecords() { return lazy('deletedRecords', () => new DeletedRecordsPage(page)); },
+        get bulkDeleteHistory() { return lazy('bulkDeleteHistory', () => new BulkDeleteHistoryPage(page)); },
         get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },
         get crewPieceOut() { return lazy('crewPieceOut', () => new CrewPieceOutPage(page)); },
         get crewTimeOut() { return lazy('crewTimeOut', () => new CrewTimeOutPage(page)); },

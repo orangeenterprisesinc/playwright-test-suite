@@ -1,0 +1,48 @@
+{
+  "_notes": [
+    "D8 — Delete to recycle and restore (catalog D8, plan test-plans/journey-d/d08-delete-recycle-restore.md, runner row D8). Crop A is deleted from its form and restored from Deleted Records; B, C and D are multi-deleted and the batch is undone from Reverse Multi Delete. Names come from the flow (uniqueName(crops.prefix)); {cropA}..{cropD} are bound by prepareJourneyD8."
+  ],
+  "workflow": "D8",
+  "label": "D8 delete to recycle and restore",
+  "crops": { "prefix": "E2ECrop_D8", "count": 4 },
+  "expected": {
+    "editHeadingPrefix": "Edit Crop: ",
+    "createdToast": "Crop created",
+    "deleteDialogText": "Are you sure? This action cannot be undone.",
+    "deletedToast": "Crop deleted",
+    "deletedRecordsLabel": "Crop",
+    "deletedPlural": "Crops",
+    "restoredToast": "Crop restored",
+    "bulkDialogText": "You can undo this from the selection bar before changing your selection.",
+    "bulkToast": "Records deleted",
+    "recordType": "Crop",
+    "field": "deleted",
+    "performedBy": "Su",
+    "undoDialogText": "This restores 3 record(s)",
+    "undoneToast": "Bulk update undone.",
+    "statusBefore": "Active",
+    "statusAfter": "Undone",
+    "batchSize": 3
+  },
+  "annotations": [
+    {
+      "type": "known-issue",
+      "description": "WEBPET-3803: after the multi-delete undo the Crop list stays stale until a browser reload, so the final row count is asserted only after a reload; the pre-reload count is attached as evidence."
+    },
+    {
+      "type": "deferred",
+      "description": "WEBPET-2852: 'excluded from reports' is not asserted until that ticket is fixed."
+    },
+    {
+      "type": "not-automatable",
+      "description": "An interrupted multi-delete cannot be reproduced; the test cannot kill the server mid-request. Legacy Restore Mode is replaced by Deleted Records (WEBPET-2053)."
+    }
+  ],
+  "cleanup": [
+    { "kind": "delete", "entity": "crop", "name": "{cropA}" },
+    { "kind": "delete", "entity": "crop", "name": "{cropB}" },
+    { "kind": "delete", "entity": "crop", "name": "{cropC}" },
+    { "kind": "delete", "entity": "crop", "name": "{cropD}" },
+    { "kind": "unremovable", "entity": "bulkDeleteHistory", "reason": "history rows are an audit trail; an Active row is left only if the test dies before the undo" }
+  ]
+}
