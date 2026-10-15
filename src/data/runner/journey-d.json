@@ -165,7 +165,7 @@
             ],
             "jira": "PET-12665",
             "status": "automated",
-            "enabled": true
+            "enabled": false
         },
         {
             "id": "D9",
