@@ -1,5 +1,6 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /**
  * Shared base for the three office crew-punch forms under Input ▸ Batch
@@ -27,10 +28,23 @@ export abstract class CrewPunchPage extends BasePage {
     readonly memoInput: Locator;
     readonly saveButton: Locator;
     readonly employeesSection: Locator;
+    /** Two "New" anchors exist on a list header; only this one carries the testid. */
+    readonly newAction: Locator;
+    readonly pageUrl: string;
+    protected readonly leftNav: LeftNavigationPage;
     private wantedDateTime = '';
 
-    protected constructor(page: Page, readonly pageUrl: string, readonly pageTitle: string | RegExp) {
+    /** `menuPath` null = the screen has no sidebar entry, so the New form is opened by address. */
+    protected constructor(
+        page: Page,
+        private readonly listUrl: string,
+        private readonly menuPath: string[] | null,
+        readonly pageTitle: string | RegExp,
+    ) {
         super(page);
+        this.pageUrl = `${listUrl}/new`;
+        this.leftNav = new LeftNavigationPage(page);
+        this.newAction = page.getByTestId('page-header-action-new');
         this.dateTimeInput = page.locator('#dateTime');
         this.crewCombobox = page.locator('#crewCounter');
         this.ranchCombobox = page.locator('#ranchCounter');
@@ -42,7 +56,15 @@ export abstract class CrewPunchPage extends BasePage {
     }
 
     async gotoNew(): Promise<void> {
-        await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
+        if (this.menuPath) {
+            await this.leftNav.openScreen(this.menuPath, this.listUrl);
+            await this.newAction.click();
+            await this.page.waitForURL((url) => url.pathname === this.pageUrl);
+        } else {
+            // No menu entry in the product (2026-10-16): the form is reachable only by address.
+            // Becomes openScreen once the sidebar links it.
+            await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
+        }
         await this.dateTimeInput.waitFor({ state: 'visible', timeout: 45_000 });
     }
 
@@ -138,6 +160,19 @@ export abstract class CrewPunchPage extends BasePage {
             const reason = (await this.page.locator('form').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
             throw new Error(`${this.pageUrl}: Save was clicked but the form did not commit. Form says: ${reason.slice(0, 400)}`);
         }
+        await this.dismissStatusDialog();
+    }
+
+    /**
+     * Crew-In/Out report "Created N Time-In records." in a modal that stays open. It makes the sidebar
+     * inert, so the next menu click would never find its group (C6/E2, 2026-10-16); a person clicks OK.
+     */
+    private async dismissStatusDialog(): Promise<void> {
+        const dialog = this.page.getByRole('dialog', { name: /status$/i });
+        const shown = await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+        if (!shown) return;
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
     }
 
     /** Wait for the crew's employee list to populate — it loads after the crew is chosen. */

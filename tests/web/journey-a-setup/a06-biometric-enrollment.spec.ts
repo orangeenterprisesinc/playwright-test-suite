@@ -108,7 +108,7 @@ test.describe('A6 · Biometric enrollment', { tag: ['@JourneyA', '@A6'] }, () =>
         }).toMatchObject(enrolledIris);
 
         // 10. Add the employee to the device.
-        await pages.scanDevice.gotoEdit(deviceId);
+        await pages.scanDevice.gotoEdit(deviceId, device.name);
         await pages.scanDevice.waitForEditReady();
         await pages.scanDevice.setIncludeEmployee();
         await pages.scanDevice.addEmployee(run.deviceLabel);

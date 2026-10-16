@@ -63,14 +63,6 @@ export class JobPage extends SetupScreenPage {
         return this.nameInput;
     }
 
-    /** Open a job's Edit form by id and wait for the record to hydrate into the fields. */
-    async gotoEditById(jobCounter: number, expectedName: string): Promise<void> {
-        await this.page.goto(`/setup/jobs/${jobCounter}`);
-        await this.nameInput.waitFor({ state: 'visible' });
-        // The form resets when GET /jobs/{id} lands; typing before that is silently discarded.
-        await expect(this.nameInput).toHaveValue(expectedName, { timeout: 30_000 });
-    }
-
     /**
      * Choose the payment type by its wire value rather than its label: the enum is the
      * contract the rest of the suite joins on, and picking `1` cannot drift the way
@@ -126,7 +118,8 @@ export class JobPage extends SetupScreenPage {
         // enables — so there is nothing to save, not a failure.
         if (Number(current) === rate) return current;
 
-        const editUrl = this.page.url();
+        const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue();
         await this.pieceRateInput.fill(String(rate));
         // Validation runs on blur, and Save stays disabled until it has.
         await this.pieceRateInput.blur();
@@ -137,7 +130,7 @@ export class JobPage extends SetupScreenPage {
 
         // Saving leaves the form, so read the rate back from a fresh load of the record rather than
         // from the fields we just typed into - that is what makes this a UI verification.
-        await this.page.goto(editUrl);
+        await this.gotoEditById(id, name);
         await this.pieceRateInput.waitFor({ state: 'visible', timeout: 30_000 });
         await expect(this.pieceRateInput).not.toHaveValue('', { timeout: 30_000 });
         return this.pieceRateInput.inputValue();
@@ -160,12 +153,9 @@ export class JobPage extends SetupScreenPage {
         const current = await this.readOvertimeRule();
         if (PickerComponent.labelPattern(name).test(current)) return current;
 
-        const editUrl = this.page.url();
         await this.pickers.pickCombobox(this.overtimeRulesCombobox, name);
+        // saveEdit re-opens the record, so the rule is read back from a fresh load.
         await this.saveEdit();
-
-        await this.page.goto(editUrl);
-        await this.nameInput.waitFor({ state: 'visible', timeout: 30_000 });
         return this.readOvertimeRule();
     }
 
@@ -173,7 +163,8 @@ export class JobPage extends SetupScreenPage {
         const current = await this.hourlyRateInput.inputValue();
         if (Number(current) === rate) return current;
 
-        const editUrl = this.page.url();
+        const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue();
         await this.hourlyRateInput.fill(String(rate));
         // Validation runs on blur, and Save stays disabled until it has.
         await this.hourlyRateInput.blur();
@@ -181,7 +172,7 @@ export class JobPage extends SetupScreenPage {
         await this.saveButton.click();
         await expect(this.unsavedChangesBar).toBeHidden({ timeout: 15_000 });
 
-        await this.page.goto(editUrl);
+        await this.gotoEditById(id, name);
         await this.hourlyRateInput.waitFor({ state: 'visible', timeout: 30_000 });
         await expect(this.hourlyRateInput).not.toHaveValue('', { timeout: 30_000 });
         return this.hourlyRateInput.inputValue();

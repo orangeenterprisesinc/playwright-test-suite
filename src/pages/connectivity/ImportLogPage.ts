@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 const COLUMNS = {
     file: 'File',
@@ -23,9 +24,11 @@ export class ImportLogPage extends BasePage {
     readonly grid: Locator;
     readonly sourceSelect: Locator;
     private readonly headerCells: Locator;
+    private readonly leftNav: LeftNavigationPage;
 
     constructor(page: Page) {
         super(page);
+        this.leftNav = new LeftNavigationPage(page);
         this.heading = page.getByRole('heading', { level: 1, name: 'Internet Import Log' });
         this.grid = page.getByRole('grid', { name: 'Internet Import Log' });
         this.sourceSelect = page.getByRole('combobox', { name: 'Source' });
@@ -33,7 +36,7 @@ export class ImportLogPage extends BasePage {
     }
 
     async goto(): Promise<void> {
-        await this.navigate();
+        await this.leftNav.openScreen(['Connectivity', 'Import', 'Import Log'], this.pageUrl);
         await this.heading.waitFor({ state: 'visible' });
     }
 

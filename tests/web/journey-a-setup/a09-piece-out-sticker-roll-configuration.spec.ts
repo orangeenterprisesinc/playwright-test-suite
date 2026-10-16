@@ -84,7 +84,8 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         // Push the setup file to one device and read it back. The device is shared: opened, never saved.
         const device = await findPocketDevice(sessionApi, deviceSpec.pocketDeviceType);
         expect(device, deviceSpec.missingMessage).not.toBeNull();
-        await pages.scanDevice.gotoEdit(device!.id);
+        expect(device!.name, 'the pocket device needs a name to be opened from the list').toBeTruthy();
+        await pages.scanDevice.gotoEdit(device!.id, device!.name!);
         await pages.scanDevice.waitForEditReady();
         const { runId } = await pages.scanDevice.pushToDevice();
         const { xml } = await readSetupExportSent(sessionApi, runId, device!.id);

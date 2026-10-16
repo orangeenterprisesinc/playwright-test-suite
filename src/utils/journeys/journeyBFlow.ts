@@ -876,7 +876,7 @@ export async function openCrewTransferCandidates(pages: PageObjects, run: Journe
     const transfer = pages.transferToJobCards;
     const own = run.recordReferences.filter((r) => r !== '');
 
-    await transfer.goto();
+    await transfer.openFromMenu();
     await transfer.scopeToDay(run.day);
     await transfer.analyzeCandidates({ expected: own.length });
     await transfer.filterByCrew(F.crew.name);

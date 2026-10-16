@@ -46,6 +46,15 @@ export class LeftNavigationPage extends BasePage {
         return this.menuItems(name).first();
     }
 
+    /**
+     * A screen entry. Groups are buttons and screens are links, and the same label can be both:
+     * with File ▸ Administration open, its "Employee" group button precedes Setup ▸ Employee in the
+     * DOM, so a label-only match opens the wrong thing and the URL never changes (A6, 2026-10-16).
+     */
+    private leafLink(name: string): Locator {
+        return this.page.getByRole('link', { name, exact: true }).filter({ visible: true }).first();
+    }
+
     private menuItems(name: string): Locator {
         return this.page
             .getByRole('link', { name, exact: true })
@@ -61,8 +70,8 @@ export class LeftNavigationPage extends BasePage {
      * hidden — keeping the walkthrough idempotent regardless of the sidebar's
      * starting state.
      */
-    async expandGroup(group: string, child: string): Promise<void> {
-        const childItem = this.menuItem(child);
+    async expandGroup(group: string, child: string, childIsLeaf = false): Promise<void> {
+        const childItem = childIsLeaf ? this.leafLink(child) : this.menuItem(child);
         // `.all()` below does not wait, and right after a goto('/') the dashboard has not rendered the
         // sidebar yet: it would see no candidates, click nothing, and hang on the final wait (2026-10-13).
         await this.menuItems(group).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
@@ -93,11 +102,33 @@ export class LeftNavigationPage extends BasePage {
 
         // Expand each group using the next label as the "is it open?" probe.
         for (let i = 0; i < menuPath.length - 1; i++) {
-            await this.expandGroup(menuPath[i], menuPath[i + 1]);
+            await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1);
         }
 
-        await this.menuItem(menuPath[menuPath.length - 1]).click();
+        const leaf = menuPath[menuPath.length - 1];
+        // A top-level entry has no expand step to wait for the sidebar; fall back to the generic match then.
+        const link = this.leafLink(leaf);
+        const target = (await link.count()) > 0 ? link : this.menuItem(leaf);
+        await target.click();
         // Tolerate a query string (the app can carry grid state in the URL).
         await this.page.waitForURL(new RegExp(`${expectedUrl.replace(/\//g, '\\/')}(\\?|$)`));
+    }
+
+    /** The app's front door: the one place a journey types an address, as a person opens the app. */
+    async openApp(): Promise<void> {
+        if (await this.searchMenu.isVisible().catch(() => false)) return;
+        await this.page.goto('/', { waitUntil: 'domcontentloaded' });
+        await this.searchMenu.waitFor({ state: 'visible' });
+    }
+
+    /** Open a screen from the menu. Already on it: a menu click does not refetch, so reload (as the old goto did). */
+    async openScreen(menuPath: string[], url: string): Promise<void> {
+        await this.openApp();
+        // Exact pathname, so /setup/jobs never matches /setup/jobs/12.
+        if (new URL(this.page.url()).pathname === url) {
+            await this.page.reload({ waitUntil: 'domcontentloaded' });
+            return;
+        }
+        await this.openViaMenu(menuPath, url);
     }
 }

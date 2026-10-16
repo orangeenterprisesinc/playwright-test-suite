@@ -1,5 +1,6 @@
 import { expect, test, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
 
 /**
@@ -148,8 +149,11 @@ export class TransferToJobCardsPage extends BasePage {
     /** How many times {@link tryWaitForCandidates} clicked "Try again" this call. */
     private analyzeRetries = 0;
 
+    private readonly leftNav: LeftNavigationPage;
+
     constructor(page: Page) {
         super(page);
+        this.leftNav = new LeftNavigationPage(page);
         this.pageRoot = page.getByTestId('transfer-v2-page');
         this.topStrip = page.getByTestId('transfer-v2-top-strip');
         this.timeCardsTab = page.getByTestId('ttjc-tab-timecards');
@@ -199,8 +203,14 @@ export class TransferToJobCardsPage extends BasePage {
             .last();
     }
 
+    /** By address — the webpet suite's entry. Journeys use {@link openFromMenu}. */
     async goto(): Promise<void> {
         await this.page.goto(this.pageUrl);
+        await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+    }
+
+    async openFromMenu(): Promise<void> {
+        await this.leftNav.openScreen(['Transfer to Job Cards'], this.pageUrl);
         await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
     }
 

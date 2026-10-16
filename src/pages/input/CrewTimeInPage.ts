@@ -1,5 +1,6 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { CrewPunchPage } from './CrewPunchPage';
+import { ListDateRangeComponent } from '../../components/ListDateRangeComponent';
 
 /**
  * Input ▸ Batch ▸ Crew Time In (`/input/crew-time-in/new`) — clocks a whole crew in.
@@ -13,9 +14,11 @@ export class CrewTimeInPage extends CrewPunchPage {
     readonly tableCombobox: Locator;
     /** One button that flips between "Select All" and "Deselect All" with the roster's state. */
     readonly selectAllToggle: Locator;
+    private readonly dateRange: ListDateRangeComponent;
 
     constructor(page: Page) {
-        super(page, '/input/crew-time-in/new', /New Crew Time In/i);
+        super(page, '/input/crew-time-in', ['Input', 'Crew Time In'], /New Crew Time In/i);
+        this.dateRange = new ListDateRangeComponent(page);
         this.tableCombobox = page.locator('#crewTableCounter');
         this.selectAllToggle = page.getByRole('button', { name: /^(De)?select All$/i });
     }
@@ -115,9 +118,12 @@ export class CrewTimeInPage extends CrewPunchPage {
         await this.save();
     }
 
-    /** Open a saved crew time-in by id, to read back what the form recorded. */
-    async gotoEdit(id: number): Promise<void> {
-        await this.page.goto(`/input/crew-time-in/${String(id)}`);
+    /** Open a saved crew time-in from the list (the day's range, then its reference link), to read back what the form recorded. */
+    async gotoEdit(opts: { day: string; reference: string }): Promise<void> {
+        await this.leftNav.openScreen(['Input', 'Crew Time In'], '/input/crew-time-in');
+        await this.dateRange.apply(opts.day);
+        await this.page.getByRole('link', { name: `Edit Crew Time In: ${opts.reference}`, exact: true }).click();
+        await this.page.waitForURL((url) => /^\/input\/crew-time-in\/\d+$/.test(url.pathname));
         await this.crewCombobox.waitFor({ state: 'visible', timeout: 30_000 });
         await expect(this.crewCombobox).not.toHaveValue('', { timeout: 30_000 });
     }

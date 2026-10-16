@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 // The import worker can leave an uploaded file at `received` for minutes on dev.
 export const IMPORT_RESULT_TIMEOUT_MS = Number(process.env.IMPORT_RESULT_TIMEOUT_MS ?? 180_000);
@@ -14,9 +15,11 @@ export class ImportSingleFolderPage extends BasePage {
     readonly importButton: Locator;
     readonly selectedFiles: Locator;
     readonly results: Locator;
+    private readonly leftNav: LeftNavigationPage;
 
     constructor(page: Page) {
         super(page);
+        this.leftNav = new LeftNavigationPage(page);
         // The sidebar carries an "Import" group button too, so everything is scoped to main.
         const main = page.getByRole('main');
         this.heading = page.getByRole('heading', { level: 1, name: 'Single Folder' });
@@ -27,7 +30,7 @@ export class ImportSingleFolderPage extends BasePage {
     }
 
     async goto(): Promise<void> {
-        await this.navigate();
+        await this.leftNav.openScreen(['Connectivity', 'Import', 'Single Folder'], this.pageUrl);
         await this.heading.waitFor({ state: 'visible' });
     }
 
