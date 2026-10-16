@@ -92,14 +92,14 @@ object for that form, with the factories in
 [`src/data/generated/`](../src/data/generated/) for run-unique data — not by chaining
 onto another spec and not by POSTing the record into existence. Fixed fixture rows
 (ranch, field, crew, employee, job, crew table, question) go through
-[`ensureOnScreen.ts`](../src/utils/fixtureRows/ensureOnScreen.ts): existence is a GET,
-the create or repair is UI.
+[`ensureOnScreen.ts`](../src/utils/fixtureRows/ensureOnScreen.ts) or an `arrange` API
+write when missing; the workflow's own records are always on screen.
 
 ## API allowances
 
-Every call this spec makes outside the browser, and which of the three allowances in
+Every call this spec makes outside the browser, and which of the four allowances in
 the UI-first rule covers it. A step a user performs on screen has **no row here**.
-Allowance is one of `cleanup` · `device` · `read`. There is no configuration allowance:
+Allowance is one of `arrange` · `cleanup` · `device` · `read`. There is no configuration allowance:
 a preference a screen exposes is set on that screen, and a preference with no screen is
 a read-only gate (read it, annotate `environment-gate`, fail by name).
 
@@ -110,6 +110,8 @@ a read-only gate (read it, annotate `environment-gate`, fail by name).
 | device envelope push | `POST …/UploadFile` (relay) | device | the handheld itself |
 | read-back after the screen saved | `GET <entity>?<scope>` | read | records ids before the assertions run |
 | after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id |
+| fixture row missing | `POST <entity>` / `POST <entity>/{id}/restore` | arrange | reference data the workflow never creates, created or restored only when missing |
+| single-folder device file (b05/b06 transport) | `POST connectivity/import/single-folder` | arrange | the importer upload used as a transport; the Internet import click stays on screen |
 
 ## Cleanup
 

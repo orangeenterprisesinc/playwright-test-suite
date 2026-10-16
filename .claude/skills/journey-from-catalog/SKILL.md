@@ -31,7 +31,7 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
    `test-plans/journey-<x>/<wf>-<slug>.md` (the plan file IS the handoff). The
    plan's **API allowances** table must be filled: every call the spec will make
    outside the browser, with its endpoint and which of the four allowances
-   (configuration / cleanup / device simulation / read-only read) covers it. A step
+   (arrange / cleanup / device simulation / read-only read) covers it. A step
    a user performs on screen has no row there — it is driven on screen.
 
 3. **Checkpoint** — if the plan's "Open questions" section is non-empty, stop and
@@ -46,10 +46,10 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
    `surface`: `ui` → `tests/web/journey-<x>-<area>/`, `calc` → same but tagged
    `@Workflow`, `device` → same folder, category `api` (or `workflow` when it also verifies in the UI). The Generator also writes the spec's scenario file `src/data/journey-<x>/<spec-basename>.json` (validated by `src/data/schemas/<journey>Scenario.ts`, loaded with `loadScenario`) — every value the spec uses lives there, never inline (`pw-spec-author` §6).
 
-   The Generator drives **arrange on screen**, not through the API: prerequisite
-   records, including the fixed fixture rows, come from
-   `src/utils/fixtureRows/ensureOnScreen.ts` (existence is a GET; the create or
-   repair is UI). The spec itself imports only the base fixture, its schema, the
+   The Generator drives the workflow's steps **on screen**, not through the API:
+   the workflow's own records are on screen, and the fixed fixture rows come from
+   `src/utils/fixtureRows/ensureOnScreen.ts` or an `arrange` write when missing
+   (existence is a GET). The spec itself imports only the base fixture, its schema, the
    scenario loader and `@utils/journeys/*` — lint enforces the rest.
 
 6. **Run** — affected tests only: `npm run test:dev -- --grep @<WF>` (never a bare

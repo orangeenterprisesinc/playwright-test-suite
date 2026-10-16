@@ -19,6 +19,7 @@ import {
     allowApiWrites,
     guardApiContext,
     VIOLATION_ANNOTATION,
+    type WriteAllowance,
 } from '@utils/api/writeGuard';
 
 /** Echoes back method and path so a test can prove the real request was sent. */
@@ -44,7 +45,7 @@ test.afterAll(async () => {
 });
 
 /** A fresh guarded context plus the annotation sink the guard would push to. */
-async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay'; defaultAllowance?: 'cleanup' | 'device' }) {
+async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay'; defaultAllowance?: WriteAllowance }) {
     process.env.UI_FIRST_GUARD = opts.mode;
     const annotations: Array<{ type: string; description?: string }> = [];
     const raw = await request.newContext({ baseURL });
@@ -136,6 +137,20 @@ test.describe('UI-first write guard', () => {
         await raw.dispose();
     });
 
+    test('an arrange write passes and lands in the ledger with its reason', async () => {
+        const { ctx, raw, annotations } = await guarded({ mode: 'enforce', label: 'sessionApi' });
+        const reason = 'ranches R1 missing: create or restore';
+        await allowApiWrites('arrange', reason, () => ctx.post('ranches', { data: {} }));
+        expect(violations(annotations)).toHaveLength(0);
+
+        const ledger = readLedger();
+        expect(ledger).toHaveLength(1);
+        expect(ledger[0]).toMatchObject({
+            type: 'allowed', method: 'POST', allowance: 'arrange', reason, label: 'sessionApi',
+        });
+        await raw.dispose();
+    });
+
     test('the allowance survives a polling await inside it', async () => {
         // AsyncLocalStorage is the whole mechanism; expect().toPass() re-enters the
         // callback across ticks, which is where a naive implementation loses context.
@@ -175,7 +190,7 @@ test.describe('UI-first write guard', () => {
         // The residue sweep and the fixture reconcile are cleanup from first call to last.
         const { ctx, raw, annotations } = await guarded({ mode: 'enforce', label: 'residueSweep', defaultAllowance: 'cleanup' });
         await ctx.delete('ranches/9');
-        await allowApiWrites('cleanup', 'restore a binned row', () => ctx.post('ranches/9/restore', { data: {} }));
+        await allowApiWrites('arrange', 'restore a binned row', () => ctx.post('ranches/9/restore', { data: {} }));
         expect(violations(annotations)).toHaveLength(0);
 
         const ledger = readLedger();
@@ -184,7 +199,7 @@ test.describe('UI-first write guard', () => {
             type: 'allowed', method: 'DELETE', allowance: 'cleanup', reason: 'residueSweep',
         });
         expect(ledger[1], 'the innermost declaration wins').toMatchObject({
-            type: 'allowed', method: 'POST', reason: 'restore a binned row',
+            type: 'allowed', method: 'POST', allowance: 'arrange', reason: 'restore a binned row',
         });
         await raw.dispose();
     });

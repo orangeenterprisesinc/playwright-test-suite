@@ -8,11 +8,18 @@
  * — `allowApiWrites(allowance, reason, fn)` — and every API context is wrapped so an
  * undeclared write is seen.
  *
- * Three allowances exist; two of them are writes:
- *   cleanup — residue sweeps, teardown, recycle-bin restores
+ * Four allowances exist; three of them are writes:
+ *   arrange — reference data the workflow never creates (ranch, field, job, crew,
+ *             employee, question), created only when missing or restored from the bin,
+ *             plus the single-folder device-file upload used as a transport
+ *   cleanup — residue sweeps, teardown
  *   device  — PET Pocket envelopes through the Post Office relay: it *is* the handheld
- * The third, read-only, needs no declaration: GET and HEAD always pass, as do the two
+ * The fourth, read-only, needs no declaration: GET and HEAD always pass, as do the two
  * non-committing POSTs the Transfer screen uses to preview work.
+ * `arrange` is declared only inside setupEntitiesApi.ts, questionsApi.ts,
+ * connectivityImportApi.ts / officeVerification.ts and ensureOnScreen.ts — never in a
+ * flow or spec. `officeVerification.substituteTransport` (OFFICE_TRANSPORT_SUBSTITUTE=1)
+ * POSTs the workflow's own punches, stays a violation by design and is never wrapped.
  * There is no configuration allowance (withdrawn 2026-10-15): a preference a screen
  * exposes is set on that screen, and one no screen exposes is an environment gate the
  * spec reads and fails by name — never a write.
@@ -28,7 +35,7 @@ import { Logger } from '../logger';
 
 const logger = new Logger('UiFirstGuard');
 
-export type WriteAllowance = 'cleanup' | 'device';
+export type WriteAllowance = 'arrange' | 'cleanup' | 'device';
 export type GuardMode = 'off' | 'warn' | 'enforce';
 
 /** The annotation an in-test violation leaves behind; `ui-first-audit` reads these. */
@@ -70,8 +77,8 @@ export class UiFirstViolation extends Error {
             `UI-first violation: ${record.method} ${record.url} (${record.label}) was made through the API.\n` +
                 `  at ${record.frames.join('\n  ← ')}\n` +
                 'A step a user performs on screen is driven on screen. If this call really is ' +
-                'cleanup or device simulation, wrap it in ' +
-                "allowApiWrites('cleanup'|'device', reason, fn) — and never wrap it " +
+                'arranged reference data, cleanup or device simulation, wrap it in ' +
+                "allowApiWrites('arrange'|'cleanup'|'device', reason, fn) — and never wrap it " +
                 'just to make a red test green. A preference is set on its screen, or gated.',
         );
         this.name = 'UiFirstViolation';
@@ -91,7 +98,7 @@ export function guardMode(): GuardMode {
 }
 
 /**
- * Declare that the writes `fn` makes are one of the two write allowances.
+ * Declare that the writes `fn` makes are one of the three write allowances.
  *
  * `reason` is mandatory and lands in the ledger, so `ui-first:audit --allowed` reads as
  * prose rather than a list of URLs. Nesting is fine — the innermost declaration wins.
