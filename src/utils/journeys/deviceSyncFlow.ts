@@ -101,7 +101,7 @@ export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOp
     };
 
     const deviceId = await pages.scanDevice.createDevice(device);
-    await pages.scanDevice.gotoEdit(deviceId);
+    await pages.scanDevice.gotoEdit(deviceId, device.name);
     await pages.scanDevice.waitForEditReady();
     await pages.scanDevice.addCrew(crew.id);
     await pages.scanDevice.addRanch(ranch.name, field.name);

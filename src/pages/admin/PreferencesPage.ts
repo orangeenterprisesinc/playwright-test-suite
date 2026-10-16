@@ -30,6 +30,7 @@
  */
 import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /** The section headings this page object knows how to scroll to. */
 export type PreferencesSection = 'Pocket' | 'Traceability - Stickers' | 'Connectivity' | 'Job';
@@ -43,17 +44,19 @@ export class PreferencesPage extends BasePage {
 
     /** The single Save that commits every section. */
     readonly saveButton: Locator;
+    private readonly leftNav: LeftNavigationPage;
     /** Global toasts, asserted when a save is expected to succeed or fail. */
     readonly errorToasts: Locator;
 
     constructor(page: Page) {
         super(page);
         this.saveButton = page.getByRole('button', { name: 'Save', exact: true });
+        this.leftNav = new LeftNavigationPage(page);
         this.errorToasts = page.locator('[data-sonner-toast][data-type="error"]');
     }
 
     async gotoPreferences(): Promise<void> {
-        await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
+        await this.leftNav.openScreen(['File', 'Administration', 'Preferences'], this.pageUrl);
         await this.saveButton.waitFor({ state: 'visible' });
     }
 

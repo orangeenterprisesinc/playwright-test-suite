@@ -285,7 +285,7 @@ export async function openScopedCandidates(
     const transfer = opts.pages.transferToJobCards;
     const own = new Set((run.ctx.cards ?? []).map((c) => String(c.reference)));
 
-    await transfer.goto();
+    await transfer.openFromMenu();
     await transfer.scopeToDay(run.day);
     await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
 
@@ -1273,7 +1273,7 @@ export async function seedOnScreenDay(
     const transfer = pages.transferToJobCards;
     const names = { ranch: run[context.ranch].name, field: run[context.field].name, phase: run[context.phase].name };
 
-    await transfer.goto();
+    await transfer.openFromMenu();
     await transfer.scopeToDay(run.day);
     await transfer.openAddRecord('timeIn');
     await transfer.addTimeIn({ day: run.day, time: clock(timeIn), employee: run.picker.name, crew: run.crew.name, ...names });

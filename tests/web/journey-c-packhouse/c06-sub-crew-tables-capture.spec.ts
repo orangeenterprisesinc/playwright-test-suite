@@ -40,7 +40,7 @@ test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }
             'a table groups the crew day, it does not lose or duplicate cards',
         ).toBe(rollUp.crewRows.length);
 
-        await page.goto(`/input/crew-time-in/${capture.onTable[0].timeCardCounter}`);
+        await pages.crewTimeIn.gotoEdit({ day: run.day, reference: String(capture.onTable[0].reference) });
         await expect(page.getByRole('combobox', { name: 'Table' })).toHaveValue(run.tableName);
         await expect(page.getByRole('combobox', { name: 'Crew *' })).toHaveValue(run.office.crew.name);
 

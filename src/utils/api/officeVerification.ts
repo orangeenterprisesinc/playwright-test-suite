@@ -337,11 +337,7 @@ async function importViaInternetUi(
         throw new Error(`${label}: the Internet pull drives Connectivity ▸ Import ▸ Internet — pass pages or set IMPORT_TRANSPORT=single-folder`);
     }
 
-    await pages.leftNav.navigate();
-    await pages.leftNav.openViaMenu(
-        ['Connectivity', 'Import', 'Internet'],
-        '/connectivity/import/internet',
-    );
+    await pages.leftNav.openScreen(['Connectivity', 'Import', 'Internet'], '/connectivity/import/internet');
     await pages.importInternet.heading.waitFor({ state: 'visible', timeout: 15_000 });
 
     const references = referencesInExport(input.xml);
@@ -477,8 +473,7 @@ export async function pullFromRelayInternetUi(
     opts: { deadline: ImportDeadline; testInfo: TestInfo; label?: string },
 ): Promise<{ pull: InternetPullResult; run?: ImportRunResult }> {
     const { deadline, testInfo, label = 'pull' } = opts;
-    await pages.leftNav.navigate();
-    await pages.leftNav.openViaMenu(['Connectivity', 'Import', 'Internet'], '/connectivity/import/internet');
+    await pages.leftNav.openScreen(['Connectivity', 'Import', 'Internet'], '/connectivity/import/internet');
     await pages.importInternet.heading.waitFor({ state: 'visible', timeout: 15_000 });
 
     const outcome = await pages.importInternet.triggerImport();
@@ -693,10 +688,8 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
     let issueGroups: string[] | null = null;
 
     // ── The screen Amy's recording ends on, reached the way she reaches it ──
-    await pages.leftNav.navigate();
-    await pages.leftNav.openViaMenu(['Transfer to Job Cards'], '/transfer-to-job-cards');
+    await pages.transferToJobCards.openFromMenu();
     const transferPage = pages.transferToJobCards;
-    await transferPage.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
 
     if (await transferPage.analyzeEnabled()) {
         // Nothing renders until a date range is committed and analyzed — the
@@ -846,10 +839,8 @@ export interface TransferGridRowInput {
  */
 export async function transferGridRowFor(input: TransferGridRowInput): Promise<Locator | null> {
     const { pages, testInfo, cards, card, punchDate, label } = input;
-    await pages.leftNav.navigate();
-    await pages.leftNav.openViaMenu(['Transfer to Job Cards'], '/transfer-to-job-cards');
+    await pages.transferToJobCards.openFromMenu();
     const transferPage = pages.transferToJobCards;
-    await transferPage.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
 
     let row: Locator | null = null;
     if (await transferPage.analyzeEnabled()) {

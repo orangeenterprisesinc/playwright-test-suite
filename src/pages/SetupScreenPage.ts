@@ -134,13 +134,12 @@ export abstract class SetupScreenPage extends BasePage {
      * of a test, when the page is still blank).
      */
     async gotoList(): Promise<void> {
-        const sidebarReady = await this.leftNav.searchMenu.isVisible().catch(() => false);
-        if (!sidebarReady) {
-            await this.page.goto('/', { waitUntil: 'domcontentloaded' });
-            await this.leftNav.searchMenu.waitFor({ state: 'visible' });
-        }
-        await this.leftNav.openViaMenu(this.config.menuPath, this.config.listUrl);
+        await this.leftNav.openScreen(this.config.menuPath, this.config.listUrl);
         await this.newButton.waitFor({ state: 'visible' });
+    }
+
+    private onList(): boolean {
+        return new URL(this.page.url()).pathname === this.config.listUrl;
     }
 
     /** From the list, open the New form. */
@@ -195,12 +194,13 @@ export abstract class SetupScreenPage extends BasePage {
     /**
      * Reload the list from the server and assert the record is gone.
      *
-     * Forces a full navigation rather than SPA routing: reaching the list through
-     * the sidebar can serve a cached grid still showing a just-deleted record, so
-     * absence must be asserted against a fresh fetch. Works from any page.
+     * Reaching the list through the sidebar can serve a cached grid still showing a
+     * just-deleted record, so the list is reloaded and absence is asserted against a
+     * fresh fetch. Works from any page.
      */
     async expectAbsentFromList(name: string): Promise<void> {
-        await this.navigate();
+        await this.gotoList();
+        await this.page.reload({ waitUntil: 'domcontentloaded' });
         await this.newButton.waitFor({ state: 'visible' });
         await this.grid.expectAbsent(name);
     }
@@ -223,15 +223,20 @@ export abstract class SetupScreenPage extends BasePage {
     }
 
     /**
-     * Open a record's Edit form by id and wait for it to hydrate.
+     * Open a record's Edit form from its list row (filter by name, click the link whose href
+     * carries the id) and wait for it to hydrate.
      *
      * The wait is the point: the form resets when `GET <entity>/{id}` lands, and
      * anything typed before that is silently discarded. Asserting Name holds the
-     * record's own value is what proves the reset has happened. Lifted from
-     * `JobPage.gotoEditById`, which found this the hard way.
+     * record's own value is what proves the reset has happened. The reload after the click
+     * guarantees that: a cached mount refetches and resets the form after a Name check
+     * (A4 day start, 2026-10-13).
      */
     async gotoEditById(id: number, expectedName: string): Promise<void> {
-        await this.page.goto(`${this.config.listUrl}/${String(id)}`);
+        const editPath = `${this.config.listUrl}/${String(id)}`;
+        if (!this.onList()) await this.gotoList();
+        await this.grid.openRecord(expectedName, editPath);
+        await this.page.reload({ waitUntil: 'domcontentloaded' });
         await this.nameInput.waitFor({ state: 'visible' });
         await expect(this.nameInput).toHaveValue(expectedName, { timeout: 30_000 });
     }

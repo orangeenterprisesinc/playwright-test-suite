@@ -22,7 +22,7 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
         annotation: [
             { type: 'testCaseId', description: 'D6' },
         ],
-    }, async ({ page, sessionApi, pages }, testInfo) => {
+    }, async ({ sessionApi, pages }, testInfo) => {
         // D6 drives two async server jobs (transfer, recalculate) plus two UI screens — the Job form
         // for the rate change and the Job Cards grid. A skipped-budget cleanup here means permanent
         // residue on dev, not just an untidy report, so the budget is generous on purpose.
@@ -115,7 +115,7 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
         expect(newRuns[0].status).toBe('active');
 
         // 12. Both rows are still on /input/job-cards for the day, by Reference.
-        await page.goto('/input/job-cards');
+        await pages.jobCards.goto();
         await pages.jobCards.applyDateRange(run.day);
         for (const card of beforeCards) {
             await expect(pages.jobCards.rowByReference(card.reference!)).toBeVisible();

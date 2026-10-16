@@ -1,9 +1,12 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
+import { ListDateRangeComponent } from '../../components/ListDateRangeComponent';
 
 /**
- * View ▸ Job Card (`/input/job-cards`, catalog D6) — the screen D6 recalculates on. A
- * date-scoped grid with a Multi Update selection mode and a bulk Recalculate action.
+ * Input ▸ Job Card (`/input/job-cards`, catalog D6) — the screen D6 recalculates on (not View ▸ Job Cards,
+ * `/view/job-cards`, a different screen). A date-scoped grid with a Multi Update selection mode and a bulk
+ * Recalculate action.
  *
  * Locators confirmed live 2026-09-29 (heading, From/To, the three testids below all present in the
  * DOM). **No delete of any kind is exposed here by design** — see the plan's binding safety note:
@@ -18,9 +21,8 @@ export class JobCardsPage extends BasePage {
     readonly pageTitle: string | RegExp = /Job Cards/i;
 
     readonly heading: Locator;
-    readonly fromInput: Locator;
-    readonly toInput: Locator;
-    readonly applyButton: Locator;
+    private readonly leftNav: LeftNavigationPage;
+    private readonly dateRange: ListDateRangeComponent;
     readonly emptyState: Locator;
     readonly grid: Locator;
     readonly multiUpdateButton: Locator;
@@ -37,9 +39,8 @@ export class JobCardsPage extends BasePage {
     constructor(page: Page) {
         super(page);
         this.heading = page.getByRole('heading', { name: 'Job Cards', level: 1 });
-        this.fromInput = page.getByRole('textbox', { name: 'From' });
-        this.toInput = page.getByRole('textbox', { name: 'To' });
-        this.applyButton = page.getByTestId('list-date-range-apply');
+        this.leftNav = new LeftNavigationPage(page);
+        this.dateRange = new ListDateRangeComponent(page);
         this.emptyState = page.getByText('Choose a date range and click Apply to load records.');
         this.grid = page.getByRole('grid', { name: 'Job Cards' });
         this.multiUpdateButton = page.getByTestId('page-header-action-multi-update');
@@ -54,16 +55,13 @@ export class JobCardsPage extends BasePage {
     }
 
     async goto(): Promise<void> {
-        await this.page.goto(this.pageUrl);
+        await this.leftNav.openScreen(['Input', 'Job Card'], this.pageUrl);
         await this.heading.waitFor({ state: 'visible', timeout: 30_000 });
     }
 
     /** From/To = the same `YYYY-MM-DD` day, then Apply — the only way rows ever appear on this screen. */
     async applyDateRange(day: string): Promise<void> {
-        await this.fromInput.fill(day);
-        await this.toInput.fill(day);
-        await this.applyButton.click();
-        await this.applyButton.waitFor({ state: 'attached' });
+        await this.dateRange.apply(day);
     }
 
     rowByReference(reference: string): Locator {

@@ -52,6 +52,32 @@ export class DataGridComponent extends BaseComponent {
         return this.page.getByRole('link', { name: `Edit ${this.entity}: ${name}` });
     }
 
+    /**
+     * The edit link of one record: `editLink` matches by substring ("Crew 1" also matches "Crew 10") and two
+     * records can share a name, so the id in the href is what makes the row unique.
+     */
+    editLinkTo(name: string, href: string): Locator {
+        return this.editLink(name).and(this.page.locator(`a[href="${href}"], a[href^="${href}?"]`));
+    }
+
+    /**
+     * Filter by name and open that record's Edit form. The unfiltered row is already visible when the
+     * filter is typed, and clicking it races the re-render that replaces it (click swallowed, route never
+     * changes — A1/A4/A9/D6/D10, 2026-10-16). Once the filter has applied the link carries it
+     * (`/setup/employees/5?name=…`), so that link is the settled row to click.
+     */
+    async openRecord(name: string, editPath: string): Promise<void> {
+        await this.nameFilter.fill(name);
+        const settled = this.editLink(name).and(this.page.locator(`a[href^="${editPath}?"]`));
+        await settled.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {
+            throw new Error(`No filtered Edit ${this.entity} link to ${editPath} after filtering the list by '${name}'`);
+        });
+        await settled.click();
+        await this.page.waitForURL((url) => url.pathname === editPath, { timeout: 15_000 }).catch(() => {
+            throw new Error(`Clicking the ${this.entity} row '${name}' did not open ${editPath}`);
+        });
+    }
+
     /** A record's grid row, located via its edit link. */
     rowFor(name: string): Locator {
         return this.page.getByRole('row').filter({ has: this.editLink(name) });

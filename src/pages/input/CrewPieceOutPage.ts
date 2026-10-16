@@ -10,7 +10,8 @@ export class CrewPieceOutPage extends CrewPunchPage {
     readonly numOfPiecesInput: Locator;
 
     constructor(page: Page) {
-        super(page, '/input/crew-piece-out/new', /New Crew Piece Out/i);
+        // null: Input ▸ Batch has no Crew Piece Out entry on dev (2026-10-16), so gotoNew opens it by address.
+        super(page, '/input/crew-piece-out', null, /New Crew Piece Out/i);
         this.numOfPiecesInput = page.locator('#numOfPieces');
     }
 

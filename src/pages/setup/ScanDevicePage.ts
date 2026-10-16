@@ -11,6 +11,8 @@
  */
 import { expect, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import { DataGridComponent } from '../../components/DataGridComponent';
+import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /** Only the pocket-class type gets a Crew section; immutable after create. 18 is "IrisID IT100". */
 export const DEVICE_TYPE = { generic: '0', irisId: '18' } as const;
@@ -51,6 +53,9 @@ export class ScanDevicePage extends BasePage {
     readonly referencePrefixInput: Locator;
     readonly webMailAddressInput: Locator;
     readonly saveButton: Locator;
+    readonly newButton: Locator;
+    readonly grid: DataGridComponent;
+    private readonly leftNav: LeftNavigationPage;
 
     readonly preferencesSection: Locator;
     readonly crewSection: Locator;
@@ -85,6 +90,9 @@ export class ScanDevicePage extends BasePage {
         this.referencePrefixInput = page.locator('input#referencePrefix');
         this.webMailAddressInput = page.locator('input#webMailAddress');
         this.saveButton = page.getByRole('button', { name: 'Save' });
+        this.newButton = page.getByRole('button', { name: 'New Scan Device' });
+        this.grid = new DataGridComponent(page, 'Scan Devices', 'Scan Device');
+        this.leftNav = new LeftNavigationPage(page);
 
         this.preferencesSection = page.locator('section#preferences');
         this.crewSection = page.locator('section#crew');
@@ -116,12 +124,24 @@ export class ScanDevicePage extends BasePage {
         this.pushDownloadFile = page.getByRole('button', { name: 'Download file' });
     }
 
-    async gotoNew(): Promise<void> {
-        await this.page.goto(`${this.pageUrl}/new`);
+    async gotoList(): Promise<void> {
+        await this.leftNav.openScreen(['File', 'Administration', 'Scan Devices & Boards'], this.pageUrl);
+        await this.newButton.waitFor({ state: 'visible' });
     }
 
-    async gotoEdit(id: number): Promise<void> {
-        await this.page.goto(`${this.pageUrl}/${String(id)}`);
+    async gotoNew(): Promise<void> {
+        await this.gotoList();
+        await this.newButton.click();
+        await this.page.waitForURL((url) => url.pathname === `${this.pageUrl}/new`);
+    }
+
+    /** From the list, by name; the caller still runs {@link waitForEditReady}. */
+    async gotoEdit(id: number, name: string): Promise<void> {
+        const editPath = `${this.pageUrl}/${String(id)}`;
+        await this.gotoList();
+        await this.grid.openRecord(name, editPath);
+        // A fresh load, as the old goto gave: a cached mount refetches and resets the form later.
+        await this.page.reload({ waitUntil: 'domcontentloaded' });
     }
 
     /** General Selects carry no ids: [0] = Device Type, [1] = Connectivity Method. */
