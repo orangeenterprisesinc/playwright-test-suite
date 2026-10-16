@@ -44,42 +44,50 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
 
 ## UI-first (binding for tests/web/**)
 
-A journey spec does on screen everything a user does on screen. The app's HTTP API may
-be used only for three things ((a) keeps its letter because code comments cite (b)–(d)):
+A journey spec does on screen everything the workflow under test does on screen. The
+app's HTTP API may be used only for four things ((b)-(d) keep their letters because
+code comments cite them):
 
-* **(a) — withdrawn 2026-10-15.** There is no configuration allowance. A preference a
-  screen exposes (Admin ▸ Preferences, the crew's notify user, a job's rate) is set on
-  that screen through its page object; a key no screen exposes (SMTP mail settings,
-  `undefinedEmployee`) is an **environment gate**: the spec reads it, annotates
-  `environment-gate: <key>` and fails by name — never writes it. The `session/me` /
-  `preferences` reads that gate a scenario are reads under (d);
+* **arrange** — reference data the workflow itself never creates (ranch, field, job,
+  crew, employee, question, crew table), created only when missing or restored from the
+  recycle bin; plus the single-folder device-file upload used as an import transport.
+  Never a preference, never a punch, time card or job card, never a record the workflow
+  creates or edits. (History: the old configuration allowance (a) was withdrawn
+  2026-10-15 — a preference is set on its screen through a page object, or gated:
+  `environment-gate: <key>`, fail by name, never write it);
 * **(b) cleanup** — the before-phase sweep of a previous run's residue and the
-  after-test teardown (`runCleanup`, `cleanupScope`, residue sweep, fixture reconcile,
-  recycle-bin restore of a fixture row);
+  after-test teardown (`runCleanup`, `cleanupScope`, residue sweep, fixture reconcile);
 * **(c) device simulation** — building PET Pocket XML envelopes and pushing/pulling
   them through the Post Office relay (`src/utils/relay/*`). The office's import click
-  (Connectivity ▸ Import ▸ *) and Push to Device are user actions, not the device:
-  they stay on screen;
+  (Connectivity ▸ Import ▸ Internet) and Push to Device are user actions, not the
+  device: they stay on screen. Only the single-folder upload transport (b05/b06,
+  `IMPORT_TRANSPORT=single-folder`) is an `arrange` write to
+  `POST connectivity/import/single-folder`. `substituteTransport`
+  (`OFFICE_TRANSPORT_SUBSTITUTE=1`) stays a violation by design;
 * **(d) read-only reads** — GETs (plus the non-committing
   `transfer-to-job-cards/analyze` and `job-cards-preview` POSTs) used as sync points
   and to read back what the screen did. Record ids from a scoped GET *before*
   asserting (the D6 pattern), so cleanup knows them even when the assertion fails.
+  The `session/me` / `preferences` reads that gate a scenario are reads under (d).
 
-Everything else — every record a user creates or edits on a screen, **including the
-fixed fixture rows** (ranch, field, crew, employee, job, crew table, question, user,
-scan device) — is created or repaired on screen through a page object
-(`src/utils/fixtureRows/ensureOnScreen.ts`). Existence is a GET; only the
-create/repair is UI. Time cards and job cards have no name and are never swept by
-prefix: they are deleted by id, from ids recorded under (d).
+Everything else — every record the workflow creates or edits on a screen — is driven on
+screen through a page object. The fixed fixture rows (ranch, field, crew, employee, job,
+crew table, question, user, scan device) are created on screen
+(`src/utils/fixtureRows/ensureOnScreen.ts`) or through the API when missing (`arrange`);
+either is acceptable, the workflow's own records are always on screen. Time cards and
+job cards have no name and are never swept by prefix: they are deleted by id, from ids
+recorded under (d).
 
 Enforced twice. ESLint bans `@utils/api/*`, `@utils/relay/*`, `@utils/cleanup/*` and
 `sessionApi.post|put|patch|delete` from specs — specs reach the API only through
 `@utils/journeys/*`. At run time `src/utils/api/writeGuard.ts` rejects any
-POST/PUT/PATCH/DELETE made outside `allowApiWrites('cleanup'|'device', reason, fn)`;
+POST/PUT/PATCH/DELETE made outside `allowApiWrites('arrange'|'cleanup'|'device', reason, fn)`;
 `UI_FIRST_GUARD=warn` annotates the test (`ui-first-violation`), `enforce` throws
 `UiFirstViolation`. `npm run ui-first:audit` lists a run's violations. **CI runs
-`enforce`** (`e2e.yml`, overridable through the `UI_FIRST_GUARD` repo variable), so a
-new spec is verified locally with `UI_FIRST_GUARD=enforce` before it is pushed. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
+`warn`** until the planned flip to `enforce` (PR 2); a new spec is still verified
+locally with `UI_FIRST_GUARD=enforce` before it is pushed. `arrange` is declared only
+inside `setupEntitiesApi.ts`, `questionsApi.ts`, `connectivityImportApi.ts`,
+`officeVerification.ts` and `ensureOnScreen.ts` — never in a journey flow or spec. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
 API seeding is part of its frozen baseline.
 
 Why the rule exists: D6 was the first journey driven entirely on screen, and doing

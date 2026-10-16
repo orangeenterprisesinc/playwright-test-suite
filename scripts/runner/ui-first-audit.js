@@ -41,7 +41,7 @@ const TAG = 'ui-first';
 const inTest = [];
 /** Violations with no test around them, from the ledger. */
 const outOfTest = [];
-/** Declared writes: the (a)/(b)/(c) ledger. */
+/** Declared writes: the arrange / cleanup / device ledger. */
 const allowed = [];
 
 // ── results.json: annotations ────────────────────────────────────────────────

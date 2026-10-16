@@ -10,9 +10,8 @@
  *
  * So existence stays a GET — cheap, and in steady state that is the whole cost — while
  * the create and any repair go through the screen's own form, which enforces what the
- * product enforces. The remaining API write is the recycle-bin restore: it undoes
- * someone else's deletion rather than creating anything, and runs under the cleanup
- * allowance (a `RecycleBinPage` would retire it).
+ * product enforces. The remaining API write is the recycle-bin restore: an arrange write that brings
+ * a reference row back before the workflow runs (a `RecycleBinPage` would retire it).
  *
  * "Fixture rows" rather than "fixtures": `src/fixtures/` is Playwright's.
  */
@@ -114,7 +113,7 @@ async function ensureOnScreen<TCreate extends CodedSpec>(
     let source: EnsuredOnScreen['source'] = 'existing';
 
     if (!record) {
-        const restored = await allowApiWrites('cleanup', `restore binned ${entity.label} ${spec.code}`, () =>
+        const restored = await allowApiWrites('arrange', `restore binned ${entity.label} ${spec.code}`, () =>
             restoreFromRecycleBin(deps.api, entity.path, entity.idKey, spec.code, spec.name),
         );
         if (restored) {

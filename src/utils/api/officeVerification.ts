@@ -24,6 +24,7 @@ import {
     type OfficeTimeCard,
 } from './timeCardsApi';
 import { createCrewTimeIn, punchTime } from './crewTimeInApi';
+import { allowApiWrites } from './writeGuard';
 
 /**
  * The office half of a Journey B run, the way Amy's recording shows it: the
@@ -239,14 +240,16 @@ async function importViaSingleFolder(
     input: DeliverInput,
     deadline: ImportDeadline,
 ): Promise<TransportResult> {
-    const upload = await createUploadContext();
+    const upload = await createUploadContext({ testInfo: input.testInfo });
     let run;
     try {
-        run = await importDeviceExport(upload, input.xml, {
-            fileName: `FromDevice-${input.label}-${Date.now()}.xml`,
-            deadline,
-            testInfo: input.testInfo,
-        });
+        run = await allowApiWrites('arrange', `${input.label}: single-folder import transport`, () =>
+            importDeviceExport(upload, input.xml, {
+                fileName: `FromDevice-${input.label}-${Date.now()}.xml`,
+                deadline,
+                testInfo: input.testInfo,
+            }),
+        );
     } finally {
         await upload.dispose();
     }

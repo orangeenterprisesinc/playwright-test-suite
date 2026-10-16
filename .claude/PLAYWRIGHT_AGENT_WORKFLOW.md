@@ -108,9 +108,10 @@ route to the agents.
 
 Generic contracts. Domain knowledge comes from the profile named in the
 invocation, never from this document. Shared constraint for every stage: there is no
-DB access from tests. In the **journey** suite (`tests/web/**`) setup is driven on
-screen and the app's API is confined to three allowances — cleanup, device simulation,
-read-only reads (the UI-first rule in [profiles/JOURNEY.md](profiles/JOURNEY.md)); a
+DB access from tests. In the **journey** suite (`tests/web/**`) workflow steps are
+driven on screen and the app's API is confined to four allowances — arrange (reference
+data the workflow never creates, when missing), cleanup, device simulation, read-only
+reads (the UI-first rule in [profiles/JOURNEY.md](profiles/JOURNEY.md)); a
 preference is set on its screen or gated, never written. The Planner names every allowed call in
 its handoff, the Generator wraps each one in
 `allowApiWrites(allowance, reason, fn)`, and the **Healer never resolves a red
@@ -161,6 +162,9 @@ Important constraints
 * A red `UiFirstViolation` is never healed by wrapping the call in
   `allowApiWrites(...)` — it says a step the spec performs through the API belongs on
   screen. Move it to the page object, or report why the screen cannot do it.
+  `arrange` is declared only inside `setupEntitiesApi.ts`, `questionsApi.ts`,
+  `connectivityImportApi.ts`/`officeVerification.ts` and `ensureOnScreen.ts`; a Healer
+  does not add it anywhere else.
 * Never blindly modify assertions, locators, waits, or timeouts just to go
   green. Escalate to Opus or Fable 5 when the cause cannot be confidently
   determined or the problem is architectural.

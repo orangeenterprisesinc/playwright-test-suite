@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { allowApiWrites } from './writeGuard';
 
 /**
  * Discover-or-create for the setup records a device import has to link against.
@@ -60,7 +61,7 @@ function asArray(body: unknown): ListedRecord[] {
     return wrapped?.items ?? wrapped?.data ?? [];
 }
 
-/** Exported for the UI-first ensure helpers: existence is a GET, the create is on screen. */
+/** Exported for the UI-first ensure helpers: existence is a GET, the create is on screen or an arrange write. */
 export async function findByCode(
     request: APIRequestContext,
     path: string,
@@ -105,34 +106,36 @@ async function ensureRecord(
         return existing;
     }
 
-    const extraFields = typeof extra === 'function' ? await extra() : extra;
-    const res = await request.post(path, {
-        data: { name, code, active: true, ...extraFields },
-        headers: { 'Content-Type': 'application/json' },
-    });
-    if (!res.ok()) {
-        const detail = (await res.text()).slice(0, 400);
+    return allowApiWrites('arrange', `${path} ${code} missing: create or restore`, async () => {
+        const extraFields = typeof extra === 'function' ? await extra() : extra;
+        const res = await request.post(path, {
+            data: { name, code, active: true, ...extraFields },
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok()) {
+            const detail = (await res.text()).slice(0, 400);
 
-        // Lookup-then-create is not atomic: with two workers both can miss and
-        // both POST, and the loser gets the same 409 as a genuine conflict.
-        const raced = await findByCode(request, path, code, idKey);
-        if (raced && raced.name === name) return raced;
+            // Lookup-then-create is not atomic: with two workers both can miss and
+            // both POST, and the loser gets the same 409 as a genuine conflict.
+            const raced = await findByCode(request, path, code, idKey);
+            if (raced && raced.name === name) return raced;
 
-        if (res.status() === 409) {
-            const restored = await restoreFromRecycleBin(request, path, idKey, code, name);
-            if (restored) return restored;
-            throw new Error(
-                `POST ${path} failed with 409: ${detail}\n` +
-                    `A soft-deleted '${name}' (code ${code}) reserves the name — the list endpoint ` +
-                    `hides it but the unique index does not — and it could not be restored ` +
-                    `automatically. Restore it from ${path}/deleted in the app, then re-run.`,
-            );
+            if (res.status() === 409) {
+                const restored = await restoreFromRecycleBin(request, path, idKey, code, name);
+                if (restored) return restored;
+                throw new Error(
+                    `POST ${path} failed with 409: ${detail}\n` +
+                        `A soft-deleted '${name}' (code ${code}) reserves the name — the list endpoint ` +
+                        `hides it but the unique index does not — and it could not be restored ` +
+                        `automatically. Restore it from ${path}/deleted in the app, then re-run.`,
+                );
+            }
+
+            throw new Error(`POST ${path} failed with ${res.status()}: ${detail}`);
         }
-
-        throw new Error(`POST ${path} failed with ${res.status()}: ${detail}`);
-    }
-    const body = (await readJson<Record<string, unknown>>(res)) ?? {};
-    return { id: Number(body[idKey] ?? body.id), code, name, created: true };
+        const body = (await readJson<Record<string, unknown>>(res)) ?? {};
+        return { id: Number(body[idKey] ?? body.id), code, name, created: true };
+    });
 }
 
 /**

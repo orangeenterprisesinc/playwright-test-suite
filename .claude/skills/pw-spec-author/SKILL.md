@@ -114,11 +114,11 @@ ESLint enforces the boundary: `tests/web/**/*.spec.ts` may not import `@utils/ap
 `apiRequest` (`config/lint/.eslintrc.json`) — specs reach all of it through
 `@utils/journeys/*`. That is the import half of the **UI-first rule**
 (`.claude/profiles/JOURNEY.md`): a journey spec does on screen everything a user does on
-screen, and the API is confined to cleanup, device simulation and read-only reads (a
+screen, and the API is confined to arrange (reference data the workflow never creates, only when missing), cleanup, device simulation and read-only reads (a
 preference is set on its screen, or gated — never written). The run-time half is
 `src/utils/api/writeGuard.ts` — any write a flow makes under an allowance is wrapped in
-`allowApiWrites('cleanup'|'device', reason, fn)`; an unwrapped write annotates the test
-`ui-first-violation` and, under `UI_FIRST_GUARD=enforce` (CI's mode), throws. Never add
+`allowApiWrites('arrange'|'cleanup'|'device', reason, fn)`; an unwrapped write annotates the test
+`ui-first-violation` and, under `UI_FIRST_GUARD=enforce` (use it to verify a spec locally; CI runs `warn` until the planned flip), throws. Never add
 an allowance to make a red test green.
 
 Journey B: `runJourneyBScenario` / `runRelayEcho` +
@@ -188,6 +188,6 @@ Then actually run the spec — `npm test -- --grep @A1` or
 - [ ] tier tags equal the CSV row's `tags` column
 - [ ] no inline test value: only `testCaseId`, `tag:`, titles and `expect()` messages are literals; everything compared comes from `scenario.expected`; no banned import (lint)
 - [ ] no selectors in the spec, no `waitForTimeout`, everything awaited
-- [ ] (journey) every record the workflow creates or edits is driven on screen, fixture rows included; `npm run ui-first:audit` reports no violation for this spec
+- [ ] (journey) every record the workflow creates or edits is driven on screen (fixture rows may also be arranged through the API when missing); `npm run ui-first:audit` reports no violation for this spec
 - [ ] created records cleaned up
 - [ ] typecheck, lint, runner check all clean; spec actually ran and passed

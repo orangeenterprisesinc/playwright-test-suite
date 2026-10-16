@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { request as playwrightRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
 import { SESSION_STORAGE_STATE, csrfTokenFromStorageFile } from './sessionContext';
+import { guardApiContext } from './writeGuard';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { recordImportRun } from '../cleanup/importRunRecorder';
 import { WORKER_INDEX } from '../cleanup/runToken';
@@ -347,7 +348,7 @@ export async function describeImportWait(
  * A request context that can post multipart as the logged-in user.
  * Dispose it when done (see {@link importDeviceExport}, which owns its own).
  */
-export async function createUploadContext(): Promise<APIRequestContext> {
+export async function createUploadContext(opts: { testInfo?: TestInfo } = {}): Promise<APIRequestContext> {
     const baseURL = getConfigValue(ConfigProperties.API_URL);
     const appOrigin = getConfigValue(ConfigProperties.APP_URL);
     if (!baseURL) throw new Error('API_URL is not set — cannot upload a device export');
@@ -360,10 +361,18 @@ export async function createUploadContext(): Promise<APIRequestContext> {
             `No CSRF token in ${SESSION_STORAGE_STATE} — run auth-setup before importing.`,
         );
     }
-    return playwrightRequest.newContext({
-        baseURL: baseURL.endsWith('/') ? baseURL : `${baseURL}/`,
+    const normalizedBase = baseURL.endsWith('/') ? baseURL : `${baseURL}/`;
+    const ctx = await playwrightRequest.newContext({
+        baseURL: normalizedBase,
         storageState: SESSION_STORAGE_STATE,
         extraHTTPHeaders: { Origin: appOrigin, 'X-CSRF-Token': csrf },
+    });
+    // No standing allowance: the caller declares the upload, so a forgotten one is a violation.
+    return guardApiContext(ctx, {
+        label: 'importer upload',
+        kind: 'app',
+        baseURL: normalizedBase,
+        testInfo: opts.testInfo,
     });
 }
 
