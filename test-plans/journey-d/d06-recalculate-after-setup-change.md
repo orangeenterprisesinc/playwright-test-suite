@@ -53,7 +53,7 @@ Manual source WEBPET-2051 (Done).
 | # | Catalog step | Office surface (live 2026-09-29) | Automatable? |
 |---|---|---|---|
 | 1 | Change the pay rate or setup record (for example a piece rate from one dollar to two). | Setup ▸ Job → the **Piece Rate** field (`#pieceRate`, required for a Piece job). Validation runs on blur, Save stays disabled until it has, and saving navigates away — so the new rate is read back from a fresh load of the record. | **yes, on screen** — this is the workflow's own step 1, so it is driven like a user would, not written through `PUT /jobs/{id}`. Two form behaviours the API path could never see: writing the value the field already holds leaves Save disabled (correctly), and the form is left on save. |
-| 2 | Run Recalculate; the program revisits the records that feed the calculation and updates the existing job cards. | **View ▸ Job Cards** `/input/job-cards`. From/To (`#filter-from`/`#filter-to`) → **Apply** (`list-date-range-apply`) → **Multi Update** (`page-header-action-multi-update`) reveals the row checkboxes → check the two own rows → **Recalculate** (`page-header-action-recalculate`) → `role="alertdialog"` **"Recalculate job cards?"** → button **"Recalculate"**. Server: `POST /job-cards/recalculate {recordIds:[…]}` → 202 `{jobId}` → poll `GET /job-cards/recalculate/{jobId}`. | **yes** — this is the workflow, driven on screen. |
+| 2 | Run Recalculate; the program revisits the records that feed the calculation and updates the existing job cards. | **View ▸ Job Cards** `/input/job-cards`. From/To (`#filter-from`/`#filter-to`) → **Apply** (`list-date-range-apply`) → **Recalculate** (`page-header-action-recalculate`) → wizard **1/2 Record Selection**: Search by **Job Card Crew**, Match Contains, Position **Is Value** = the run's crew → **Continue** → **2/2 Review Records** shows `Record count: 2` → **Execute** (since WEBPET-3847, 2026-10-19; the old one-step confirm is gone). Server: `POST /job-cards/recalculate {recordIds:[…]}` → 202 `{jobId}` → poll `GET /job-cards/recalculate/{jobId}`. | **yes** — this is the workflow, driven on screen. |
 | 3 | Confirm the new totals. | Result toast **"Recalculate complete: 2 updated, 0 skipped, 0 failed."** The grid's **Amount** column, however, reads **0.00** after the recalculate (see Expected outcomes — product defect). The trustworthy read-back is `GET /job-cards/{id}` → `pieceRate` / `pieceAmount`. | **partly** — toast and surviving rows on screen; the numeric total asserted over the API, because the grid's own Amount column is wrong on dev today. |
 
 ## Expected outcomes
@@ -90,10 +90,10 @@ Manual source WEBPET-2051 (Done).
 - When the two job cards are reloaded on `/input/job-cards` for the fixture day, both rows shall
   still be listed by their original **Reference** — the on-screen proof that Recalculate did not
   throw the cards away.
-- Where the confirm dialog is opened from checked rows, PET Tiger shall show
-  **"Recalculate the 2 checked job card(s)? Exported and date-locked rows will be skipped."**
-  The spec asserts the **2** before confirming; a different number means the selection leaked
-  outside this run's rows and the test must fail rather than confirm.
+- When the Recalculate wizard is scoped to the run's crew, step **2/2 Review Records** shall report
+  **Record count: 2**. The spec asserts the **2** before Execute; a different number means the scope
+  leaked outside this run's rows and the test must fail with nothing recalculated. Step 1 says
+  "continue with none to select every job card", so the spec never continues with empty criteria.
 - The grid's **Amount** column shall show the card's new total.
   _— **deferred: product defect on dev.** Measured 2026-09-29: right after the transfer
   `amount === 2` (= `pieceAmount`); after the first recalculate `amount === 0` and stays 0 through
@@ -134,17 +134,14 @@ Manual source WEBPET-2051 (Done).
 | Empty state | text `Choose a date range and click Apply to load records.` |
 | Grid | `getByRole('grid', { name: 'Job Cards' })`; footer `status` reads `Total N rows` |
 | Row | `getByRole('row', { name: '<reference>' })` (`aria-label` = the reference) |
-| Selection toggle | `getByTestId('page-header-action-multi-update')` — **the row checkboxes do not exist until this is pressed**: the select column is 0 px wide and the inputs are `aria-hidden`, `pointer-events:none`, `opacity:0`. Hovering does not reveal them. |
-| Row checkbox | `getByRole('checkbox', { name: 'Select <reference>' })` (after Multi Update) |
-| Selection bar | `region "Selected rows actions"` → `button "Clear selection"` whose text is `N selected` |
 | Recalculate | `getByTestId('page-header-action-recalculate')` |
-| Confirm dialog | `getByRole('alertdialog', { name: 'Recalculate job cards?' })`, body paragraph `Recalculate the {n} checked job card(s)? Exported and date-locked rows will be skipped.`, buttons `Cancel` / `Recalculate` |
+| Wizard (since 2026-10-19) | `getByRole('dialog', { name: /^Recalculate Job Cards/ })`. Step 1: `view-job-cards-criteria-search-by` → option `Job Card Crew`, `view-job-cards-criteria-match` → `Contains`, `view-job-cards-criteria-jobCardCrew-like-location` → `Is Value`, `view-job-cards-criteria-jobCardCrew-text`; criterion line `view-job-cards-criteria-line-jobCardCrew-edit`; `recalculate-selection-continue`. Step 2: `recalculate-review-count`, `recalculate-review-execute`. The grid's checked rows play no part. |
 | Result toast | text `Recalculate complete: 2 updated, 0 skipped, 0 failed.` (progress toasts `Starting recalculate…` / `Recalculating… …` may flash first) |
 | Edit link | `link "Edit Job Card: <reference>"` → `/input/job-cards/{id}` |
 | **Never touch** | `button "Delete Job Card <reference>"` / `getByTestId('job-card-delete-{id}')`, the header `checkbox "Select all rows"`, and `POST /job-cards/bulk-delete` |
 
-The page object exposes `applyDateRange(day)`, `enableSelection()`, `selectByReference(ref)`,
-`selectedCount()`, `recalculate()`, `confirmDialogText()`, `confirmRecalculate()`,
+The page object exposes `applyDateRange(day)`, `openRecalculateWizard()`, `scopeToCrew(name)`,
+`continueToReview()`, `executeRecalculate()`,
 `resultToast()`, `rowByReference(ref)` — and deliberately exposes **no delete of any kind**.
 
 ## Data
