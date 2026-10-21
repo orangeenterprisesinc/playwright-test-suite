@@ -57,24 +57,19 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
         const jobAfterRateChange = await setRateOnScreen(run, { pages, testInfo }, scenario.rate.after, 'rate v2 - the setup change');
         expect(jobAfterRateChange.pieceRate, 'the Job form must show the new piece rate after saving').toBe(scenario.rate.after);
 
-        // 7. On screen: /input/job-cards -> From/To = the fixture day -> Apply -> both references listed ->
-        //    Multi Update -> check exactly the two own rows -> selection bar reads "2 selected".
+        // 7. On screen: /input/job-cards -> From/To = the fixture day -> Apply -> both references listed.
         await pages.jobCards.goto();
         await pages.jobCards.applyDateRange(run.day);
         for (const card of beforeCards) {
             await expect(pages.jobCards.rowByReference(card.reference!)).toBeVisible();
         }
-        await pages.jobCards.enableSelection();
-        for (const card of beforeCards) {
-            await pages.jobCards.selectByReference(card.reference!);
-        }
-        expect(await pages.jobCards.selectedCount()).toBe(scenario.expected.jobCards);
 
-        // Recalculate -> assert the dialog body names the seeded count -> confirm.
-        await pages.jobCards.recalculate();
-        const dialogText = await pages.jobCards.confirmDialogText();
-        expect(dialogText).toContain(String(scenario.expected.jobCards));
-        await pages.jobCards.confirmRecalculate();
+        // Recalculate wizard: step 1 scopes to this run's crew (empty criteria would target every card on
+        // the tenant), step 2 must report exactly the seeded count before Execute.
+        await pages.jobCards.openRecalculateWizard();
+        await pages.jobCards.scopeToCrew(run.crew.name);
+        expect(await pages.jobCards.continueToReview(), 'the review step must list exactly this run\'s job cards').toBe(scenario.expected.jobCards);
+        await pages.jobCards.executeRecalculate();
 
         // 8. Assert the result toast names the exact counts — "2 updated, 0 skipped, 0 failed".
         // Recalculate is an async server job — the toast lands when it settles, not on click.

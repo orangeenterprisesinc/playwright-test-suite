@@ -25,13 +25,17 @@ export class JobCardsPage extends BasePage {
     private readonly dateRange: ListDateRangeComponent;
     readonly emptyState: Locator;
     readonly grid: Locator;
-    readonly multiUpdateButton: Locator;
-    readonly selectionBar: Locator;
-    readonly clearSelectionButton: Locator;
     readonly recalculateButton: Locator;
-    readonly confirmDialog: Locator;
-    readonly confirmRecalculateButton: Locator;
-    readonly cancelDialogButton: Locator;
+    /** Two-step Recalculate wizard (1/2 Record Selection, 2/2 Review Records) — replaced the one-step confirm in WEBPET-3847. */
+    readonly wizard: Locator;
+    private readonly searchByField: Locator;
+    private readonly matchSelect: Locator;
+    private readonly positionSelect: Locator;
+    private readonly crewTextInput: Locator;
+    private readonly crewCriterionLine: Locator;
+    private readonly continueButton: Locator;
+    private readonly reviewCount: Locator;
+    private readonly executeButton: Locator;
     /** Edit Job Card form — read-only use; Delete and Save are deliberately not exposed. */
     readonly piecesInput: Locator;
     readonly pieceRateInput: Locator;
@@ -43,13 +47,16 @@ export class JobCardsPage extends BasePage {
         this.dateRange = new ListDateRangeComponent(page);
         this.emptyState = page.getByText('Choose a date range and click Apply to load records.');
         this.grid = page.getByRole('grid', { name: 'Job Cards' });
-        this.multiUpdateButton = page.getByTestId('page-header-action-multi-update');
-        this.selectionBar = page.getByRole('region', { name: 'Selected rows actions' });
-        this.clearSelectionButton = this.selectionBar.getByRole('button', { name: 'Clear selection' });
         this.recalculateButton = page.getByTestId('page-header-action-recalculate');
-        this.confirmDialog = page.getByRole('alertdialog', { name: 'Recalculate job cards?' });
-        this.confirmRecalculateButton = this.confirmDialog.getByRole('button', { name: 'Recalculate' });
-        this.cancelDialogButton = this.confirmDialog.getByRole('button', { name: 'Cancel' });
+        this.wizard = page.getByRole('dialog', { name: /^Recalculate Job Cards/ });
+        this.searchByField = this.wizard.getByTestId('view-job-cards-criteria-search-by');
+        this.matchSelect = this.wizard.getByTestId('view-job-cards-criteria-match');
+        this.positionSelect = this.wizard.getByTestId('view-job-cards-criteria-jobCardCrew-like-location');
+        this.crewTextInput = this.wizard.getByTestId('view-job-cards-criteria-jobCardCrew-text');
+        this.crewCriterionLine = this.wizard.getByTestId('view-job-cards-criteria-line-jobCardCrew-edit');
+        this.continueButton = this.wizard.getByTestId('recalculate-selection-continue');
+        this.reviewCount = this.wizard.getByTestId('recalculate-review-count');
+        this.executeButton = this.wizard.getByTestId('recalculate-review-execute');
         this.piecesInput = page.locator('#pieces');
         this.pieceRateInput = page.locator('#pieceRate');
     }
@@ -156,40 +163,37 @@ export class JobCardsPage extends BasePage {
         await this.heading.waitFor({ state: 'visible', timeout: 30_000 });
     }
 
-    /** Reveals the row checkboxes — hidden by construction until this is pressed. */
-    async enableSelection(): Promise<void> {
-        await this.multiUpdateButton.click();
-    }
-
-    async selectByReference(reference: string): Promise<void> {
-        await this.rowByReference(reference).getByRole('checkbox', { name: `Select ${reference}` }).check();
+    async openRecalculateWizard(): Promise<void> {
+        await this.recalculateButton.click();
+        await this.wizard.waitFor({ state: 'visible', timeout: 15_000 });
     }
 
     /**
-     * The "N selected" count the selection bar reports. It is a count element, not the bar's only
-     * button — the sole button there is "Clear selection", which does not contain "selected" — so
-     * this reads the region's own text. Bounded deliberately: if the bar never appears, failing in
-     * seconds keeps the test's own cleanup inside its budget, where a 240 s hang would strand the
-     * committed job cards on dev.
+     * Step 1 criterion: Job Card Crew "Is Value" the crew name. Never Continue with empty criteria —
+     * the wizard then targets every job card on the tenant — so the criterion line is asserted first.
      */
-    async selectedCount(): Promise<number> {
-        await this.selectionBar.waitFor({ state: 'visible', timeout: 15_000 });
-        const text = (await this.selectionBar.textContent()) ?? '';
-        return Number(/(\d+)\s*selected/i.exec(text)?.[1] ?? 0);
+    async scopeToCrew(crewName: string): Promise<void> {
+        if (!crewName.trim()) throw new Error('Recalculate wizard: refusing to scope with an empty crew name');
+        await this.searchByField.click();
+        await this.page.getByRole('option', { name: 'Job Card Crew', exact: true }).click();
+        await this.matchSelect.click();
+        await this.page.getByRole('option', { name: 'Contains', exact: true }).click();
+        await this.positionSelect.click();
+        await this.page.getByRole('option', { name: 'Is Value', exact: true }).click();
+        await this.crewTextInput.fill(crewName);
+        await expect(this.crewCriterionLine).toContainText(crewName, { timeout: 15_000 });
     }
 
-    async recalculate(): Promise<void> {
-        await this.recalculateButton.click();
-        await this.confirmDialog.waitFor({ state: 'visible', timeout: 15_000 });
+    /** Continue to step 2 and return the "Record count" it reports, to be checked before {@link executeRecalculate}. */
+    async continueToReview(): Promise<number> {
+        await this.continueButton.click();
+        await this.reviewCount.waitFor({ state: 'visible', timeout: 15_000 });
+        return Number(/(\d+)/.exec((await this.reviewCount.textContent()) ?? '')?.[1] ?? NaN);
     }
 
-    async confirmDialogText(): Promise<string> {
-        return (await this.confirmDialog.textContent()) ?? '';
-    }
-
-    async confirmRecalculate(): Promise<void> {
-        await this.confirmRecalculateButton.click();
-        await this.confirmDialog.waitFor({ state: 'hidden', timeout: 15_000 });
+    async executeRecalculate(): Promise<void> {
+        await this.executeButton.click();
+        await this.wizard.waitFor({ state: 'hidden', timeout: 15_000 });
     }
 
     /**
