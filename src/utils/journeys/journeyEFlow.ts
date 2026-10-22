@@ -1,10 +1,11 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
+import type { JourneyE8FinalizeCase } from '@data/schemas/journeyEScenario';
 import { journeyE2Fixture } from '@data/journey-e/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import { deleteJobCard, getJobCard, listJobCards, type JobCardRecord } from '@utils/api/jobCardsApi';
-import { analyzeTransfer, previewJobCards } from '@utils/api/transferToJobCardsApi';
+import { analyzeTransfer, previewJobCards, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
@@ -23,7 +24,7 @@ import {
 // One spec imports one flow module: the D-flow transfer helpers are re-exported rather than moved.
 export { commitTransfer, openScopedCandidates } from '@utils/journeys/journeyDFlow';
 export type { PreviewBoundary, SeedResult } from '@utils/journeys/journeyDFlow';
-import type { PreviewBoundary } from '@utils/journeys/journeyDFlow';
+import { commitTransfer, openScopedCandidates, type PreviewBoundary } from '@utils/journeys/journeyDFlow';
 
 interface Clock {
     hour: number;
@@ -340,4 +341,312 @@ export async function readDailyOvertime(
     const wanted = new Set((run.ctx.cards ?? []).map((c) => c.timeCardCounter));
     const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
     return { cards, timeCards };
+}
+
+// ── E8 — finalize gross pay ──
+
+type E8Deps = { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects };
+
+/** The preview's Job Cards rows summed, in the Totals bar's terms. */
+export interface PreviewSums {
+    gross: number;
+    meals: number;
+    net: number;
+    regular: number;
+    overtime: number;
+    double: number;
+    amount: number;
+}
+
+const sumOf = (values: number[]): number => values.reduce((a, b) => a + b, 0);
+
+/** Read, never written: the transfer-landing assertion depends on it, so a different value fails by name. */
+export async function assertTransferLandingGate(run: JourneyE2Run, opts: { sessionApi: APIRequestContext }): Promise<void> {
+    const preferences = await getPreferences(opts.sessionApi);
+    if (preferences.viewJobCardsAfterTransfer !== true) {
+        throw new Error(
+            `${run.scenario.label}: viewJobCardsAfterTransfer is ${String(preferences.viewJobCardsAfterTransfer)}, not true — the transfer would not land on View ▸ Job Cards.`,
+        );
+    }
+}
+
+/**
+ * Catalog step 1, before anything commits: the crew's own rows are Ready and nothing blocks, then the
+ * preview's buckets are summed for the Totals comparison. Ends on the Time Cards tab, where rows are ticked.
+ */
+export async function confirmCrewDayClean(
+    run: JourneyE2Run,
+    opts: E8Deps,
+    scenario: JourneyE8FinalizeCase,
+    seed: SeedResult,
+): Promise<{ candidates: string[]; previewSums: PreviewSums }> {
+    const { sessionApi, pages } = opts;
+    const transfer = pages.transferToJobCards;
+    const { expected } = scenario;
+
+    const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
+    await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+    for (const id of seed.timeCardCounters) {
+        expect.soft(await transfer.rowStatusText(id), `${scenario.label}: time card ${id} must read ${expected.status} before the commit`).toBe(expected.status);
+    }
+    const analysis = await analyzeCrewDay(run, { sessionApi });
+    expect(analysis.plannableTotal, `${scenario.label}: analyze must plan exactly ${expected.timeCards} time cards`).toBe(expected.timeCards);
+    expect(analysis.blocking, `${scenario.label}: analyze must raise no blocking exception`).toEqual([]);
+
+    await transfer.openJobCardsTab();
+    const buckets = await transfer.previewOvertimeBuckets();
+    expect(buckets, `${scenario.label}: the preview must show exactly ${expected.jobCards} job card`).toHaveLength(expected.jobCards);
+    expect.soft(buckets[0].job, `${scenario.label}: the previewed card must be ${run.job.name}`).toContain(run.job.name);
+    const previewSums: PreviewSums = {
+        gross: sumOf(buckets.map((b) => b.grossTime)),
+        meals: sumOf(buckets.map((b) => b.meal)),
+        net: sumOf(buckets.map((b) => b.netTime)),
+        regular: sumOf(buckets.map((b) => b.regularHours)),
+        overtime: sumOf(buckets.map((b) => b.overtime)),
+        double: sumOf(buckets.map((b) => b.doubleTime)),
+        amount: sumOf(buckets.map((b) => b.amount)),
+    };
+    expect.soft(previewSums, `${scenario.label}: the preview, summed over its rows`).toEqual({
+        gross: expected.grossHours,
+        meals: expected.mealHours,
+        net: expected.netHours,
+        regular: expected.regularHours,
+        overtime: expected.overtimeHours,
+        double: expected.doubleTimeHours,
+        amount: expected.totalAmount,
+    });
+    expect.soft(await transfer.previewTotals(), `${scenario.label}: preview totals bar`).toEqual({
+        pieces: expected.pieces,
+        jobCards: expected.jobCards,
+        employees: expected.employees,
+    });
+    await transfer.openTimeCardsTab();
+    return { candidates, previewSums };
+}
+
+/** Commit the two own rows; the toast is armed first because it is gone by the time the poll returns. */
+export async function transferCrewDay(
+    run: JourneyE2Run,
+    opts: E8Deps,
+    scenario: JourneyE8FinalizeCase,
+    seed: SeedResult,
+    candidates: string[],
+): Promise<ExecuteResult> {
+    const { sessionApi, pages } = opts;
+    const { expected } = scenario;
+    const toast = pages.transferToJobCards
+        .transferCompleteToast(expected.transferToast.jobCards, expected.transferToast.timeCards)
+        .waitFor({ state: 'visible', timeout: 150_000 })
+        .then(() => true, () => false);
+    const result = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
+    expect.soft(await toast, `${scenario.label}: the 'Transfer complete' toast must be seen`).toBe(true);
+    expect.soft(result.jobCardsWritten, `${scenario.label}: job cards written`).toBe(expected.transferToast.jobCards);
+    expect.soft(result.timeCardsTransferred, `${scenario.label}: time cards transferred`).toBe(expected.transferToast.timeCards);
+
+    await pages.viewJobCards.waitForTransferLanding();
+    expect(pages.viewJobCards.transferRunParam(), `${scenario.label}: the app lands with this transfer's run id`).toBe(result.transferRunCounter);
+    return result;
+}
+
+/** Catalog step 1, after the commit: none of the crew's References is offered again, nothing is plannable, both cards read transferred. */
+export async function confirmNothingLeft(run: JourneyE2Run, opts: E8Deps, scenario: JourneyE8FinalizeCase): Promise<void> {
+    const { sessionApi, pages } = opts;
+    const transfer = pages.transferToJobCards;
+
+    await transfer.openFromMenu();
+    await transfer.scopeToDay(run.day);
+    await transfer.reanalyze();
+    const offered = await transfer.candidateReferences();
+    for (const reference of (run.ctx.cards ?? []).map((c) => String(c.reference))) {
+        expect.soft(offered, `${scenario.label}: ${reference} must not be offered as a transfer candidate again`).not.toContain(reference);
+    }
+
+    const analysis = await analyzeCrewDay(run, { sessionApi });
+    expect.soft(analysis.plannableTotal, `${scenario.label}: nothing of the crew is plannable after the transfer`).toBe(0);
+    expect.soft(analysis.blocking, `${scenario.label}: no blocking exception after the transfer`).toEqual([]);
+
+    const wanted = new Set(run.timeCardIds);
+    const own = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
+    expect(own, `${scenario.label}: both own time cards are readable`).toHaveLength(scenario.expected.timeCards);
+    for (const card of own) expect.soft(Boolean(card.transferred), `${scenario.label}: time card ${card.timeCardCounter} must read transferred`).toBe(true);
+}
+
+async function cellNumber(view: PageObjects['viewJobCards'], row: ReturnType<PageObjects['viewJobCards']['rowsForCrew']>, header: string): Promise<number> {
+    const text = ((await (await view.cellByHeader(row, header)).innerText()) ?? '').replace(/,/g, '').trim();
+    return text === '' ? 0 : Number(text);
+}
+
+/**
+ * Catalog step 2: View ▸ Job Cards for the day and the crew. The Totals bar reconciles with itself, with the
+ * pre-commit preview, with the crew's row and with the scenario.
+ */
+export async function reviewPayrollTotals(
+    run: JourneyE2Run,
+    opts: E8Deps,
+    scenario: JourneyE8FinalizeCase,
+    previewSums: PreviewSums,
+): Promise<{ reference: string }> {
+    const { sessionApi, pages } = opts;
+    const view = pages.viewJobCards;
+    const { expected } = scenario;
+    const label = scenario.label;
+
+    await view.openFromMenu();
+    await view.scopeToDay(run.day);
+    await expect(view.includeExportedSwitch, `${label}: Include Exported must be off`).not.toBeChecked();
+    await view.applyFilter();
+    await expect(view.employeeChips, `${label}: the Employees filter`).toContainText(expected.employeesChip);
+    await view.filterByCrew(run.crew.name);
+    await expect(view.crewChips, `${label}: the Crews filter must read exactly the crew`).toHaveText(run.crew.name);
+
+    const rows = view.rowsForCrew(run.crew.name);
+    await expect(rows, `${label}: one crew-scoped row`).toHaveCount(expected.jobCards);
+    const row = rows.first();
+    const written = await getJobCard(sessionApi, run.jobCardIds[0]);
+    const reference = String(written.reference ?? '');
+    expect.soft(await row.getAttribute('aria-label'), `${label}: the row is the written card`).toBe(reference);
+    await expect.soft(await view.cellByHeader(row, 'Employee'), `${label}: Employee`).toContainText(run.picker.name);
+    await expect.soft(await view.cellByHeader(row, 'Job'), `${label}: Job`).toContainText(run.job.name);
+    await expect.soft(await view.cellByHeader(row, 'Exported'), `${label}: the fresh card is not exported`).toHaveText(expected.exportedCell);
+
+    // The crew filter re-totals client-side; wait for the bar to settle on the crew before reading it whole.
+    let totals = await view.readTotals();
+    await expect(async () => {
+        totals = await view.readTotals();
+        expect(totals.gross).toBe(expected.grossHours);
+    }).toPass({ timeout: 15_000 });
+
+    const counts = await view.readCounts();
+    expect.soft(counts.records.shown, `${label}: records shown`).toBe(expected.jobCards);
+    expect.soft(counts.employees.shown, `${label}: employees shown`).toBe(expected.employees);
+    expect.soft(counts.pieces.shown, `${label}: pieces shown`).toBe(expected.pieces);
+
+    const [year, month, date] = run.day.split('-');
+    expect.soft(
+        {
+            gross: totals.gross,
+            net: totals.net,
+            meals: totals.meals,
+            amount: totals.amount,
+            regular: totals.regular,
+            overtime: totals.overtime,
+            double: totals.double,
+            firstDate: totals.firstDate,
+        },
+        `${label}: the Totals bar`,
+    ).toEqual({
+        gross: expected.grossHours,
+        net: expected.netHours,
+        meals: expected.mealHours,
+        amount: expected.totalAmount,
+        regular: expected.regularHours,
+        overtime: expected.overtimeHours,
+        double: expected.doubleTimeHours,
+        firstDate: `${Number(month)}/${Number(date)}/${year.slice(2)}`,
+    });
+    expect.soft(totals.net, `${label}: Net = Gross − Meals`).toBeCloseTo(totals.gross - totals.meals, 4);
+    expect.soft(totals.regular + totals.overtime + totals.double, `${label}: Regular + Overtime + Double = Net`).toBeCloseTo(totals.net, 4);
+    expect.soft(
+        { gross: totals.gross, meals: totals.meals, net: totals.net, regular: totals.regular, overtime: totals.overtime, double: totals.double, amount: totals.amount },
+        `${label}: the Totals bar reconciles with the pre-commit preview`,
+    ).toEqual(previewSums);
+
+    expect.soft(await cellNumber(view, row, 'Regular Hours'), `${label}: row Regular Hours`).toBe(totals.regular);
+    expect.soft(await cellNumber(view, row, 'Overtime'), `${label}: row Overtime`).toBe(totals.overtime);
+    expect.soft(await cellNumber(view, row, 'Double Time'), `${label}: row Double Time`).toBe(totals.double);
+    expect.soft(await cellNumber(view, row, 'Amount'), `${label}: row Amount`).toBe(totals.amount);
+    expect.soft(await cellNumber(view, row, 'Pieces'), `${label}: row Pieces`).toBe(expected.pieces);
+    expect.soft(await cellNumber(view, row, 'Paid Pieces'), `${label}: row Paid Pieces`).toBe(expected.pieces);
+    return { reference };
+}
+
+function assertReportFilters(
+    filters: Array<Record<string, unknown>>,
+    run: JourneyE2Run,
+    label: string,
+    format: string,
+): void {
+    const named = (name: string) => filters.find((f) => f.label === name);
+    const dayOf = (filter: Record<string, unknown> | undefined) => String(((filter?.values as unknown[] | undefined) ?? [])[0] ?? '').slice(0, 10);
+    expect.soft(dayOf(named('From')), `${label} ${format}: filter From`).toBe(run.day);
+    expect.soft(dayOf(named('To')), `${label} ${format}: filter To`).toBe(run.day);
+    expect.soft(filters.find((f) => f.field === 'JobCard.Exported')?.values, `${label} ${format}: filter Exported`).toEqual([false]);
+    // Which field carries the Crews chip is unverified (plan open question 2), so the entry is found by what it names.
+    const crewEntry = filters.find(
+        (f) =>
+            f.field !== 'JobCard.EmployeeCounter' &&
+            (String(f.displayValue ?? '').includes(run.crew.name) || ((f.values as unknown[] | undefined) ?? []).map(String).includes(String(run.crew.id))),
+    );
+    expect.soft(crewEntry, `${label} ${format}: a filter entry must scope the report to ${run.crew.name}; got ${JSON.stringify(filters)}`).toBeDefined();
+}
+
+/** Catalog step 2: the Payroll Summary for the crew and day. Contents are not parsed (no PDF/xlsx parser). */
+export async function runPayrollSummary(run: JourneyE2Run, opts: E8Deps, scenario: JourneyE8FinalizeCase): Promise<void> {
+    const { testInfo, pages } = opts;
+    const { report } = scenario;
+    const label = scenario.label;
+
+    for (const format of report.formats) {
+        const saveTo = testInfo.outputPath(`payroll-summary.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+        const out = await pages.viewJobCards.runReport(report.name, format, saveTo);
+        testInfo.annotations.push({ type: 'report-filters', description: `${format}: ${JSON.stringify(out.filters)}` });
+
+        expect.soft(out.status, `${label} ${format}: the report request must succeed`).toBe(200);
+        expect.soft(out.savedBytes, `${label} ${format}: the saved file is not empty`).toBeGreaterThan(0);
+        assertReportFilters(out.filters, run, label, format);
+        if (out.savedBytes > 0) {
+            await testInfo.attach(`payroll-summary-${format}`, {
+                path: out.savedPath,
+                contentType: format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf',
+            });
+        }
+
+        if (format === 'excel') {
+            expect.soft(out.reportName, `${label}: excel reportName`).toBe(report.reportName);
+            expect.soft(out.contentType, `${label}: excel content type`).toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            expect.soft(out.contentDisposition, `${label}: excel is delivered as an attachment`).toMatch(/^attachment/i);
+            expect.soft(out.suggestedFilename, `${label}: excel filename`).toMatch(new RegExp(report.excelFilename));
+        } else {
+            expect.soft(out.contentType, `${label}: pdf content type`).toContain('application/pdf');
+            expect.soft(out.contentDisposition, `${label}: pdf is delivered inline`).toMatch(/^inline/i);
+            expect.soft(out.viewerSrc ?? '', `${label}: the PDF viewer's iframe`).toMatch(/^blob:/);
+            expect.soft(out.suggestedFilename, `${label}: pdf download filename`).toMatch(/\.pdf$/i);
+        }
+    }
+}
+
+/** Catalog step 3: Test File only reads. The split, the file state and the failure text are evidence for E9 / A4, never asserted. */
+export async function testFileIsReadOnly(run: JourneyE2Run, opts: E8Deps, scenario: JourneyE8FinalizeCase): Promise<void> {
+    const { sessionApi, testInfo, pages } = opts;
+    const view = pages.viewJobCards;
+    const sheet = view.testFile;
+    const { expected } = scenario;
+    const label = scenario.label;
+
+    const carried = await sheet.open();
+    await expect(sheet.heading, `${label}: the sheet is titled Test File`).toBeVisible();
+    await expect(sheet.sheet, `${label}: the sheet says it changes nothing`).toContainText(expected.testFileDescription);
+    expect.soft(await sheet.activeType(), `${label}: the export type`).toBe(scenario.testFile.exportType);
+    expect.soft(carried.candidatesCrewIds, `${label}: candidates is scoped to the crew`).toContain(run.crew.id);
+    expect.soft(carried.testFileCrewIds, `${label}: test-file is scoped to the crew`).toContain(run.crew.id);
+
+    const summary = await sheet.readSummary();
+    expect.soft(summary.ready + summary.cannotExport, `${label}: ready + cannot export covers the crew's cards`).toBe(expected.jobCards);
+    const results = await sheet.resultsCounts();
+    expect.soft(results.correct + results.incorrect, `${label}: Correct + Incorrect job-cards`).toBe(expected.jobCards);
+    testInfo.annotations.push({
+        type: 'test-file-evidence',
+        description: `ready=${summary.ready} cannotExport=${summary.cannotExport} file=${await sheet.fileState()} failures=${JSON.stringify(await sheet.failureTexts())}`,
+    });
+
+    await sheet.dismissResults();
+    await sheet.close();
+    await view.refresh();
+    await view.expandFilter();
+    await expect(view.includeExportedSwitch, `${label}: Include Exported is still off`).not.toBeChecked();
+    const rows = view.rowsForCrew(run.crew.name);
+    await expect(rows, `${label}: the crew row is still listed after Test File`).toHaveCount(expected.jobCards);
+    await expect.soft(await view.cellByHeader(rows.first(), 'Exported'), `${label}: Test File exports nothing`).toHaveText(expected.exportedCell);
+    const card = await getJobCard(sessionApi, run.jobCardIds[0]);
+    expect.soft(Boolean(card.exported), `${label}: the card is still not exported`).toBe(false);
 }
