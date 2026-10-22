@@ -10,8 +10,7 @@ import {
     findPocketDevice,
     preparePieceOutConfig,
     readModuleGates,
-    readSetupExportSent,
-    readStoredPreferences,
+    readSetupExportFile,
 } from '@utils/journeys/journeyAFlow';
 import { withPreferencesLock } from '@utils/sync/preferencesLock';
 
@@ -42,7 +41,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
         const written = { ...write.pocket, ...write.stickers };
 
         // Save sends the whole form, so load → set → save → reload runs under the cross-worker lock.
-        const stored = await withPreferencesLock(async () => {
+        await withPreferencesLock(async () => {
             await prefs.gotoPreferences();
 
             // The section WEBPET-1446 originally failed for want of.
@@ -71,25 +70,17 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
                 if (fieldId === screen.barcodeFunctionField) await expect(prefs.field(fieldId)).toContainText(barcodeLabel);
                 else await expect(prefs.field(fieldId)).toHaveValue(String(value));
             }
-
-            return readStoredPreferences(sessionApi);
         });
 
-        expect(stored[screen.barcodeFunctionField], 'stored as the wire value, not the label')
-            .toBe(write.stickers.pieceTraceabilityBarcodeFunction);
-        for (const [key, value] of Object.entries(written)) {
-            if (key !== screen.barcodeFunctionField) expect(stored[key]).toBe(value);
-        }
-
-        // Push the setup file to one device and read it back. The device is shared: opened, never saved.
+        // Push the setup file to one device and read the file the screen offers for download. The device is shared: opened, never saved.
         const device = await findPocketDevice(sessionApi, deviceSpec.pocketDeviceType);
         expect(device, deviceSpec.missingMessage).not.toBeNull();
         expect(device!.name, 'the pocket device needs a name to be opened from the list').toBeTruthy();
         await pages.scanDevice.gotoEdit(device!.id, device!.name!);
         await pages.scanDevice.waitForEditReady();
-        const { runId } = await pages.scanDevice.pushToDevice();
-        const { xml } = await readSetupExportSent(sessionApi, runId, device!.id);
-        await testInfo.attach('setup-export.xml', { body: xml, contentType: 'text/xml' });
+        await pages.scanDevice.pushToDevice();
+        const pushed = await pages.scanDevice.downloadPushedFile(testInfo);
+        const xml = await readSetupExportFile(pushed.path);
 
         // Proves the selection landed on a device type that actually carries the piece
         // section, so the assertions below cannot pass by absence.

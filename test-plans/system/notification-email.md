@@ -118,8 +118,9 @@ API only reads and tears down.
 
 | What | Call | Allowance | Notes |
 |---|---|---|---|
-| smtp / script / user-id reads | `GET preferences`, `GET filter-scripts`, `GET users` | read | settings are typed on Preferences ▸ Connectivity ▸ Notification; `GET notifications` resolves the id by name only if the save returns to the list |
-| job result | `GET notifications/{id}/notify-now/{jobId}` | read | the screen's own results dialog is evidence only; this poll is the verdict |
+| smtp gate / script gate / user id | `GET preferences`, `GET filter-scripts`, `GET users` | plumbing read | settings are typed on Preferences ▸ Connectivity ▸ Notification; the gates fail by name, the user id feeds the recipient check |
+| notification id | `GET notifications` | plumbing read | resolves the id by name only if the save returns to the list |
+| job result | `GET notifications/{id}/notify-now/{jobId}` via `pollNotifyNowJob` | `api-only-evidence` | the "Notification Completed" dialog is awaited first (attached, or annotated when WEBPET-1907 keeps it from rendering); per-recipient transport status has no screen, so the poll is the verdict |
 | teardown | `DELETE notifications/{id}`, `DELETE users/{id}` | cleanup | by minted name |
 
 ## Test cases

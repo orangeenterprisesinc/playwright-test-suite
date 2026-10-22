@@ -125,7 +125,8 @@ test.describe('A6 · Biometric enrollment', { tag: ['@JourneyA', '@A6'] }, () =>
         expect(pushRunId, 'the push should create an export run').toBeTruthy();
 
         // 12. The pushed file carries the employee with the RFID code and the imported templates.
-        const pushed = await readPushedEmployee(sessionApi, testInfo, pushRunId, deviceId, employee.code);
+        const pushedFile = await pages.scanDevice.downloadPushedFile(testInfo);
+        const pushed = await readPushedEmployee(pushedFile.path, employee.code);
         expect(pushed, 'the pushed file should carry the employee with the RFID code and the imported templates').toMatchObject({
             name: employee.name,
             rfidCode: run.rfidCode,

@@ -93,7 +93,7 @@ Every call this spec makes outside the browser. **A step a user performs on scre
 |---|---|---|---|
 | fixture-row existence lookup | `GET crews` · `GET employees` · `GET jobs` · `GET ranches` · `GET fields` · `GET crew-tables` (+ `GET <entity>/{id}` for the repair check) | read | `ensureOnScreen`: existence is a GET, the create and the repair are UI |
 | binned fixture row restore | `POST <entity>/{id}/restore` | cleanup | undoes someone else's deletion; wrapped in `allowApiWrites('cleanup', ...)` inside `ensureOnScreen`. Not available for tables (`GET crew-tables/deleted` answers 500) |
-| punch read-back | `GET time-cards?from&to` · `GET time-cards/crew-time-in?from&to` | read | scoped to day −10 + the C6 crew + the four fixture employees, untransferred; the ids are recorded before any assertion |
+| card ids | `GET time-cards?from&to` | plumbing read | scoped to day −10 + the C6 crew + the four fixture employees, untransferred; polls until the saves land and records the ids for cleanup before any assertion; the screens (Crew Time In edit pages, View > Time Cards) prove the capture |
 | card sweep before/after | `DELETE time-cards/{id}` | cleanup | the `timeCards` cleanup step, by the ids recorded above |
 
 No write to a setup record outside a screen.

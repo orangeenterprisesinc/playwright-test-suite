@@ -141,7 +141,7 @@ export const PieceOutConfigCaseSchema = z
 export type PieceOutConfigCase = z.infer<typeof PieceOutConfigCaseSchema>;
 
 // A4 — crew setup. The lookups the case picks by label, the overrides it sets, the globals it compares
-// against (Preferences field ids = API keys) and what the wire must hold. Name and barcode are minted by the flow.
+// against (Preferences field ids = API keys). Name and barcode are minted by the flow.
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/);
 const ClockTime = z.string().regex(/^\d{2}:\d{2}$/);
 
@@ -188,13 +188,6 @@ export const CrewSetupCaseSchema = z
             .object({
                 createdToast: z.string().min(1),
                 editHeadingPrefix: z.string().min(1),
-                wire: z
-                    .object({
-                        autoPaidBreakType: z.number().int(),
-                        autoReturnFromBreak: z.number().int(),
-                        nonNullKeys: z.array(z.string().min(1)).min(1),
-                    })
-                    .strict(),
             })
             .strict(),
         cleanup: z.array(CleanupStepSchema).default([]),

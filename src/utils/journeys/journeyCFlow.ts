@@ -6,7 +6,7 @@ import { JOURNEY_C_FIXTURE } from '@data/journey-c/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import type { CrewTableCase } from '@data/schemas/journeyCScenario';
 import type { CrewTableRecord } from '@utils/api/crewTablesApi';
-import { listCrewTimeIns, type CrewTimeInRow } from '@utils/api/crewTimeInApi';
+
 import type { OfficeFixture } from '@utils/api/officeFixture';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { CARD_TYPE, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
@@ -124,21 +124,18 @@ export async function prepareJourneyC(
 export interface CaptureResult {
     /** References in the order the server created them: on-table workers first, then off-table. */
     references: string[];
-    /** The on-table punches as `GET time-cards/crew-time-in` lists them (the read that carries the table). */
-    onTable: CrewTimeInRow[];
-    offTable: CrewTimeInRow[];
 }
 
 /**
  * Clock the run's workers in against the table on Input > Batch > Crew Time In, then the off-table
- * members with no table, and read the day's punches back. The card ids are recorded before the
- * caller asserts anything, so cleanup knows them even when an assertion fails.
+ * members with no table. The card ids are recorded (plumbing poll) before the caller asserts
+ * anything, so cleanup knows them even when an assertion fails; the screens prove the capture.
  */
 export async function captureByTable(
     run: JourneyCRun,
     opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
 ): Promise<CaptureResult> {
-    const { sessionApi, testInfo, pages } = opts;
+    const { sessionApi, pages } = opts;
     if (!run.table) throw new Error(`${run.scenario.label}: no table record to capture against`);
     if (!run.workers.length) throw new Error(`${run.scenario.label}: no capture.workerCodes, nothing to clock in`);
     const { hour, minute } = run.scenario.punch;
@@ -173,47 +170,55 @@ export async function captureByTable(
     }).toPass({ timeout: 60_000 });
     run.ctx.cards = cards;
 
-    const references = cards.map((c) => String(c.reference ?? ''));
-    const rows = await listCrewTimeIns(sessionApi, { from: run.day, to: run.day });
-    const byReference = new Map(rows.map((r) => [String(r.reference ?? ''), r]));
-    const found = references.map((ref) => byReference.get(ref)).filter((r): r is CrewTimeInRow => r !== undefined);
-    const tableId = run.table.crewTableCounter;
-    const result: CaptureResult = {
-        references,
-        onTable: found.filter((r) => Number(r.crewTableCounter ?? 0) === tableId),
-        offTable: found.filter((r) => Number(r.crewTableCounter ?? 0) !== tableId),
-    };
-    await testInfo.attach(`crew-time-in-${run.scenario.label}.json`, { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
-    return result;
+    return { references: cards.map((c) => String(c.reference ?? '')) };
 }
 
-export interface TableRollUp {
-    /** Every crew time-in punch of the fixture crew on the fixture day. */
-    crewRows: CrewTimeInRow[];
-    /** Rows keyed by `crewTableCounter` (`0` = no table). */
-    byTable: Map<number, CrewTimeInRow[]>;
-    onTable: CrewTimeInRow[];
-    offTable: CrewTimeInRow[];
+export interface CapturedPunch {
+    reference: string;
+    /** The Table picker's value on the saved punch; '' when none was chosen. */
+    table: string;
+    crew: string;
+    /** Run employee the saved punch belongs to, by name (one time card = one employee); [] if none matched. */
+    employees: string[];
 }
 
-/**
- * The reporting view C6 describes, at data level: the crew's day grouped by table. A table is a
- * grouping, not a structure, so the groups must partition the crew total exactly.
- */
-export async function rollUpByTable(run: JourneyCRun, sessionApi: APIRequestContext): Promise<TableRollUp> {
-    if (!run.table) throw new Error(`${run.scenario.label}: no table record to roll up by`);
-    const crewId = run.office.crew.id;
-    const tableId = run.table.crewTableCounter;
-    const crewRows = (await listCrewTimeIns(sessionApi, { from: run.day, to: run.day })).filter((r) => Number(r.crewCounter) === crewId);
-    const byTable = new Map<number, CrewTimeInRow[]>();
-    for (const row of crewRows) {
-        const key = Number(row.crewTableCounter ?? 0);
-        byTable.set(key, [...(byTable.get(key) ?? []), row]);
+/** Reopens each captured punch on Crew Time In for Table and Crew, then reads its employee from View > Time Cards. */
+export async function readCapturedPunchesOnScreen(run: JourneyCRun, pages: PageObjects): Promise<CapturedPunch[]> {
+    const names = [...run.workers, ...run.offTable].map((w) => w.name);
+    const page = pages.crewTimeIn;
+    const punches: CapturedPunch[] = [];
+    // `run.ctx.cards` was recorded by captureByTable's poll (plumbing), before anything is asserted.
+    for (const card of run.ctx.cards ?? []) {
+        const reference = String(card.reference ?? '');
+        await page.gotoEdit({ day: run.day, reference });
+        // The pickers fill after the form renders; Crew is always set, so it marks the Table picker as readable too.
+        await expect.poll(() => page.readCrew(), { timeout: 15_000, message: `${reference}: the Crew Time In form never filled its Crew` }).not.toBe('');
+        punches.push({ reference, table: await page.readTable(), crew: await page.readCrew(), employees: [] });
     }
-    return {
-        crewRows,
-        byTable,
-        onTable: byTable.get(tableId) ?? [],
-        offTable: crewRows.filter((r) => Number(r.crewTableCounter ?? 0) !== tableId),
-    };
+
+    // A saved punch is one time card: its edit page has no Employee field or roster, so the
+    // employee comes from the View > Time Cards record sheet for the same reference.
+    const view = pages.viewTimeCards;
+    await view.openFromMenu();
+    await view.scopeToDay(run.day);
+    await view.applyFilter();
+    for (const punch of punches) {
+        await view.openRecord(punch.reference);
+        const shown = (await view.readRecord()).employee;
+        await view.closeRecord();
+        punch.employees = names.filter((name) => shown.includes(name));
+    }
+    return punches;
+}
+
+/** View ▸ Time Cards for the fixture day, scoped to the C6 crew: how many rows the crew's day shows. The grid has no Table column. */
+export async function countCrewRowsOnScreen(run: JourneyCRun, pages: PageObjects): Promise<number> {
+    const view = pages.viewTimeCards;
+    await view.openFromMenu();
+    await view.scopeToDay(run.day);
+    await view.applyFilter();
+    // The employee pass left the last Reference in the column filter, and it survives the re-entry.
+    await view.clearReferenceFilter();
+    await view.filterByCrew(run.office.crew.name);
+    return view.totalRows();
 }

@@ -13,7 +13,7 @@
   "annotations": [
     {
       "type": "not-automatable",
-      "description": "Report by table / roll up to crew: reports are not on the web yet (PET-12682); the roll-up is asserted at data level over GET time-cards/crew-time-in."
+      "description": "Report by table / roll up to crew: reports are not on the web yet (PET-12682); the roll-up is asserted from the four Crew Time In edit pages (Table / Crew / employees) plus the crew's row count on View > Time Cards."
     },
     {
       "type": "not-automatable",
