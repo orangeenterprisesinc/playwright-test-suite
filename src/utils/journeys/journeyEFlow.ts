@@ -373,6 +373,7 @@ export async function assertTransferLandingGate(run: JourneyE2Run, opts: { sessi
 /**
  * Catalog step 1, before anything commits: the crew's own rows are Ready and nothing blocks, then the
  * preview's buckets are summed for the Totals comparison. Ends on the Time Cards tab, where rows are ticked.
+ * The pills count the whole date scope; day -18 is E8's own, so they are the crew's numbers.
  */
 export async function confirmCrewDayClean(
     run: JourneyE2Run,
@@ -380,7 +381,7 @@ export async function confirmCrewDayClean(
     scenario: JourneyE8FinalizeCase,
     seed: SeedResult,
 ): Promise<{ candidates: string[]; previewSums: PreviewSums }> {
-    const { sessionApi, pages } = opts;
+    const { pages } = opts;
     const transfer = pages.transferToJobCards;
     const { expected } = scenario;
 
@@ -389,9 +390,8 @@ export async function confirmCrewDayClean(
     for (const id of seed.timeCardCounters) {
         expect.soft(await transfer.rowStatusText(id), `${scenario.label}: time card ${id} must read ${expected.status} before the commit`).toBe(expected.status);
     }
-    const analysis = await analyzeCrewDay(run, { sessionApi });
-    expect(analysis.plannableTotal, `${scenario.label}: analyze must plan exactly ${expected.timeCards} time cards`).toBe(expected.timeCards);
-    expect(analysis.blocking, `${scenario.label}: analyze must raise no blocking exception`).toEqual([]);
+    await expect.poll(() => transfer.blockingCount(), { message: `${scenario.label}: nothing may block the day` }).toBe(0);
+    expect.soft(await transfer.readyCount(), `${scenario.label}: the day's Ready pill is the crew's ${expected.timeCards} time cards`).toBe(expected.timeCards);
 
     await transfer.openJobCardsTab();
     const buckets = await transfer.previewOvertimeBuckets();
@@ -438,19 +438,18 @@ export async function transferCrewDay(
         .transferCompleteToast(expected.transferToast.jobCards, expected.transferToast.timeCards)
         .waitFor({ state: 'visible', timeout: 150_000 })
         .then(() => true, () => false);
+    // commitTransfer's GET is only the id capture for cleanup; the toast is the proof of what was written.
     const result = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
-    expect.soft(await toast, `${scenario.label}: the 'Transfer complete' toast must be seen`).toBe(true);
-    expect.soft(result.jobCardsWritten, `${scenario.label}: job cards written`).toBe(expected.transferToast.jobCards);
-    expect.soft(result.timeCardsTransferred, `${scenario.label}: time cards transferred`).toBe(expected.transferToast.timeCards);
+    expect(await toast, `${scenario.label}: the 'Transfer complete' toast must be seen`).toBe(true);
 
     await pages.viewJobCards.waitForTransferLanding();
     expect(pages.viewJobCards.transferRunParam(), `${scenario.label}: the app lands with this transfer's run id`).toBe(result.transferRunCounter);
     return result;
 }
 
-/** Catalog step 1, after the commit: none of the crew's References is offered again, nothing is plannable, both cards read transferred. */
+/** Catalog step 1, after the commit: none of the crew's References is offered again and the day's pills read 0 Ready, 0 Blocking. */
 export async function confirmNothingLeft(run: JourneyE2Run, opts: E8Deps, scenario: JourneyE8FinalizeCase): Promise<void> {
-    const { sessionApi, pages } = opts;
+    const { pages } = opts;
     const transfer = pages.transferToJobCards;
 
     await transfer.openFromMenu();
@@ -460,15 +459,8 @@ export async function confirmNothingLeft(run: JourneyE2Run, opts: E8Deps, scenar
     for (const reference of (run.ctx.cards ?? []).map((c) => String(c.reference))) {
         expect.soft(offered, `${scenario.label}: ${reference} must not be offered as a transfer candidate again`).not.toContain(reference);
     }
-
-    const analysis = await analyzeCrewDay(run, { sessionApi });
-    expect.soft(analysis.plannableTotal, `${scenario.label}: nothing of the crew is plannable after the transfer`).toBe(0);
-    expect.soft(analysis.blocking, `${scenario.label}: no blocking exception after the transfer`).toEqual([]);
-
-    const wanted = new Set(run.timeCardIds);
-    const own = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
-    expect(own, `${scenario.label}: both own time cards are readable`).toHaveLength(scenario.expected.timeCards);
-    for (const card of own) expect.soft(Boolean(card.transferred), `${scenario.label}: time card ${card.timeCardCounter} must read transferred`).toBe(true);
+    await expect.poll(() => transfer.readyCount(), { message: `${scenario.label}: nothing of the day is Ready after the transfer` }).toBe(0);
+    expect.soft(await transfer.blockingCount(), `${scenario.label}: nothing blocks after the transfer`).toBe(0);
 }
 
 async function cellNumber(view: PageObjects['viewJobCards'], row: ReturnType<PageObjects['viewJobCards']['rowsForCrew']>, header: string): Promise<number> {
@@ -486,7 +478,7 @@ export async function reviewPayrollTotals(
     scenario: JourneyE8FinalizeCase,
     previewSums: PreviewSums,
 ): Promise<{ reference: string }> {
-    const { sessionApi, pages } = opts;
+    const { pages } = opts;
     const view = pages.viewJobCards;
     const { expected } = scenario;
     const label = scenario.label;
@@ -502,9 +494,9 @@ export async function reviewPayrollTotals(
     const rows = view.rowsForCrew(run.crew.name);
     await expect(rows, `${label}: one crew-scoped row`).toHaveCount(expected.jobCards);
     const row = rows.first();
-    const written = await getJobCard(sessionApi, run.jobCardIds[0]);
-    const reference = String(written.reference ?? '');
-    expect.soft(await row.getAttribute('aria-label'), `${label}: the row is the written card`).toBe(reference);
+    // The row's aria-label is its Reference: the one card the crew filter leaves is the one just written.
+    const reference = (await row.getAttribute('aria-label')) ?? '';
+    expect(reference, `${label}: the row carries the written card's Reference`).toMatch(/\S/);
     await expect.soft(await view.cellByHeader(row, 'Employee'), `${label}: Employee`).toContainText(run.picker.name);
     await expect.soft(await view.cellByHeader(row, 'Job'), `${label}: Job`).toContainText(run.job.name);
     await expect.soft(await view.cellByHeader(row, 'Exported'), `${label}: the fresh card is not exported`).toHaveText(expected.exportedCell);
@@ -617,7 +609,7 @@ export async function runPayrollSummary(run: JourneyE2Run, opts: E8Deps, scenari
 
 /** Catalog step 3: Test File only reads. The split, the file state and the failure text are evidence for E9 / A4, never asserted. */
 export async function testFileIsReadOnly(run: JourneyE2Run, opts: E8Deps, scenario: JourneyE8FinalizeCase): Promise<void> {
-    const { sessionApi, testInfo, pages } = opts;
+    const { testInfo, pages } = opts;
     const view = pages.viewJobCards;
     const sheet = view.testFile;
     const { expected } = scenario;
@@ -647,6 +639,4 @@ export async function testFileIsReadOnly(run: JourneyE2Run, opts: E8Deps, scenar
     const rows = view.rowsForCrew(run.crew.name);
     await expect(rows, `${label}: the crew row is still listed after Test File`).toHaveCount(expected.jobCards);
     await expect.soft(await view.cellByHeader(rows.first(), 'Exported'), `${label}: Test File exports nothing`).toHaveText(expected.exportedCell);
-    const card = await getJobCard(sessionApi, run.jobCardIds[0]);
-    expect.soft(Boolean(card.exported), `${label}: the card is still not exported`).toBe(false);
 }

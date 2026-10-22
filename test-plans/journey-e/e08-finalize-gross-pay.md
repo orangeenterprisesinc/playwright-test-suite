@@ -171,15 +171,14 @@ Every call outside the browser. **Browser-issued requests are user actions and h
 | E2 setup (reused) | every row of E2's table: `GET preferences`, `GET overtime-rules`, fixture-row GETs, `POST <entity>/{id}/restore`, `GET jobs/{id}`, `GET employees/{id}`, `GET crews/{id}`, `GET fields/{id}` | read / cleanup | unchanged inside `prepareJourneyE2` |
 | transfer-landing gate | `GET preferences` → `viewJobCardsAfterTransfer` | read | fail loudly if not true |
 | before-phase sweep | `GET job-cards?from&to` → `DELETE job-cards/{id}`; `GET time-cards?from&to` → `DELETE time-cards/{id}` | cleanup | crew + day −18 scoped (`prepareJourneyE2`) |
-| punch sync point + record ids | `GET time-cards?from&to` | read | `seedLongWorkday` |
-| crew-scoped analyze corroboration (before and after) | `POST transfer-to-job-cards/analyze {from,to,crewIds}` | read (named non-committing) | before: `plannableTotal === 2`, no blocking code; after: `plannableTotal === 0`, no blocking code (`analyzeCrewDay`) |
-| record written card ids | `GET job-cards?from&to` | read | `commitTransfer` records on every poll, before the count |
-| execute job | `GET` the execute job (inside `commitTransfer`) | read | `transferRunCounter` for the landing assertion |
-| transferred read-back | `GET time-cards?from&to` | read | both own cards `transferred === true` |
-| card read-back | `GET job-cards/{id}` | read | `exported` falsy before and after Test File; fields recorded as `job-card-fields` (`readDailyOvertime`, reused) |
+| punch sync point + record ids | `GET time-cards?from&to` | plumbing read | `seedLongWorkday` — ids for cleanup, never asserted |
+| record written card ids | `GET job-cards?from&to` | plumbing read | `commitTransfer` records ids for cleanup; the "Transfer complete" toast is the proof of what was written |
+| execute job | `GET` the execute job (inside `commitTransfer`) | plumbing read | `transferRunCounter` for the landing assertion |
 | teardown | `GET job-cards/{id}` → `DELETE job-cards/{id}` (rowversion); `DELETE time-cards/{id}`; crew-day sweep | cleanup | `run.cleanup()` from `prepareJourneyE2` |
 
 **No `arrange` row, no configuration row:** E8 creates no reference data of its own and writes no preference. No DB. No UI delete. No `bulk-delete`. No reverse. No export.
+
+**No read is a proof (2026-10-22).** The Ready/Blocking pills, the row Status badges, the "Transfer complete" toast, the Totals bar, the row cells, the Exported column and the re-analyze are the evidence; the earlier `analyze` cross-checks and `GET job-cards/{id}` / `GET time-cards` read-backs were removed.
 
 ## Cleanup
 

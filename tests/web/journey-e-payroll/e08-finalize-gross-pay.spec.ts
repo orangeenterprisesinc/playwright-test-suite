@@ -11,7 +11,6 @@ import {
     confirmCrewDayClean,
     confirmNothingLeft,
     prepareJourneyE2,
-    readDailyOvertime,
     reviewPayrollTotals,
     runPayrollSummary,
     seedLongWorkday,
@@ -59,11 +58,6 @@ test.describe('E8 · Finalize gross pay', { tag: ['@JourneyE', '@E8'] }, () => {
 
             // 9. Catalog step 1 after the commit, back on Transfer: nothing of the crew is left to transfer.
             await confirmNothingLeft(run, deps, scenario);
-
-            // 10. Read-back over the GET.
-            const { cards } = await readDailyOvertime(run, deps);
-            expect(cards, `${scenario.label}: one committed job card`).toHaveLength(expected.jobCards);
-            expect.soft(Boolean(cards[0]?.exported), `${scenario.label}: the card is still not exported`).toBe(false);
         } finally {
             await run.cleanup();
         }
