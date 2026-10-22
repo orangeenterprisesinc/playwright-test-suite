@@ -15,7 +15,9 @@
  *   cleanup — residue sweeps, teardown
  *   device  — PET Pocket envelopes through the Post Office relay: it *is* the handheld
  * The fourth, read-only, needs no declaration: GET and HEAD always pass, as do the two
- * non-committing POSTs the Transfer screen uses to preview work.
+ * non-committing POSTs the Transfer screen uses to preview work. A read is never the
+ * proof of a workflow outcome; `UI_FIRST_READS=ledger` records each one (outside
+ * tests/webpet) so `ui-first:audit --reads` can show them. `UI_FIRST_GUARD=off` bypasses it.
  * `arrange` is declared only inside setupEntitiesApi.ts, questionsApi.ts,
  * connectivityImportApi.ts / officeVerification.ts and ensureOnScreen.ts — never in a
  * flow or spec. `officeVerification.substituteTransport` (OFFICE_TRANSPORT_SUBSTITUTE=1)
@@ -51,11 +53,11 @@ export const READ_ONLY_POSTS: RegExp[] = [
 ];
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-/** The context methods that can send a write. `fetch` carries its method in options. */
-const TRAPPED = new Set(['post', 'put', 'patch', 'delete', 'fetch']);
+/** The context methods that can send a write, plus the reads so the ledger can see them. `fetch` carries its method in options. */
+const TRAPPED = new Set(['get', 'head', 'post', 'put', 'patch', 'delete', 'fetch']);
 
 export interface WriteRecord {
-    type: 'violation' | 'allowed';
+    type: 'violation' | 'allowed' | 'read';
     method: string;
     url: string;
     /** Which context sent it — `sessionApi`, `cleanupScope`, `relay`, … */
@@ -95,6 +97,11 @@ const allowances = new AsyncLocalStorage<Allowance>();
 export function guardMode(): GuardMode {
     const raw = (process.env.UI_FIRST_GUARD ?? 'warn').toLowerCase();
     return raw === 'off' || raw === 'enforce' ? raw : 'warn';
+}
+
+/** Opt-in: also ledger GETs. Changes nothing the guard allows or rejects. */
+export function readsMode(): boolean {
+    return (process.env.UI_FIRST_READS ?? '').toLowerCase() === 'ledger';
 }
 
 /**
@@ -184,10 +191,24 @@ export function guardApiContext(ctx: APIRequestContext, opts: GuardOptions): API
 
     const check = (method: string, url: unknown): void => {
         const upper = method.toUpperCase();
-        if (!WRITE_METHODS.has(upper)) return;
-
         const endpoint = endpointOf(String(url), opts.baseURL);
-        if (opts.kind !== 'relay' && upper === 'POST' && READ_ONLY_POSTS.some((r) => r.test(endpoint))) {
+        const readOnlyPost =
+            opts.kind !== 'relay' && upper === 'POST' && READ_ONLY_POSTS.some((r) => r.test(endpoint));
+        if (!WRITE_METHODS.has(upper) || readOnlyPost) {
+            // The relay is the device reading its own mailbox, and tests/webpet is frozen.
+            const spec = opts.testInfo?.file?.replace(/\\/g, '/');
+            if (readsMode() && opts.kind !== 'relay' && !spec?.includes('/tests/webpet/') && !spec?.startsWith('tests/webpet/')) {
+                record({
+                    type: 'read',
+                    method: upper,
+                    url: endpoint,
+                    label: opts.label,
+                    spec: opts.testInfo?.file,
+                    test: opts.testInfo?.title,
+                    frames: callSite(),
+                    at: new Date().toISOString(),
+                });
+            }
             return;
         }
 

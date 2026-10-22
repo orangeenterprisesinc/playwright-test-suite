@@ -90,8 +90,20 @@
           ]
         }],
         "no-restricted-syntax": ["error", {
-          "selector": "CallExpression[callee.object.name=/^(sessionApi|apiRequest)$/][callee.property.name=/^(post|put|patch|delete|fetch)$/]",
-          "message": "UI-first: a spec never writes through the API context — the action belongs on screen, or in a flow under allowApiWrites()."
+          "selector": "CallExpression[callee.object.name=/^(sessionApi|apiRequest)$/][callee.property.name=/^(get|head|post|put|patch|delete|fetch)$/]",
+          "message": "UI-first: a spec never touches the API context — the action and its proof belong on screen, or in a flow (writes under allowApiWrites(), reads as plumbing only)."
+        }, {
+          "selector": "CallExpression[callee.object.name=\"page\"][callee.property.name=\"goto\"]",
+          "message": "UI-first: open screens like a user — LeftNavigationPage.openScreen (menu, list filter, row click). page.goto is for openApp and login only."
+        }]
+      }
+    },
+    {
+      "files": ["src/utils/journeys/**/*.ts"],
+      "rules": {
+        "no-restricted-syntax": ["error", {
+          "selector": "CallExpression[callee.object.name=\"page\"][callee.property.name=\"goto\"]",
+          "message": "UI-first: open screens like a user — LeftNavigationPage.openScreen (menu, list filter, row click). page.goto is for openApp and login only."
         }]
       }
     },

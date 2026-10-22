@@ -110,16 +110,16 @@ argument of an `expect()`. Everything an assertion compares against comes from
 
 ESLint enforces the boundary: `tests/web/**/*.spec.ts` may not import `@utils/api/*`,
 `@utils/relay/*`, `@utils/cleanup/*`, `@data/generated*`, `@pages/webpet/*` or
-`@fixtures/webpet*`, and may not call `.post|put|patch|delete|fetch` on `sessionApi` or
+`@fixtures/webpet*`, and may not call `.get|head|post|put|patch|delete|fetch` on `sessionApi` or
 `apiRequest` (`config/lint/.eslintrc.json`) — specs reach all of it through
 `@utils/journeys/*`. That is the import half of the **UI-first rule**
 (`.claude/profiles/JOURNEY.md`): a journey spec does on screen everything a user does on
-screen, and the API is confined to arrange (reference data the workflow never creates, only when missing), cleanup, device simulation and read-only reads (a
+screen, and the API is confined to arrange (reference data the workflow never creates, only when missing), cleanup (sweeps, deletes and API restores of a value the test changed on screen), device simulation and plumbing reads (ids, save-landed polls, gates — never the proof of an outcome, the screen proves it) (a
 preference is set on its screen, or gated — never written). The run-time half is
 `src/utils/api/writeGuard.ts` — any write a flow makes under an allowance is wrapped in
 `allowApiWrites('arrange'|'cleanup'|'device', reason, fn)`; an unwrapped write annotates the test
 `ui-first-violation` and, under `UI_FIRST_GUARD=enforce` (use it to verify a spec locally; CI runs `warn` until the planned flip), throws. Never add
-an allowance to make a red test green.
+an allowance to make a red test green. Open screens through `LeftNavigationPage.openScreen`, never `page.goto` (lint).
 
 Journey B: `runJourneyBScenario` / `runRelayEcho` +
 `assertExpectedCards` / `assertTransferGrid` from `src/utils/journeys/journeyBFlow.ts`, then
@@ -188,6 +188,6 @@ Then actually run the spec — `npm test -- --grep @A1` or
 - [ ] tier tags equal the CSV row's `tags` column
 - [ ] no inline test value: only `testCaseId`, `tag:`, titles and `expect()` messages are literals; everything compared comes from `scenario.expected`; no banned import (lint)
 - [ ] no selectors in the spec, no `waitForTimeout`, everything awaited
-- [ ] (journey) every record the workflow creates or edits is driven on screen (fixture rows may also be arranged through the API when missing); `npm run ui-first:audit` reports no violation for this spec
+- [ ] (journey) every record the workflow creates or edits is driven on screen and every outcome is proved on screen (fixture rows may also be arranged through the API when missing); `npm run ui-first:audit` reports no violation for this spec, and `ui-first:audit -- --reads` shows only reads that have a plumbing / `api-only-evidence` row in the plan
 - [ ] created records cleaned up
 - [ ] typecheck, lint, runner check all clean; spec actually ran and passed

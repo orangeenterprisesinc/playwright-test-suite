@@ -64,11 +64,19 @@ code comments cite them):
   `IMPORT_TRANSPORT=single-folder`) is an `arrange` write to
   `POST connectivity/import/single-folder`. `substituteTransport`
   (`OFFICE_TRANSPORT_SUBSTITUTE=1`) stays a violation by design;
-* **(d) read-only reads** — GETs (plus the non-committing
-  `transfer-to-job-cards/analyze` and `job-cards-preview` POSTs) used as sync points
-  and to read back what the screen did. Record ids from a scoped GET *before*
-  asserting (the D6 pattern), so cleanup knows them even when the assertion fails.
-  The `session/me` / `preferences` reads that gate a scenario are reads under (d).
+* **(d) plumbing reads** — GETs (plus the non-committing `transfer-to-job-cards/analyze`
+  and `job-cards-preview` POSTs) only for ids a cleanup needs (recorded from a scoped GET
+  *before* asserting, the D6 pattern), polling until a save lands, and the `session/me` /
+  `preferences` / module gates that fail a scenario loudly by key. **A read is never the
+  proof of a workflow outcome — the screen proves it.** A value no screen shows is
+  asserted from the API only with `testInfo.annotations.push({ type: 'api-only-evidence',
+  description })` and a row in the plan's allowances table;
+* **Navigation** — menu, then list filter, then row click; `page.goto` only in `openApp`
+  and login. The `page.reload` in `LeftNavigationPage.openScreen`,
+  `SetupScreenPage.gotoEditById` and `ScanDevicePage.gotoEdit` is the user's F5. A screen
+  with no menu entry keeps its `goto` with a `deep-link` annotation and a comment;
+* **Teardown restore** — an API PUT/DELETE that puts back what the test changed on screen
+  is `cleanup` (it survives a test timeout; an on-screen restore does not).
 
 Everything else — every record the workflow creates or edits on a screen — is driven on
 screen through a page object. The fixed fixture rows (ranch, field, crew, employee, job,
@@ -79,11 +87,13 @@ job cards have no name and are never swept by prefix: they are deleted by id, fr
 recorded under (d).
 
 Enforced twice. ESLint bans `@utils/api/*`, `@utils/relay/*`, `@utils/cleanup/*` and
-`sessionApi.post|put|patch|delete` from specs — specs reach the API only through
+`sessionApi.get|head|post|put|patch|delete` from specs, and `page.goto` from specs and
+flows — specs reach the API only through
 `@utils/journeys/*`. At run time `src/utils/api/writeGuard.ts` rejects any
 POST/PUT/PATCH/DELETE made outside `allowApiWrites('arrange'|'cleanup'|'device', reason, fn)`;
 `UI_FIRST_GUARD=warn` annotates the test (`ui-first-violation`), `enforce` throws
-`UiFirstViolation`. `npm run ui-first:audit` lists a run's violations. **CI runs
+`UiFirstViolation`. `npm run ui-first:audit` lists a run's violations; reads are
+visible with `UI_FIRST_READS=ledger` and `npm run ui-first:audit -- --reads`. **CI runs
 `warn`** until the planned flip to `enforce` (PR 2); a new spec is still verified
 locally with `UI_FIRST_GUARD=enforce` before it is pushed. `arrange` is declared only
 inside `setupEntitiesApi.ts`, `questionsApi.ts`, `connectivityImportApi.ts`,

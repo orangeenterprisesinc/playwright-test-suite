@@ -31,7 +31,8 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
    `test-plans/journey-<x>/<wf>-<slug>.md` (the plan file IS the handoff). The
    plan's **API allowances** table must be filled: every call the spec will make
    outside the browser, with its endpoint and which of the four allowances
-   (arrange / cleanup / device simulation / read-only read) covers it. A step
+   (arrange / cleanup / device simulation / plumbing read) covers it, and every
+   read names the on-screen step that proves the same outcome. A step
    a user performs on screen has no row there — it is driven on screen.
 
 3. **Checkpoint** — if the plan's "Open questions" section is non-empty, stop and
@@ -55,7 +56,10 @@ conventions live in `.claude/profiles/JOURNEY.md` — read it first.
 6. **Run** — affected tests only: `npm run test:dev -- --grep @<WF>` (never a bare
    `npx playwright test` — that targets localhost and everything "did not run").
    Run with `UI_FIRST_GUARD=enforce` so an API write the spec should have made on
-   screen fails loudly instead of passing quietly.
+   screen fails loudly instead of passing quietly. Then run it once with
+   `UI_FIRST_READS=ledger` and review `npm run ui-first:audit -- --reads`: every read
+   must map to a plumbing or `api-only-evidence` row in the plan's table; any other
+   read is a proof that belongs on screen.
 
 7. **Heal** — on failures, invoke the `playwright-test-healer` agent with the
    artifact paths. Healing must not weaken an assertion tied to an expected
