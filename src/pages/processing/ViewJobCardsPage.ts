@@ -159,7 +159,10 @@ export class ViewJobCardsPage extends BasePage {
             response = await refetched;
         }
         expect(response.status(), 'GET job-cards for the filter').toBe(200);
-        await expect(this.page.getByTestId('data-grid-count').first()).toBeVisible({ timeout: 30_000 });
+        // Mirrors Time Cards: an empty filter renders a "No ... match the current filter." line instead of the count (empty text not measured here).
+        const count = this.page.getByTestId('data-grid-count').first();
+        const empty = this.page.getByText(/^No job cards .*match/i);
+        await expect(count.or(empty), 'the Job Cards grid shows neither a row count nor a "No job cards ... match" message').toBeVisible({ timeout: 30_000 });
     }
 
     /** Options come from the loaded rows, so this only works after {@link applyFilter}. Client-side: the totals re-compute at once. */
@@ -167,7 +170,10 @@ export class ViewJobCardsPage extends BasePage {
         await this.page.getByTestId('view-job-cards-filter-crews').click();
         const search = this.page.getByRole('searchbox', { name: /Search crews/i });
         await search.fill(name);
-        await this.page.getByRole('button', { name, exact: true }).click();
+        // The options come from the loaded rows: an absent crew shows "No results." and a bare click would wait for the test cap.
+        const option = this.page.getByRole('button', { name, exact: true });
+        await expect(option, `the Crews chip offers no "${name}" option (no loaded row belongs to it)`).toBeVisible({ timeout: 15_000 });
+        await option.click();
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(search).toBeHidden({ timeout: 10_000 });

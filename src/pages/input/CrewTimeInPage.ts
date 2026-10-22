@@ -36,13 +36,15 @@ export class CrewTimeInPage extends CrewPunchPage {
         await this.pickCombo(this.tableCombobox, name);
     }
 
-    /** The table currently chosen, as the picker displays it. */
+    /** The table currently chosen, as the picker displays it. Crew-scoped, so it refetches after Crew fills and reads "" until it lands. */
     async readTable(): Promise<string> {
+        await expect(this.tableCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 15_000 });
         return this.tableCombobox.inputValue();
     }
 
     /** The crew currently chosen, as the picker displays it. */
     async readCrew(): Promise<string> {
+        await expect(this.crewCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 15_000 });
         return this.crewCombobox.inputValue();
     }
 

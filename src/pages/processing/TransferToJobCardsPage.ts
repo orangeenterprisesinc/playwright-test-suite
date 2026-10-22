@@ -518,7 +518,10 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     private async gridHeaders(): Promise<string[]> {
-        const headers = this.pageRoot.getByRole('columnheader');
+        // Only the titled header row: the grid has a second row of per-column filter headers (19 more
+        // columnheaders) that would otherwise shift every index.
+        const titleRow = this.pageRoot.getByRole('row').filter({ has: this.page.getByRole('columnheader', { name: /^Reorder column / }) }).first();
+        const headers = titleRow.getByRole('columnheader');
         await expect(headers.first()).toBeVisible({ timeout: 15_000 });
         return (await headers.allInnerTexts()).map((h) => h.replace(/^Reorder column /, '').split('\n')[0].trim());
     }
@@ -591,7 +594,8 @@ export class TransferToJobCardsPage extends BasePage {
         const text = async (control: Locator) =>
             (await control.evaluate((el) => ('value' in el && el.tagName !== 'BUTTON' ? String((el as HTMLInputElement).value) : (el.textContent ?? '')).trim(), undefined, { timeout: 10_000 }));
         return {
-            reference: await text(this.timeInPanel.getByRole('textbox', { name: /^Reference\b/ })),
+            // The Reference input has no accessible name; its label is a sibling element, so resolve by the innermost wrapper holding that label.
+            reference: await text(this.timeInPanel.locator('div').filter({ has: this.page.getByText(/^Reference$/) }).last().getByRole('textbox').first()),
             dateTime: await text(this.timeInPanel.getByRole('textbox', { name: /^Date \/ Time/ })),
             ranch: await text(this.panelRanchValue),
             field: await text(this.panelFieldValue),

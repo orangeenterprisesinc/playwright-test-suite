@@ -133,7 +133,10 @@ export class ViewTimeCardsPage extends BasePage {
             response = await refetched;
         }
         expect(response.status(), 'GET time-cards for the filter').toBe(200);
-        await expect(this.page.getByTestId('data-grid-count').first()).toBeVisible({ timeout: 30_000 });
+        // A filter with no visible rows renders "No time cards match the current filter." instead of the count.
+        const count = this.page.getByTestId('data-grid-count').first();
+        const empty = this.grid.getByText(/^No time cards match the current filter/i);
+        await expect(count.or(empty), 'the Time Cards grid shows neither a row count nor the "No time cards match" message').toBeVisible({ timeout: 30_000 });
     }
 
     /** Client-side: the rows appear or vanish at once, no request. Hidden by default. */
@@ -157,7 +160,10 @@ export class ViewTimeCardsPage extends BasePage {
         await this.page.getByTestId(testId).click();
         const search = this.page.getByRole('searchbox', { name: searchName });
         await search.fill(name);
-        await this.page.getByRole('button', { name, exact: true }).click();
+        // The options come from the loaded rows: an absent name shows "No results." and a bare click would wait for the test cap.
+        const option = this.page.getByRole('button', { name, exact: true });
+        await expect(option, `the chip offers no "${name}" option (no loaded row carries it)`).toBeVisible({ timeout: 15_000 });
+        await option.click();
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(search).toBeHidden({ timeout: 10_000 });
@@ -192,6 +198,11 @@ export class ViewTimeCardsPage extends BasePage {
         if ((await box.inputValue()) !== reference) await box.fill(reference);
     }
 
+    /** The Reference filter survives a menu re-entry of the screen, so a count after {@link rowByReference} must clear it. */
+    async clearReferenceFilter(): Promise<void> {
+        await this.filterByReference('');
+    }
+
     /** Typing the Reference filter first keeps the row inside the virtualised window. */
     async rowByReference(reference: string): Promise<Locator> {
         await this.filterByReference(reference);
@@ -216,13 +227,24 @@ export class ViewTimeCardsPage extends BasePage {
     /** Click the row's "Edit Time Card: <id>" button; the sheet opens as a dialog. */
     async openRecord(reference: string): Promise<void> {
         const row = await this.rowByReference(reference);
-        await row.getByRole('button', { name: /^Edit Time Card: / }).click({ timeout: 15_000 });
-        await this.recordSheet.waitFor({ state: 'visible', timeout: 30_000 });
+        const edit = row.getByRole('button', { name: /^Edit Time Card: / });
+        const sheet = this.recordSheet.or(this.page.getByRole('dialog', { name: /^Edit Time (In|Out)/ }));
+        // A click that lands while the Reference filter is still re-rendering the grid is swallowed
+        // (the button ends up focused, no sheet), so re-click until the sheet shows.
+        await expect(async () => {
+            await edit.scrollIntoViewIfNeeded({ timeout: 5_000 });
+            await edit.click({ timeout: 5_000 });
+            await expect(sheet.first()).toBeVisible({ timeout: 5_000 });
+        }, 'the Edit Time Card button never opened the record sheet').toPass({ timeout: 45_000, intervals: [500, 1_000, 2_000] });
+        await this.recordSheet.waitFor({ state: 'visible', timeout: 10_000 });
         this.openedReference = reference;
     }
 
+    /** '' when the sheet has no such field: a Time In carries no Pieces, a tenant without GPS no reading. */
     private async fieldText(selector: string): Promise<string> {
-        return this.recordSheet.locator(selector).evaluate(
+        const control = this.recordSheet.locator(selector);
+        if ((await control.count()) === 0) return '';
+        return control.evaluate(
             (el) => ('value' in el && el.tagName !== 'BUTTON' ? String((el as HTMLInputElement).value) : (el.textContent ?? '')).trim(),
             undefined,
             { timeout: 10_000 },
@@ -246,6 +268,8 @@ export class ViewTimeCardsPage extends BasePage {
 
     async readRecord(): Promise<TimeCardRecordView> {
         await expect(this.recordSheet).toBeVisible({ timeout: 15_000 });
+        // The sheet opens before its fields are filled; Date / Time is always set, so it is the hydration mark.
+        await expect.poll(() => this.fieldText('#dateTime'), { timeout: 15_000, message: 'the Edit sheet never filled its Date / Time' }).not.toBe('');
         const gps = this.recordSheet.locator('#gpsReading');
         const uneditedLabel = this.recordSheet.getByText('Unedited', { exact: true });
         const unedited =

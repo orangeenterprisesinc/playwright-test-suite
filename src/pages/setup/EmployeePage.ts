@@ -303,7 +303,8 @@ export class EmployeePage extends SetupScreenPage {
         const section = this.codeHistorySection;
         await expect(section, 'the employee form has no Code Badge History section').toBeVisible({ timeout: 30_000 });
         const empty = section.getByText('No code history records.');
-        const rows = section.getByRole('row').filter({ has: section.getByRole('textbox', { name: 'Alternate Code', exact: true }) });
+        // `has` is resolved inside each row, so it must not be rooted at `section` (that matched no row at all).
+        const rows = section.getByRole('row').filter({ has: this.page.getByRole('textbox', { name: 'Alternate Code', exact: true }) });
         await expect(empty.or(rows.first()), 'Code Badge History shows neither rows nor "No code history records."').toBeVisible({ timeout: 30_000 });
         if (await empty.isVisible()) return [];
         const total = Number(/(\d+)/.exec((await section.getByTestId('code-history-count').innerText()) ?? '')?.[1] ?? NaN);
