@@ -34,11 +34,11 @@
       "absentInSection": { "PieceOut": ["Employee", "EmployeeSource"] }
     },
     "cards": [
-      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "pieces": 0 },
-      { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "pieces": 0 },
-      { "record": 2, "employeeCode": null, "fieldCode": "4101", "jobCode": "4204", "cardType": 0, "pieces": 4 },
-      { "record": 3, "employeeCode": "6001", "cardType": 0, "pieces": 0 },
-      { "record": 4, "employeeCode": "6002", "cardType": 0, "pieces": 0 }
+      { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "typeText": "Time In", "pieces": 0 },
+      { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "typeText": "Time In", "pieces": 0 },
+      { "record": 2, "employeeCode": null, "fieldCode": "4101", "jobCode": "4204", "cardType": 0, "typeText": "Piece Out", "pieces": 4 },
+      { "record": 3, "employeeCode": "6001", "cardType": 0, "typeText": "Time Out", "pieces": 0 },
+      { "record": 4, "employeeCode": "6002", "cardType": 0, "typeText": "Time Out", "pieces": 0 }
     ],
     "transfer": {
       "members": ["6001", "6002"],

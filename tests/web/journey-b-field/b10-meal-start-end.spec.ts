@@ -5,7 +5,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { assertExpectedCards, assertTransferGrid, cardOf, recordMoment, runJourneyBScenario, storedMoment } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, assertTransferGrid, cardOf, displayedStamp, recordStamp, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
 
 test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] }, () => {
     test('[Meal] Deliver a meal start on the meal job and its return on the work job, and verify both punches.', {
@@ -32,25 +32,25 @@ test.describe('B10 · Meal start and end (field)', { tag: ['@JourneyB', '@B10'] 
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
 
         expect(run.cards).toHaveLength(scenario.expected.cards.length);
-        assertExpectedCards(run, scenario.expected.cards);
+        await assertImportedRows(pages, run);
         const [clockIn, mealStartCard, mealReturnCard] = scenario.expected.cards.map((c) => cardOf(run, c.record));
-        expect(mealStartCard.card.jobCounter).toBe(mealStartCard.bound.jobId);
-        expect(mealReturnCard.card.jobCounter).toBe(mealReturnCard.bound.jobId);
-        expect(mealReturnCard.card.timeCardCounter).not.toBe(mealStartCard.card.timeCardCounter);
-        for (const { card, expected: json, bound } of [clockIn, mealStartCard, mealReturnCard]) {
-            expect(card.employeeCounter).toBe(bound.employeeId);
-            expect(card.cardType).toBe(json.cardType);
+        expect(mealStartCard.row.job).toContain(mealStartCard.bound.jobName!);
+        expect(mealReturnCard.row.job).toContain(mealReturnCard.bound.jobName!);
+        expect(mealReturnCard.timeCardCounter).not.toBe(mealStartCard.timeCardCounter);
+        for (const { row, expected: json, bound } of [clockIn, mealStartCard, mealReturnCard]) {
+            expect(row.employee).toContain(bound.employeeName!);
+            expect(row.type).toBe(json.typeText);
         }
-        // This envelope controls the seconds, so the stored instant equals the sent one verbatim.
-        expect(storedMoment(mealStartCard.card).getTime()).toBe(recordMoment(run, mealStartCard.index).getTime());
-        expect(storedMoment(mealReturnCard.card).getTime()).toBe(recordMoment(run, mealReturnCard.index).getTime());
+        // This envelope controls the seconds, so the Date/Time cells show the sent minute verbatim.
+        expect(displayedStamp(mealStartCard.row)).toBe(recordStamp(run, mealStartCard.index).slice(0, 16));
+        expect(displayedStamp(mealReturnCard.row)).toBe(recordStamp(run, mealReturnCard.index).slice(0, 16));
         for (const gap of scenario.expected.intervals!) {
-            expect(storedMoment(cardOf(run, gap.to).card).getTime() - storedMoment(cardOf(run, gap.from).card).getTime()).toBe(gap.ms);
+            expect(Date.parse(displayedStamp(cardOf(run, gap.to).row)) - Date.parse(displayedStamp(cardOf(run, gap.from).row))).toBe(gap.ms);
         }
         // The Transfer grid: the meal-return row's panel reads the WORK job, and no
         // meal/lunch/break issue group is raised.
         const grid = await assertTransferGrid(pages, run, scenario.expected.grid!);
-        for (const group of grid.issueGroups ?? []) {
+        for (const group of grid.issueGroups) {
             expect(group).not.toMatch(new RegExp(scenario.expected.grid!.absentIssueGroupPattern!, 'i'));
         }
     });

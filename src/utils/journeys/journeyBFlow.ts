@@ -1,6 +1,8 @@
 import { expect, type APIRequestContext, type TestInfo } from '@playwright/test';
-import type { Locator } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
+import type { ImportLogRow } from '@pages/connectivity/ImportLogPage';
+import type { TransferRowView } from '@pages/processing/TransferToJobCardsPage';
+import type { CodeHistoryRow } from '@pages/setup/EmployeePage';
 import { relayConfig, type RelayConfig } from '@config/relay.config';
 import { JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
 import { UNDEFINED_EMPLOYEE, type JourneyBScenario } from '@data/schemas/journeyBScenario';
@@ -10,13 +12,11 @@ import {
     newImportDeadline,
     type ImportFileResult,
 } from '@utils/api/connectivityImportApi';
-import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
 import { seedOfficeFixture, type OfficeFixture } from '@utils/api/officeFixture';
 import {
     assertTransferGrid as assertTransferGridScreen,
     deliverAndVerifyCards,
     pullFromRelayInternetUi,
-    transferGridRowFor,
     type ExpectedCard,
     type OfficeVerificationResult,
     type TransferGridResult,
@@ -24,11 +24,8 @@ import {
 import { getPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
-import { listJobCards, type JobCardRecord } from '@utils/api/jobCardsApi';
 import { ensureJobOnScreen } from '@utils/fixtureRows/ensureOnScreen';
-import { getCodeHistory, type CodeHistoryRow } from '@utils/api/stickerRollApi';
-import { findByReferences, getTimeOutDetail, isoDay, listTimeCards, type OfficeTimeCard, type OfficeTimeOutDetail } from '@utils/api/timeCardsApi';
-import { analyzeTransfer, type AnalyzeException, type AnalyzeResult } from '@utils/api/transferToJobCardsApi';
+import { findByReferences, isoDay, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
@@ -53,7 +50,7 @@ import { ackRetrieved, drainMailbox, pullFromRelay, sendToRelay, type PulledMess
 // preconditions → build/attach/send → import + card asserts (deliverAndVerifyCards) → the spec
 // asserts and calls cleanup(). Nothing here belongs in a spec; specs reach the relay, the importer
 // and the office only through this module (ESLint enforces it). `pages` is optional: browserless
-// workflows (b05/b07) import through single-folder / relay-internet and never open the office UI.
+// workflows (b07) import through relay-internet and never open the office UI.
 
 type ExpectedCardJson = JourneyBScenario['expected']['cards'][number];
 type GridExpectation = NonNullable<JourneyBScenario['expected']['grid']>;
@@ -374,25 +371,40 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
     };
     return scenario.expected.cards.map((want) => {
         const employee = want.employeeCode === null ? null : bound('employee', office.employees, want.employeeCode);
-        const record = scenario.records[want.record];
         const field = want.fieldCode ? bound('field', fields, want.fieldCode) : undefined;
         const job = want.jobCode ? bound('job', jobs, want.jobCode) : undefined;
         const ranch = want.ranchCode ? bound('ranch', ranches, want.ranchCode) : undefined;
-        // `null` in the scenario means "the office must store none" and travels as null.
-        const contextId = (code: string | null | undefined, hit?: { office: { id: number } }) => (code === null ? null : hit?.office.id);
+        // `null` in the scenario means "the card carries none": the grid cell must be blank. Omitted skips the cell.
+        const nameOf = (code: string | null | undefined, hit?: { name: string }) => (code === null ? null : hit?.name);
+        const ranchName = want.ranchCode === null ? null : ranch ? ranch.name : field || job ? F.ranch.name : undefined;
+        const employeeName =
+            want.employeeCode === null
+                ? null
+                : want.employeeCode === UNDEFINED_EMPLOYEE
+                  ? UNDEFINED_EMPLOYEE_NAME
+                  : employeeNames.get(want.employeeCode);
         return {
             employeeCode: want.employeeCode,
-            employeeId: employee?.id ?? null,
             reference: recordReferences[want.record],
-            fieldId: contextId(want.fieldCode, field),
-            jobId: contextId(want.jobCode, job),
-            ...(want.ranchCode !== undefined ? { ranchId: contextId(want.ranchCode, ranch) } : {}),
-            gps: record.gps,
-            traceabilityCode: record.traceabilityCode,
-            ...(want.panel ? { ranchName: F.ranch.name, fieldName: field?.name, jobName: job?.name, employeeName: want.employeeCode === null ? undefined : employeeNames.get(want.employeeCode), crewName: F.crew.name } : {}),
+            typeText: want.typeText,
+            employeeName,
+            // A record the device sends with no crew code (B7's device B) imports with no crew: its cell must be blank.
+            crewName: scenario.records[want.record]?.crewCode ? F.crew.name : null,
+            ranchName,
+            fieldName: nameOf(want.fieldCode, field),
+            jobName: nameOf(want.jobCode, job),
+            ...(want.panel ? { panel: true } : {}),
+            officeIds: {
+                employeeId: employee?.id ?? null,
+                fieldId: want.fieldCode === null ? null : field?.office.id,
+                jobId: want.jobCode === null ? null : job?.office.id,
+            },
         };
     });
 }
+
+// The Undefined Employee's display name is not measured on dev (WEBPET-2843 leaves it unset); 1b confirms it live.
+const UNDEFINED_EMPLOYEE_NAME = 'Undefined Employee';
 
 // `scenario.questions` discovered-or-created by Name, then every answer row checked against the
 // LIVE required response: an `unexpected` row must fall outside it, any other row inside — the rule
@@ -494,10 +506,9 @@ export async function journeyBPreconditions(
 }
 
 // Set on Preferences ▸ Traceability - Stickers. A value the screen already shows is left alone, so a
-// repeat run saves nothing; the GET read-back is the proof either way.
+// repeat run saves nothing; the screen, reopened, is the proof either way.
 async function setStickerStartLocations(
     pages: PageObjects,
-    api: APIRequestContext,
     scenario: JourneyBScenario,
     gates: JourneyBGates,
     testInfo: TestInfo,
@@ -513,9 +524,11 @@ async function setStickerStartLocations(
             if ((await prefs.displayedValue(key)) !== String(value)) await prefs.setValue(key, value);
         }
         const status = await prefs.saveIfDirty();
-        const stored = await getPreferences(api);
+        // Reopened from the menu (a fresh load), so the value read is the stored one, not the one just typed.
+        await prefs.gotoPreferences();
+        await prefs.gotoSection('Traceability - Stickers');
         for (const [key, value] of Object.entries(want)) {
-            expect(Number(stored[key]), `${scenario.label}: Preferences ▸ Traceability - Stickers must store ${key}`).toBe(value);
+            expect(await prefs.displayedValue(key), `${scenario.label}: Preferences ▸ Traceability - Stickers must show ${key} after the save`).toBe(String(value));
         }
         return status !== null;
     });
@@ -544,10 +557,10 @@ export interface CodeHistoryBracket {
     after: CodeHistoryRow[][];
 }
 
-/** `preconditions: ['crewNotifyUser']` — the user the fixture crew was pointed at, and the crew read back after the import. */
+/** `preconditions: ['crewNotifyUser']` — the user the fixture crew was pointed at, and the Notify User the crew form shows after the import. */
 export interface CrewNotifyPrecondition {
     user: UserListItem;
-    crew: CrewRecord;
+    shown: string;
 }
 
 /** One device's envelope and what became of it. */
@@ -569,6 +582,8 @@ export interface JourneyBRun extends MintedRun {
     importRun: OfficeVerificationResult | null;
     cards: OfficeTimeCard[];
     expectedCards: ExpectedCard[];
+    /** The Transfer-grid rows {@link assertImportedRows} read, by reference — what {@link cardOf} hands back. */
+    rows: Map<string, TransferRowView>;
     /** `null` unless the scenario names both code-history hooks. */
     codeHistory: CodeHistoryBracket | null;
     /** `null` unless the scenario names the crewNotifyUser precondition. */
@@ -637,7 +652,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     }
     if (run.scenario.preconditions?.includes('stickerStartLocations')) {
         if (!pages) throw new Error(`${run.scenario.label}: the sticker start locations are set on Preferences — destructure { pages } in the spec`);
-        await setStickerStartLocations(pages, sessionApi, run.scenario, gates, testInfo);
+        await setStickerStartLocations(pages, run.scenario, gates, testInfo);
     }
 
     const built = buildScenarioEnvelopes(run);
@@ -648,7 +663,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         });
     }
     const expectedCards = resolveExpectedCards(run.scenario, office, recordReferences);
-    const base = { ...run, office, envelope: built[0].envelope, gates, day, recordReferences, label: run.scenario.label, testInfo, sessionApi, cleanup };
+    const base = { ...run, office, envelope: built[0].envelope, gates, day, recordReferences, label: run.scenario.label, testInfo, sessionApi, cleanup, rows: new Map<string, TransferRowView>() };
     const absentEmployeeIds = (run.scenario.absentEmployees ?? []).map((code) => {
         const hit = office.employees.get(code);
         if (!hit) throw new Error(`${run.scenario.label}: absent employee code '${code}' is not seeded`);
@@ -659,8 +674,21 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     let importRun: OfficeVerificationResult | null = null;
     let before: CodeHistoryRow[][] | null = null;
     let after: CodeHistoryRow[][] | null = null;
-    const hookEmployeeIds = [...new Set(expectedCards.flatMap((c) => (c.employeeId === null ? [] : [c.employeeId])))];
-    const codeHistorySnapshot = () => Promise.all(hookEmployeeIds.map((id) => getCodeHistory(sessionApi, id)));
+    const hookEmployees = new Map<number, string>();
+    for (const c of expectedCards) {
+        if (c.officeIds?.employeeId != null && c.employeeName) hookEmployees.set(c.officeIds.employeeId, c.employeeName);
+    }
+    const hookEmployeeIds = [...hookEmployees.keys()];
+    // Each employee's Code Badge History as the Setup form shows it; the form is left without saving.
+    const codeHistorySnapshot = async (): Promise<CodeHistoryRow[][]> => {
+        if (!pages) throw new Error(`${run.scenario.label}: the code-history hooks read the Employee form — destructure { pages } in the spec`);
+        const rows: CodeHistoryRow[][] = [];
+        for (const [id, name] of hookEmployees) {
+            await pages.employee.gotoEditById(id, name);
+            rows.push(await pages.employee.readCodeHistory());
+        }
+        return rows;
+    };
 
     if (run.scenario.verification === 'none') {
         if (!pages) throw new Error(`${run.scenario.label}: Trigger Import runs on Connectivity ▸ Import ▸ Internet — destructure { pages } in the spec`);
@@ -711,7 +739,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         if (!send.success) {
             return { ...base, deliveries, send, importRun: null, cards, expectedCards: [], codeHistory: null, crewNotify: null };
         }
-        if (!pages && (run.scenario.verification === 'office-ui' || (run.scenario.transport === 'relay-ui' && process.env.IMPORT_TRANSPORT !== 'single-folder'))) {
+        if (!pages && (run.scenario.verification === 'office-ui' || run.scenario.transport === 'relay-ui' || run.scenario.transport === 'single-folder-ui')) {
             throw new Error(`${run.scenario.label}: this scenario drives the office UI — destructure { pages } in the spec`);
         }
         before = run.scenario.hooks?.beforeImport === 'codeHistorySnapshot' ? await codeHistorySnapshot() : null;
@@ -729,7 +757,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             absentEmployeeIds,
             punchDate: run.punchDate,
             ...(run.scenario.cardType !== undefined ? { cardType: run.scenario.cardType } : {}),
-            ...(run.scenario.transport === 'single-folder' ? { via: 'single-folder' as const } : {}),
+            ...(run.scenario.transport === 'single-folder-ui' ? { via: 'single-folder-ui' as const } : {}),
             // The scenario's `timeCards` step already swept the fixture day — one live cleanup path.
             sweep: false,
         });
@@ -738,7 +766,15 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
     }
 
     const codeHistory = before && after ? { employeeIds: hookEmployeeIds, before, after } : null;
-    const crewNotify = notifyUser ? { user: notifyUser, crew: await getCrew(sessionApi, office.crew.id) } : null;
+    let crewNotify: CrewNotifyPrecondition | null = null;
+    if (notifyUser && pages) {
+        // The crew form reopened after the import: the user it shows is the stored one.
+        await pages.crew.gotoEditById(office.crew.id, office.crew.name);
+        await expect
+            .poll(() => pages.crew.readNotifyUser(), { message: `${run.scenario.label}: the crew's Notify User never loaded`, timeout: 30_000 })
+            .not.toBe('');
+        crewNotify = { user: notifyUser, shown: await pages.crew.readNotifyUser() };
+    }
     // Named gates: what the workflow proves it does NOT assert, recorded on every run that imported.
     for (const gate of run.scenario.annotations ?? []) {
         const { whenDeviceFileMatches, ...annotation } = gate;
@@ -752,41 +788,109 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
 }
 // (`JourneyBRun.send` keeps its meaning — the first envelope's relay answer — so b01–b04/b10–b12 are unchanged.)
 
-export function assertExpectedCards(run: JourneyBRun, expected: ExpectedCardJson[]): void {
-    const byReference = new Map(run.cards.map((c) => [String(c.reference ?? ''), c]));
-    for (const want of expected) {
-        const reference = run.recordReferences[want.record];
-        const card = byReference.get(reference);
-        expect(card, `no imported card for record ${want.record} (${reference}, employee ${want.employeeCode})`).toBeDefined();
-        expect(card!.employeeCounter ?? null, `record ${want.record} must bind to employee ${want.employeeCode ?? 'none (a crew piece-out)'}`).toBe(
-            want.employeeCode === null ? null : run.office.employees.get(want.employeeCode)!.id,
-        );
-        if (want.cardType !== undefined) expect(Number(card!.cardType), `cardType of record ${want.record}`).toBe(want.cardType);
-        if (want.employeeSourceText !== undefined) {
-            expect(String(card!.employeeSourceText ?? ''), `employee source of record ${want.record}`).toBe(want.employeeSourceText);
+const BLANK_CELLS = ['', '—'];
+
+function expectCell(actual: string, want: string | null | undefined, what: string): void {
+    if (want === undefined) return;
+    if (want === null) expect(BLANK_CELLS, `${what} must be blank, the card carries none`).toContain(actual);
+    else expect(actual, what).toContain(want);
+}
+
+/** The id the reference poll captured for a record — for cleanup and detail reads, never an assertion. */
+function cardByRecord(run: JourneyBRun, index: number): OfficeTimeCard {
+    const reference = run.recordReferences[index] ?? '';
+    const card = run.cards.find((c) => String(c.reference ?? '') === reference);
+    if (!reference || !card) throw new Error(`${run.label}: record ${index} (${reference || 'no reference'}) has no imported card`);
+    return card;
+}
+
+/**
+ * The import proved on Transfer to Job Cards: the crew-scoped candidate set equals this run's
+ * references (set equality is the count and the absentee proof), then every expected card's cells
+ * are compared with the fixture's display names. The rows are kept on `run.rows` for {@link cardOf}.
+ */
+export async function assertImportedRows(pages: PageObjects, run: JourneyBRun): Promise<void> {
+    // verification 'none' (B7) imports through the API relay pull and has no importRun: its polled cards are the delivery proof.
+    if (!run.importRun && run.scenario.verification !== 'none') throw new Error(`${run.label}: nothing was imported — the relay answered: ${run.send.body}`);
+    const transfer = pages.transferToJobCards;
+    await openCrewTransferCandidates(pages, run);
+    for (const [i, bound] of run.expectedCards.entries()) {
+        const want = run.scenario.expected.cards[i];
+        const record = run.scenario.records[want.record];
+        const at = `record ${want.record} (${bound.reference})`;
+        const row = await transfer.readRow(bound.reference);
+        run.rows.set(bound.reference, row);
+
+        expectCell(row.employee, bound.employeeName, `Employee of ${at}`);
+        expectCell(row.crew, bound.crewName, `Crew of ${at}`);
+        expectCell(row.ranch, bound.ranchName, `Ranch of ${at}`);
+        expectCell(row.field, bound.fieldName, `Field of ${at}`);
+        expectCell(row.job, bound.jobName, `Job of ${at}`);
+        expect(row.type, `Type of ${at}`).toBe(bound.typeText);
+        if (want.employeeSourceText !== undefined) expect(row.employeeSelection, `Employee Selection of ${at}`).toBe(want.employeeSourceText);
+        // A Time In / Time Out lists no pieces, so `pieces: 0` in a scenario is not a cell to compare.
+        if (want.pieces) expect(Number(row.pieces.replace(/,/g, '')), `Pieces of ${at}`).toBe(want.pieces);
+        if (record.traceabilityCode) expect(row.traceability, `Traceability of ${at}`).toBe(record.traceabilityCode);
+        // programCreated has no column. The import stamps it, and the grid marks a hand-edited row, so "not
+        // manually edited" is its on-screen proxy.
+        expect(row.manuallyEdited, `${at} should be an untouched imported row`).toBe(false);
+
+        if (record.gps && (run.importRun?.transport ?? 'device-import') === 'device-import') {
+            let gps: string | null = null;
+            if (bound.typeText === 'Time In') {
+                await transfer.openRow(cardByRecord(run, want.record).timeCardCounter);
+                gps = (await transfer.readTimeInPanel()).gps;
+                await transfer.cancelPanel();
+            }
+            if (gps === null) {
+                run.testInfo.annotations.push({
+                    type: 'gps-not-rendered-in-panel',
+                    description:
+                        `${at}: no screen shows the GPS fix the device sent (no grid column; the Time In panel field is module-gated ` +
+                        'on dev, and a piece-out opens no such panel). The API read that used to prove it is retired.',
+                });
+            } else {
+                expect(gps, `GPS Reading of ${at}`).toBe(record.gps);
+            }
         }
-        if (want.pieces !== undefined) expect(Number(card!.numOfPieces ?? 0), `pieces of record ${want.record}`).toBe(want.pieces);
-        if (want.memoPattern !== undefined) expect(String(card!.memo ?? ''), `memo of record ${want.record}`).toMatch(new RegExp(want.memoPattern, 'i'));
     }
 }
 
-/** One imported record: the office card, the scenario's expectation as written, and the same expectation bound to office ids. */
+/**
+ * The row's Date and Time cells as a minute-precision wall-clock stamp (`2026-10-13T07:00`). The device
+ * sends wall time with no offset and the office stores it verbatim, so the screen shows the sent minute back.
+ */
+export function displayedStamp(row: TransferRowView): string {
+    const date = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(row.date.trim());
+    const time = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$/i.exec(row.time.trim());
+    if (!date || !time) throw new Error(`Transfer row ${row.reference} shows date '${row.date}' and time '${row.time}', not "M/D/YY[YY]" and "h:mm[:ss] AM"`);
+    const two = (n: string | number) => String(n).padStart(2, '0');
+    const year = date[3].length === 2 ? 2000 + Number(date[3]) : Number(date[3]);
+    const hour = (Number(time[1]) % 12) + (time[3].toUpperCase() === 'PM' ? 12 : 0);
+    return `${year}-${two(date[1])}-${two(date[2])}T${two(hour)}:${time[2]}`;
+}
+
+/** One imported record: its Transfer-grid row, the scenario's expectation as written, and the same expectation bound to display names. */
 export interface ImportedRecord {
     index: number;
-    card: OfficeTimeCard;
+    reference: string;
+    /** From the reference poll — for cleanup and detail reads. */
+    timeCardCounter: number;
+    row: TransferRowView;
     expected: ExpectedCardJson;
     bound: ExpectedCard;
 }
 
+/** Needs {@link assertImportedRows} to have run first: the row is the one it read. */
 export function cardOf(run: JourneyBRun, index: number): ImportedRecord {
     const reference = run.recordReferences[index] ?? '';
-    const card = run.cards.find((c) => String(c.reference ?? '') === reference);
+    const row = run.rows.get(reference);
     const expected = run.scenario.expected.cards.find((c) => c.record === index);
     const bound = run.expectedCards.find((c) => c.reference === reference);
-    if (!reference || !card || !expected || !bound) {
-        throw new Error(`${run.label}: record ${index} (${reference || 'no reference'}) has no imported card or no expected card`);
+    if (!reference || !row || !expected || !bound) {
+        throw new Error(`${run.label}: record ${index} (${reference || 'no reference'}) has no Transfer row or no expected card — call assertImportedRows first`);
     }
-    return { index, card, expected, bound };
+    return { index, reference, timeCardCounter: cardByRecord(run, index).timeCardCounter, row, expected, bound };
 }
 
 export interface AnswerRow {
@@ -805,60 +909,96 @@ export function answersOf(scenario: JourneyBScenario, record: number): AnswerRow
 /** The import lands the card before its answer rows; a read straight after the reference poll saw 2 of 3 (2026-09-14). */
 export const ANSWER_ROWS_SETTLE_MS = 30_000;
 
-/** The Time Out detail of record `index` — the only route that hydrates the imported answers and signature. */
-export function timeOutDetailOf(run: JourneyBRun, index: number): Promise<OfficeTimeOutDetail> {
-    return getTimeOutDetail(run.sessionApi, cardOf(run, index).card.timeCardCounter);
+/**
+ * The Questions grid of record `index`'s Time Out panel on Transfer to Job Cards, left through Cancel.
+ * Needs the grid open — call {@link assertImportedRows} first. The grid may print a question's name or
+ * its text; either maps back to the scenario's name, and anything else is returned raw so a mismatch shows it.
+ */
+export async function timeOutAnswersOnScreen(
+    pages: PageObjects,
+    run: JourneyBRun,
+    index: number,
+): Promise<Array<{ questionName: string; response: string }>> {
+    const transfer = pages.transferToJobCards;
+    await transfer.openRow(cardByRecord(run, index).timeCardCounter, 'Time Out');
+    try {
+        const questions = run.scenario.questions ?? [];
+        return (await transfer.readTimeOutQuestions()).map(({ question, response }) => ({
+            questionName: questions.find((q) => q.name === question || q.questionText === question)?.name ?? question,
+            response,
+        }));
+    } finally {
+        await transfer.timeOutPanel.getByRole('button', { name: /^Cancel$/i }).click();
+        await transfer.timeOutPanel.waitFor({ state: 'hidden', timeout: 15_000 });
+    }
 }
 
-/** The code-history rows an employee carries — B7 reads them back after the import. */
-export function codeHistoryOf(run: JourneyBRun, expectedCode: string | null): Promise<CodeHistoryRow[]> {
+/** The Code Badge History rows an employee's Setup form shows — B7 reads them back after the import. The form is left without saving. */
+export async function codeHistoryOf(pages: PageObjects, run: JourneyBRun, expectedCode: string | null): Promise<CodeHistoryRow[]> {
     if (expectedCode === null) throw new Error(`${run.label}: the expected card names no employee`);
-    const employeeCode = expectedCode;
-    const id = run.office.employees.get(employeeCode)?.id;
-    if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
-    return getCodeHistory(run.sessionApi, id);
+    const id = run.office.employees.get(expectedCode)?.id;
+    if (id === undefined) throw new Error(`${run.label}: employee code '${expectedCode}' is not in the seeded office fixture`);
+    await pages.employee.gotoEditById(id, memberName(run, expectedCode));
+    return pages.employee.readCodeHistory();
 }
 
-/** Office cards of one type the fixture day holds for an employee — B6's WEBPET-1409 synthesis guard. */
-export async function cardsForEmployee(run: JourneyBRun, expectedCode: string | null, cardType: number): Promise<OfficeTimeCard[]> {
-    if (expectedCode === null) throw new Error(`${run.label}: the expected card names no employee`);
-    const employeeCode = expectedCode;
-    const id = run.office.employees.get(employeeCode)?.id;
-    if (id === undefined) throw new Error(`${run.label}: employee code '${employeeCode}' is not in the seeded office fixture`);
-    const cards = await listTimeCards(run.sessionApi, { from: run.day, to: run.day, cardType });
-    return cards.filter((c) => Number(c.employeeCounter) === id);
+/** A card's Memo as View ▸ Time Cards' Edit sheet shows it, left through Cancel. */
+export async function memoOnScreen(pages: PageObjects, run: JourneyBRun, reference: string): Promise<string> {
+    const view = pages.viewTimeCards;
+    await view.openFromMenu();
+    await view.scopeToDay(run.day);
+    await view.applyFilter();
+    // The grid carries a Memo column, so the row itself is the proof; no sheet to open.
+    return view.readCell(await view.rowByReference(reference), 'Memo');
 }
 
-/** The Transfer analyze payload for the run's fixture day — the exceptions, and the body for the caller's message. */
-export async function analyzeTransferExceptions(run: JourneyBRun): Promise<AnalyzeResult> {
-    const analyze = await analyzeTransfer(run.sessionApi, { from: run.day, to: run.day });
-    expect(analyze.ok, `POST transfer-to-job-cards/analyze failed with ${analyze.status}`).toBe(true);
-    await testInfoAttach(run, `transfer-to-job-cards-analyze-${run.label}.json`, analyze.raw);
-    return analyze;
+/** The Internet Import Log row of one delivered file (Source Webmail) — its Status and Run, as the office reads them. */
+export async function importLogRowFor(pages: PageObjects, delivery: DeviceDelivery): Promise<ImportLogRow> {
+    const log = pages.importLog;
+    await log.goto();
+    await log.filterBySource('Webmail');
+    await log.filterByFile(delivery.envelope.fileName);
+    return log.readRow(delivery.envelope.fileName);
 }
 
-function testInfoAttach(run: JourneyBRun, name: string, body: unknown): Promise<void> {
-    return run.testInfo.attach(name, { body: JSON.stringify(body, null, 2), contentType: 'application/json' });
+/**
+ * The Employee cell of every View ▸ Job Cards row of `crewName` on `day`, plus the screen's own "shown" count.
+ * The crew chip lists only crews that own a loaded row, so an empty day (or none for this crew) has nothing to pick and answers empty.
+ */
+export async function jobCardEmployeesOnScreen(
+    pages: PageObjects,
+    day: string,
+    crewName: string,
+): Promise<{ employees: string[]; shown: number }> {
+    const view = pages.viewJobCards;
+    await view.openFromMenu();
+    await view.scopeToDay(day);
+    await view.applyFilter();
+    if ((await view.readCounts()).records.loaded === 0) return { employees: [], shown: 0 };
+    // filterByCrew clicks the crew's option with no timeout, so a crew that owns no loaded row (B8, day -17: chip read "No results.")
+    // hung until the 24 min test timeout. The grid's own rows answer that case first.
+    if ((await view.rowsForCrew(crewName).count()) === 0) return { employees: [], shown: 0 };
+    try {
+        await view.filterByCrew(crewName);
+    } catch (error) {
+        if ((await view.rowsForCrew(crewName).count()) === 0) return { employees: [], shown: 0 };
+        throw error;
+    }
+    const rows = view.rowsForCrew(crewName);
+    const employees: string[] = [];
+    for (let i = 0; i < (await rows.count()); i += 1) employees.push(await view.readCell(rows.nth(i), 'Employee'));
+    return { employees, shown: (await view.readCounts()).records.shown };
 }
 
-/** The Transfer grid row for record `index`, or `null` when the analyze flag is off (annotated). */
-export async function openTransferGridRow(pages: PageObjects, run: JourneyBRun, index: number): Promise<Locator | null> {
-    return transferGridRowFor({ pages, testInfo: run.testInfo, cards: run.cards, card: cardOf(run, index).card, punchDate: run.punchDate, label: run.label });
-}
-
-// Untransferred only: a transferred card is never a transfer candidate and can never be deleted (409),
-// so manual walkthroughs leave them on fixture days for good (day -17 holds two since 2026-10-12).
-/** The fixture crew's open (untransferred) cards on the run's day, any type — the crew-day guard. */
-export async function crewCardsOnDay(run: JourneyBRun): Promise<OfficeTimeCard[]> {
-    const cards = await listTimeCards(run.sessionApi, { from: run.day, to: run.day });
-    return cards.filter((c) => Number(c.crewCounter) === run.office.crew.id && c.transferred !== true);
-}
-
-/** The fixture crew's job cards on the run's day for the given members — the no-commit proof. */
-export async function crewJobCardsOnDay(run: JourneyBRun, memberCodes: string[]): Promise<JobCardRecord[]> {
-    const memberIds = new Set(memberCodes.map((code) => run.office.employees.get(code)!.id));
-    const cards = await listJobCards(run.sessionApi, { from: run.day, to: run.day });
-    return cards.filter((c) => Number(c.crewCounter) === run.office.crew.id && memberIds.has(Number(c.employeeCounter)));
+/** An Issues-panel group's affected count by leading-text pattern; a missing group fails naming every group the panel did show. */
+export async function issueGroupCount(pages: PageObjects, run: JourneyBRun, leadingPattern: string): Promise<number> {
+    const transfer = pages.transferToJobCards;
+    try {
+        return await transfer.issueGroupAffectedCount(leadingPattern);
+    } catch (error) {
+        const seen = await transfer.issueGroupTexts().catch(() => [] as string[]);
+        throw new Error(`${run.label}: no Issues group matches /^${leadingPattern}/; the panel showed ${JSON.stringify(seen)}. ${String(error)}`);
+    }
 }
 
 export function memberName(run: JourneyBRun, code: string): string {
@@ -879,26 +1019,28 @@ export async function openCrewTransferCandidates(pages: PageObjects, run: Journe
     await transfer.openFromMenu();
     await transfer.scopeToDay(run.day);
     await transfer.analyzeCandidates({ expected: own.length });
-    await transfer.filterByCrew(F.crew.name);
+    // Rows imported for the Undefined Employee carry no fixture crew (device B ships no crew code), so the Work Crew
+    // chip hides them (B7 saw 1 of 3). Those runs scope by the day alone and require every one of their references.
+    const crewless = run.scenario.expected.cards.some((c) => c.employeeCode === UNDEFINED_EMPLOYEE);
+    if (!crewless) await transfer.filterByCrew(F.crew.name);
     // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
     await expect
         .poll(async () => [...(await transfer.candidateReferences())].sort(), { timeout: 30_000 })
-        .toEqual([...own].sort())
+        .toEqual(crewless ? expect.arrayContaining([...own].sort()) : [...own].sort())
         .catch(() => undefined);
 
     const candidates = await transfer.candidateReferences();
-    const outsiders = candidates.filter((r) => !own.includes(r));
-    if (candidates.length !== own.length || outsiders.length) {
+    const outsiders = crewless ? [] : candidates.filter((r) => !own.includes(r));
+    const missing = own.filter((r) => !candidates.includes(r));
+    if (crewless ? missing.length > 0 : candidates.length !== own.length || outsiders.length) {
         throw new Error(
             `${run.label}: the crew-scoped screen offered ${candidates.length} candidate(s) ${JSON.stringify(candidates)}` +
                 (outsiders.length ? `, of which ${JSON.stringify(outsiders)} are not this run's` : '') +
                 `. This run imported ${JSON.stringify(own)}.`,
         );
     }
-    return candidates;
+    return crewless ? candidates.filter((r) => own.includes(r)) : candidates;
 }
-
-export type { AnalyzeException };
 
 export async function assertTransferGrid(pages: PageObjects, run: JourneyBRun, grid: GridExpectation): Promise<TransferGridResult> {
     if (!run.importRun) throw new Error(`${run.label}: nothing was imported — the relay answered: ${run.send.body}`);
@@ -907,7 +1049,6 @@ export async function assertTransferGrid(pages: PageObjects, run: JourneyBRun, g
         testInfo: run.testInfo,
         cards: run.cards,
         expected: run.expectedCards,
-        transport: run.importRun.transport,
         punchDate: run.punchDate,
         label: run.label,
         grid,

@@ -167,6 +167,7 @@
     "cards": [
       {
         "record": 0,
+        "typeText": "Time In",
         "employeeCode": "6007",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -174,6 +175,7 @@
       },
       {
         "record": 1,
+        "typeText": "Piece Out",
         "employeeCode": "undefinedEmployee",
         "cardType": 0,
         "employeeSourceText": "Sticker Code",
@@ -182,6 +184,7 @@
       },
       {
         "record": 2,
+        "typeText": "Piece Out",
         "employeeCode": "6007",
         "cardType": 0,
         "employeeSourceText": "Sticker Code",

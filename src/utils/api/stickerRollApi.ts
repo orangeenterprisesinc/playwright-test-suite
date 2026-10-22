@@ -52,28 +52,3 @@ export async function assignBarcodeRoll(
         employeeCodeHistoryCounter: Number(payload.employeeCodeHistoryCounter),
     };
 }
-
-export interface CodeHistoryRow {
-    employeeCodeHistoryCounter: number;
-    alternateCode: string;
-    startDateTime: string;
-    firstCode: string;
-    codeType: number;
-    [key: string]: unknown;
-}
-
-/** `GET /employees/{id}/code-history` — read-only, rendered by EmployeeCodeHistorySection.tsx. */
-export async function getCodeHistory(
-    request: APIRequestContext,
-    employeeId: number,
-): Promise<CodeHistoryRow[]> {
-    const res = await request.get(`employees/${employeeId}/code-history`);
-    if (!res.ok()) {
-        throw new Error(
-            `GET employees/${employeeId}/code-history failed with ${res.status()}: ` +
-                `${(await res.text()).slice(0, 300)}`,
-        );
-    }
-    const body = (await res.json()) as unknown;
-    return Array.isArray(body) ? (body as CodeHistoryRow[]) : [];
-}

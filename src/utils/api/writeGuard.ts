@@ -10,17 +10,15 @@
  *
  * Four allowances exist; three of them are writes:
  *   arrange — reference data the workflow never creates (ranch, field, job, crew,
- *             employee, question), created only when missing or restored from the bin,
- *             plus the single-folder device-file upload used as a transport
+ *             employee, question), created only when missing or restored from the bin
  *   cleanup — residue sweeps, teardown
  *   device  — PET Pocket envelopes through the Post Office relay: it *is* the handheld
  * The fourth, read-only, needs no declaration: GET and HEAD always pass, as do the two
  * non-committing POSTs the Transfer screen uses to preview work. A read is never the
  * proof of a workflow outcome; `UI_FIRST_READS=ledger` records each one (outside
  * tests/webpet) so `ui-first:audit --reads` can show them. `UI_FIRST_GUARD=off` bypasses it.
- * `arrange` is declared only inside setupEntitiesApi.ts, questionsApi.ts,
- * connectivityImportApi.ts / officeVerification.ts and ensureOnScreen.ts — never in a
- * flow or spec. `officeVerification.substituteTransport` (OFFICE_TRANSPORT_SUBSTITUTE=1)
+ * `arrange` is declared only inside setupEntitiesApi.ts, questionsApi.ts and
+ * ensureOnScreen.ts — never in a flow or spec. `officeVerification.substituteTransport` (OFFICE_TRANSPORT_SUBSTITUTE=1)
  * POSTs the workflow's own punches, stays a violation by design and is never wrapped.
  * There is no configuration allowance (withdrawn 2026-10-15): a preference a screen
  * exposes is set on that screen, and one no screen exposes is an environment gate the

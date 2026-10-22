@@ -5,7 +5,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { assertExpectedCards, assertTransferGrid, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, assertTransferGrid, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
 
 test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB', '@B4'] }, () => {
     test('[Sticker Roll] Deliver individual time-in records carrying sticker-roll codes, verify each roll is stored against its own employee, and that the import writes no code-history row.', {
@@ -29,7 +29,7 @@ test.describe('B4 · Sticker-roll assignment at day start', { tag: ['@JourneyB',
         expect(run.envelope.references).toHaveLength(records.length);
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
         expect(run.cards).toHaveLength(expected.cards.length);
-        assertExpectedCards(run, expected.cards);
+        await assertImportedRows(pages, run);
         await assertTransferGrid(pages, run, expected.grid!);
         // Only phase 2 legitimately writes a history row, and that happens after this bracket closes.
         expect(run.codeHistory, 'the scenario hooks must bracket the import with code-history snapshots').not.toBeNull();

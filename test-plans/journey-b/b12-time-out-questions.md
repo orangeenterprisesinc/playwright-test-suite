@@ -479,7 +479,7 @@ The **unexpected** answer for each question is derived at runtime from the store
 
 ## API allowances
 
-The Notify User change is on screen (Setup ▸ Crew) — no row.
+The Notify User change and its read-back (`readNotifyUser()` after the import), and the answers (Time Out panel ▸ Questions on Transfer to Job Cards), are on screen — no row. `getTimeOutDetail` and `getCrew` are no longer called from the flow.
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|

@@ -3,7 +3,7 @@
     "B6 — Badge piece-out (catalog B6, plan test-plans/journey-b/b06-badge-piece-out.md, recording docs/media/journey-b/b06-badge-piece-out.mp4, PET-12644 automation / WEBPET-1525 manual, runner row B6). Transport, not simulation, happy path only.",
     "The badge scan and the badge→employee resolution are device-side — the Piezas screen resolves the owner before the scan ever leaves the device (plan kf 9/13/21/93) — so what reaches the office is a PieceOut row already carrying its employee via EmployeeSource BarcodeBadge. The in-range duplicate suppression is device-side too and never reaches an envelope.",
     "The record carries no Ranch and no Field, mirroring the recording (kf 173), which also rules out WEBPET-1409 Time-In synthesis structurally: that PostSave hook returns early without a bound Field. expected.cards[0] states both as null, so the office is now asserted to have stored neither — the old spec relied on the absence and never checked it.",
-    "transport single-folder: the envelope is pushed to the office mailbox (the relay leg the old spec asserted) and then uploaded through POST connectivity/import/single-folder, the importer-contract path — the shortest route to a proven import, and the one this workflow has always used.",
+    "transport relay-ui: the envelope is pushed to the office mailbox (the relay leg the old spec asserted) and imported on Connectivity > Import > Internet, as B8/B11/B12 do; the single-folder upload was a relay-gate workaround, not part of the workflow.",
     "modules: Piece Payment comes from PT_MODULES on the API task, which short-circuits the TigerMaster query entirely (auth/modules.go:569-571) — TigerMaster already licenses Piece Payment (moduleId 36), so /admin/tm cannot clear this gate. Documented on every run, never enforced: if false, that is expected until PT_MODULES is updated by DevOps (PET-12689), and piece CAPTURE is unaffected.",
     "extraEmployees: seedOfficeFixture only ensures the crew's own members, so B6's sticker employee is ensured here, as B4/B5 do. dayOffset -6 keeps 6005's employee-day away from B5 (-7) and B4 (-8) under workers=2.",
     "expected.absentCardType 1: after the import the fixture day must hold no Time In for the scanned employee — the WEBPET-1409 guard, asserted so a later preference or envelope change cannot leave an orphan behind.",
@@ -14,7 +14,7 @@
   "label": "B6",
   "dayOffset": -6,
   "envelope": "records",
-  "transport": "single-folder",
+  "transport": "relay-ui",
   "verification": "cards",
   "cardType": 0,
   "modules": [
@@ -63,6 +63,7 @@
     "cards": [
       {
         "record": 0,
+        "typeText": "Piece Out",
         "employeeCode": "6005",
         "jobCode": "4201",
         "fieldCode": null,

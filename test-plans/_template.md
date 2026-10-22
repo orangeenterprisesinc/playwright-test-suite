@@ -114,7 +114,6 @@ A read with no purpose row here is a finding (`npm run ui-first:audit -- --reads
 | value no screen shows | `GET <entity>/{id}` | plumbing read (`api-only-evidence`) | <what, and why no screen has it> | none — annotated `api-only-evidence` |
 | after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id | — |
 | fixture row missing | `POST <entity>` / `POST <entity>/{id}/restore` | arrange | reference data the workflow never creates, created or restored only when missing | — |
-| single-folder device file (b05/b06 transport) | `POST connectivity/import/single-folder` | arrange | the importer upload used as a transport; the Internet import click stays on screen | — |
 
 ## Cleanup
 

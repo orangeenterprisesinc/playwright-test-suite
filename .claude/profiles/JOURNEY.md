@@ -50,7 +50,7 @@ code comments cite them):
 
 * **arrange** — reference data the workflow itself never creates (ranch, field, job,
   crew, employee, question, crew table), created only when missing or restored from the
-  recycle bin; plus the single-folder device-file upload used as an import transport.
+  recycle bin.
   Never a preference, never a punch, time card or job card, never a record the workflow
   creates or edits. (History: the old configuration allowance (a) was withdrawn
   2026-10-15 — a preference is set on its screen through a page object, or gated:
@@ -60,10 +60,9 @@ code comments cite them):
 * **(c) device simulation** — building PET Pocket XML envelopes and pushing/pulling
   them through the Post Office relay (`src/utils/relay/*`). The office's import click
   (Connectivity ▸ Import ▸ Internet) and Push to Device are user actions, not the
-  device: they stay on screen. Only the single-folder upload transport (b05/b06,
-  `IMPORT_TRANSPORT=single-folder`) is an `arrange` write to
-  `POST connectivity/import/single-folder`. `substituteTransport`
-  (`OFFICE_TRANSPORT_SUBSTITUTE=1`) stays a violation by design;
+  device: they stay on screen, and so does the Single Folder upload
+  (Connectivity ▸ Import ▸ Single Folder, `IMPORT_TRANSPORT=single-folder`).
+  `substituteTransport` (`OFFICE_TRANSPORT_SUBSTITUTE=1`) stays a violation by design;
 * **(d) plumbing reads** — GETs (plus the non-committing `transfer-to-job-cards/analyze`
   and `job-cards-preview` POSTs) only for ids a cleanup needs (recorded from a scoped GET
   *before* asserting, the D6 pattern), polling until a save lands, and the `session/me` /
@@ -96,8 +95,8 @@ POST/PUT/PATCH/DELETE made outside `allowApiWrites('arrange'|'cleanup'|'device',
 visible with `UI_FIRST_READS=ledger` and `npm run ui-first:audit -- --reads`. **CI runs
 `warn`** until the planned flip to `enforce` (PR 2); a new spec is still verified
 locally with `UI_FIRST_GUARD=enforce` before it is pushed. `arrange` is declared only
-inside `setupEntitiesApi.ts`, `questionsApi.ts`, `connectivityImportApi.ts`,
-`officeVerification.ts` and `ensureOnScreen.ts` — never in a journey flow or spec. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
+inside `setupEntitiesApi.ts`, `questionsApi.ts` and `ensureOnScreen.ts` — never in a
+journey flow or spec. The web-pet suite (`tests/webpet/`) is out of scope: its `data-factory.ts`
 API seeding is part of its frozen baseline.
 
 Why the rule exists: D6 was the first journey driven entirely on screen, and doing

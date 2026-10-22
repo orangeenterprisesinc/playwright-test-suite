@@ -5,12 +5,14 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyD3CorrectionCaseSchema } from '@data/schemas/journeyDScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
+import { jobCardEmployeesOnScreen } from '@utils/journeys/journeyBFlow';
 import {
     captureOwnRows,
     journeyD3TimeoutMs,
     openScopedCandidates,
     prepareJourneyD3,
-    readCorrection,
+    readCorrectionOnScreen,
+    recordOwnJobCardIds,
     remainingOwnTimeCards,
     seedBlockingTimeInDay,
 } from '@utils/journeys/journeyDFlow';
@@ -47,8 +49,10 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
         await expect(transfer.blockingBannerFor(blockingBefore), 'the footer banner must state the Blocking count').toBeVisible();
         const before = await captureOwnRows(run, deps, seed, 'before');
 
-        // Open the record: no Ranch, so the Field is locked behind it, and no Phase.
+        // Open the record: no Ranch, so the Field is locked behind it, and no Phase. The panel is read
+        // here, before the fix, so the correction can be shown to leave employee, crew and punch time alone.
         await transfer.openRow(seed.timeInId);
+        const panelBefore = await transfer.readTimeInPanel();
         await expect(transfer.panelFieldNeedsRanch, 'the Field must wait for a Ranch before the fix').toBeVisible();
         await expect(transfer.panelFieldValue, 'the Field must be locked before the fix').toBeDisabled();
         await expect(transfer.panelPhaseValue, 'the Phase must be empty before the fix').toHaveValue('');
@@ -79,18 +83,24 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
             await expect(transfer.blockingBanner, 'no blocking banner once nothing blocks').toBeHidden();
         }
 
-        // The correction lives on the time card; no job card was written.
-        const written = await readCorrection(run, { sessionApi }, seed);
-        expect(written.timeIn.ranchCounter, 'ranchCounter on the time card').toBe(run.ranch.id);
-        expect(written.timeIn.fieldCounter, 'fieldCounter on the time card').toBe(run.field.id);
-        expect(written.timeIn.jobCounter, 'jobCounter on the time card').toBe(run.job.id);
-        expect(written.timeIn.employeeCounter, 'the employee must be unchanged').toBe(seed.timeIn.employeeCounter);
-        expect(written.timeIn.crewCounter, 'the crew must be unchanged').toBe(seed.timeIn.crewCounter);
-        expect(written.timeIn.dateTime, 'the punch time must be unchanged').toBe(seed.timeIn.dateTime);
-        expect(written.timeIn.transferred, 'nothing was transferred').toBeFalsy();
-        expect(written.jobCards, 'a time-card correction writes no job card').toHaveLength(expected.jobCards);
-
+        // Still on Transfer: the header select-all was never used (View ▸ Job Cards has no such control).
         await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
+
+        // The correction lives on the time card, read back from its panel; no job card was written.
+        const written = await readCorrectionOnScreen(pages, seed);
+        expect(written.panel.ranch, 'Ranch on the time card').toContain(run.ranch.name);
+        expect(written.panel.field, 'Field on the time card').toBe(run.field.name);
+        expect(written.panel.phase, 'Phase on the time card').toBe(run.job.name);
+        expect(written.panel.employee, 'the employee must be unchanged').toBe(panelBefore.employee);
+        expect(written.panel.workCrew, 'the crew must be unchanged').toBe(panelBefore.workCrew);
+        expect(written.panel.dateTime, 'the punch time must be unchanged').toBe(panelBefore.dateTime);
+        // The untransferred text was not measured ("No" or an empty cell); the first run calibrates it.
+        expect(written.transferred, 'nothing was transferred').toMatch(/^(No)?$/);
+        // Plumbing: own job-card ids recorded for cleanup BEFORE the screen is asserted; never the proof.
+        await recordOwnJobCardIds(run, { sessionApi, testInfo });
+        const jobCards = await jobCardEmployeesOnScreen(pages, run.day, run.crew.name);
+        expect(jobCards.shown, 'a time-card correction writes no job card').toBe(expected.jobCards);
+
         await run.cleanup();
         expect(await remainingOwnTimeCards(run, { sessionApi }), 'cleanup must leave no time card on the crew\'s fixture day').toHaveLength(0);
     });
