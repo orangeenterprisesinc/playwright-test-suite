@@ -6,7 +6,7 @@ import { allowApiWrites } from '../api/writeGuard';
 import { cleanupTarget } from '../../data/static/shared/cleanupTargets';
 import { getCrew, setCrewNotifyUser } from '../api/crewsApi';
 import { removeEmployeeFromDevice, type DeviceMembershipSnapshot } from '../api/scanDevicesApi';
-import { getJob, setJobRate } from '../api/setupEntitiesApi';
+import { getJob, setJobFields, setJobRate } from '../api/setupEntitiesApi';
 import {
     getPreferences,
     putPreferences,
@@ -55,6 +55,7 @@ interface Restorer {
 //   stickerStartLocations → the two label-tracking preferences B7 arranges for its own extraction
 //   pieceOutPreferences   → the seven piece-out/sticker-roll preferences A9 writes through the UI
 //   d6JobPieceRate        → the fixture job's pieceRate (D6 raises it, restore puts it back)
+//   e2JobRuleAndRate      → the fixture job's overtimeRulesCounter + hourlyRate (E2/E8 set both on the Job form)
 //   deviceEmployeeMembership → takes A5's employee id off the shared device (deleting the employee leaves a dangling row)
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
@@ -96,6 +97,15 @@ const RESTORERS: Record<string, Restorer> = {
             if (snapshot !== null) await setJobRate(api, journeyJobId(ctx), snapshot as number);
         },
     },
+    e2JobRuleAndRate: {
+        snapshot: async (api, ctx) => {
+            const job = await getJob(api, journeyJobId(ctx));
+            return { overtimeRulesCounter: job.overtimeRulesCounter, hourlyRate: job.hourlyRate };
+        },
+        restore: async (api, snapshot, ctx) => {
+            await setJobFields(api, journeyJobId(ctx), snapshot as Record<string, unknown>);
+        },
+    },
     deviceEmployeeMembership: {
         // No 'before' snapshot: the flow owns the Map entry and fills in employeeId once the save URL is known.
         snapshot: async () => null,
@@ -112,7 +122,7 @@ function fixtureCrewId(ctx: CleanupContext): number {
 }
 
 function journeyJobId(ctx: CleanupContext): number {
-    if (!ctx.office) throw new Error("restore 'd6JobPieceRate' needs the seeded office fixture in the cleanup context");
+    if (!ctx.office) throw new Error('a job restore (d6JobPieceRate, e2JobRuleAndRate) needs the seeded office fixture in the cleanup context');
     return ctx.office.job.id;
 }
 

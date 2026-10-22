@@ -28,8 +28,8 @@
   },
   "annotations": [
     {
-      "type": "product-defect",
-      "description": "Recalculate leaves the job card's amount at 0 while pieceAmount tracks the rate correctly (measured live 2026-09-29). The spec asserts pieceAmount, never amount; amount is recorded as an annotation only. File against board 357 (qa-beta-test + journey-d) if not already tracked."
+      "type": "fixed-defect-guard",
+      "description": "PET-12846 (Recalculate left the job card's amount at 0 while pieceAmount tracked the rate) was fixed on dev on 2026-10-21. The spec asserts the View > Job Cards Amount equals the new piece amount, so a regression fails."
     },
     {
       "type": "not-automatable",

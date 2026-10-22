@@ -6,10 +6,13 @@ import { expect, test } from '@fixtures/base.fixture';
 import { JourneyD9DistributionCaseSchema } from '@data/schemas/journeyDScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
 import {
+    FRESH_EXPORTED_CELL,
+    assertTransferredOnScreen,
     commitTransfer,
     openScopedCandidates,
+    openViewJobCardsForDay,
     prepareJourneyD9,
-    readDistribution,
+    recordOwnJobCardIds,
     seedCrewPieceOutDay,
 } from '@utils/journeys/journeyDFlow';
 
@@ -32,6 +35,7 @@ test.describe('D9 · Group piece-out distribution', { tag: ['@JourneyD', '@D9'] 
         const run = await prepareJourneyD9(scenario, deps);
         const { capture, expected } = run.scenario;
         const transfer = pages.transferToJobCards;
+        const view = pages.viewJobCards;
 
         // 2. Crew time-in for the participants only, crew piece-out, crew time-out.
         const seed = await seedCrewPieceOutDay(run, deps);
@@ -68,20 +72,20 @@ test.describe('D9 · Group piece-out distribution', { tag: ['@JourneyD', '@D9'] 
         });
         await transfer.openTimeCardsTab();
 
-        // 7. Commit: tick each own Reference, never the header checkbox.
-        const transferred = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
-        expect(transferred.jobCardsWritten, 'the transfer must write one job card per participant').toBe(expected.jobCards);
-        const written = await readDistribution(run, { sessionApi, testInfo }, seed);
-        const cardOf = (employeeId: number) => written.cards.filter((card) => Number(card.employeeCounter) === employeeId);
+        // 7. Commit: tick each own Reference, never the header checkbox. The toast is asserted inside.
+        await commitTransfer(run, deps, seed, candidates, { jobCards: expected.jobCards, timeCards: expected.timeCards });
+        await recordOwnJobCardIds(run, deps);
 
         // 8. The committed cards on /input/job-cards: who got one, and who did not.
         await pages.jobCards.goto();
         await pages.jobCards.applyDateRange(run.day);
         await expect(pages.jobCards.rowsForCrew(run.crew.name), 'the crew must end the day with exactly one job card per participant').toHaveCount(expected.jobCards);
+        const references: string[] = [];
         for (const member of run.participants) {
-            const cards = cardOf(member.id);
-            expect(cards, `${member.name} must have exactly one job card`).toHaveLength(1);
-            const reference = String(cards[0].reference);
+            const row = pages.jobCards.rowForCrewEmployee(run.crew.name, member.name);
+            await expect(row, `${member.name} must have exactly one job card`).toHaveCount(1);
+            const reference = await pages.jobCards.referenceOf(row);
+            references.push(reference);
             await expect(pages.jobCards.rowByReference(reference), `${member.name}'s card must be listed for the day`).toHaveCount(1);
             await expect(pages.jobCards.rowType(reference), `${member.name}'s card type`).toHaveText(expected.jobCardType);
             await expect(pages.jobCards.rowEmployee(reference), `${member.name}'s card names its employee`).toContainText(member.name);
@@ -91,29 +95,35 @@ test.describe('D9 · Group piece-out distribution', { tag: ['@JourneyD', '@D9'] 
         }
 
         // 9. Each card's edit form carries the committed split; the form is left unsaved.
-        for (const member of run.participants) {
-            await pages.jobCards.openCardByReference(String(cardOf(member.id)[0].reference));
+        for (const [index, member] of run.participants.entries()) {
+            await pages.jobCards.openCardByReference(references[index]);
             expect(await pages.jobCards.readPieces(), `${member.name}'s Pieces on the edit form`).toBe(expected.piecesPerCard);
             expect(await pages.jobCards.readPieceRate(), `${member.name}'s Piece Rate on the edit form`).toBe(expected.pieceRate);
             await pages.jobCards.closeCard();
         }
 
-        // 10. Exact values over the read GET, and conservation. `amount` is recorded, never asserted.
-        for (const card of written.cards) {
-            expect(card.pieces, `job card ${card.jobCardCounter} pieces`).toBe(expected.piecesPerCard);
-            expect(card.pieceRate, `job card ${card.jobCardCounter} pieceRate`).toBe(expected.pieceRate);
-            expect(card.pieceAmount, `job card ${card.jobCardCounter} pieceAmount`).toBe(expected.pieceAmount);
-            expect(card.exported, `job card ${card.jobCardCounter} exported`).toBeFalsy();
-            expect(card.locked, `job card ${card.jobCardCounter} locked`).toBeFalsy();
+        // 10. View ▸ Job Cards: exact values per row, and conservation over the Pieces cells.
+        await openViewJobCardsForDay(pages, run.day);
+        const rows = view.rowsForCrew(run.crew.name);
+        await expect(rows, 'the crew must have exactly one job card per participant on View ▸ Job Cards').toHaveCount(expected.jobCards);
+        let distributed = 0;
+        for (let i = 0; i < expected.jobCards; i += 1) {
+            const row = rows.nth(i);
+            const reference = await view.referenceOf(row);
+            const pieces = await view.readNumber(row, 'Pieces');
+            distributed += pieces;
+            expect(pieces, `job card ${reference} pieces`).toBe(expected.piecesPerCard);
+            expect(await view.readNumber(row, 'Piece Rate'), `job card ${reference} piece rate`).toBe(expected.pieceRate);
+            expect(await view.readNumber(row, 'Piece Amount'), `job card ${reference} piece amount`).toBe(expected.pieceAmount);
+            expect(await view.readCell(row, 'Exported'), `job card ${reference} is not exported`).toBe(FRESH_EXPORTED_CELL);
         }
-        const distributed = written.cards.reduce((sum, card) => sum + Number(card.pieces), 0);
         expect(distributed, 'the per-card pieces must add up to the crew piece-out total').toBe(capture.numOfPieces);
 
         // 11. The transfer distributes the total; it does not rewrite the capture.
-        expect(written.timeCards, 'every seeded time card must still be readable').toHaveLength(expected.timeCards);
-        for (const card of written.timeCards) expect(card.transferred, `time card ${card.reference} transferred`).toBe(true);
-        const pieceOut = written.timeCards.find((card) => card.reference === seed.pieceOutReference);
-        expect(pieceOut?.employeeCounter ?? null, 'the crew piece-out must still carry no employee').toBeNull();
+        await assertTransferredOnScreen(pages, run.day, (run.ctx.cards ?? []).map((c) => String(c.reference)), 'Yes', run.scenario.label);
+        // The piece-out's Employee cell on View ▸ Time Cards is unmeasured: empty or the em dash the Transfer grid renders.
+        const pieceOutRow = await pages.viewTimeCards.rowByReference(seed.pieceOutReference);
+        expect([expected.crewEmployeeCell, ''], 'the crew piece-out must still carry no employee').toContain(await pages.viewTimeCards.readCell(pieceOutRow, 'Employee'));
 
         // 12. Cleanup — job cards by id, then the time cards, then the crew-scoped sweep.
         await run.cleanup();

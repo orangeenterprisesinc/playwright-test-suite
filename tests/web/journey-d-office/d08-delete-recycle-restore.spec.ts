@@ -8,11 +8,9 @@ import { loadScenario } from '@utils/data/scenarioLoader';
 import {
     bulkDeleteHead,
     cropIdOf,
-    cropState,
     deletedCropIndex,
     findOwnBatch,
     prepareJourneyD8,
-    readBatch,
     recordCropId,
 } from '@utils/journeys/journeyDFlow';
 
@@ -54,7 +52,6 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
         await crop.filterToStem(run.stem);
         await crop.expectTotal(run.names.length - 1, 'A is gone from the list');
         await expect(crop.grid.rowFor(cropA), 'A\'s row must be gone').toHaveCount(0);
-        expect(await cropState(api, cropIdOf(run, cropA)), 'GET crops/{A} 404 but listed in crops/deleted — kept in the database').toBe('binned');
 
         // Catalog step 2: recover it from File > Administration > Deleted Records, one record at a time.
         await deletedRecords.gotoIndex();
@@ -72,9 +69,12 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
         await expect(crop.newButton).toBeVisible();
         await crop.filterToStem(run.stem);
         await crop.expectTotal(run.names.length, 'A is back in the list');
-        expect(await cropState(api, cropIdOf(run, cropA)), 'A is live again').toBe('live');
 
         // Catalog step 3: multi-delete B, C and D from the Crop list. Only own rows, ticked by name.
+        testInfo.annotations.push({
+            type: 'plumbing-read',
+            description: 'D8: bulk-delete history head and own batch id (the undo-safety gate), crops/deleted index (scroll hint)',
+        });
         const head = await bulkDeleteHead(api);
         await crop.enableMultiUpdate();
         for (const name of [cropB, cropC, cropD]) await crop.rowCheckbox(name).check();
@@ -87,9 +87,14 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
         await expect(crop.selectionUndoButton, 'the selection bar offers Undo after a bulk delete').toBeVisible();
         await crop.filterToStem(run.stem);
         await crop.expectTotal(run.names.length - expected.batchSize, 'only A remains');
+        // The bin grid is virtualised, so each row is scrolled to from its index in the bin before it is checked.
+        await deletedRecords.gotoIndex();
+        await deletedRecords.openEntity(expected.deletedRecordsLabel, expected.deletedPlural);
         for (const name of [cropB, cropC, cropD]) {
-            expect(await cropState(api, cropIdOf(run, name)), `'${name}' must be in the recycle bin`).toBe('binned');
+            await deletedRecords.revealRow(expected.deletedPlural, name, await deletedCropIndex(api, cropIdOf(run, name)));
+            await expect(deletedRecords.deletedRow(expected.deletedPlural, name), `'${name}' must be in the recycle bin`).toBeVisible();
         }
+        await deletedRecords.backToList(expected.deletedRecordsLabel);
         const batch = await findOwnBatch(run, api, head);
 
         // Catalog step 3: recover the batch from Reverse Multi Delete, on this run's own batch only.
@@ -106,7 +111,6 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
         await expect(crop.successToast(expected.undoneToast)).toBeVisible();
         await expect(bulkDeleteHistory.cell(row, 'status'), 'the batch is now Undone').toHaveText(expected.statusAfter);
         await expect(bulkDeleteHistory.undoButton(row), 'an undone batch offers no Undo').toBeHidden();
-        expect((await readBatch(api, batch.id)).undoneOn, 'history records the undo').not.toBeNull();
 
         // Verify (WEBPET-3803): the list is stale until a reload, so the count is asserted only after one.
         await crop.gotoList();
@@ -118,10 +122,6 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
         await crop.reloadList();
         await crop.filterToStem(run.stem);
         await crop.expectTotal(run.names.length, 'A–D all back after reload');
-        for (const name of run.names) {
-            expect(await cropState(api, cropIdOf(run, name)), `'${name}' must be live again`).toBe('live');
-        }
-
         await run.cleanup();
     });
 

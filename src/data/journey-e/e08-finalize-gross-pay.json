@@ -50,6 +50,7 @@
     },
     "testFile": { "exportType": "payroll" },
     "cleanup": [
-        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -18, "cardTypes": [0, 1] }
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -18, "cardTypes": [0, 1] },
+        { "kind": "restore", "target": "e2JobRuleAndRate" }
     ]
 }
