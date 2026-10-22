@@ -9,7 +9,7 @@
  * Push to Device bumps the row's version, so the open form is stale afterwards: a second Save
  * returns 409 ("modified by another user"). Re-open the device before any later edit.
  */
-import { expect, Locator, Page, Response } from '@playwright/test';
+import { expect, Locator, Page, Response, TestInfo } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { DataGridComponent } from '../../components/DataGridComponent';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
@@ -309,6 +309,19 @@ export class ScanDevicePage extends BasePage {
         const destination = (await this.pushDestination.first().textContent())?.trim() ?? '';
         const { runId } = (await (await pushed).json()) as { runId: number };
         return { destination, runId };
+    }
+
+    /** Click "Download file" on the push result panel, save the file into the test's output and attach it. */
+    async downloadPushedFile(testInfo: TestInfo): Promise<{ path: string; fileName: string }> {
+        await this.pushDownloadFile.waitFor({ state: 'visible', timeout: 30_000 });
+        const downloading = this.page.waitForEvent('download', { timeout: 60_000 });
+        await this.pushDownloadFile.click();
+        const download = await downloading;
+        const fileName = download.suggestedFilename();
+        const path = testInfo.outputPath(fileName);
+        await download.saveAs(path);
+        await testInfo.attach(fileName, { path });
+        return { path, fileName };
     }
 }
 

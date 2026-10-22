@@ -1,4 +1,4 @@
-import { Locator, Page, expect } from '@playwright/test';
+import { Locator, Page, expect, test } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
@@ -63,6 +63,14 @@ export abstract class CrewPunchPage extends BasePage {
         } else {
             // No menu entry in the product (2026-10-16): the form is reachable only by address.
             // Becomes openScreen once the sidebar links it.
+            try {
+                test.info().annotations.push({
+                    type: 'deep-link',
+                    description: `${this.pageUrl.replace(/\/new$/, '')} has no menu entry (product gap 2026-10-16)`,
+                });
+            } catch {
+                // Outside a test context — nothing to annotate.
+            }
             await this.page.goto(this.pageUrl, { waitUntil: 'domcontentloaded' });
         }
         await this.dateTimeInput.waitFor({ state: 'visible', timeout: 45_000 });

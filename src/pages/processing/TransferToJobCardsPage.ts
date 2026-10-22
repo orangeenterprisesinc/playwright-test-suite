@@ -65,6 +65,27 @@ export interface PreviewOvertimeRow {
     amount: number;
 }
 
+/** One Time Cards row, every cell resolved by its header. Status holds the badge keyword only. */
+export interface TransferRowView {
+    crew: string;
+    employee: string;
+    date: string;
+    time: string;
+    field: string;
+    job: string;
+    pieces: string;
+    traceability: string;
+    ranch: string;
+    reference: string;
+    type: string;
+    payByPiece: string;
+    transferred: string;
+    run: string;
+    employeeSelection: string;
+    status: string;
+    manuallyEdited: boolean;
+}
+
 export class TransferToJobCardsPage extends BasePage {
     readonly pageUrl: string = '/transfer-to-job-cards';
     readonly pageTitle: string | RegExp = /Transfer to Job Cards/i;
@@ -494,6 +515,112 @@ export class TransferToJobCardsPage extends BasePage {
      */
     cellAt(row: Locator, index: number): Locator {
         return row.getByRole('cell').nth(index);
+    }
+
+    private async gridHeaders(): Promise<string[]> {
+        const headers = this.pageRoot.getByRole('columnheader');
+        await expect(headers.first()).toBeVisible({ timeout: 15_000 });
+        return (await headers.allInnerTexts()).map((h) => h.replace(/^Reorder column /, '').split('\n')[0].trim());
+    }
+
+    private headerIndex(headers: string[], header: string): number {
+        const index = headers.findIndex((h) => h.toLowerCase() === header.toLowerCase());
+        if (index < 0) throw new Error(`Transfer grid has no '${header}' column; headers are ${JSON.stringify(headers)}`);
+        return index;
+    }
+
+    /** A cell by header. Leading select/add/delete cells may have no header, so alignment is from the right. */
+    async cellByHeader(row: Locator, header: string): Promise<Locator> {
+        const headers = await this.gridHeaders();
+        const index = this.headerIndex(headers, header);
+        const cells = row.getByRole('cell');
+        return cells.nth(index + (await cells.count()) - headers.length);
+    }
+
+    async readRow(reference: string): Promise<TransferRowView> {
+        const row = this.rowByReference(reference).first();
+        await row.waitFor({ state: 'visible', timeout: 30_000 });
+        const headers = await this.gridHeaders();
+        const texts = (await row.getByRole('cell').allInnerTexts()).map((t) => t.trim());
+        const offset = texts.length - headers.length;
+        const at = (header: string): string => texts[this.headerIndex(headers, header) + offset] ?? '';
+        const status = at('Status');
+        return {
+            crew: at('Crew'),
+            employee: at('Employee'),
+            date: at('date'),
+            time: at('time'),
+            field: at('Field'),
+            job: at('Job'),
+            pieces: at('Pieces'),
+            traceability: at('Traceability'),
+            ranch: at('Ranch'),
+            reference: at('Reference'),
+            type: at('Type'),
+            payByPiece: at('Pay by Piece'),
+            transferred: at('Transferred'),
+            run: at('Run'),
+            employeeSelection: at('Employee Selection'),
+            status: /\b(Ready|Blocking|Warning|Deferred)\b/.exec(status)?.[1] ?? status.split('\n')[0].trim(),
+            manuallyEdited: /Manually edited/i.test(status),
+        };
+    }
+
+    /** Every loaded candidate whose Type cell equals `typeText` ("Time In", "Piece Out" …). */
+    async rowsOfType(typeText: string): Promise<TransferRowView[]> {
+        const out: TransferRowView[] = [];
+        for (const reference of await this.candidateReferences()) {
+            const row = await this.readRow(reference);
+            if (row.type.toLowerCase() === typeText.toLowerCase()) out.push(row);
+        }
+        return out;
+    }
+
+    /** The Transferred cell text of one row. */
+    async rowTransferred(reference: string): Promise<string> {
+        return ((await (await this.cellByHeader(this.rowByReference(reference).first(), 'Transferred')).innerText()) ?? '').trim();
+    }
+
+    rowTime(timeCardCounter: number): Locator {
+        return this.cellAt(this.rowCells(timeCardCounter), 6);
+    }
+
+    /** The open Time In panel, read field by field. `gps` is null when the module-gated field is not rendered. */
+    async readTimeInPanel(): Promise<{ reference: string; dateTime: string; ranch: string; field: string; phase: string; employee: string; workCrew: string; gps: string | null }> {
+        await this.timeInPanel.waitFor({ state: 'visible', timeout: 45_000 });
+        const text = async (control: Locator) =>
+            (await control.evaluate((el) => ('value' in el && el.tagName !== 'BUTTON' ? String((el as HTMLInputElement).value) : (el.textContent ?? '')).trim(), undefined, { timeout: 10_000 }));
+        return {
+            reference: await text(this.timeInPanel.getByRole('textbox', { name: /^Reference\b/ })),
+            dateTime: await text(this.timeInPanel.getByRole('textbox', { name: /^Date \/ Time/ })),
+            ranch: await text(this.panelRanchValue),
+            field: await text(this.panelFieldValue),
+            phase: await text(this.panelPhaseValue),
+            employee: await text(this.panelEmployeeValue),
+            workCrew: await text(this.panelWorkCrewValue),
+            gps: (await this.panelGpsValue.count()) === 0 ? null : await text(this.panelGpsValue),
+        };
+    }
+
+    /** Question / Response rows of the open Time Out panel. Throws by name when the panel has no Questions block. */
+    async readTimeOutQuestions(): Promise<Array<{ question: string; response: string }>> {
+        const panel = this.timeOutPanel;
+        await panel.waitFor({ state: 'visible', timeout: 45_000 });
+        const heading = panel.getByRole('heading', { name: /^Questions/ });
+        if ((await heading.count()) === 0) {
+            const seen = await panel.getByRole('heading').allInnerTexts();
+            throw new Error(`The Time Out panel has no "Questions" heading; headings seen: ${JSON.stringify(seen)}`);
+        }
+        const none = panel.getByText('No questions recorded.');
+        const rows = panel.getByRole('row');
+        await expect(none.or(rows.first()), 'the Time Out Questions block shows neither "No questions recorded." nor an answer row').toBeVisible({ timeout: 15_000 });
+        if (await none.isVisible()) return [];
+        const out: Array<{ question: string; response: string }> = [];
+        for (let i = 0; i < (await rows.count()); i += 1) {
+            const cells = (await rows.nth(i).getByRole('cell').allInnerTexts()).map((c) => c.trim());
+            if (cells.length >= 2) out.push({ question: cells[0], response: cells[1] });
+        }
+        return out;
     }
 
     async selectRowByReference(reference: string): Promise<void> {

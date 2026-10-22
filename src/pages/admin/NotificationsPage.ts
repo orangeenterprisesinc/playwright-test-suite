@@ -101,6 +101,13 @@ export class NotificationsPage extends SetupScreenPage {
         return this.saveNew();
     }
 
+    /** The results dialog may never render (WEBPET-1907), so absence is a result, not an error. */
+    async awaitResultsDialog(timeout: number): Promise<{ seen: true; text: string } | { seen: false }> {
+        const shown = await this.resultsDialog.waitFor({ state: 'visible', timeout }).then(() => true, () => false);
+        if (!shown) return { seen: false };
+        return { seen: true, text: (await this.resultsDialog.innerText()).trim() };
+    }
+
     /**
      * Notify Now ▸ All Recipients from the open Edit page; resolves to the job id the POST returned.
      * The results dialog is not awaited: the page's own poll can hit WEBPET-1907, so the API poll is
