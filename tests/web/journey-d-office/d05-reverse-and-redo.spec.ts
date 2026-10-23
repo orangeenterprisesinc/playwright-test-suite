@@ -29,7 +29,6 @@ test.describe('D5 · Reverse and redo', { tag: ['@JourneyD', '@D5'] }, () => {
             { type: 'testCaseId', description: 'D5' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
         test.setTimeout(journeyD5TimeoutMs(testInfo));
 
         const scenario = await loadScenario(JourneyD5ReverseCaseSchema, testInfo);

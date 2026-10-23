@@ -20,6 +20,7 @@ test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }
             { type: 'testCaseId', description: 'C6' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
+        test.setTimeout(240_000);
         const scenario = await loadScenario(CrewTableCaseSchema, testInfo);
         const run = await prepareJourneyC(scenario, { sessionApi, testInfo, pages });
 

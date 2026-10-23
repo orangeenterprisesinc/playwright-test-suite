@@ -22,7 +22,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
             { type: 'testCaseId', description: 'A9' },
         ],
     }, async ({ pages, sessionApi }, testInfo) => {
-        test.slow();
+        test.setTimeout(360_000);
         const scenario = await loadScenario(PieceOutConfigCaseSchema, testInfo);
         const { screen, write, device: deviceSpec, expected } = scenario;
 

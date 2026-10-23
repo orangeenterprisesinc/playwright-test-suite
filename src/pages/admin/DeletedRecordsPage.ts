@@ -68,12 +68,14 @@ export class DeletedRecordsPage extends BasePage {
         const attached = () => row.waitFor({ state: 'attached', timeout: 800 }).then(() => true, () => false);
         const metrics = () => scroller.evaluate((el) => ({ top: el.scrollTop, height: el.clientHeight }));
 
-        await grid.hover();
+        const scrollTo = (top: number) => scroller.evaluate((el, y) => { el.scrollTop = y; return el.scrollTop; }, Math.max(0, top));
+
         const { height } = await metrics();
-        await this.page.mouse.wheel(0, Math.max(0, hintIndex * ROW_HEIGHT - height / 2));
+        // Set scrollTop directly: wheel events are smoothed and were dropped on a ~3k-row bin.
+        await scrollTo(hintIndex * ROW_HEIGHT - height / 2);
 
         for (const fromTop of [false, true]) {
-            if (fromTop) await scroller.evaluate((el) => { el.scrollTop = 0; });
+            if (fromTop) await scrollTo(0);
             let last = -1;
             for (let step = 0; step < MAX_SCROLL_STEPS; step += 1) {
                 if (await attached()) {
@@ -83,7 +85,7 @@ export class DeletedRecordsPage extends BasePage {
                 const { top } = await metrics();
                 if (top === last) break; // bottom reached
                 last = top;
-                await this.page.mouse.wheel(0, height);
+                await scrollTo(top + height);
             }
         }
         throw new Error(`Deleted ${plural}: row '${name}' never attached (hint index ${String(hintIndex)})`);
