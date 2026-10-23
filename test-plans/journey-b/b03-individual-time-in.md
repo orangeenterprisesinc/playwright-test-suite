@@ -93,7 +93,7 @@ Device record (kf 0–5, 36–55).
 | Sidebar | — | `src/pages/shell/LeftNavigationPage.ts` | exists |
 | Connectivity ▸ Import ▸ Internet | `Connectivity ▸ Import ▸ Internet` | `src/pages/connectivity/ImportInternetPage.ts` | exists (bypassed by `IMPORT_TRANSPORT=single-folder`) |
 | Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — used for `B3`, as in B1/B2 |
-| View ▸ Time Cards | `View ▸ Time Cards` | — | not built; Amy's screen, deferred (would be a later enhancement) |
+| View ▸ Time Cards | `View ▸ Time Cards` | `src/pages/processing/ViewTimeCardsPage.ts` (read-only) | built. B3 compares its imported rows on Transfer to Job Cards (`assertImportedRows`); this screen's Edit sheet is read where only it shows a value (B7 memo), left through Cancel. |
 
 ## Data
 

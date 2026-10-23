@@ -5,7 +5,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { assertExpectedCards, cardOf, recordStamp, referencePart, runJourneyBScenario, storedMoment } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, cardOf, displayedStamp, recordStamp, referencePart, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
 
 test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@B11'] }, () => {
     test('[Crew Out] Record one crew-out for the crew and verify an individual time-out per still-active member, leaving the early leaver untouched.', {
@@ -34,33 +34,34 @@ test.describe('B11 · Crew-out to individual time-outs', { tag: ['@JourneyB', '@
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
 
         expect(run.cards).toHaveLength(scenario.expected.cards.length);
-        assertExpectedCards(run, scenario.expected.cards);
+        await assertImportedRows(pages, run);
         const [, , , toCard, coCard1, coCard2] = scenario.expected.cards.map((c) => cardOf(run, c.record));
-        expect(coCard1.card.cardType).toBe(coCard1.expected.cardType);
-        expect(coCard2.card.cardType).toBe(coCard2.expected.cardType);
-        expect(coCard1.card.employeeCounter).toBe(coCard1.bound.employeeId);
-        expect(coCard2.card.employeeCounter).toBe(coCard2.bound.employeeId);
-        expect(coCard1.card.crewCounter).toBe(run.office.crew.id);
-        expect(coCard2.card.crewCounter).toBe(run.office.crew.id);
-        expect(coCard1.card.programCreated).toBe(true);
-        expect(coCard2.card.programCreated).toBe(true);
-        expect(referencePart(String(coCard1.card.reference))).toBe(crewOut.part);
-        expect(referencePart(String(coCard2.card.reference))).toBe(crewOut.part);
-        // The nulls explicitly; the flow only skipped the work-context asserts for them.
-        for (const { card } of [toCard, coCard1, coCard2]) {
-            expect(card.jobCounter).toBeNull();
-            expect(card.ranchCounter).toBeNull();
-            expect(card.fieldCounter).toBeNull();
+        expect(coCard1.row.type).toBe(coCard1.expected.typeText);
+        expect(coCard2.row.type).toBe(coCard2.expected.typeText);
+        expect(coCard1.row.employee).toContain(coCard1.bound.employeeName!);
+        expect(coCard2.row.employee).toContain(coCard2.bound.employeeName!);
+        expect(coCard1.row.crew).toContain(run.office.crew.name);
+        expect(coCard2.row.crew).toContain(run.office.crew.name);
+        // The import stamps programCreated; on screen an untouched imported row is "not manually edited".
+        expect(coCard1.row.manuallyEdited).toBe(false);
+        expect(coCard2.row.manuallyEdited).toBe(false);
+        expect(referencePart(coCard1.row.reference)).toBe(crewOut.part);
+        expect(referencePart(coCard2.row.reference)).toBe(crewOut.part);
+        // The blanks explicitly; the flow only skipped the work-context asserts for them.
+        for (const { row } of [toCard, coCard1, coCard2]) {
+            expect(['', '—'], 'a time-out carries no job').toContain(row.job);
+            expect(['', '—'], 'a time-out carries no ranch').toContain(row.ranch);
+            expect(['', '—'], 'a time-out carries no field').toContain(row.field);
         }
-        expect(referencePart(String(toCard.card.reference))).toBe(timeOut.part);
-        expect(toCard.card.dateTime).toBe(recordStamp(run, toCard.index));
-        expect(storedMoment(toCard.card).getTime()).toBeLessThan(storedMoment(coCard1.card).getTime());
-        expect(storedMoment(toCard.card).getTime()).toBeLessThan(storedMoment(coCard2.card).getTime());
-        expect(coCard1.card.dateTime).toBe(recordStamp(run, coCard1.index));
-        expect(coCard2.card.dateTime).toBe(recordStamp(run, coCard2.index));
-        // The raw EmployeeSource enum: on the API response, not on the named OfficeTimeCard fields.
-        expect(Number(coCard1.card.employeeSource)).toBe(coCard1.expected.employeeSourceCode);
-        expect(Number(coCard2.card.employeeSource)).toBe(coCard2.expected.employeeSourceCode);
-        expect(Number(toCard.card.employeeSource)).toBe(toCard.expected.employeeSourceCode);
+        expect(referencePart(toCard.row.reference)).toBe(timeOut.part);
+        expect(displayedStamp(toCard.row)).toBe(recordStamp(run, toCard.index).slice(0, 16));
+        expect(Date.parse(displayedStamp(toCard.row))).toBeLessThan(Date.parse(displayedStamp(coCard1.row)));
+        expect(Date.parse(displayedStamp(toCard.row))).toBeLessThan(Date.parse(displayedStamp(coCard2.row)));
+        expect(displayedStamp(coCard1.row)).toBe(recordStamp(run, coCard1.index).slice(0, 16));
+        expect(displayedStamp(coCard2.row)).toBe(recordStamp(run, coCard2.index).slice(0, 16));
+        // The raw EmployeeSource enum has no column; the Employee Selection cell shows its label.
+        expect(coCard1.row.employeeSelection).toBe(coCard1.expected.employeeSourceText);
+        expect(coCard2.row.employeeSelection).toBe(coCard2.expected.employeeSourceText);
+        expect(toCard.row.employeeSelection).toBe(toCard.expected.employeeSourceText);
     });
 });

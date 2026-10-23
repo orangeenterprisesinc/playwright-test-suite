@@ -219,6 +219,7 @@
     "cards": [
       {
         "record": 0,
+        "typeText": "Time In",
         "employeeCode": "6001",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -226,6 +227,7 @@
       },
       {
         "record": 1,
+        "typeText": "Time In",
         "employeeCode": "6002",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -233,6 +235,7 @@
       },
       {
         "record": 2,
+        "typeText": "Time In",
         "employeeCode": "6003",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -240,16 +243,19 @@
       },
       {
         "record": 3,
+        "typeText": "Time Out",
         "employeeCode": "6002",
         "cardType": 0
       },
       {
         "record": 4,
+        "typeText": "Time Out",
         "employeeCode": "6001",
         "cardType": 0
       },
       {
         "record": 5,
+        "typeText": "Time Out",
         "employeeCode": "6003",
         "cardType": 0
       }

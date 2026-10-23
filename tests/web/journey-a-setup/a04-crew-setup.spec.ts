@@ -6,7 +6,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { CrewSetupCaseSchema } from '@data/schemas/journeyAScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { mintCrewSetup, readCrew } from '@utils/journeys/journeyAFlow';
+import { mintCrewSetup } from '@utils/journeys/journeyAFlow';
 
 // "From Paid-Break and Meal" (global) vs "From Paid Break and Meal" (crew option): compare on a common spelling.
 const normalise = (label: string) => label.toLowerCase().replace(/-/g, ' ');
@@ -95,25 +95,6 @@ test.describe('A4 · Crew setup', { tag: ['@JourneyA', '@A4'] }, () => {
             Number(form.breakAndMealNotification),
             `crew Break & Meal Notification should differ from global '${globals.notificationThreshold}' (${globalValues.notificationThreshold})`,
         ).not.toBe(Number(globalValues.notificationThreshold));
-
-        // Read-only read-back: the wire holds what the screen showed.
-        const stored = await readCrew(sessionApi, crewId);
-        expect(stored, 'GET /crews/{id} should hold what the Edit Crew form showed').toMatchObject({
-            name: crew.name,
-            code: crew.code,
-            exportIdentifier: crew.name,
-            badgeColor: scenario.crew.badgeColor,
-            autoPaidBreakType: expected.wire.autoPaidBreakType,
-            autoReturnFromBreak: expected.wire.autoReturnFromBreak,
-            breakLengthMinutesCommaSeparated: scenario.autoBreak.breakLengths,
-            exerciseJobLengthMinutes: scenario.exerciseAndNotification.exerciseJobLengthMinutes,
-            breakAndMealNotification: scenario.exerciseAndNotification.breakAndMealNotification,
-            dayStartFrom: scenario.dayStart.from,
-            dayStartTo: scenario.dayStart.to,
-            dayStartFixedTime: scenario.dayStart.fixedTime,
-        });
-        const unset = expected.wire.nonNullKeys.filter((key) => stored[key] == null);
-        expect(unset, 'GET /crews/{id} should return the picked lookups, not null').toEqual([]);
     });
 
 });

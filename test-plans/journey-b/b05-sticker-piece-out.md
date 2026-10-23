@@ -174,7 +174,7 @@ an issue matching `/^JobCounter is required/`.
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
-| Time Cards | `View ▸ Time Cards` | **none — and none is needed** | `src/pages/processing/TimeCardsPage.ts` does not exist. Verification is API-only: `GET /time-cards` returns `employeeCounter`, the pieces value and `traceabilityCode`. |
+| Time Cards | `View ▸ Time Cards` | `src/pages/processing/ViewTimeCardsPage.ts` (read-only) | not opened by B5: employee, pieces and `traceabilityCode` are compared on Transfer to Job Cards (`assertImportedRows`), and Analyze is proved there too (row status per card, Issues-panel group counts from `expected.grid`). No API read proves a value. |
 | Transfer to Job Cards | `View ▸ Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — **not used by B5**; the recorded piece rows carry no job, so the screen shows nothing meaningful for them |
 
 ## Data

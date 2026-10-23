@@ -64,6 +64,8 @@ export const ExpectedCardJsonSchema = z
         // The one card whose Time In side panel is opened; names come from fixture.json.
         panel: z.literal(true).optional(),
         cardType: z.number().int().optional(),
+        /** The Transfer grid's Type cell. cardType 0 covers both a Time Out and a Piece Out, so the screen text is stated apart. */
+        typeText: z.enum(['Time In', 'Time Out', 'Piece Out']),
         employeeSourceText: z.string().optional(),
         /** The raw EmployeeSource enum the API returns (13 Crew, 2 BarcodeBadge) — asserted by the spec. */
         employeeSourceCode: z.number().int().optional(),
@@ -122,6 +124,11 @@ const TransferExpectationJsonSchema = z
     })
     .strict();
 
+/** B5: one value per outcome, picked by whether the tenant requires a job on an employee piece-out. */
+const PieceOutGateJsonSchema = z
+    .object({ missingJobRequired: z.string().min(1), missingJobOptional: z.string().min(1), undefinedEmployee: z.string().min(1) })
+    .strict();
+
 const QuestionSpecJsonSchema = z
     .object({ name: z.string().min(1), requiredResponse: z.string().min(1), allowedResponses: z.string().min(1), questionText: z.string().min(1) })
     .strict();
@@ -136,7 +143,7 @@ export const JourneyBScenarioSchema = z
         // Crew envelope: its single punch moment. Records envelope: header time only.
         punchTime: HHMM.optional(),
         envelope: z.enum(['crew', 'records']),
-        transport: z.enum(['relay-ui', 'single-folder', 'relay-internet', 'relay-echo']),
+        transport: z.enum(['relay-ui', 'single-folder-ui', 'relay-internet', 'relay-echo']),
         // 'none': the flow delivers, imports and polls; the spec owns every assertion (B7).
         verification: z.enum(['office-ui', 'cards', 'none']),
         cardType: z.number().int().nullable().optional(), // null = every type (an envelope mixing Time-Ins and Time-Outs)
@@ -215,11 +222,6 @@ export const JourneyBScenarioSchema = z
                 cards: z.array(ExpectedCardJsonSchema).default([]),
                 /** A card type the fixture day must NOT hold for an expected employee (B6's WEBPET-1409 guard). */
                 absentCardType: z.number().int().optional(),
-                /** `POST transfer-to-job-cards/analyze` exception codes B5 selects between. */
-                analyze: z
-                    .object({ blockingCode: z.string().min(1), warningCode: z.string().min(1), undefinedEmployeeCode: z.string().min(1) })
-                    .strict()
-                    .optional(),
                 /** `{code<i>}` pairs: the prefix the office extracts, and the sticker it extracts it from. */
                 stickerPrefixes: z.array(z.object({ prefix: z.string().min(1), sticker: z.string().min(1) }).strict()).optional(),
                 grid: z
@@ -229,6 +231,10 @@ export const JourneyBScenarioSchema = z
                         /** Texts the card's own grid row must contain (Type, Employee Selection …). */
                         texts: z.array(z.string().min(1)).optional(),
                         absentIssueGroupPattern: z.string().min(1).optional(),
+                        /** B5: the status badge (Ready / Blocking / Warning / Deferred) each piece card reads after Analyze. */
+                        rowStatus: PieceOutGateJsonSchema.optional(),
+                        /** B5: leading-text patterns of the Issues-panel groups; each must affect at least one record. */
+                        issueGroups: PieceOutGateJsonSchema.optional(),
                     })
                     .strict()
                     .optional(),

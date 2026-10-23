@@ -269,8 +269,8 @@ The recording is a LAN instance with the label-tracking preferences configured. 
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
-| Time Cards | `View ▸ Time Cards` | **none — and none is needed** | `src/pages/processing/TimeCardsPage.ts` does not exist. `GET /time-cards` returns `employeeCounter`, `traceabilityCode`, `numOfPieces`, `memo` and `employeeSourceText` — every value `B7` asserts. |
-| Employee ▸ Code History | `File ▸ Employee ▸ <employee> ▸ Code History` | — | not needed — `GET /employees/{id}/code-history` (`src/utils/api/stickerRollApi.ts` → `getCodeHistory`) carries `B7`. |
+| Time Cards | `View ▸ Time Cards` | `src/pages/processing/ViewTimeCardsPage.ts` (read-only) | the fallback card's **Memo** only (`openRecord(reference)` → `readRecord().memo`, left through Cancel). Employee, pieces, `traceabilityCode` and `employeeSourceText` are compared on Transfer to Job Cards (`assertImportedRows`). |
+| Employee ▸ Code Badge History | `Setup ▸ Employee ▸ <employee>` (section `#codeHistory`) | `EmployeePage.readCodeHistory()` | the row whose Alternate Code is the assigned prefix, dated the fixture day; read on screen, form left without saving. `getCodeHistory` is deleted. |
 | Transfer to Job Cards | `Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — **not used by B7**. There is no transfer issue group for an Undefined-Employee card (see *Planner evidence*), so the screen shows nothing B7 asserts. |
 
 ## Data
@@ -318,14 +318,14 @@ assignedPrefix (`B7`). `GET /time-cards` cardType 0 → per reference: `employee
 
 ## API allowances
 
-Trigger Import and the Preferences save are on screen — no row.
+Trigger Import, the Preferences save and its read-back, the Import Log status, the code history and the memo are on screen — no row.
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|
 | device envelope push | relay `UploadFile` | device | the handheld itself |
 | import run read-back | `GET connectivity/import/runs/{runId}` | read | follows the run Trigger Import started |
 | reference poll | `GET time-cards?from&to` | read | proves ownership of the imported cards |
-| preference gates + read-back | `GET preferences`, `GET session/me` | read | gates the scenario; proves the saved start locations |
+| preference gates | `GET preferences`, `GET session/me` | read | gates the scenario; the saved start locations are re-read on the Preferences screen, never from this GET |
 | start-location snapshot/restore | `GET`/`PUT preferences` | cleanup | restore step |
 | before/after card sweep | `DELETE time-cards/{id}` | cleanup | by id |
 

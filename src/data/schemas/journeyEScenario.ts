@@ -125,8 +125,10 @@ export const JourneyE2DailyOvertimeCaseSchema = z
         if (!timeCardsStep?.cardTypes?.includes(0) || !timeCardsStep.cardTypes.includes(1)) {
             issue(['cleanup'], 'a timeCards cleanup step with cardTypes:[0,1] is required (the crew time-in and time-out)');
         }
-        // E2 writes no preference, so unlike D6/D10 it declares no restore. Forbid one so the data cannot claim otherwise.
-        if (s.cleanup.some((step) => step.kind === 'restore')) issue(['cleanup'], 'E2 writes no preference — a restore step is not allowed');
+        // E2 writes no preference but does set the job's rule and rate on the Job form, so it must put them back.
+        if (!s.cleanup.some((step) => step.kind === 'restore' && step.target === 'e2JobRuleAndRate')) {
+            issue(['cleanup'], "a restore step for 'e2JobRuleAndRate' is required — E2 changes the job's overtime rule and hourly rate");
+        }
     });
 
 export type JourneyE2DailyOvertimeCase = z.infer<typeof JourneyE2DailyOvertimeCaseSchema>;
@@ -237,7 +239,9 @@ export const JourneyE8FinalizeCaseSchema = z
         if (timeCardsStep?.kind !== 'timeCards' || timeCardsStep.dayOffset !== -18) {
             issue(['cleanup'], 'a timeCards cleanup step with dayOffset -18 is required');
         }
-        if (s.cleanup.some((step) => step.kind === 'restore')) issue(['cleanup'], 'E8 writes no preference — a restore step is not allowed');
+        if (!s.cleanup.some((step) => step.kind === 'restore' && step.target === 'e2JobRuleAndRate')) {
+            issue(['cleanup'], "a restore step for 'e2JobRuleAndRate' is required — E8 changes the job's overtime rule and hourly rate");
+        }
     });
 
 export type JourneyE8FinalizeCase = z.infer<typeof JourneyE8FinalizeCaseSchema>;

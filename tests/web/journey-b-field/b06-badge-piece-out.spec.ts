@@ -5,7 +5,10 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { cardOf, cardsForEmployee, openTransferGridRow, referencePart, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, cardOf, referencePart, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+
+// cardType → the Transfer grid's Type text, for the card type the fixture day must not hold.
+const TYPE_TEXT: Record<number, string> = { 1: 'Time In' };
 
 test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
     test('Deliver a badge piece-out export and verify the office records one piece against the scanned employee', {
@@ -33,36 +36,25 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
 
         expect(run.cards, 'the imported piece-out card').toHaveLength(expected.cards.length);
+        // Employee, crew, job, pieces, type, source and traceability are compared on the grid row; the GPS
+        // fix has no screen (the flow annotates gps-not-rendered-in-panel).
+        await assertImportedRows(pages, run);
         const badge = cardOf(run, 0);
-        // Ids, never merely "not null": an unresolved code walks a nine-rung fallback ladder
-        // that can land on a same-named or Undefined employee.
-        expect(badge.card.employeeCounter).toBe(badge.bound.employeeId);
-        expect(Number(badge.card.numOfPieces)).toBe(badge.expected.pieces);
-        expect(badge.card.cardType).toBe(badge.expected.cardType);
-        expect(badge.card.reference).toBe(run.recordReferences[badge.index]);
-        expect(referencePart(String(badge.card.reference))).toBe(record.part);
-        // The office's own rendering of EmployeeSource, confirmed against dev 2026-08-27 and
-        // matching the recording's grid cell (kf 127).
-        expect(String(badge.card.employeeSourceText ?? '')).toBe(badge.expected.employeeSourceText);
-        await testInfo.attach('employee-source-text-B6.txt', {
-            body: String(badge.card.employeeSourceText ?? ''),
-            contentType: 'text/plain',
-        });
-        expect(badge.card.crewCounter, 'crew').toBe(run.office.crew.id);
-        expect(badge.card.jobCounter, 'job').toBe(run.office.job.id);
-        expect(String(badge.card.gpsReading ?? '')).toBe(record.gps);
-
-        // WEBPET-1409 cannot fire without a bound Field; asserted so a later preference or
-        // envelope change cannot leave an orphan behind.
-        const synthesized = await cardsForEmployee(run, badge.expected.employeeCode, expected.absentCardType!);
-        expect(synthesized, 'no synthesized Time-In for the scanned employee').toHaveLength(0);
-
-        // ── The grid half: card type and employee source as the Transfer grid renders them ──
+        expect(badge.row.reference).toBe(run.recordReferences[badge.index]);
+        expect(referencePart(badge.row.reference)).toBe(record.part);
+        // The office's own rendering of EmployeeSource, matching the recording's grid cell (kf 127).
+        await testInfo.attach('employee-source-text-B6.txt', { body: badge.row.employeeSelection, contentType: 'text/plain' });
         const [typeText, employeeSelectionText] = expected.grid!.texts!;
-        const row = await openTransferGridRow(pages, run, badge.index);
-        if (row) {
-            await expect(row, 'grid Type column').toContainText(typeText);
-            await expect(row, 'grid Employee Selection column').toContainText(employeeSelectionText);
-        }
+        expect(badge.row.type, 'grid Type column').toContain(typeText);
+        expect(badge.row.employeeSelection, 'grid Employee Selection column').toContain(employeeSelectionText);
+
+        // WEBPET-1409 cannot fire without a bound Field; asserted so a later preference or envelope
+        // change cannot leave an orphan behind. The crew-scoped grid offers the piece-out and nothing else.
+        const transfer = pages.transferToJobCards;
+        expect(await transfer.candidateReferences(), 'the crew-scoped grid offers exactly the badge piece-out').toEqual([badge.reference]);
+        const absentType = TYPE_TEXT[expected.absentCardType!];
+        expect(absentType, `absentCardType ${String(expected.absentCardType)} has no Transfer Type text`).toBeDefined();
+        const synthesized = (await transfer.rowsOfType(absentType)).filter((row) => row.employee.includes(badge.bound.employeeName!));
+        expect(synthesized, `no synthesized ${absentType} for the scanned employee`).toHaveLength(0);
     });
 });

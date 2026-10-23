@@ -6,7 +6,16 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { cardOf, codeHistoryOf, journeyBPreconditions, referencePart, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import {
+    assertImportedRows,
+    cardOf,
+    codeHistoryOf,
+    importLogRowFor,
+    journeyBPreconditions,
+    memoOnScreen,
+    referencePart,
+    runJourneyBScenario,
+} from '@utils/journeys/journeyBFlow';
 
 test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@B7'] }, () => {
     test('Deliver a roll assignment and employee-less sticker piece-outs, and verify the assigned prefix attributes to its owner while the unassigned one falls to the Undefined Employee', {
@@ -57,12 +66,15 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         // NOT padded to get past it (see the JSON's _notes and the product-defect annotation).
         // Soft, so one run still exercises and reports the Undefined-Employee half
         // of the workflow, which does not depend on the assignment. The test still fails; it
-        // just stops hiding everything behind the first error.
+        // just stops hiding everything behind the first error. Status and run are read off the
+        // Internet Import Log, the screen the office uses.
         if (deviceA.file) {
+            const log = await importLogRowFor(pages, deviceA);
             expect.soft(
-                deviceA.file.status,
-                `import of ${deviceA.envelope.fileName} (run ${deviceA.runId}): ${JSON.stringify(deviceA.file)}`,
+                log.status.toLowerCase(),
+                `Import Log status of ${deviceA.envelope.fileName} (run ${deviceA.runId}): ${JSON.stringify(log)}`,
             ).toBe(wantA.importStatus);
+            expect.soft(log.run, `Import Log run of ${deviceA.envelope.fileName}`).toBe(String(deviceA.runId));
         }
 
         expect(deviceB.envelope.sections).toEqual(wantB.envelope.sections);
@@ -74,60 +86,41 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         expect(deviceB.envelope.pieceCounts, 'exactly two single-piece piece-outs').toEqual(wantB.envelope.pieceCounts);
         expect(deviceB.envelope.references, 'device B sends two cards').toHaveLength(recordsOf(wantB.device).length);
         if (deviceB.file) {
+            const log = await importLogRowFor(pages, deviceB);
             expect(
-                deviceB.file.status,
-                `import of ${deviceB.envelope.fileName} (run ${deviceB.runId}): ${JSON.stringify(deviceB.file)}`,
+                log.status.toLowerCase(),
+                `Import Log status of ${deviceB.envelope.fileName} (run ${deviceB.runId}): ${JSON.stringify(log)}`,
             ).toBe(wantB.importStatus);
+            expect(log.run, `Import Log run of ${deviceB.envelope.fileName}`).toBe(String(deviceB.runId));
         }
 
+        // Employee, crew, ranch, field, job, source, traceability and pieces of all three cards are compared
+        // on the Transfer rows here.
+        await assertImportedRows(pages, run);
         const [timeIn, unassigned, assigned] = expected.cards.map((c) => cardOf(run, c.record));
         const wantOfType = (type: number) => expected.cards.filter((c) => c.cardType === type).length;
         const cardsOfType = (type: number) => run.cards.filter((c) => Number(c.cardType) === type);
         expect(cardsOfType(timeIn.expected.cardType!), "the Time In card, keyed by device A's own reference").toHaveLength(
             wantOfType(timeIn.expected.cardType!),
         );
-        expect(timeIn.card.employeeCounter).toBe(timeIn.bound.employeeId);
-        expect(timeIn.card.crewCounter).toBe(run.office.crew.id);
-        expect(timeIn.card.ranchCounter).toBe(run.office.ranch.id);
-        expect(timeIn.card.fieldCounter).toBe(run.office.field.id);
-        expect(timeIn.card.jobCounter).toBe(run.office.job.id);
-        expect(timeIn.card.programCreated).toBe(true);
-        expect(String(timeIn.card.traceabilityCode ?? '')).toBe(records[timeIn.index].traceabilityCode);
 
         // The roll's extracted prefix lands as the employee's own code-history alternate
         // code, windowed to this punch day. Soft, and guarded, for the same reason device A's
         // import status is: both fail together on the PayPeriod defect, and stopping here would
         // leave the Undefined-Employee half unexercised on every run.
-        const history = await codeHistoryOf(run, timeIn.expected.employeeCode);
+        const history = await codeHistoryOf(pages, run, timeIn.expected.employeeCode);
         const historyRow = history.find((h) => h.alternateCode === assignedPrefix);
         expect.soft(historyRow, 'no code-history row carries the assigned prefix — see the product-defect annotation').toBeDefined();
         if (historyRow) {
             expect.soft(historyRow.startDateTime, 'startDateTime must be set — a NULL never satisfies the window').toBeTruthy();
-            expect.soft(String(historyRow.startDateTime)).toMatch(new RegExp(`^${run.day}`));
+            expect.soft(historyRow.startDateTime).toMatch(new RegExp(`^${run.day}`));
         }
 
         expect(cardsOfType(unassigned.expected.cardType!), 'both piece-out cards').toHaveLength(wantOfType(unassigned.expected.cardType!));
-        // A prefix matching no same-day assignment falls back to the configured
-        // Undefined Employee — id equality, never merely non-null.
-        expect(unassigned.card.employeeCounter).toBe(gates.undefinedEmployeeId);
-        // A prefix matching a same-day assignment attributes to that assignment's own
-        // employee. Soft: there is no assignment to match while the PayPeriod defect blocks
-        // the grid, so this fails for the same single cause and must not mask the rest.
-        expect.soft(assigned.card.employeeCounter).toBe(assigned.bound.employeeId);
-        // The fallback records why on the card's memo.
-        expect(String(unassigned.card.memo ?? '')).toMatch(new RegExp(unassigned.expected.memoPattern!));
-        // An alternate-code employee source reports as "Sticker Code".
-        expect(String(unassigned.card.employeeSourceText ?? '')).toBe(unassigned.expected.employeeSourceText);
-        expect(String(assigned.card.employeeSourceText ?? '')).toBe(assigned.expected.employeeSourceText);
-        // The full scanned sticker and piece count survive verbatim.
-        expect(String(unassigned.card.traceabilityCode ?? '')).toBe(records[unassigned.index].traceabilityCode);
-        expect(String(assigned.card.traceabilityCode ?? '')).toBe(records[assigned.index].traceabilityCode);
-        expect(Number(unassigned.card.numOfPieces)).toBe(unassigned.expected.pieces);
-        expect(Number(assigned.card.numOfPieces)).toBe(assigned.expected.pieces);
+        // The fallback records why on the card's memo — read on View ▸ Time Cards' Edit sheet.
+        expect(await memoOnScreen(pages, run, unassigned.reference), "the fallback's memo").toMatch(new RegExp(unassigned.expected.memoPattern!));
         // Keyed by the device's own PO reference, stored as time-out.
-        expect(referencePart(String(unassigned.card.reference))).toBe(records[unassigned.index].part);
-        expect(referencePart(String(assigned.card.reference))).toBe(records[assigned.index].part);
-        expect(unassigned.card.cardType).toBe(unassigned.expected.cardType);
-        expect(assigned.card.cardType).toBe(assigned.expected.cardType);
+        expect(referencePart(unassigned.row.reference)).toBe(records[unassigned.index].part);
+        expect(referencePart(assigned.row.reference)).toBe(records[assigned.index].part);
     });
 });

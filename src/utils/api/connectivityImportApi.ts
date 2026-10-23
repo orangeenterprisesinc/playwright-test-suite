@@ -1,27 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { request as playwrightRequest, type APIRequestContext, type TestInfo } from '@playwright/test';
-import { SESSION_STORAGE_STATE, csrfTokenFromStorageFile } from './sessionContext';
-import { guardApiContext } from './writeGuard';
-import { ConfigProperties, getConfigValue } from '../../config/configProperties';
+import type { APIRequestContext, TestInfo } from '@playwright/test';
 import { recordImportRun } from '../cleanup/importRunRecorder';
 import { WORKER_INDEX } from '../cleanup/runToken';
 
 /**
- * Uploads a device export into web-pet's Connectivity import and follows the run
- * to a terminal state — the office half of Journey B.
- *
- * ## Why this needs its own request context
- *
- * `sessionApi` pins `Content-Type: application/json` in `extraHTTPHeaders`, and
- * Playwright's fetch keeps an existing content-type when serialising multipart
- * (`setHeader(..., keepExisting)`); the boundary header is dropped and the file is
- * posted as JSON. So the upload gets a context built **without** a pinned
- * content-type, carrying the same session cookies plus the CSRF/Origin pair the
- * mutating endpoints require.
+ * Follows device-export import runs to a terminal state — the office half of Journey B.
+ * The upload itself is a user action on screen (Connectivity ▸ Import), never made here.
  */
-
-const IMPORT_PATH = 'connectivity/import/single-folder';
 
 /** Hard ceiling per delivery; default matches CI. The stall check below usually ends the wait first — the 3-7 min claim latency fits inside it, a 40-min outlier does not. */
 export function importPollTimeoutMs(): number {
@@ -342,92 +328,6 @@ export async function describeImportWait(
         `ceiling of ${deadline.ceilingMs} ms reached while the run was still progressing ` +
         `(last change ${s}s ago, status "${lastStatus}"). ${pref}.`
     );
-}
-
-/**
- * A request context that can post multipart as the logged-in user.
- * Dispose it when done (see {@link importDeviceExport}, which owns its own).
- */
-export async function createUploadContext(opts: { testInfo?: TestInfo } = {}): Promise<APIRequestContext> {
-    const baseURL = getConfigValue(ConfigProperties.API_URL);
-    const appOrigin = getConfigValue(ConfigProperties.APP_URL);
-    if (!baseURL) throw new Error('API_URL is not set — cannot upload a device export');
-
-    const csrf = csrfTokenFromStorageFile();
-    if (!csrf) {
-        // Without it every mutating call 403s on the CSRF guard, which surfaces as a
-        // confusing "import failed" rather than "you have no session".
-        throw new Error(
-            `No CSRF token in ${SESSION_STORAGE_STATE} — run auth-setup before importing.`,
-        );
-    }
-    const normalizedBase = baseURL.endsWith('/') ? baseURL : `${baseURL}/`;
-    const ctx = await playwrightRequest.newContext({
-        baseURL: normalizedBase,
-        storageState: SESSION_STORAGE_STATE,
-        extraHTTPHeaders: { Origin: appOrigin, 'X-CSRF-Token': csrf },
-    });
-    // No standing allowance: the caller declares the upload, so a forgotten one is a violation.
-    return guardApiContext(ctx, {
-        label: 'importer upload',
-        kind: 'app',
-        baseURL: normalizedBase,
-        testInfo: opts.testInfo,
-    });
-}
-
-/**
- * POST the envelope, then poll the run until it reaches a terminal status.
- *
- * Returns the run **including the per-file results**, because a `partial` tells
- * you nothing on its own — the per-file message is what says which record failed
- * and why.
- */
-export async function importDeviceExport(
-    upload: APIRequestContext,
-    xml: string,
-    opts: { fileName?: string; timeoutMs?: number; deadline?: ImportDeadline; testInfo?: TestInfo } = {},
-): Promise<ImportRunResult> {
-    const fileName = opts.fileName ?? `FromDevice-${Date.now()}.xml`;
-    // Share the caller's deadline when given (deliverAndVerifyCards, B5/B6's own
-    // mint) instead of minting a fresh one — a shared budget must not be renewed
-    // per call.
-    const deadline = opts.deadline ?? newImportDeadline(opts.timeoutMs);
-
-    const res = await upload.post(IMPORT_PATH, {
-        multipart: {
-            files: { name: fileName, mimeType: 'application/xml', buffer: Buffer.from(xml, 'utf-8') },
-        },
-    });
-    if (!res.ok()) {
-        throw new Error(
-            `POST ${IMPORT_PATH} failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
-        );
-    }
-    const created = (await res.json()) as { runId?: number; id?: number; files?: ImportFileResult[] };
-    const runId = Number(created.runId ?? created.id);
-    if (!Number.isFinite(runId)) {
-        throw new Error(`Import response carried no run id: ${JSON.stringify(created).slice(0, 300)}`);
-    }
-
-    // The upload response already reports a per-file outcome. When every file is
-    // terminal there is nothing to wait for — and one case *never* resolves: a file
-    // that could not be stored is marked `failed` immediately while the run stays
-    // `received` forever, because the worker only claims files whose bytes exist.
-    // Polling that would burn the timeout and then report "no terminal status",
-    // hiding the real reason.
-    const uploadFiles = created.files ?? [];
-    if (uploadFiles.length && uploadFiles.every((f) => TERMINAL.includes(String(f.status)))) {
-        noteDeliveryOutcome(null);
-        return {
-            runId,
-            status: uploadFiles.every((f) => f.status === 'completed') ? 'completed' : 'failed',
-            files: uploadFiles,
-            raw: created,
-        };
-    }
-
-    return waitForImportRun(upload, runId, deadline, created, opts.testInfo);
 }
 
 /** Poll one import run until it reaches a terminal status. */

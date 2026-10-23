@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { APIRequestContext, Page, TestInfo } from '@playwright/test';
 import { relayConfig } from '@config/relay.config';
 import { makeCrewName, makeEmployeeName, makeScanDevice, makeUser, runUniqueCode } from '@data/generated';
@@ -13,10 +13,10 @@ import type { NewUserData } from '@pages/admin/UsersPage';
 import type { NewCrewData } from '@pages/setup/CrewPage';
 import type { NewEmployeeData } from '@pages/setup/EmployeePage';
 import { DEVICE_TYPE, type ScanDeviceGeneral } from '@pages/setup/ScanDevicePage';
-import { getCrew, type CrewRecord } from '@utils/api/crewsApi';
+
 import { getPreferences } from '@utils/api/preferencesApi';
 import { getSessionModules } from '@utils/api/sessionApi';
-import { findActiveDeviceOfType, readSetupExportSend } from '@utils/api/setupExportApi';
+import { findActiveDeviceOfType } from '@utils/api/setupExportApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
 import { RUN_TOKEN } from '@utils/cleanup/runToken';
@@ -102,9 +102,9 @@ export async function readModuleGates(api: APIRequestContext): Promise<Record<st
     return getSessionModules(api);
 }
 
-/** A9 read-back: what the Preferences screen actually stored, by wire key. */
-export async function readStoredPreferences(api: APIRequestContext): Promise<Record<string, unknown>> {
-    return getPreferences(api);
+/** A6 plumbing read: one preference that gates the scenario, read before anything is created. The screen proves outcomes, not this. */
+export async function readPreferenceGate(api: APIRequestContext, key: string): Promise<unknown> {
+    return (await getPreferences(api))[key];
 }
 
 /** A9 read: an existing active pocket device. Never mints one — a fresh device exports no piece jobs. */
@@ -112,15 +112,11 @@ export async function findPocketDevice(api: APIRequestContext, deviceType: numbe
     return findActiveDeviceOfType(api, deviceType);
 }
 
-/** A9 read-back: the setup file the screen's Push to Device sent, by the run id the screen's own POST returned. */
-export async function readSetupExportSent(api: APIRequestContext, runId: number, deviceId: number) {
-    return readSetupExportSend(api, runId, deviceId);
+/** The setup file saved by `ScanDevicePage.downloadPushedFile` (the screen's own "Download file"). */
+export async function readSetupExportFile(path: string): Promise<string> {
+    return readFile(path, 'utf8');
 }
 
-/** A4 read-back: what `GET /crews/{id}` holds after the screen saved. */
-export async function readCrew(api: APIRequestContext, id: number): Promise<CrewRecord> {
-    return getCrew(api, id);
-}
 
 export interface EmployeeSetupRun {
     /** The case with `{employeeName}` substituted. */
@@ -210,7 +206,7 @@ export async function prepareBiometricEnrollment(
     testInfo.slow();
 
     const gate = scenario.preferenceGate;
-    if ((await readStoredPreferences(sessionApi))[gate.key] !== gate.expected) throw new Error(gate.message);
+    if ((await readPreferenceGate(sessionApi, gate.key)) !== gate.expected) throw new Error(gate.message);
 
     const spec = scenario.employee;
     const name = makeEmployeeName();
@@ -258,17 +254,9 @@ export async function writeBiometricDeviceFile(
     return { path, fileName, templates, picture: size };
 }
 
-/** Read-back of the file the push sent to the device: the employee row with its RFID code and templates. */
-export async function readPushedEmployee(
-    api: APIRequestContext,
-    testInfo: TestInfo,
-    runId: number,
-    deviceId: number,
-    employeeCode: string,
-): Promise<PushedEmployee | undefined> {
-    const { xml } = await readSetupExportSend(api, runId, deviceId);
-    await testInfo.attach('pushed-setup-export.xml', { body: xml, contentType: 'application/xml' });
-    const fields = employeeInExport(xml, employeeCode);
+/** The employee row (RFID code, templates) in the pushed file the screen downloaded. */
+export async function readPushedEmployee(path: string, employeeCode: string): Promise<PushedEmployee | undefined> {
+    const fields = employeeInExport(await readSetupExportFile(path), employeeCode);
     if (!fields) return undefined;
     const T = DEVICE_SCHEMA.biometric.tags;
     const stripped = (tag: string) => (fields[tag] ?? '').replace(/\s+/g, '');

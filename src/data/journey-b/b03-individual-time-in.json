@@ -58,6 +58,7 @@
     "cards": [
       {
         "record": 0,
+        "typeText": "Time In",
         "employeeCode": "6001",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -65,6 +66,7 @@
       },
       {
         "record": 1,
+        "typeText": "Time In",
         "employeeCode": "6001",
         "fieldCode": "4102",
         "jobCode": "4202"

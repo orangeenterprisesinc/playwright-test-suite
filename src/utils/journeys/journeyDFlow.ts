@@ -1,12 +1,13 @@
 import { expect } from '@playwright/test';
-import type { APIRequestContext, TestInfo } from '@playwright/test';
+import type { APIRequestContext, Locator, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
+import type { TransferToJobCardsPage } from '@pages/processing/TransferToJobCardsPage';
 import { JOURNEY_D_FIXTURE, journeyD3Fixture, journeyD5Fixture, journeyD9Fixture, journeyD10Fixture } from '@data/journey-d/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import type { JourneyD3CorrectionCase, JourneyD5ReverseCase, JourneyD8RecycleCase, JourneyD9DistributionCase, JourneyD10SegmentCase, JourneyDRecalculateCase } from '@data/schemas/journeyDScenario';
-import { getRecordStatus, listBulkDeleteHistory, listDeleted, type BulkHistoryRow } from '@utils/api/recycleBinApi';
+import { listBulkDeleteHistory, listDeleted, type BulkHistoryRow } from '@utils/api/recycleBinApi';
 import { uniqueName, RUN_TOKEN } from '@utils/cleanup/runToken';
-import { analyzeTransfer, listTransferRuns, previewJobCards, readExecuteJob, type ExecuteResult, type TransferRunRecord } from '@utils/api/transferToJobCardsApi';
+import { listTransferRuns, readExecuteJob, type TransferRunRecord } from '@utils/api/transferToJobCardsApi';
 import type { OfficeFixture } from '@utils/api/officeFixture';
 import { getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
@@ -95,6 +96,7 @@ async function sweepOwnTimeCards(request: APIRequestContext, opts: { day: string
     }
 }
 
+// Plumbing (d): no screen lists recalc runs, so the baseline is read here and the later runs are reported as evidence.
 async function maxRecalcRunCounter(request: APIRequestContext): Promise<number> {
     const runs = await listRecalcRuns(request);
     return runs.reduce((max, run) => Math.max(max, Number(run.recalcRunCounter)), 0);
@@ -183,6 +185,13 @@ export async function prepareJourneyD(
         throw new Error(
             `${substituted.label}: allowRecalculateFromJobCard is not true on this environment — D6 asserts ` +
                 'the toolbar gate is already open rather than flipping a shared preference.',
+        );
+    }
+    // The first result is read where the transfer lands; with the preference off the app opens Input > Job Cards instead.
+    if (preferences.viewJobCardsAfterTransfer !== true) {
+        throw new Error(
+            `${substituted.label}: viewJobCardsAfterTransfer is not true on this environment — D6 reads the transferred ` +
+                'cards on the View ▸ Job Cards screen the transfer lands on.',
         );
     }
 
@@ -308,52 +317,60 @@ export async function openScopedCandidates(
     return candidates;
 }
 
-/** Tick each candidate by Reference, commit, then record every written job card id before asserting the count. */
+export interface TransferOutcome {
+    transferRunCounter: number;
+    jobCardCounters: number[];
+}
+
+/**
+ * Tick each candidate by Reference and commit. The "Transfer complete" toast, armed before the click and
+ * asserted last, is the proof of what was written; the GETs below only record ids for cleanup (and read
+ * the run id the guards need).
+ */
 export async function commitTransfer(
     run: TransferRun,
-    opts: { sessionApi: APIRequestContext; pages: PageObjects },
-    seed: SeedResult,
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
+    _seed: SeedResult,
     candidates: string[],
-): Promise<ExecuteResult> {
-    const { sessionApi, pages } = opts;
+    toast: { jobCards: number; timeCards: number },
+): Promise<TransferOutcome> {
+    const { sessionApi, testInfo, pages } = opts;
     const transfer = pages.transferToJobCards;
 
     for (const reference of candidates) await transfer.selectCandidate(reference);
+    const toastSeen = transfer
+        .transferCompleteToast(toast.jobCards, toast.timeCards)
+        .waitFor({ state: 'visible', timeout: 150_000 })
+        .then(() => true, () => false);
     const jobId = await transfer.runTransfer();
     if (!jobId) throw new Error('The Transfer click sent no POST transfer-to-job-cards/execute to the server, so nothing was ever queued.');
 
-    // Read the committed result back over the API: the screen reports progress, the cards are the
-    // record. This is verification of a UI action, not a substitute for it.
-    //
-    // Ids are recorded on every poll, before the count is asserted. Recording them afterwards means
-    // a wrong count leaves cleanup unaware of the cards that WERE written — they survive the run,
-    // their source time cards become undeletable, and the next run finds an employee already
-    // clocked in and silently punches one fewer.
+    // Plumbing (d): ids are recorded on every poll, before anything is asserted. Recording them afterwards
+    // means a wrong outcome leaves cleanup unaware of the cards that WERE written — they survive the run,
+    // their source time cards become undeletable, and the next run finds an employee already clocked in.
+    testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: job card ids recorded for cleanup, execute job read for the run id` });
+    let jobCardCounters: number[] = [];
     await expect(async () => {
         const written = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
         for (const card of written) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+        jobCardCounters = written.map((c) => c.jobCardCounter);
         if (written.length < run.scenario.expected.jobCards) {
             // A failed async execute writes nothing and is otherwise indistinguishable from a slow one.
             const job = await readExecuteJob(sessionApi, jobId);
             if (!/^(complete|running|pending|queued|)$/i.test(job.status)) {
                 throw new Error(`transfer execute job ${jobId} ended ${job.status}: ${job.error ?? JSON.stringify(job.raw)}`);
             }
+            throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far`);
         }
-        expect(written).toHaveLength(run.scenario.expected.jobCards);
     }).toPass({ timeout: 120_000 });
+    expect(
+        await toastSeen,
+        `${run.scenario.label}: the 'Transfer complete — ${toast.jobCards} job card(s) written, ${toast.timeCards} time cards transferred.' toast must be seen`,
+    ).toBe(true);
 
-    const cards = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
-    const jobCardCounters = cards.map((c) => c.jobCardCounter);
     // The execute job is the only place the run id is reported; D5 needs it to guard the reverse.
     const finished = await readExecuteJob(sessionApi, jobId).catch(() => undefined);
-    return {
-        status: 'complete',
-        jobCardsWritten: jobCardCounters.length,
-        timeCardsTransferred: seed.timeCardCounters.length,
-        transferRunCounter: finished?.transferRunCounter ?? 0,
-        jobCardCounters,
-        raw: cards,
-    };
+    return { transferRunCounter: finished?.transferRunCounter ?? 0, jobCardCounters };
 }
 
 /**
@@ -373,36 +390,133 @@ export async function guardedTransfer(
     run: TransferRun,
     opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects; crew?: string },
     seed: SeedResult,
-): Promise<ExecuteResult> {
+): Promise<TransferOutcome> {
     const candidates = await openScopedCandidates(run, { pages: opts.pages, crew: opts.crew }, seed);
-    return commitTransfer(run, { sessionApi: opts.sessionApi, pages: opts.pages }, seed, candidates);
+    const toast = { jobCards: run.scenario.expected.jobCards, timeCards: seed.timeCardCounters.length };
+    return commitTransfer(run, { sessionApi: opts.sessionApi, testInfo: opts.testInfo, pages: opts.pages }, seed, candidates, toast);
 }
 
 
-export async function readJobCards(opts: { sessionApi: APIRequestContext }, ids: number[]): Promise<JobCardRecord[]> {
-    return Promise.all(ids.map((id) => getJobCard(opts.sessionApi, id)));
-}
-
-/** Every recalc run newer than the baseline captured in {@link prepareJourneyD}. */
+/**
+ * Plumbing (d): no screen lists recalc runs, so every run newer than the baseline taken in
+ * {@link prepareJourneyD} is returned for the spec to report as `recalc-run-evidence`, never asserted.
+ */
 export async function assertRecalcRuns(run: JourneyDRun, opts: { sessionApi: APIRequestContext }): Promise<RecalcRun[]> {
     const runs = await listRecalcRuns(opts.sessionApi);
     return runs.filter((r) => Number(r.recalcRunCounter) > run.recalcBaseline);
 }
 
-/** The day's seeded time cards, read back after the recalculate — proves a reverse (D5) did not run. */
-export async function assertTimeCardsStillTransferred(
-    run: JourneyDRun,
-    opts: { sessionApi: APIRequestContext },
-    ids: number[],
-): Promise<OfficeTimeCard[]> {
-    const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
-    const wanted = new Set(ids);
-    return cards.filter((c) => wanted.has(c.timeCardCounter));
-}
-
 // getJob is re-exported so a later Journey D spec can read the fixture job without reaching past
 // this flow layer (the ESLint import ban keeps @utils/api/* out of specs).
 export { getJob };
+
+// ── Shared screen-side helpers (D5/D6/D9/D10, re-exported by journeyEFlow) ───────────────────
+
+/** The Transfer status keyword of a clean row. */
+export const READY_STATUS = 'Ready';
+/** The View ▸ Job Cards Exported cell of a card nobody has exported. */
+export const FRESH_EXPORTED_CELL = 'No';
+
+/** A 12-hour or 24-hour time cell ("3:00 PM" or "15:00") for a scenario time of day. */
+export function clockCell(t: { hour: number; minute: number }): RegExp {
+    const h12 = t.hour % 12 === 0 ? 12 : t.hour % 12;
+    const mm = String(t.minute).padStart(2, '0');
+    return new RegExp(`^(0?${h12}:${mm}(:00)?\\s*${t.hour >= 12 ? 'PM' : 'AM'}|${String(t.hour).padStart(2, '0')}:${mm}(:00)?)$`, 'i');
+}
+
+/** View ▸ Job Cards for one day: menu, calendar, Apply. Rows are then read with the page's own readers. */
+export async function openViewJobCardsForDay(pages: PageObjects, day: string): Promise<void> {
+    const view = pages.viewJobCards;
+    await view.openFromMenu();
+    await view.scopeToDay(day);
+    await view.applyFilter();
+}
+
+/** A View ▸ Job Cards row by Reference (the row's aria-label). */
+export function viewJobCardRow(pages: PageObjects, reference: string): Locator {
+    return pages.viewJobCards.grid.getByRole('row', { name: reference, exact: true });
+}
+
+/**
+ * Plumbing (d): the ids of this run's job cards, recorded before anything is asserted so cleanup deletes
+ * them whatever fails next. Never an assertion. Pass `isOwn` when the cards are not the crew's alone (D5).
+ */
+export async function recordOwnJobCardIds(
+    run: { day: string; crew: EnsuredRecord; jobCardIds: number[] },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
+    isOwn: (card: JobCardRecord) => boolean = (card) => Number(card.crewCounter) === run.crew.id,
+): Promise<number[]> {
+    opts.testInfo.annotations.push({ type: 'plumbing-read', description: 'own job card ids recorded for cleanup' });
+    const own = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter(isOwn);
+    for (const card of own) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
+    return own.map((card) => card.jobCardCounter);
+}
+
+/**
+ * View ▸ Time Cards with "Include transferred records" on: every Reference's Transferred cell reads
+ * `expected`. The untransferred text was not measured ("No" or an empty cell), so 'No' accepts either and
+ * the first run calibrates it.
+ */
+export async function assertTransferredOnScreen(
+    pages: PageObjects,
+    day: string,
+    references: string[],
+    expected: 'Yes' | 'No',
+    label: string,
+): Promise<void> {
+    const view = pages.viewTimeCards;
+    await view.openFromMenu();
+    await view.scopeToDay(day);
+    await view.setIncludeTransferred(true);
+    await view.applyFilter();
+    for (const reference of references) {
+        const row = await view.rowByReference(reference);
+        await expect
+            .poll(() => view.readCell(row, 'Transferred'), {
+                message: `${label}: ${reference} must read Transferred "${expected}" on View ▸ Time Cards`,
+                timeout: 30_000,
+            })
+            .toMatch(expected === 'Yes' ? /^Yes$/ : /^(No)?$/);
+    }
+}
+
+export interface PreviewClock {
+    job: string;
+    /** `HH:MM`, 24 h. */
+    start: string;
+    end: string;
+    grossMinutes: number;
+    netMinutes: number;
+}
+
+type PreviewSegments = Awaited<ReturnType<PageObjects['transferToJobCards']['previewSegments']>>;
+
+/**
+ * The Job Cards preview's segments as clock times and minutes, in chronological order. The Gross and Net
+ * Time cells are decimal hours (minutes = hours x 60); an HH:MM cell throws by name.
+ */
+export function previewClock(segments: PreviewSegments): PreviewClock[] {
+    const hhmm = (cell: string, what: string): string => {
+        const match = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)?/i.exec(cell);
+        if (!match) throw new Error(`Job Cards preview '${what}' reads "${cell}", which carries no clock time`);
+        const hour = match[3] ? (Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0) : Number(match[1]);
+        return `${String(hour).padStart(2, '0')}:${match[2]}`;
+    };
+    const minutes = (cell: string, what: string): number => {
+        const hours = Number(cell.replace(/,/g, '').trim());
+        if (!Number.isFinite(hours)) throw new Error(`Job Cards preview '${what}' reads "${cell}", which is not decimal hours`);
+        return Math.round(hours * 60);
+    };
+    return segments
+        .map((s) => ({
+            job: s.job,
+            start: hhmm(s.timeIn, 'Date Time In'),
+            end: hhmm(s.timeOut, 'Date Time Out'),
+            grossMinutes: minutes(s.grossTime, 'Gross Time'),
+            netMinutes: minutes(s.netTime, 'Net Time'),
+        }))
+        .sort((a, b) => a.start.localeCompare(b.start));
+}
 
 // ── D9 — Group piece-out distribution ────────────────────────────────────────────────────────
 
@@ -594,29 +708,6 @@ export async function seedCrewPieceOutDay(
         throw new Error(`${run.scenario.label}: expected exactly one crew piece-out (no employee) among ${own.length} own time cards, found ${pieceOuts.length}.`);
     }
     return { timeCardCounters: own.map((c) => c.timeCardCounter), pieceOutReference: String(pieceOuts[0].reference) };
-}
-
-/**
- * Read-only GET read-back of what the transfer wrote: the crew's job cards on the fixture day and
- * the seeded time cards. Records each job card's `amount` as an annotation only — a known product
- * defect leaves it at 0 while `pieceAmount` is right (D6, 2026-09-29).
- */
-export async function readDistribution(
-    run: JourneyD9Run,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
-    seed: SeedResult,
-): Promise<{ cards: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
-    const { sessionApi, testInfo } = opts;
-    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
-    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
-    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
-    for (const card of cards) {
-        testInfo.annotations.push({ type: 'product-defect-amount', description: `job card ${card.jobCardCounter}: amount=${String(card.amount)}` });
-    }
-
-    const wanted = new Set(seed.timeCardCounters);
-    const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
-    return { cards, timeCards };
 }
 
 // ── D10 — Exercise and auto-break split ──────────────────────────────────────────────────────
@@ -850,77 +941,6 @@ export async function designatePaidBreakJob(
     });
 }
 
-/** Non-committing analyze for the crew's day: how many time cards it plans, and any blocking exception codes. */
-export async function analyzeCrewDay(
-    run: JourneyD10Run,
-    opts: { sessionApi: APIRequestContext },
-): Promise<{ plannableTotal: number | undefined; blocking: string[] }> {
-    const res = await analyzeTransfer(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
-    if (!res.ok) throw new Error(`POST transfer-to-job-cards/analyze failed with ${res.status}: ${JSON.stringify(res.raw).slice(0, 300)}`);
-    return {
-        plannableTotal: res.plannableTotal,
-        blocking: res.exceptions.filter((e) => /block/i.test(String(e.severity))).map((e) => String(e.code)),
-    };
-}
-
-export interface PreviewBoundary {
-    day: string;
-    start: { hour: number; minute: number };
-    end: { hour: number; minute: number };
-    grossMinutes: number;
-    netMinutes: number;
-}
-
-/**
- * The split's minute-exact boundaries from the non-committing `job-cards-preview`, in chronological
- * order — independent of how the grid formats a date cell.
- */
-export async function readPreviewBoundaries(run: JourneyD10Run, opts: { sessionApi: APIRequestContext }): Promise<PreviewBoundary[]> {
-    const preview = await previewJobCards(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
-    const clock = (value: unknown) => {
-        const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/.exec(String(value));
-        if (!match) throw new Error(`job-cards-preview returned an unreadable date-time: ${JSON.stringify(value)}`);
-        return { day: match[1], hour: Number(match[2]), minute: Number(match[3]) };
-    };
-    return preview.rows
-        .map((row) => {
-            const start = clock(row.dateTimeIn);
-            const end = clock(row.dateTimeOut);
-            return {
-                day: start.day,
-                start: { hour: start.hour, minute: start.minute },
-                end: { hour: end.hour, minute: end.minute },
-                grossMinutes: Number(row.grossMinutes),
-                netMinutes: Number(row.netMinutes),
-            };
-        })
-        .sort((a, b) => a.start.hour * 60 + a.start.minute - (b.start.hour * 60 + b.start.minute));
-}
-
-/**
- * Read-only GET read-back of what the transfer wrote. Records each card's time and amount fields as
- * annotations only: their unit is unverified and the on-screen Amount column already carries the proof.
- */
-export async function readSplit(
-    run: JourneyD10Run,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
-): Promise<{ cards: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
-    const { sessionApi, testInfo } = opts;
-    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
-    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
-    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
-    for (const card of cards) {
-        testInfo.annotations.push({
-            type: 'job-card-fields',
-            description: `job card ${card.jobCardCounter} (job ${String(card.jobCounter)}): netTime=${String(card.netTime)} grossTime=${String(card.grossTime)} amount=${String(card.amount)}`,
-        });
-    }
-
-    const wanted = new Set((run.ctx.cards ?? []).map((c) => c.timeCardCounter));
-    const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
-    return { cards, timeCards };
-}
-
 // ── D3 — Add missing time-in and correct time card ───────────────────────────────────────────
 
 export interface JourneyD3Run {
@@ -1008,7 +1028,7 @@ export async function prepareJourneyD3(
 
 /**
  * Pushes a device envelope holding a Time In with no Ranch, Field or Job plus its Time Out, and
- * imports it on screen. `deliverAndVerifyCards` asserts the Time In arrived with null ranch/field/job.
+ * imports it on screen. That the Time In arrived with none of them is asserted by the spec on the Transfer grid.
  */
 export async function seedBlockingTimeInDay(
     run: JourneyD3Run,
@@ -1046,8 +1066,8 @@ export async function seedBlockingTimeInDay(
         crewId: run.crew.id,
         ranchId: run.ranch.id,
         expected: [
-            { employeeCode: run.picker.code, employeeId: run.picker.id, reference: timeInReference, fieldId: null, jobId: null, ranchId: null },
-            { employeeCode: run.picker.code, employeeId: run.picker.id, reference: timeOutReference },
+            { employeeCode: run.picker.code, reference: timeInReference, typeText: 'Time In', officeIds: { employeeId: run.picker.id } },
+            { employeeCode: run.picker.code, reference: timeOutReference, typeText: 'Time Out', officeIds: { employeeId: run.picker.id } },
         ],
         label: run.scenario.label,
         fileName,
@@ -1093,28 +1113,24 @@ export async function captureOwnRows(
     return statuses;
 }
 
-/** Read-only: the Time In as stored after the correction, and the crew's job cards on the day. */
-export async function readCorrection(
-    run: JourneyD3Run,
-    opts: { sessionApi: APIRequestContext },
-    seed: D3Seed,
-): Promise<{ timeIn: OfficeTimeCard; jobCards: JobCardRecord[] }> {
-    const timeIn = (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).find((c) => c.timeCardCounter === seed.timeInId);
-    if (!timeIn) throw new Error(`${run.scenario.label}: time card ${seed.timeInId} is gone from ${run.day}.`);
-    const jobCards = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
-    for (const card of jobCards) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
-    return { timeIn, jobCards };
+export type TimeInPanelView = Awaited<ReturnType<TransferToJobCardsPage['readTimeInPanel']>>;
+
+/** The Time In as the Transfer panel shows it after the correction (left through Cancel), and its row's Transferred cell. */
+export async function readCorrectionOnScreen(pages: PageObjects, seed: D3Seed): Promise<{ panel: TimeInPanelView; transferred: string }> {
+    const transfer = pages.transferToJobCards;
+    await transfer.openRow(seed.timeInId);
+    const panel = await transfer.readTimeInPanel();
+    await transfer.cancelPanel();
+    return { panel, transferred: await transfer.rowTransferred(String(seed.timeIn.reference)) };
 }
 
+// Cleanup verification, not a workflow outcome: confirms the teardown left nothing on the crew's fixture day.
 export async function remainingOwnTimeCards(run: JourneyD3Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
     const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
     return cards.filter((c) => Number(c.crewCounter) === run.crew.id);
 }
 
 // ── D5 — Reverse and redo ────────────────────────────────────────────────────────────────────
-
-/** `jobPaymentType` of a Non-Labor job (WEBPET job payment types: 8 = Non-Labor). */
-const NON_LABOR_PAYMENT_TYPE = 8;
 
 export interface JourneyD5Run {
     scenario: JourneyD5ReverseCase;
@@ -1128,7 +1144,7 @@ export interface JourneyD5Run {
     startedAt: Date;
     /** `GET session/me`'s user id — the `authorCounter` a run of this test must carry. */
     sessionUserId: number;
-    /** Filled by {@link commitTransfer} and {@link readRedo}; the teardown deletes these by id. */
+    /** Filled by {@link commitTransfer} and {@link recordOwnJobCardIds}; the teardown deletes these by id. */
     jobCardIds: number[];
     cleanup(): Promise<void>;
     readonly ctx: CleanupContext;
@@ -1151,7 +1167,7 @@ export function clock(t: { hour: number; minute: number }): string {
     return `${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`;
 }
 
-function isOwnD5JobCard(run: { crew: EnsuredRecord; picker: EnsuredRecord }, c: JobCardRecord): boolean {
+export function isOwnD5JobCard(run: { crew: EnsuredRecord; picker: EnsuredRecord }, c: JobCardRecord): boolean {
     return Number(c.crewCounter) === run.crew.id || Number(c.employeeCounter) === run.picker.id;
 }
 
@@ -1330,24 +1346,16 @@ export async function reanalyzeOwnDay(
     return openScopedCandidates(ownDayView(run, expectedJobCards), { pages: opts.pages }, seed);
 }
 
-/**
- * Analyze, guard, tick the two own rows by Reference and commit. `toastSeen` is armed before the click:
- * the "Transfer complete" toast is gone by the time the poll in commitTransfer returns.
- */
+/** Analyze, guard, tick the two own rows by Reference and commit; commitTransfer asserts the toast. */
 export async function transferOwnDay(
     run: JourneyD5Run,
-    opts: { sessionApi: APIRequestContext; pages: PageObjects },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects },
     seed: D5Seed,
     expectedJobCards: number,
-): Promise<ExecuteResult & { toastSeen: boolean }> {
+): Promise<TransferOutcome> {
     const view = ownDayView(run, expectedJobCards);
     const candidates = await openScopedCandidates(view, { pages: opts.pages }, seed);
-    const toast = opts.pages.transferToJobCards
-        .transferCompleteToast(expectedJobCards, seed.timeCardCounters.length)
-        .waitFor({ state: 'visible', timeout: 150_000 })
-        .then(() => true, () => false);
-    const result = await commitTransfer(view, opts, seed, candidates);
-    return { ...result, toastSeen: await toast };
+    return commitTransfer(view, opts, seed, candidates, { jobCards: expectedJobCards, timeCards: seed.timeCardCounters.length });
 }
 
 /**
@@ -1358,8 +1366,10 @@ export async function transferOwnDay(
 export async function guardReversibleRun(
     run: JourneyD5Run,
     opts: { sessionApi: APIRequestContext; pages: PageObjects; testInfo: TestInfo },
-    transfer: ExecuteResult,
+    transfer: TransferOutcome,
 ): Promise<TransferRunRecord> {
+    // Plumbing (d): refuses to reverse a run that is not this test's own; the reverse itself stays on screen.
+    opts.testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: transfer-run list read to refuse a foreign run` });
     const refuse = (why: string): never => {
         throw new Error(`${run.scenario.label}: refusing to reverse — ${why}`);
     };
@@ -1389,65 +1399,7 @@ export async function guardReversibleRun(
     return record;
 }
 
-/**
- * The state after the reverse: the day's own job cards, the seeded time cards and whether the run is
- * still listed as active. Polls up to 30 s for the unwind to settle and returns the last read either
- * way; the caller asserts.
- */
-export async function readAfterReverse(
-    run: JourneyD5Run,
-    opts: { sessionApi: APIRequestContext },
-    seed: D5Seed,
-    reversed: { runId: number; jobCardIds: number[] },
-): Promise<{ timeCards: OfficeTimeCard[]; dayJobCardIds: number[]; runStillActive: boolean }> {
-    const wanted = new Set(seed.timeCardCounters);
-    const read = async () => ({
-        dayJobCardIds: (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c)).map((c) => c.jobCardCounter),
-        timeCards: (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter)),
-        runStillActive: (await listTransferRuns(opts.sessionApi)).some((r) => r.transferRunCounter === reversed.runId && r.status === 'active'),
-    });
-    const settled = (s: Awaited<ReturnType<typeof read>>) =>
-        !s.dayJobCardIds.some((id) => reversed.jobCardIds.includes(id)) && s.timeCards.every((c) => c.transferred === false) && !s.runStillActive;
-    const deadline = Date.now() + 30_000;
-    let last = await read();
-    while (!settled(last) && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 1_500));
-        last = await read();
-    }
-    return last;
-}
-
-/** Read-only: the seeded time cards as they stand now. */
-export async function readSeedTimeCards(run: JourneyD5Run, opts: { sessionApi: APIRequestContext }, seed: D5Seed): Promise<OfficeTimeCard[]> {
-    const wanted = new Set(seed.timeCardCounters);
-    return (await listTimeCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
-}
-
-/**
- * Every own job card after the re-transfer, split into the work card(s), a tolerated meal-penalty
- * card (non-labor, or "meal penalty" in the job name) and anything else. Ids are recorded into
- * `run.jobCardIds` before the caller asserts.
- */
-export async function readRedo(
-    run: JourneyD5Run,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
-    seed: D5Seed,
-): Promise<{ work: JobCardRecord[]; penalty: JobCardRecord[]; other: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
-    const { sessionApi } = opts;
-    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c));
-    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
-    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
-
-    const isPenalty = (c: JobCardRecord): boolean =>
-        Number(c.jobPaymentType) === NON_LABOR_PAYMENT_TYPE || /meal penalty/i.test(String(c.jobName ?? c.job ?? ''));
-    const work = cards.filter((c) => Number(c.jobCounter) === run.job.id);
-    const rest = cards.filter((c) => !work.includes(c));
-    const penalty = rest.filter(isPenalty);
-    const other = rest.filter((c) => !isPenalty(c));
-    return { work, penalty, other, timeCards: await readSeedTimeCards(run, { sessionApi }, seed) };
-}
-
-/** What the picker still has on the fixture day — the Time Out carries no crew, so this is by employee. */
+/** Plumbing (d): cleanup verification — what the picker still has on the fixture day (the Time Out carries no crew, so this is by employee). */
 export async function remainingPickerTimeCards(run: JourneyD5Run, opts: { sessionApi: APIRequestContext }): Promise<OfficeTimeCard[]> {
     const cards = await listTimeCards(opts.sessionApi, { from: run.day, to: run.day });
     return cards.filter((c) => Number(c.employeeCounter) === run.picker.id);
@@ -1504,14 +1456,7 @@ export function cropIdOf(run: JourneyD8Run, name: string): number {
     return id;
 }
 
-/** `live` = GET crops/{id} is 200; `binned` = 404 but listed in crops/deleted; `absent` = neither. */
-export async function cropState(opts: { sessionApi: APIRequestContext }, id: number): Promise<'live' | 'binned' | 'absent'> {
-    if ((await getRecordStatus(opts.sessionApi, 'crops', id)) === 200) return 'live';
-    const binned = (await listDeleted(opts.sessionApi, 'crops')).some((r) => Number(r.cropCounter) === id);
-    return binned ? 'binned' : 'absent';
-}
-
-/** Position in `GET crops/deleted`, which is also the Deleted Crops grid's row order. */
+/** Plumbing (d): scroll hint only. Position in `GET crops/deleted`, which is also the Deleted Crops grid's row order. */
 export async function deletedCropIndex(opts: { sessionApi: APIRequestContext }, id: number): Promise<number> {
     const index = (await listDeleted(opts.sessionApi, 'crops')).findIndex((r) => Number(r.cropCounter) === id);
     if (index < 0) throw new Error(`crop ${String(id)} is not in GET crops/deleted`);
@@ -1570,10 +1515,4 @@ export async function findOwnBatch(run: JourneyD8Run, opts: { sessionApi: APIReq
         }
         await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
-}
-
-export async function readBatch(opts: { sessionApi: APIRequestContext }, id: number): Promise<BulkDeleteBatch> {
-    const row = (await listBulkDeleteHistory(opts.sessionApi)).find((r) => r.id === id);
-    if (!row) throw new Error(`bulk-update-history row ${String(id)} is not in the list`);
-    return toBatch(row);
 }

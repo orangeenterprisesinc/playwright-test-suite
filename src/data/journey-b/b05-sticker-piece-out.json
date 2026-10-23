@@ -7,14 +7,14 @@
     "expected.cards[3].employeeCode 'undefinedEmployee' is the reserved name for preferences.undefinedEmployee — the flow puts that id in the employee map, so the expected card and the cleanup sweep both resolve it like any other code. The device record still sends 9999999: the office is what does the falling back.",
     "modules: Piece Payment gates piece *payment*, not piece *capture* — the importer stores NumOfPieces and resolves the employee with the module off, which is everything this spec asserts; dev reports it false only because the API reads PT_MODULES instead of TigerMaster, where it is licensed (PET-12689), so it is named, never silently skipped. Traceability - Stickers is different: without it the importer has no sticker path at all, so the traceability assertions would be vacuous — the spec asserts that one.",
     "preconditions undefinedEmployeeSet + requireJobInEmpPieceOut: both read GET preferences once. Which exception code a job-less piece-out draws depends on the tenant — with requireJobInEmpPieceOut on it is the blocking block.fk_missing ('… is missing Job'); off, the card can only fail to pair and is flagged warn.employee_piece_job_card_not_found_plain ('No corresponding Job-Card was found for Piece-Out record.'). WEBPET-2657 retired the interim 'JobCounter is required…' text. The test expects exactly one of the two, never either.",
-    "expected.analyze.undefinedEmployeeCode: one exception per card, the blocking one first — the sticker that fell to the Undefined Employee is flagged block.undefined_employee ('Cannot use Undefined Employee') instead of the missing-job code, because the fallback owner lands on is itself unusable, which supersedes the missing job.",
+    "expected.grid: the Transfer screen is the proof, read after Analyze. rowStatus is the badge each card reads — the two sticker cards Blocking when requireJobInEmpPieceOut is on, Warning when off (missingJobRequired / missingJobOptional); the card that fell to the Undefined Employee is Blocking either way, because the fallback owner is itself unusable and that supersedes the missing job. issueGroups are leading-text patterns of the Issues-panel groups (each must affect at least one record). They were not measured live when written (no untransferred cards on the measuring tenant): the first run on a fixture day calibrates them, and a miss names every group the panel showed.",
     "dayOffset -7 keeps 6006's employee-day away from B4 (-8) and B6 (-6) under workers=2. cleanup: the timeCards step sweeps 6006's and the Undefined Employee's fixture day (both card types) before the import and deletes every imported card after the test — including the Undefined-Employee card; the flow passes sweep:false so exactly one cleanup path is live."
   ],
   "workflow": "B5",
   "label": "B5",
   "dayOffset": -7,
   "envelope": "records",
-  "transport": "single-folder",
+  "transport": "relay-ui",
   "verification": "cards",
   "cardType": null,
   "modules": [
@@ -113,6 +113,7 @@
     "cards": [
       {
         "record": 0,
+        "typeText": "Time In",
         "employeeCode": "6006",
         "fieldCode": "4101",
         "jobCode": "4201",
@@ -120,6 +121,7 @@
       },
       {
         "record": 1,
+        "typeText": "Piece Out",
         "employeeCode": "6006",
         "cardType": 0,
         "employeeSourceText": "Sticker Code",
@@ -127,6 +129,7 @@
       },
       {
         "record": 2,
+        "typeText": "Piece Out",
         "employeeCode": "6006",
         "cardType": 0,
         "employeeSourceText": "Sticker Code",
@@ -134,16 +137,24 @@
       },
       {
         "record": 3,
+        "typeText": "Piece Out",
         "employeeCode": "undefinedEmployee",
         "cardType": 0,
         "employeeSourceText": "Sticker Code",
         "pieces": 1
       }
     ],
-    "analyze": {
-      "blockingCode": "block.fk_missing",
-      "warningCode": "warn.employee_piece_job_card_not_found_plain",
-      "undefinedEmployeeCode": "block.undefined_employee"
+    "grid": {
+      "rowStatus": {
+        "missingJobRequired": "Blocking",
+        "missingJobOptional": "Warning",
+        "undefinedEmployee": "Blocking"
+      },
+      "issueGroups": {
+        "missingJobRequired": ".*[Mm]issing [Jj]ob",
+        "missingJobOptional": ".*(?:[Nn]o corresponding [Jj]ob|[Jj]ob.[Cc]ard)",
+        "undefinedEmployee": ".*[Uu]ndefined [Ee]mployee"
+      }
     }
   },
   "cleanup": [

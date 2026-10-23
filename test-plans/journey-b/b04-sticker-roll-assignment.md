@@ -149,9 +149,9 @@ needed for the dedicated `ASIGNAR ROLLO` path, which this recording does not use
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
-| Time Cards | `View ▸ Time Cards` | **none — and none is needed** | `src/pages/processing/TimeCardsPage.ts` does **not** exist (only `TransferToJobCardsPage.ts` is in that folder). Verification is API-only: `GET /time-cards` already returns `traceabilityCode`. |
+| Time Cards | `View ▸ Time Cards` | `src/pages/processing/ViewTimeCardsPage.ts` (read-only) | not opened by B4: the imported rows, `traceabilityCode` included, are compared on Transfer to Job Cards (`assertImportedRows`). No API read proves a value. |
 | Transfer to Job Cards | `View ▸ Transfer to Job Cards` | `src/pages/processing/TransferToJobCardsPage.ts` | exists — `applyDateRange` fixed for arbitrary days by B3; **not used by B4** |
-| Employee ▸ Code History tab | `File ▸ Employee ▸ <employee> ▸ Code History` | — | not needed — `GET /employees/{id}/code-history` carries `B4` |
+| Employee ▸ Code Badge History | `Setup ▸ Employee ▸ <employee>` (section `#codeHistory`) | `EmployeePage.readCodeHistory()` | read on screen before and after the import (`codeHistorySnapshot`), deep-equal; the form is left without saving. |
 
 ## Data
 

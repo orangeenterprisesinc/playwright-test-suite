@@ -42,6 +42,7 @@
         "totalAmount": 320
     },
     "cleanup": [
-        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -14, "cardTypes": [0, 1] }
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -14, "cardTypes": [0, 1] },
+        { "kind": "restore", "target": "e2JobRuleAndRate" }
     ]
 }

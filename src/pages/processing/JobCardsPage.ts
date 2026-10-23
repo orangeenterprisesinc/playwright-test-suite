@@ -138,6 +138,15 @@ export class JobCardsPage extends BasePage {
         return amounts;
     }
 
+    /** One crew's rows narrowed to an employee; substring, because the cell is rendered from the exportIdentifier. */
+    rowForCrewEmployee(crewName: string, employee: string): Locator {
+        return this.rowsForCrew(crewName).filter({ has: this.page.getByRole('cell', { name: employee }) });
+    }
+
+    async referenceOf(row: Locator): Promise<string> {
+        return ((await this.cellAt(row, 2).textContent()) ?? '').trim();
+    }
+
     /** Opens the Edit Job Card form from the list. Read it, then {@link closeCard}; never save or delete here. */
     async openCardByReference(reference: string): Promise<void> {
         await this.page.getByRole('link', { name: `Edit Job Card: ${reference}` }).click();

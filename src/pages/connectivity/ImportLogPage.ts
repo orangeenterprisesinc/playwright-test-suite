@@ -3,7 +3,13 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 const COLUMNS = {
+    received: 'Received',
     file: 'File',
+    owner: 'Owner',
+    message: 'Message',
+    imported: 'Records imported',
+    failed: 'Records failed',
+    type: 'Type',
     source: 'Source',
     status: 'Status',
     recordsImported: 'Records imported',
@@ -56,7 +62,8 @@ export class ImportLogPage extends BasePage {
     }
 
     async readRow(name: string): Promise<ImportLogRow> {
-        const row = this.row(name).first();
+        const exact = this.grid.getByRole('row', { name: `Imported file ${name}`, exact: true });
+        const row = (await exact.count()) > 0 ? exact.first() : this.row(name).first();
         await expect(row).toBeVisible({ timeout: 30_000 });
         const headers = await this.headerTexts();
         const cells = (await row.locator(CELL).allInnerTexts()).map((c) => c.trim());

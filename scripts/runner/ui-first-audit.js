@@ -17,8 +17,12 @@
  * `--allowed` prints the ledger instead of the failures — that is how a test plan's
  * "API allowances" table gets filled from a real run rather than from memory.
  *
+ * `--reads` prints the GETs a run made, grouped by spec and top-level path. The guard
+ * only records them under `UI_FIRST_READS=ledger`; each one must map to a plumbing or
+ * `api-only-evidence` row in the spec's plan.
+ *
  * Usage: node scripts/runner/ui-first-audit.js [--results <path>] [--ledger-dir <dir>]
- *                                              [--allowed] [--strict]
+ *                                              [--allowed] [--reads] [--strict]
  * Exit 0 unless violations exist AND (--strict or UI_FIRST_GUARD=enforce) — in warn
  * mode the burn-down is information, not a gate.
  */
@@ -34,6 +38,7 @@ const has = (flag) => process.argv.includes(flag);
 const RESULTS = arg('--results', path.join('artifacts', 'results', 'results.json'));
 const LEDGER_DIR = arg('--ledger-dir', path.join('artifacts', 'results'));
 const SHOW_ALLOWED = has('--allowed');
+const SHOW_READS = has('--reads');
 const STRICT = has('--strict') || (process.env.UI_FIRST_GUARD || '').toLowerCase() === 'enforce';
 const TAG = 'ui-first';
 
@@ -43,6 +48,8 @@ const inTest = [];
 const outOfTest = [];
 /** Declared writes: the arrange / cleanup / device ledger. */
 const allowed = [];
+/** Reads, only present when the run had UI_FIRST_READS=ledger. */
+const reads = [];
 
 // ── results.json: annotations ────────────────────────────────────────────────
 if (fs.existsSync(RESULTS)) {
@@ -80,14 +87,15 @@ if (fs.existsSync(LEDGER_DIR)) {
             } catch {
                 continue; // a half-written line from a killed worker is not a finding
             }
-            if (entry.type === 'allowed') allowed.push(entry);
+            if (entry.type === 'read') reads.push(entry);
+            else if (entry.type === 'allowed') allowed.push(entry);
             else if (!entry.spec) outOfTest.push(entry);
         }
     }
 }
 
 // ── report ───────────────────────────────────────────────────────────────────
-if (!fs.existsSync(RESULTS) && allowed.length === 0 && outOfTest.length === 0) {
+if (!fs.existsSync(RESULTS) && allowed.length === 0 && outOfTest.length === 0 && reads.length === 0) {
     console.log(`${TAG} audit: no run to read — neither ${RESULTS} nor a guard ledger is present.`);
     process.exit(0);
 }
@@ -117,6 +125,29 @@ if (SHOW_ALLOWED) {
     }
 }
 
+if (SHOW_READS) {
+    if (reads.length === 0) {
+        console.log(`${TAG} audit: the ledger holds no reads (run with UI_FIRST_READS=ledger).`);
+    } else {
+        console.log(`${TAG} reads (${String(reads.length)}):\n`);
+        const bySpec = {};
+        for (const e of reads) {
+            const spec = e.spec ? short(e.spec) : '<out of test>';
+            const top = String(e.url).split(/[/?]/)[0] || '/';
+            ((bySpec[spec] ||= {})[top] ||= []).push(e);
+        }
+        for (const spec of Object.keys(bySpec).sort()) {
+            console.log(`  ${spec}`);
+            for (const top of Object.keys(bySpec[spec]).sort()) {
+                const list = bySpec[spec][top];
+                const labels = [...new Set(list.map((e) => e.label))].sort().join(', ');
+                console.log(`    ${top}  ×${String(list.length)}  ·  ${labels}  ·  ${(list[0].frames || [])[0] || ''}`);
+            }
+            console.log('');
+        }
+    }
+}
+
 const total = inTest.length + outOfTest.length;
 
 if (total > 0) {
@@ -140,7 +171,7 @@ const ledger = Object.keys(counts).sort().map((k) => `${k} ${String(counts[k])}`
 console.log(
     `${TAG} audit: violations ${String(total)} ` +
         `(in-test ${String(inTest.length)}, out-of-test ${String(outOfTest.length)}) · ` +
-        `allowed {${ledger}}`,
+        `allowed {${ledger}} · reads ${String(reads.length)}`,
 );
 
 if (total > 0 && STRICT) {

@@ -99,19 +99,21 @@ write when missing; the workflow's own records are always on screen.
 
 Every call this spec makes outside the browser, and which of the four allowances in
 the UI-first rule covers it. A step a user performs on screen has **no row here**.
-Allowance is one of `arrange` · `cleanup` · `device` · `read`. There is no configuration allowance:
-a preference a screen exposes is set on that screen, and a preference with no screen is
-a read-only gate (read it, annotate `environment-gate`, fail by name).
+Allowance is one of `arrange` · `cleanup` · `device` · `plumbing read`. There is no configuration
+allowance: a preference a screen exposes is set on that screen, and a preference with no screen is
+a gate (read it, annotate `environment-gate`, fail by name). A read is never the proof of a
+workflow outcome — the screen proves it, and the *Proof on screen* column names the step that does.
+A read with no purpose row here is a finding (`npm run ui-first:audit -- --reads`).
 
-| Step / call | Endpoint | Allowance | Why |
-|---|---|---|---|
-| before-hook preference read | `GET preferences` | read | gates the scenario |
-| preference snapshot / restore | `GET` / `PUT preferences` | cleanup | the restore step puts back what the screen changed |
-| device envelope push | `POST …/UploadFile` (relay) | device | the handheld itself |
-| read-back after the screen saved | `GET <entity>?<scope>` | read | records ids before the assertions run |
-| after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id |
-| fixture row missing | `POST <entity>` / `POST <entity>/{id}/restore` | arrange | reference data the workflow never creates, created or restored only when missing |
-| single-folder device file (b05/b06 transport) | `POST connectivity/import/single-folder` | arrange | the importer upload used as a transport; the Internet import click stays on screen |
+| Step / call | Endpoint | Allowance | Why | Proof on screen |
+|---|---|---|---|---|
+| before-hook preference read | `GET preferences` | plumbing read | gates the scenario | — |
+| preference snapshot / restore | `GET` / `PUT preferences` | cleanup | puts back what the test changed on screen | — |
+| device envelope push | `POST …/UploadFile` (relay) | device | the handheld itself | — |
+| ids captured for cleanup / save-landed poll | `GET <entity>?<scope>` | plumbing read | records ids before the assertions run | step N asserts the same values on screen |
+| value no screen shows | `GET <entity>/{id}` | plumbing read (`api-only-evidence`) | <what, and why no screen has it> | none — annotated `api-only-evidence` |
+| after-phase teardown | `DELETE <entity>/{id}` | cleanup | registered by the flow, by id | — |
+| fixture row missing | `POST <entity>` / `POST <entity>/{id}/restore` | arrange | reference data the workflow never creates, created or restored only when missing | — |
 
 ## Cleanup
 

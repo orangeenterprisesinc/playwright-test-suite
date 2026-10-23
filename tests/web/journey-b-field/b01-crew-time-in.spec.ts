@@ -5,7 +5,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { assertExpectedCards, assertTransferGrid, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, assertTransferGrid, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
 
 test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
     test('[Crew Time In] Deliver a crew time-in export to the office and verify the punches.', {
@@ -29,7 +29,7 @@ test.describe('B1 · Crew time-in', { tag: ['@JourneyB', '@B1'] }, () => {
         expect(run.envelope.references).toHaveLength(scenario.records.length);
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
         expect(run.cards).toHaveLength(scenario.expected.cards.length);
-        assertExpectedCards(run, scenario.expected.cards);
+        await assertImportedRows(pages, run);
         await assertTransferGrid(pages, run, scenario.expected.grid!);
     });
 

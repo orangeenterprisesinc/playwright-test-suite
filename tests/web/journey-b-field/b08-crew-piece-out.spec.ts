@@ -6,10 +6,9 @@ import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
 import {
-    assertExpectedCards,
+    assertImportedRows,
     cardOf,
-    crewCardsOnDay,
-    crewJobCardsOnDay,
+    jobCardEmployeesOnScreen,
     journeyBPreconditions,
     memberName,
     openCrewTransferCandidates,
@@ -51,32 +50,22 @@ test.describe('B8 · Crew piece-out', { tag: ['@JourneyB', '@B8'] }, () => {
             }
         }
 
-        // 4. Step 1: the crew total is one employee-less card.
+        // 4. Step 1: the crew total is one employee-less card. Crew, job (the piece job), type and pieces of
+        // all five rows are compared by assertImportedRows; the crew-scoped set below is exactly this run's.
         expect(run.cards, 'the five imported cards').toHaveLength(expected.cards.length);
-        assertExpectedCards(run, expected.cards);
+        await assertImportedRows(pages, run);
         const piece = cardOf(run, expected.cards.find((c) => c.employeeCode === null)!.record);
-        expect(piece.card.employeeCounter ?? null, 'a crew piece-out stores no employee').toBeNull();
-        expect(piece.card.crewCounter, 'crew').toBe(run.office.crew.id);
-        expect(piece.card.jobCounter, 'job').toBe(run.office.pieceJob!.id);
-        expect(Number(piece.card.numOfPieces), 'the crew total').toBe(piece.expected.pieces);
-        expect(piece.card.cardType).toBe(piece.expected.cardType);
-        expect(piece.card.reference).toBe(run.recordReferences[piece.index]);
-        expect(referencePart(String(piece.card.reference))).toBe(records[piece.index].part);
-
-        const ownReferences = run.recordReferences.filter((r) => r !== '').sort();
-        const crewCards = await crewCardsOnDay(run);
-        expect(
-            crewCards.map((c) => String(c.reference)).sort(),
-            'the crew\'s open cards on the day are exactly this run\'s',
-        ).toEqual(ownReferences);
-        expect(
-            crewCards.filter((c) => c.employeeCounter == null),
-            'only the crew piece-out has no employee: no time-in was synthesized and no per-member piece-out exists',
-        ).toHaveLength(records.filter((r) => r.employeeCode === undefined).length);
+        expect(['', '—'], 'a crew piece-out stores no employee').toContain(piece.row.employee);
+        expect(Number(piece.row.pieces.replace(/,/g, '')), 'the crew total').toBe(piece.expected.pieces);
+        expect(piece.row.type).toBe(piece.expected.typeText);
+        expect(piece.row.reference).toBe(run.recordReferences[piece.index]);
+        expect(referencePart(piece.row.reference)).toBe(records[piece.index].part);
 
         // 5. Step 2: the Transfer screen, crew-scoped and before any commit, shows the crew total.
         const transfer = pages.transferToJobCards;
+        const ownReferences = run.recordReferences.filter((r) => r !== '').sort();
         const candidates = await openCrewTransferCandidates(pages, run);
+        expect([...candidates].sort(), 'the crew-scoped grid offers exactly the run\'s own open time cards').toEqual(ownReferences);
         expect(candidates, 'the crew-scoped grid offers exactly the run\'s own time cards').toHaveLength(run.cards.length);
         const reference = run.recordReferences[piece.index];
         expect(await transfer.crewPieceOutRows(), 'the only row with no employee must be the crew piece-out').toEqual([reference]);
@@ -104,12 +93,26 @@ test.describe('B8 · Crew piece-out', { tag: ['@JourneyB', '@B8'] }, () => {
             const { pieces, employees } = await transfer.previewTotals();
             return { pieces, employees };
         }, { message: 'the preview totals bar' }).toEqual({ pieces: split.piecesTotal, employees: split.members.length });
+
+        // After the preview every one of this run's cards is still on the grid and untransferred. "Contain",
+        // not "equal": whether the crew filter survives the tab switch is not measured, and a transferred or
+        // missing card still fails here.
         await transfer.openTimeCardsTab();
-        expect(await crewJobCardsOnDay(run, split.members), 'nothing was transferred, so no member has a job card for the day').toHaveLength(0);
+        expect(await transfer.candidateReferences(), 'after the preview every one of this run\'s cards is still a candidate').toEqual(
+            expect.arrayContaining(ownReferences),
+        );
+        for (const own of ownReferences) {
+            expect(await transfer.rowTransferred(own), `${own} must still read untransferred`).toMatch(/^(No)?$/);
+        }
+
+        // Nothing was transferred, so no member has a job card for the day. Members only, never the whole
+        // crew: day -17 holds permanent transferred "A Kishore" cards under the same crew.
+        const memberNames = split.members.map((code) => memberName(run, code));
+        const { employees } = await jobCardEmployeesOnScreen(pages, run.day, run.office.crew.name);
         expect(
-            (await crewCardsOnDay(run)).map((c) => String(c.reference)).sort(),
-            'after the preview every one of this run\'s cards is still open (untransferred)',
-        ).toEqual(ownReferences);
+            employees.filter((cell) => memberNames.some((name) => cell.includes(name))),
+            'nothing was transferred, so no member has a job card for the day',
+        ).toHaveLength(0);
         // Teardown: the scope's after-phase runCleanup deletes the run's five cards by id.
     });
 });

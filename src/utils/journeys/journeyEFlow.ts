@@ -4,14 +4,14 @@ import type { PageObjects } from '@fixtures/pages.fixture';
 import type { JourneyE8FinalizeCase } from '@data/schemas/journeyEScenario';
 import { journeyE2Fixture } from '@data/journey-e/fixture';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
-import { deleteJobCard, getJobCard, listJobCards, type JobCardRecord } from '@utils/api/jobCardsApi';
-import { analyzeTransfer, previewJobCards, type ExecuteResult } from '@utils/api/transferToJobCardsApi';
+import { deleteJobCard, getJobCard, listJobCards } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
+import type { OfficeFixture } from '@utils/api/officeFixture';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope } from '@utils/cleanup/cleanupScope';
-import type { CleanupContext } from '@utils/cleanup/runCleanup';
+import { runCleanup, type CleanupContext, type CleanupStep } from '@utils/cleanup/runCleanup';
 import type { SeedResult } from '@utils/journeys/journeyDFlow';
 import {
     ensureCrewOnScreen,
@@ -22,9 +22,19 @@ import {
 } from '@utils/fixtureRows/ensureOnScreen';
 
 // One spec imports one flow module: the D-flow transfer helpers are re-exported rather than moved.
-export { commitTransfer, openScopedCandidates } from '@utils/journeys/journeyDFlow';
-export type { PreviewBoundary, SeedResult } from '@utils/journeys/journeyDFlow';
-import { commitTransfer, openScopedCandidates, type PreviewBoundary } from '@utils/journeys/journeyDFlow';
+export {
+    FRESH_EXPORTED_CELL,
+    READY_STATUS,
+    assertTransferredOnScreen,
+    clock,
+    commitTransfer,
+    openScopedCandidates,
+    openViewJobCardsForDay,
+    previewClock,
+    recordOwnJobCardIds,
+} from '@utils/journeys/journeyDFlow';
+export type { SeedResult, TransferOutcome } from '@utils/journeys/journeyDFlow';
+import { assertTransferredOnScreen, commitTransfer, openScopedCandidates, type TransferOutcome } from '@utils/journeys/journeyDFlow';
 
 interface Clock {
     hour: number;
@@ -38,6 +48,7 @@ export interface E2Setup {
     rule: { name: string };
     capture: { timeIn: Clock; timeOut: Clock };
     expected: { timeCards: number; jobCards: number; hourlyRate: number; mealMinutes: number };
+    cleanup: CleanupStep[];
 }
 
 // TransferRun is not exported from journeyDFlow, so this only has to satisfy its shape.
@@ -121,7 +132,9 @@ export async function prepareJourneyE2(
     const day = isoDay(punchDay(scenario.dayOffset));
     const jobCardIds: number[] = [];
     const timeCardIds: number[] = [];
-    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [] };
+    // runCleanup reads `employees` (timeCards step) and `job.id` (e2JobRuleAndRate restore); the rest of OfficeFixture is Journey B's.
+    const office = { ranch, field, job, crew, employees: new Map([[picker.code, picker]]) } as unknown as OfficeFixture;
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
 
     const warn = (name: string, error: unknown) =>
         testInfo.attach(name, { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' });
@@ -139,6 +152,8 @@ export async function prepareJourneyE2(
                 }
             }
         });
+        // The declared steps (timeCards sweep, e2JobRuleAndRate restore). 'after' never throws.
+        await runCleanup(scenario.cleanup, api, testInfo, ctx);
         await allowApiWrites('cleanup', 'E2 teardown: own time cards by id', async () => {
             for (const id of timeCardIds) {
                 try {
@@ -158,28 +173,25 @@ export async function prepareJourneyE2(
         registration?.complete();
     };
 
+    // Fixture gate: resolves the rule id the field gate below compares against; it throws, it is not proof.
     const ruleCounter = await resolveRuleCounter(sessionApi, scenario.rule.name);
 
+    // Before phase, ahead of the Job form: job cards first (a transferred time card cannot be deleted), then the
+    // declared steps — the timeCards sweep and the e2JobRuleAndRate snapshot, which must capture the pre-change job.
+    await allowApiWrites('cleanup', 'E2 before-phase: crew job cards', () => sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }));
+    await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
+    await allowApiWrites('cleanup', 'E2 before-phase: crew time cards', () => sweepCrewTimeCards(sessionApi, { day, crewCounter: crew.id }));
+
     // Both setters need a hydrated form and both leave it after saving, so the record is reopened between them.
+    // Each returns what the form shows after a fresh load, which is the proof that the Job form saved it.
     await pages.job.gotoEditById(job.id, job.name);
-    await pages.job.setOvertimeRule(scenario.rule.name);
+    const shownRule = await pages.job.setOvertimeRule(scenario.rule.name);
     await pages.job.gotoEditById(job.id, job.name);
-    await pages.job.setHourlyRate(scenario.expected.hourlyRate);
+    const shownRate = await pages.job.setHourlyRate(scenario.expected.hourlyRate);
+    expect(shownRule, `${scenario.label}: the Job form must show the overtime rule after saving`).toContain(scenario.rule.name);
+    expect(Number(shownRate), `${scenario.label}: the Job form must show the hourly rate after saving`).toBe(scenario.expected.hourlyRate);
 
-    const storedJob = await getJson(sessionApi, `jobs/${job.id}`);
-    expect(
-        {
-            overtimeRulesCounter: Number(storedJob.overtimeRulesCounter),
-            hourlyRate: Number(storedJob.hourlyRate),
-            active: storedJob.active !== false,
-        },
-        `${scenario.label}: the rule and rate must persist exactly as the Job form saved them`,
-    ).toEqual({ overtimeRulesCounter: ruleCounter, hourlyRate: scenario.expected.hourlyRate, active: true });
-    if (typeof storedJob.overtimeRulesName === 'string') {
-        expect(storedJob.overtimeRulesName, `${scenario.label}: overtimeRulesName`).toBe(scenario.rule.name);
-    }
-    testInfo.annotations.push({ type: 'job-evidence', description: `considerEmployeeRate=${String(storedJob.considerEmployeeRate)}` });
-
+    // fixture-gate: the crew/employee/field reads below throw on a fixture the day's arithmetic cannot tolerate; they are not proof.
     const storedCrew = await getJson(sessionApi, `crews/${crew.id}`);
     expect(
         {
@@ -233,9 +245,6 @@ export async function prepareJourneyE2(
         testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
     }
 
-    await allowApiWrites('cleanup', 'E2 before-phase sweep: crew job cards', () => sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }));
-    await allowApiWrites('cleanup', 'E2 before-phase sweep: crew time cards', () => sweepCrewTimeCards(sessionApi, { day, crewCounter: crew.id }));
-
     return { scenario, ranch, field, crew, picker, job, ruleCounter, day, jobCardIds, timeCardIds, cleanup, ctx };
 }
 
@@ -273,74 +282,6 @@ export async function seedLongWorkday(
         throw new Error(`${run.scenario.label}: expected ${run.scenario.expected.timeCards} own time cards after seeding, found ${own.length}.`);
     }
     return { timeCardCounters: own.map((c) => c.timeCardCounter) };
-}
-
-/** Non-committing analyze for the crew's day: how many time cards it plans, and any blocking exception codes. */
-export async function analyzeCrewDay(
-    run: JourneyE2Run,
-    opts: { sessionApi: APIRequestContext },
-): Promise<{ plannableTotal: number | undefined; blocking: string[] }> {
-    const res = await analyzeTransfer(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
-    if (!res.ok) throw new Error(`POST transfer-to-job-cards/analyze failed with ${res.status}: ${JSON.stringify(res.raw).slice(0, 300)}`);
-    return {
-        plannableTotal: res.plannableTotal,
-        blocking: res.exceptions.filter((e) => /block/i.test(String(e.severity))).map((e) => String(e.code)),
-    };
-}
-
-/**
- * The previewed card's minute-exact boundaries from the non-committing `job-cards-preview`, independent
- * of how the grid formats a date cell. `grossMinutes - netMinutes` is the meal the engine actually took.
- */
-export async function readPreviewBoundaries(run: JourneyE2Run, opts: { sessionApi: APIRequestContext }): Promise<PreviewBoundary[]> {
-    const preview = await previewJobCards(opts.sessionApi, { from: run.day, to: run.day, crewIds: [run.crew.id] });
-    const clock = (value: unknown) => {
-        const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/.exec(String(value));
-        if (!match) throw new Error(`job-cards-preview returned an unreadable date-time: ${JSON.stringify(value)}`);
-        return { day: match[1], hour: Number(match[2]), minute: Number(match[3]) };
-    };
-    return preview.rows
-        .map((row) => {
-            const start = clock(row.dateTimeIn);
-            const end = clock(row.dateTimeOut);
-            return {
-                day: start.day,
-                start: { hour: start.hour, minute: start.minute },
-                end: { hour: end.hour, minute: end.minute },
-                grossMinutes: Number(row.grossMinutes),
-                netMinutes: Number(row.netMinutes),
-            };
-        })
-        .sort((a, b) => a.start.hour * 60 + a.start.minute - (b.start.hour * 60 + b.start.minute));
-}
-
-/**
- * Read-only GET read-back of the written card(s). Records id, time, amount and the calculation fields as
- * annotations only: their unit is unverified and the on-screen Amount column already carries the proof.
- */
-export async function readDailyOvertime(
-    run: JourneyE2Run,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo },
-): Promise<{ cards: JobCardRecord[]; timeCards: OfficeTimeCard[] }> {
-    const { sessionApi, testInfo } = opts;
-    const listed = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
-    for (const card of listed) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
-    const cards = await Promise.all(listed.map((c) => getJobCard(sessionApi, c.jobCardCounter)));
-    for (const card of cards) {
-        const record = card as unknown as Record<string, unknown>;
-        const buckets = Object.keys(record)
-            .filter((k) => /overtime|double|regular|meal|calculationDesc/i.test(k))
-            .map((k) => `${k}=${String(record[k])}`)
-            .join(' ');
-        testInfo.annotations.push({
-            type: 'job-card-fields',
-            description: `job card ${card.jobCardCounter} (job ${String(card.jobCounter)}): netTime=${String(card.netTime)} grossTime=${String(card.grossTime)} amount=${String(card.amount)} ${buckets}`,
-        });
-    }
-
-    const wanted = new Set((run.ctx.cards ?? []).map((c) => c.timeCardCounter));
-    const timeCards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter((c) => wanted.has(c.timeCardCounter));
-    return { cards, timeCards };
 }
 
 // ── E8 — finalize gross pay ──
@@ -424,23 +365,17 @@ export async function confirmCrewDayClean(
     return { candidates, previewSums };
 }
 
-/** Commit the two own rows; the toast is armed first because it is gone by the time the poll returns. */
+/** Commit the two own rows; commitTransfer arms and asserts the "Transfer complete" toast before anything else. */
 export async function transferCrewDay(
     run: JourneyE2Run,
     opts: E8Deps,
     scenario: JourneyE8FinalizeCase,
     seed: SeedResult,
     candidates: string[],
-): Promise<ExecuteResult> {
-    const { sessionApi, pages } = opts;
+): Promise<TransferOutcome> {
+    const { pages } = opts;
     const { expected } = scenario;
-    const toast = pages.transferToJobCards
-        .transferCompleteToast(expected.transferToast.jobCards, expected.transferToast.timeCards)
-        .waitFor({ state: 'visible', timeout: 150_000 })
-        .then(() => true, () => false);
-    // commitTransfer's GET is only the id capture for cleanup; the toast is the proof of what was written.
-    const result = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
-    expect(await toast, `${scenario.label}: the 'Transfer complete' toast must be seen`).toBe(true);
+    const result = await commitTransfer(run, opts, seed, candidates, expected.transferToast);
 
     await pages.viewJobCards.waitForTransferLanding();
     expect(pages.viewJobCards.transferRunParam(), `${scenario.label}: the app lands with this transfer's run id`).toBe(result.transferRunCounter);
@@ -461,11 +396,8 @@ export async function confirmNothingLeft(run: JourneyE2Run, opts: E8Deps, scenar
     }
     await expect.poll(() => transfer.readyCount(), { message: `${scenario.label}: nothing of the day is Ready after the transfer` }).toBe(0);
     expect.soft(await transfer.blockingCount(), `${scenario.label}: nothing blocks after the transfer`).toBe(0);
-}
-
-async function cellNumber(view: PageObjects['viewJobCards'], row: ReturnType<PageObjects['viewJobCards']['rowsForCrew']>, header: string): Promise<number> {
-    const text = ((await (await view.cellByHeader(row, header)).innerText()) ?? '').replace(/,/g, '').trim();
-    return text === '' ? 0 : Number(text);
+    // The time cards themselves read transferred on View ▸ Time Cards.
+    await assertTransferredOnScreen(pages, run.day, (run.ctx.cards ?? []).map((c) => String(c.reference)), 'Yes', scenario.label);
 }
 
 /**
@@ -494,9 +426,8 @@ export async function reviewPayrollTotals(
     const rows = view.rowsForCrew(run.crew.name);
     await expect(rows, `${label}: one crew-scoped row`).toHaveCount(expected.jobCards);
     const row = rows.first();
-    // The row's aria-label is its Reference: the one card the crew filter leaves is the one just written.
-    const reference = (await row.getAttribute('aria-label')) ?? '';
-    expect(reference, `${label}: the row carries the written card's Reference`).toMatch(/\S/);
+    // The one card the crew filter leaves is the one just written; referenceOf throws if the row carries no Reference.
+    const reference = await view.referenceOf(row);
     await expect.soft(await view.cellByHeader(row, 'Employee'), `${label}: Employee`).toContainText(run.picker.name);
     await expect.soft(await view.cellByHeader(row, 'Job'), `${label}: Job`).toContainText(run.job.name);
     await expect.soft(await view.cellByHeader(row, 'Exported'), `${label}: the fresh card is not exported`).toHaveText(expected.exportedCell);
@@ -543,12 +474,12 @@ export async function reviewPayrollTotals(
         `${label}: the Totals bar reconciles with the pre-commit preview`,
     ).toEqual(previewSums);
 
-    expect.soft(await cellNumber(view, row, 'Regular Hours'), `${label}: row Regular Hours`).toBe(totals.regular);
-    expect.soft(await cellNumber(view, row, 'Overtime'), `${label}: row Overtime`).toBe(totals.overtime);
-    expect.soft(await cellNumber(view, row, 'Double Time'), `${label}: row Double Time`).toBe(totals.double);
-    expect.soft(await cellNumber(view, row, 'Amount'), `${label}: row Amount`).toBe(totals.amount);
-    expect.soft(await cellNumber(view, row, 'Pieces'), `${label}: row Pieces`).toBe(expected.pieces);
-    expect.soft(await cellNumber(view, row, 'Paid Pieces'), `${label}: row Paid Pieces`).toBe(expected.pieces);
+    expect.soft(await view.readNumber(row, 'Regular Hours'), `${label}: row Regular Hours`).toBe(totals.regular);
+    expect.soft(await view.readNumber(row, 'Overtime'), `${label}: row Overtime`).toBe(totals.overtime);
+    expect.soft(await view.readNumber(row, 'Double Time'), `${label}: row Double Time`).toBe(totals.double);
+    expect.soft(await view.readNumber(row, 'Amount'), `${label}: row Amount`).toBe(totals.amount);
+    expect.soft(await view.readNumber(row, 'Pieces'), `${label}: row Pieces`).toBe(expected.pieces);
+    expect.soft(await view.readNumber(row, 'Paid Pieces'), `${label}: row Paid Pieces`).toBe(expected.pieces);
     return { reference };
 }
 

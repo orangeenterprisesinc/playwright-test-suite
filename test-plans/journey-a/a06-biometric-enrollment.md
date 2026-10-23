@@ -168,9 +168,9 @@ Register both new pages in `src/fixtures/pages.fixture.ts` (`readonly importSing
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|
-| preference gate | `GET preferences` via `readStoredPreferences` (journeyAFlow) | read | the photo rule depends on it |
+| preference gate | `GET preferences` via `readPreferenceGate` (journeyAFlow) | plumbing read | fails the scenario by key before anything is created; the screens prove every outcome |
 | device file | none: built in code, written to `testInfo.outputPath` | device | the reader's export; the import itself is the on-screen click |
-| export read-back after push | `GET connectivity/export/scan-devices/runs/{runId}` + `GET connectivity/export/runs/{runId}/sends/{sendId}/content` via `readSetupExportSend` | read | proves the kiosk would receive the templates + RFID; the push is the on-screen click |
+| pushed file | none: the screen's own "Download file" saved with `ScanDevicePage.downloadPushedFile`, parsed by `readPushedEmployee(path, code)` | none (on screen) | proves the kiosk would receive the templates + RFID |
 | after-phase teardown | `DELETE employees/{id}` via `runCleanup` `{employeeName}` | cleanup | soft delete |
 | after-phase teardown | `DELETE scan-devices/{id}` via `runCleanup` `{deviceName}` (existing `scanDevice` kind) | cleanup | run-scoped device |
 | after-phase teardown | relay `drainMailbox(relay.url, device mailbox)` (relay, not the app API) | cleanup | the push queued a file for a mailbox nothing will ever pull (B15 acks for the same reason) |

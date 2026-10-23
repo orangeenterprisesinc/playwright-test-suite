@@ -270,21 +270,27 @@ export async function getJob(request: APIRequestContext, id: number): Promise<Jo
  * in crewsApi.ts. Answers 204 with the value persisted and `version` bumped (verified live
  * 2026-09-29). Returns the record read back, so the caller does not need a second GET.
  */
-export async function setJobRate(
+export async function setJobFields(
     request: APIRequestContext,
     jobCounter: number,
-    pieceRate: number,
+    fields: Record<string, unknown>,
 ): Promise<JobRecord> {
     const job = await getJob(request, jobCounter);
     const { jobCounter: _drop, ...body } = job;
+    // An undefined value would overwrite the stored one with nothing, so it is skipped.
+    const defined = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
     const res = await request.put(`jobs/${jobCounter}`, {
-        data: { ...body, pieceRate },
+        data: { ...body, ...defined },
         headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok()) {
         throw new Error(
-            `PUT jobs/${jobCounter} (pieceRate=${pieceRate}) failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
+            `PUT jobs/${jobCounter} (${JSON.stringify(defined)}) failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`,
         );
     }
     return getJob(request, jobCounter);
+}
+
+export function setJobRate(request: APIRequestContext, jobCounter: number, pieceRate: number): Promise<JobRecord> {
+    return setJobFields(request, jobCounter, { pieceRate });
 }

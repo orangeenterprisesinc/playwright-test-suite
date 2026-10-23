@@ -45,7 +45,7 @@ test.afterAll(async () => {
 });
 
 /** A fresh guarded context plus the annotation sink the guard would push to. */
-async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay'; defaultAllowance?: WriteAllowance }) {
+async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'relay'; defaultAllowance?: WriteAllowance; file?: string }) {
     process.env.UI_FIRST_GUARD = opts.mode;
     const annotations: Array<{ type: string; description?: string }> = [];
     const raw = await request.newContext({ baseURL });
@@ -54,8 +54,8 @@ async function guarded(opts: { mode: string; label?: string; kind?: 'app' | 'rel
         kind: opts.kind,
         defaultAllowance: opts.defaultAllowance,
         baseURL,
-        // Only `annotations` is read by the guard; a whole TestInfo is not needed.
-        testInfo: { annotations } as never,
+        // Only `annotations`, `file` and `title` are read by the guard; a whole TestInfo is not needed.
+        testInfo: { annotations, file: opts.file, title: 'unit' } as never,
     });
     return { ctx, raw, annotations };
 }
@@ -79,6 +79,7 @@ const readLedger = () =>
 
 test.describe('UI-first write guard', () => {
     test.beforeEach(() => {
+        delete process.env.UI_FIRST_READS;
         seen.length = 0;
         for (const n of ledgerFiles()) rmSync(path.join(LEDGER_DIR, n), { force: true });
     });
@@ -89,6 +90,38 @@ test.describe('UI-first write guard', () => {
         expect(res.ok()).toBe(true);
         expect(await res.json()).toMatchObject({ method: 'GET' });
         expect(violations(annotations), 'a read is never a violation').toHaveLength(0);
+        await raw.dispose();
+    });
+
+    test('a GET is not ledgered unless UI_FIRST_READS=ledger', async () => {
+        const { ctx, raw } = await guarded({ mode: 'enforce', file: 'tests/web/journey-d/d05.spec.ts' });
+        await ctx.get('crews');
+        expect(readLedger()).toHaveLength(0);
+        await raw.dispose();
+    });
+
+    test('with UI_FIRST_READS=ledger a GET is recorded as a read, never a violation, and still sent', async () => {
+        process.env.UI_FIRST_READS = 'ledger';
+        const file = 'tests/web/journey-d/d05.spec.ts';
+        const { ctx, raw, annotations } = await guarded({ mode: 'enforce', label: 'sessionApi', file });
+        const res = await ctx.get('job-cards/7');
+        expect(res.ok()).toBe(true);
+        expect(seen.at(-1)).toMatchObject({ method: 'GET', url: '/api/job-cards/7' });
+        expect(violations(annotations)).toHaveLength(0);
+        expect(readLedger()).toHaveLength(1);
+        expect(readLedger()[0]).toMatchObject({
+            type: 'read', method: 'GET', url: 'job-cards/7', label: 'sessionApi', spec: file, test: 'unit',
+        });
+        await ctx.fetch('crews');
+        expect(readLedger().at(-1), 'fetch with no method is a GET').toMatchObject({ type: 'read', method: 'GET', url: 'crews' });
+        await raw.dispose();
+    });
+
+    test('a read under tests/webpet is never recorded', async () => {
+        process.env.UI_FIRST_READS = 'ledger';
+        const { ctx, raw } = await guarded({ mode: 'enforce', file: 'D:\\repo\\tests\\webpet\\crew\\crew.spec.ts' });
+        await ctx.get('crews');
+        expect(readLedger()).toHaveLength(0);
         await raw.dispose();
     });
 

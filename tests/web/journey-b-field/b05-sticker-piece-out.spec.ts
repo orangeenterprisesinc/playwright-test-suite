@@ -5,7 +5,14 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { analyzeTransferExceptions, cardOf, journeyBPreconditions, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import {
+    assertImportedRows,
+    cardOf,
+    issueGroupCount,
+    journeyBPreconditions,
+    openCrewTransferCandidates,
+    runJourneyBScenario,
+} from '@utils/journeys/journeyBFlow';
 
 test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
     test('Deliver sticker piece-out records and verify attribution, totals and the Undefined-Employee fallback', {
@@ -13,7 +20,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         annotation: [
             { type: 'testCaseId', description: 'B5' },
         ],
-    }, async ({ sessionApi }, testInfo) => {
+    }, async ({ sessionApi, pages }, testInfo) => {
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         // Both gates decide whether anything below can mean anything, so they are read — and
         // asserted — before a single record is delivered.
@@ -36,7 +43,7 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
                 `Employee record. Got: ${JSON.stringify(gates.undefinedEmployeeRaw)}`,
         ).toBe(true);
 
-        const run = await runJourneyBScenario(scenario, { sessionApi, testInfo, gates });
+        const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo, gates });
         // run.scenario is the loaded file with the minted sticker codes substituted.
         const { records, expected } = run.scenario;
         const want = expected.envelope!;
@@ -49,66 +56,49 @@ test.describe('B5 · Sticker piece-out', { tag: ['@JourneyB', '@B5'] }, () => {
         expect(run.envelope.references).toHaveLength(records.length);
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
 
+        // Employee, crew, ranch, field, job, source, traceability and pieces of every card are compared
+        // on its Transfer row by assertImportedRows — the Undefined-Employee fallback included.
+        await assertImportedRows(pages, run);
         const [seeding, stickerA, stickerB, fallback] = expected.cards.map((c) => cardOf(run, c.record));
         const wantOfType = (type: number) => expected.cards.filter((c) => c.cardType === type).length;
         const cardsOfType = (type: number) => run.cards.filter((c) => Number(c.cardType) === type);
         expect(cardsOfType(seeding.expected.cardType!), 'the seeding Time In card').toHaveLength(wantOfType(seeding.expected.cardType!));
         expect(cardsOfType(stickerA.expected.cardType!), 'three piece-out cards').toHaveLength(wantOfType(stickerA.expected.cardType!));
-        expect(seeding.card.employeeCounter).toBe(seeding.bound.employeeId);
-        expect(seeding.card.crewCounter).toBe(run.office.crew.id);
-        expect(seeding.card.ranchCounter).toBe(run.office.ranch.id);
-        expect(seeding.card.fieldCounter).toBe(run.office.field.id);
-        expect(seeding.card.jobCounter).toBe(run.office.job.id);
-        expect(seeding.card.programCreated).toBe(true);
 
-        // Both 6006 piece cards attribute to 6006's id, pieces total 2.
-        expect(stickerA.card.employeeCounter).toBe(stickerA.bound.employeeId);
-        expect(stickerB.card.employeeCounter).toBe(stickerB.bound.employeeId);
+        // Both 6006 piece cards attribute to 6006, pieces total 2.
         expect(
-            Number(stickerA.card.numOfPieces) + Number(stickerB.card.numOfPieces),
+            Number(stickerA.row.pieces) + Number(stickerB.row.pieces),
             'pieces total across the two scans',
         ).toBe(stickerA.expected.pieces! + stickerB.expected.pieces!);
-
-        // Id equality, never merely non-null — the fallback ladder can land on a
-        // wrong-but-non-null employee.
-        expect(fallback.card.employeeCounter).toBe(gates.undefinedEmployeeId);
-
-        // shared shape for every piece card.
-        for (const { card, expected: json, index } of [stickerA, stickerB, fallback]) {
-            expect(String(card.traceabilityCode ?? ''), 'sticker stored verbatim').toBe(records[index].traceabilityCode);
-            expect(card.jobCounter, 'no job carried through').toBeNull();
-            expect(card.cardType, 'piece-out imports as cardType 0').toBe(json.cardType);
-            expect(String(card.employeeSourceText ?? ''), 'N1: sticker source renders "Sticker Code"').toBe(json.employeeSourceText);
-            expect(card.programCreated).toBe(true);
+        for (const { row } of [stickerA, stickerB, fallback]) {
+            expect(['', '—'], 'no job carried through').toContain(row.job);
         }
 
-        // ── The missing-job exception, from the same endpoint that feeds both the
-        // Transfer screen and the Time Cards Exceptions panel ──
-        const analyze = await analyzeTransferExceptions(run);
-        const expectedCode = gates.requireJobInEmpPieceOut ? expected.analyze!.blockingCode : expected.analyze!.warningCode;
-        const jobCounterIssues = analyze.exceptions.filter((e) => e.code === expectedCode);
+        // ── Analyze, on the Transfer screen: the status each card reads and the Issues groups ──
+        const transfer = pages.transferToJobCards;
+        const grid = expected.grid!;
+        const jobGate = gates.requireJobInEmpPieceOut ? 'missingJobRequired' : 'missingJobOptional';
+        await openCrewTransferCandidates(pages, run);
+        for (const { reference, timeCardCounter } of [stickerA, stickerB]) {
+            expect(
+                await transfer.rowStatusText(timeCardCounter),
+                `piece card ${reference} with requireJobInEmpPieceOut=${String(gates.requireJobInEmpPieceOut)}`,
+            ).toBe(grid.rowStatus![jobGate]);
+        }
+        expect(
+            await transfer.rowStatusText(fallback.timeCardCounter),
+            `the Undefined-Employee piece card ${fallback.reference} must be flagged unusable`,
+        ).toBe(grid.rowStatus!.undefinedEmployee);
+        // ≥ 1, not an exact count: dev is a shared tenant, and a group may count employees rather than rows.
+        const missingJob = await issueGroupCount(pages, run, grid.issueGroups![jobGate]);
+        const undefinedGroup = await issueGroupCount(pages, run, grid.issueGroups!.undefinedEmployee);
         testInfo.annotations.push({
             type: 'missing-job-exception',
             description:
-                `requireJobInEmpPieceOut=${String(gates.requireJobInEmpPieceOut)} → expected ` +
-                `${expectedCode}; got ${jobCounterIssues.length}: "${jobCounterIssues[0]?.message ?? ''}"`,
+                `requireJobInEmpPieceOut=${String(gates.requireJobInEmpPieceOut)} → rows ${grid.rowStatus![jobGate]}; ` +
+                `Issues group /${grid.issueGroups![jobGate]}/ affects ${missingJob}, Undefined Employee group affects ${undefinedGroup}`,
         });
-        expect(
-            jobCounterIssues.length,
-            `no ${expectedCode} exception in ${JSON.stringify(analyze.raw)}`,
-        ).toBeGreaterThan(0);
-        // The payload identifies cards by sourceTimeCardCounter, not by Reference — so join on
-        // the ids this run's import produced, per card.
-        const codesFor = (id: number) => analyze.exceptions.filter((e) => Number(e.sourceTimeCardCounter) === id).map((e) => e.code);
-        for (const { card } of [stickerA, stickerB]) {
-            expect(
-                codesFor(card.timeCardCounter),
-                `piece card ${card.timeCardCounter} must carry ${expectedCode}`,
-            ).toContain(expectedCode);
-        }
-        expect(
-            codesFor(fallback.card.timeCardCounter),
-            `the Undefined-Employee piece card ${fallback.card.timeCardCounter} must be flagged unusable`,
-        ).toContain(expected.analyze!.undefinedEmployeeCode);
+        expect(missingJob, `the missing-job Issues group /${grid.issueGroups![jobGate]}/ must affect a record`).toBeGreaterThanOrEqual(1);
+        expect(undefinedGroup, `the Undefined Employee Issues group /${grid.issueGroups!.undefinedEmployee}/ must affect a record`).toBeGreaterThanOrEqual(1);
     });
 });

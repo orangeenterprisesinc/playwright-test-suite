@@ -8,11 +8,11 @@ import { loadScenario } from '@utils/data/scenarioLoader';
 import {
     ANSWER_ROWS_SETTLE_MS,
     answersOf,
-    assertExpectedCards,
+    assertImportedRows,
     cardOf,
     referencePart,
     runJourneyBScenario,
-    timeOutDetailOf,
+    timeOutAnswersOnScreen,
 } from '@utils/journeys/journeyBFlow';
 
 test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', '@B12'] }, () => {
@@ -47,46 +47,31 @@ test.describe('B12 · Time-out questions to notification', { tag: ['@JourneyB', 
         expect(run.envelope.signatures, 'three signed clock-outs').toEqual(want.signatures);
         expect(run.send.success, `relay rejected the export: ${run.send.body}`).toBe(true);
 
+        // Type, employee, crew and the import marker of all six rows (the absentee 6004 is the set equality) are compared here.
         expect(run.cards).toHaveLength(expected.cards.length);
-        assertExpectedCards(run, expected.cards);
+        await assertImportedRows(pages, run);
         const timeOutCards = expected.cards.filter((c) => records[c.record].node === timeOut.node).map((c) => cardOf(run, c.record));
-        for (const { card, expected: json, bound } of timeOutCards) {
-            expect(card.cardType).toBe(json.cardType);
-            expect(card.employeeCounter).toBe(bound.employeeId);
-            expect(card.crewCounter).toBe(run.office.crew.id);
-            expect(card.programCreated).toBe(true);
-            expect(referencePart(String(card.reference))).toBe(timeOut.part);
+        for (const { row } of timeOutCards) {
+            expect(referencePart(row.reference)).toBe(timeOut.part);
+            // The nulls explicitly; the flow skips cells the scenario does not name, and a time-out carries no work context.
+            expect(['', '—'], 'a Time Out carries no Job').toContain(row.job);
+            expect(['', '—'], 'a Time Out carries no Ranch').toContain(row.ranch);
+            expect(['', '—'], 'a Time Out carries no Field').toContain(row.field);
         }
-        // The nulls explicitly; the flow only skipped the work-context asserts for them.
-        for (const { card } of timeOutCards) {
-            expect(card.jobCounter).toBeNull();
-            expect(card.ranchCounter).toBeNull();
-            expect(card.fieldCounter).toBeNull();
-        }
+        // Every answer, read off each Time Out panel's Questions grid. Equality over the whole set also proves
+        // the answers outside the expected response are stored verbatim, not rejected or normalised.
         const byName = (rows: { questionName: string; response: string }[]) =>
             rows.map(({ questionName, response }) => ({ questionName, response })).sort((a, b) => a.questionName.localeCompare(b.questionName));
-        const details = new Map<number, Awaited<ReturnType<typeof timeOutDetailOf>>>();
-        for (const { index, card, expected: json } of timeOutCards) {
-            const answers = answersOf(run.scenario, index);
+        for (const { index, expected: json } of timeOutCards) {
             await expect
-                .poll(async () => (await timeOutDetailOf(run, index)).questions?.length ?? 0, {
+                .poll(async () => byName(await timeOutAnswersOnScreen(pages, run, index)), {
                     timeout: ANSWER_ROWS_SETTLE_MS,
-                    message: `${json.employeeCode}'s answers never reached ${answers.length} on card ${card.timeCardCounter}`,
+                    message: `${json.employeeCode}'s answers never matched the ${answersOf(run.scenario, index).length} the device sent`,
                 })
-                .toBeGreaterThanOrEqual(answers.length);
-            const detail = await timeOutDetailOf(run, index);
-            details.set(index, detail);
-            expect(detail.questions, `${json.employeeCode}'s answers`).toHaveLength(answers.length);
-            expect(byName(detail.questions ?? [])).toEqual(byName(answers));
-        }
-        // Answers outside the expected response are stored verbatim, not rejected or normalised.
-        for (const { index } of timeOutCards) {
-            for (const answer of answersOf(run.scenario, index).filter((a) => a.unexpected)) {
-                expect(details.get(index)!.questions!.find((q) => q.questionName === answer.questionName)!.response).toBe(answer.response);
-            }
+                .toEqual(byName(answersOf(run.scenario, index)));
         }
         expect(run.crewNotify, 'the scenario must name the crewNotifyUser precondition').not.toBeNull();
-        expect(run.crewNotify!.crew.userToNotifyBreakAndMeal).toBe(run.crewNotify!.user.usersCounter);
+        expect(run.crewNotify!.shown, 'the crew form must show the notification user').toContain(run.crewNotify!.user.name);
         expect(run.crewNotify!.user.emailAddress).toEqual(expect.any(String));
         expect(run.crewNotify!.user.emailAddress, 'the notification user needs an email address').toBeTruthy();
     });

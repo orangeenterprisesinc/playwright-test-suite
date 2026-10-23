@@ -80,6 +80,13 @@ export interface EmployeeProfileSummary {
     active: boolean;
 }
 
+export interface CodeHistoryRow {
+    alternateCode: string;
+    firstCode: string;
+    codeType: string;
+    startDateTime: string;
+}
+
 export class EmployeePage extends SetupScreenPage {
     readonly nameInput: Locator;
     readonly generalSection: Locator;
@@ -89,6 +96,7 @@ export class EmployeePage extends SetupScreenPage {
     readonly photoClearButton: Locator;
     readonly photoImage: Locator;
     readonly irisSection: Locator;
+    readonly codeHistorySection: Locator;
     readonly codeInput: Locator;
     readonly firstNameInput: Locator;
     readonly lastNameInput: Locator;
@@ -148,6 +156,7 @@ export class EmployeePage extends SetupScreenPage {
         this.photoClearButton = this.photoGroup.getByRole('button', { name: 'Clear', exact: true });
         this.photoImage = this.photoGroup.locator('img');
         this.irisSection = page.locator('section#iris');
+        this.codeHistorySection = page.locator('section#codeHistory');
         this.pickers = new PickerComponent(page);
     }
 
@@ -287,6 +296,31 @@ export class EmployeePage extends SetupScreenPage {
                 ]),
             );
         return Object.fromEntries(rows);
+    }
+
+    /** Code Badge History rows as the editable inputs hold them. Read-only: never Save, leave through Cancel/back. */
+    async readCodeHistory(): Promise<CodeHistoryRow[]> {
+        const section = this.codeHistorySection;
+        await expect(section, 'the employee form has no Code Badge History section').toBeVisible({ timeout: 30_000 });
+        const empty = section.getByText('No code history records.');
+        // `has` is resolved inside each row, so it must not be rooted at `section` (that matched no row at all).
+        const rows = section.getByRole('row').filter({ has: this.page.getByRole('textbox', { name: 'Alternate Code', exact: true }) });
+        await expect(empty.or(rows.first()), 'Code Badge History shows neither rows nor "No code history records."').toBeVisible({ timeout: 30_000 });
+        if (await empty.isVisible()) return [];
+        const total = Number(/(\d+)/.exec((await section.getByTestId('code-history-count').innerText()) ?? '')?.[1] ?? NaN);
+        const count = await rows.count();
+        if (count !== total) throw new Error(`Code Badge History reports ${total} records but renders ${count} rows`);
+        const out: CodeHistoryRow[] = [];
+        for (let i = 0; i < count; i += 1) {
+            const row = rows.nth(i);
+            out.push({
+                alternateCode: await row.getByRole('textbox', { name: 'Alternate Code', exact: true }).inputValue(),
+                firstCode: await row.getByRole('textbox', { name: 'First Code', exact: true }).inputValue(),
+                codeType: (((await row.getByRole('combobox').first().textContent()) ?? '')).trim(),
+                startDateTime: await row.getByLabel('Start Date/Time').inputValue(),
+            });
+        }
+        return out;
     }
 
     async readProfileSummary(): Promise<EmployeeProfileSummary> {

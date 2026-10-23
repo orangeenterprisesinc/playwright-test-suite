@@ -159,7 +159,10 @@ export class ViewJobCardsPage extends BasePage {
             response = await refetched;
         }
         expect(response.status(), 'GET job-cards for the filter').toBe(200);
-        await expect(this.page.getByTestId('data-grid-count').first()).toBeVisible({ timeout: 30_000 });
+        // Mirrors Time Cards: an empty filter renders a "No ... match the current filter." line instead of the count (empty text not measured here).
+        const count = this.page.getByTestId('data-grid-count').first();
+        const empty = this.page.getByText(/^No job cards .*match/i);
+        await expect(count.or(empty), 'the Job Cards grid shows neither a row count nor a "No job cards ... match" message').toBeVisible({ timeout: 30_000 });
     }
 
     /** Options come from the loaded rows, so this only works after {@link applyFilter}. Client-side: the totals re-compute at once. */
@@ -167,7 +170,10 @@ export class ViewJobCardsPage extends BasePage {
         await this.page.getByTestId('view-job-cards-filter-crews').click();
         const search = this.page.getByRole('searchbox', { name: /Search crews/i });
         await search.fill(name);
-        await this.page.getByRole('button', { name, exact: true }).click();
+        // The options come from the loaded rows: an absent crew shows "No results." and a bare click would wait for the test cap.
+        const option = this.page.getByRole('button', { name, exact: true });
+        await expect(option, `the Crews chip offers no "${name}" option (no loaded row belongs to it)`).toBeVisible({ timeout: 15_000 });
+        await option.click();
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(search).toBeHidden({ timeout: 10_000 });
@@ -268,6 +274,39 @@ export class ViewJobCardsPage extends BasePage {
         return runId;
     }
 
+    /** Data rows for one crew and one job; both cells matched exactly. */
+    rowsForCrewAndJob(crew: string, job: string): Locator {
+        return this.rowsForCrew(crew).filter({ has: this.page.getByRole('cell', { name: job, exact: true }) });
+    }
+
+    async readCell(row: Locator, header: string): Promise<string> {
+        return ((await (await this.cellByHeader(row, header)).innerText()) ?? '').trim();
+    }
+
+    /** Commas and currency stripped, '' reads 0. An `HH:MM` cell throws rather than parse as 730. */
+    async readNumber(row: Locator, header: string): Promise<number> {
+        const text = await this.readCell(row, header);
+        if (/^\d+:\d{2}$/.test(text)) throw new Error(`Job Cards '${header}' renders as HH:MM ("${text}"), not a decimal`);
+        const digits = text.replace(/[^0-9.-]/g, '');
+        return digits === '' ? 0 : Number(digits);
+    }
+
+    /** "9/23/26 7:00 AM" → "07:00". */
+    async readClock(row: Locator, header: string): Promise<string> {
+        const text = await this.readCell(row, header);
+        const match = /(\d{1,2}):(\d{2})\s*([AP]M)/i.exec(text);
+        if (!match) throw new Error(`Job Cards '${header}' reads "${text}", which carries no clock time`);
+        const hour = (Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0);
+        return `${String(hour).padStart(2, '0')}:${match[2]}`;
+    }
+
+    /** The row's Reference is its aria-label. */
+    async referenceOf(row: Locator): Promise<string> {
+        const label = await row.getAttribute('aria-label', { timeout: 10_000 });
+        if (!label) throw new Error('The Job Cards row carries no aria-label Reference');
+        return label.trim();
+    }
+
     /** Data rows whose Work Crew cell is exactly `name`. */
     rowsForCrew(name: string): Locator {
         return this.grid.getByRole('row').filter({ has: this.page.getByRole('cell', { name, exact: true }) });
@@ -276,7 +315,7 @@ export class ViewJobCardsPage extends BasePage {
     /** One row's cell by column header. The layout is user-reorderable, so the index is read, never hard-coded. */
     async cellByHeader(row: Locator, header: string): Promise<Locator> {
         await expect(this.grid.getByRole('columnheader').first()).toBeVisible({ timeout: 15_000 });
-        const headers = (await this.grid.getByRole('columnheader').allInnerTexts()).map((h) => h.trim());
+        const headers = (await this.grid.getByRole('columnheader').allInnerTexts()).map((h) => h.replace(/^Reorder column /, '').trim());
         const index = headers.findIndex((h) => h === header || h.startsWith(`${header}\n`));
         if (index < 0) throw new Error(`Job Cards grid has no '${header}' column; headers are ${JSON.stringify(headers)}`);
         return row.getByRole('cell').nth(index);

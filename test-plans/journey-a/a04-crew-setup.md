@@ -130,7 +130,7 @@ New CrewPage methods (fill only; the spec calls the existing public `saveEdit()`
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|
-| read-back after the last save | `GET crews/{id}` (via a new `readCrew(api, id)` in `src/utils/journeys/journeyAFlow.ts` wrapping `getCrew` from `src/utils/api/crewsApi.ts`) | read | proves the wire stored what the screen showed |
+
 | after-phase teardown | `DELETE crews/{id}` via `runCleanup` delete step `{crewName}` | cleanup | registered by `mintCrewSetup`, so it runs even when an assertion fails |
 | run-start / run-end residue sweep | prefix `E2ECrew_` (`cleanupTargets.ts`, already registered) | cleanup | reclaims a crew left by a killed run |
 

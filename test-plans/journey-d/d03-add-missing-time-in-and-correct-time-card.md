@@ -212,8 +212,7 @@ No delete, no commit and no select-all are added.
 | before-phase sweep | `GET job-cards?from&to` → `DELETE job-cards/{id}`; `GET time-cards?from&to` → `DELETE time-cards/{id}` | cleanup | crew-scoped. A crashed run's Time In would otherwise be a duplicate |
 | device envelope push | relay `UploadFile` via `sendToRelay` | device | the handheld itself. Wrap in `allowApiWrites('device', 'D3: PET Pocket envelope with a context-less Time In', ...)` for the ledger (it does not travel on `sessionApi`) |
 | import read-back | `GET time-cards?from&to` (`findByReferences` inside `deliverAndVerifyCards`) | read | records both ids **before** any assertion. The import click itself is on screen (Connectivity ▸ Import ▸ Internet) |
-| post-save read-back | `GET time-cards/{id}` | read | proves the correction landed on the time card |
-| no-job-card read | `GET job-cards?from&to` | read | proves nothing was written to job cards |
+| own job-card ids | `GET job-cards?from&to` | read | `recordOwnJobCardIds`: ids recorded for cleanup before anything is asserted. Never the proof — the corrected Time In (Transfer panel, compared with the same reader's capture before the fix), its Transferred cell and the empty View ▸ Job Cards day are all read on screen |
 | after-phase teardown | `DELETE time-cards/{id}` | cleanup | by id, from the ids recorded at import |
 
 The **Time In correction itself has no row here**: it is the panel's Save, on screen. No preference

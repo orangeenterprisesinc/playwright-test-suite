@@ -219,7 +219,8 @@ Variation, out of scope: pack-house uses this for machine crews supported by gro
 ## API allowances
 
 On-screen steps have no row here: the New Job form, Import ▸ Internet, the date scope, Analyze, the
-Work Crew filter and the Job Cards tab.
+Work Crew filter, the Job Cards tab, the open-card and Transferred reads (Transfer to Job Cards) and the
+no-job-card proof (View ▸ Job Cards, member rows only).
 
 | Call | Endpoint | Allowance |
 |---|---|---|
@@ -228,8 +229,7 @@ Work Crew filter and the Job Cards tab.
 | binned piece job restore | `POST jobs/{id}/restore` (inside `ensureOnScreen`) | cleanup |
 | before sweep | `GET time-cards` → `DELETE time-cards/{id}` | cleanup |
 | envelope push | relay `UploadFile` | device |
-| import read-back, crew-day guard | `GET time-cards?from&to` | read |
-| no-commit proof | `GET job-cards?from&to` | read |
+| import read-back (reference poll, ids for cleanup) | `GET time-cards?from&to` | read |
 | teardown | `DELETE time-cards/{id}` | cleanup |
 
 No API write creates or edits a setup record, and there is no transfer execute, reverse or job-card delete.

@@ -6,13 +6,17 @@ import { expect, test } from '@fixtures/base.fixture';
 import { JourneyD10SegmentCaseSchema } from '@data/schemas/journeyDScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
 import {
-    analyzeCrewDay,
+    FRESH_EXPORTED_CELL,
+    READY_STATUS,
+    assertTransferredOnScreen,
+    clock,
     commitTransfer,
     designatePaidBreakJob,
     openScopedCandidates,
+    openViewJobCardsForDay,
     prepareJourneyD10,
-    readPreviewBoundaries,
-    readSplit,
+    previewClock,
+    recordOwnJobCardIds,
     seedExerciseAndBreakDay,
 } from '@utils/journeys/journeyDFlow';
 
@@ -34,6 +38,7 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
         const run = await prepareJourneyD10(scenario, deps);
         const { capture, expected } = run.scenario;
         const transfer = pages.transferToJobCards;
+        const view = pages.viewJobCards;
         const jobNames = expected.segments.map((s) => run.jobs[s.job].name);
         const segmentAmounts = expected.segments.map((s) => s.amount);
 
@@ -48,9 +53,11 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
         const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
         expect(candidates, 'the crew-scoped grid must offer exactly the run\'s own time cards').toHaveLength(expected.timeCards);
         await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
-        const analyzed = await analyzeCrewDay(run, { sessionApi });
-        expect(analyzed.plannableTotal, 'analyze must plan all three time cards').toBe(expected.timeCards);
-        expect(analyzed.blocking, 'analyze must report no blocking exception').toEqual([]);
+        for (const id of seed.timeCardCounters) {
+            expect(await transfer.rowStatusText(id), `time card ${id} must read ${READY_STATUS} before the commit`).toBe(READY_STATUS);
+        }
+        await expect.poll(() => transfer.blockingCount(), { message: 'nothing may block the day' }).toBe(0);
+        expect(await transfer.readyCount(), 'the Ready pill counts all three time cards').toBe(expected.timeCards);
 
         // 6. The pre-commit preview: three time cards become four job cards.
         await transfer.openJobCardsTab();
@@ -64,20 +71,20 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
             employees: expected.employees,
         });
 
-        const boundaries = await readPreviewBoundaries(run, { sessionApi });
-        expect(boundaries.map((b) => b.day), 'every segment falls on the fixture day').toEqual(boundaries.map(() => run.day));
+        // The segment boundaries as clock times, read from the preview grid itself.
+        const boundaries = previewClock(preview);
         expect(
             boundaries.map(({ start, end, grossMinutes, netMinutes }) => ({ start, end, grossMinutes, netMinutes })),
             'the segment boundaries, contiguous from the time-in to the time-out',
-        ).toEqual(expected.segments.map((s) => ({ start: s.start, end: s.end, grossMinutes: s.minutes, netMinutes: s.minutes })));
-        expect(boundaries[0].start, 'the first segment starts at the time-in').toEqual(capture.timeIn);
-        expect(boundaries[boundaries.length - 1].end, 'the last segment ends at the time-out').toEqual(capture.timeOut);
+        ).toEqual(expected.segments.map((s) => ({ start: clock(s.start), end: clock(s.end), grossMinutes: s.minutes, netMinutes: s.minutes })));
+        expect(boundaries[0].start, 'the first segment starts at the time-in').toBe(clock(capture.timeIn));
+        expect(boundaries[boundaries.length - 1].end, 'the last segment ends at the time-out').toBe(clock(capture.timeOut));
         expect(boundaries.reduce((sum, b) => sum + b.grossMinutes, 0), 'the split neither creates nor loses a minute').toBe(expected.totalMinutes);
         await transfer.openTimeCardsTab();
 
-        // 7. Commit: tick each own Reference, never the header checkbox.
-        const transferred = await commitTransfer(run, { sessionApi, pages }, seed, candidates);
-        expect(transferred.jobCardsWritten, 'the transfer must write the four split job cards').toBe(expected.jobCards);
+        // 7. Commit: tick each own Reference, never the header checkbox. The toast is asserted inside.
+        await commitTransfer(run, deps, seed, candidates, { jobCards: expected.jobCards, timeCards: expected.timeCards });
+        await recordOwnJobCardIds(run, deps);
 
         // 8. The committed cards on View ▸ Job Card, counted for the crew only.
         await pages.jobCards.goto();
@@ -87,20 +94,20 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
         const listed = await pages.jobCards.amountsForCrew(run.crew.name);
         expect(listed.reduce((sum, amount) => sum + amount, 0), 'the listed amounts add up to the day').toBeCloseTo(expected.totalAmount, 2);
 
-        // 9. Read-back over the GET: jobs, not-exported, not-locked. Time and amount fields are recorded only.
-        const written = await readSplit(run, { sessionApi, testInfo });
-        const byCounter = (a: number, b: number) => a - b;
-        expect(written.cards.map((c) => Number(c.jobCounter)).sort(byCounter), 'the written job multiset').toEqual(
-            expected.segments.map((s) => run.jobs[s.job].id).sort(byCounter),
-        );
-        for (const card of written.cards) {
-            expect(card.exported, `job card ${card.jobCardCounter} exported`).toBeFalsy();
-            expect(card.locked, `job card ${card.jobCardCounter} locked`).toBeFalsy();
+        // 9. View ▸ Job Cards: the job multiset and not-exported, per row.
+        await openViewJobCardsForDay(pages, run.day);
+        const rows = view.rowsForCrew(run.crew.name);
+        await expect(rows, 'the crew must have the four split job cards on View ▸ Job Cards').toHaveCount(expected.jobCards);
+        const jobs: string[] = [];
+        for (let i = 0; i < expected.jobCards; i += 1) {
+            const row = rows.nth(i);
+            jobs.push(await view.readCell(row, 'Job'));
+            expect(await view.readCell(row, 'Exported'), `job card ${await view.referenceOf(row)} is not exported`).toBe(FRESH_EXPORTED_CELL);
         }
+        expect(jobs.sort(), 'the written job multiset').toEqual([...jobNames].sort());
 
         // 10. The transfer splits the day into segments; it does not rewrite the capture.
-        expect(written.timeCards, 'every seeded time card must still be readable').toHaveLength(expected.timeCards);
-        for (const card of written.timeCards) expect(card.transferred, `time card ${card.reference} transferred`).toBe(true);
+        await assertTransferredOnScreen(pages, run.day, (run.ctx.cards ?? []).map((c) => String(c.reference)), 'Yes', run.scenario.label);
 
         // 11. Cleanup — preference first, then job cards by id, then the time cards, then the crew-scoped sweep.
         await run.cleanup();

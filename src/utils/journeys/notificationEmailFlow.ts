@@ -141,8 +141,10 @@ export async function dispatchNotification(setup: NotificationEmailSetup, deps: 
         runCleanup(setup.scenario.cleanup, api, testInfo, { phase: 'after' }),
     );
     await pages.users.createUser(recipient);
+    // Plumbing reads (ids, scripts): the Users screen proved the save; the id only feeds the recipient check.
     const userId = await findUserIdByName(sessionApi, recipient.name);
     if (userId === null) throw new Error(`User '${recipient.name}' was saved on screen but is not listed by GET users`);
+    // Plumbing read: the script list is a gate (fails by name below), never proof of an outcome.
     const all = await listFilterScripts(sessionApi);
     const reporting = all.filter((s) => s.executeReport !== false);
     if (!reporting.length) return { ...setup, userId, scripts: { all, reporting }, notificationId: null, job: null, jobUnreachable: false, cleanup };
@@ -166,6 +168,21 @@ export async function dispatchNotification(setup: NotificationEmailSetup, deps: 
     // Notify Now is disabled on a dirty form, so fire it from a freshly loaded Edit page.
     await pages.notifications.gotoEditById(notificationId, notificationName);
     const { jobId } = await pages.notifications.notifyNow();
+    // The screen first. WEBPET-1907 can keep the dialog from rendering, so a miss is annotated, not failed.
+    const dialog = await pages.notifications.awaitResultsDialog(30_000);
+    if (dialog.seen) {
+        await testInfo.attach('notify-now-results-dialog.txt', { body: dialog.text, contentType: 'text/plain' });
+    } else {
+        testInfo.annotations.push({
+            type: 'notify-now-results-dialog-missing',
+            description: 'The "Notification Completed" dialog did not render within 30 s (WEBPET-1907); the job poll below is the only evidence.',
+        });
+    }
+    // Per-recipient transport status (success / error text) has no screen: asserted from the API only.
+    testInfo.annotations.push({
+        type: 'api-only-evidence',
+        description: `GET notifications/${String(notificationId)}/notify-now/${jobId}: per-recipient transport status and error have no screen.`,
+    });
     const result = await pollNotifyNowJob(sessionApi, notificationId, jobId);
     await testInfo.attach('notify-now-job.json', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
     if (!result.ok) return { ...setup, userId, scripts: { all, reporting }, notificationId, job: null, jobUnreachable: true, cleanup };
