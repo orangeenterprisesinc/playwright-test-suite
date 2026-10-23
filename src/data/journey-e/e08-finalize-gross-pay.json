@@ -1,0 +1,55 @@
+{
+    "_notes": [
+        "E8 - Finalize gross pay. E2's crew, picker and job on day -18: 06:00-19:00, no meal, 8 regular / 4 overtime / 1 double, 320.00.",
+        "Reusing E2's measured day keeps all three buckets non-zero, so Regular + Overtime + Double = Net is not vacuous.",
+        "Net = Gross - Meals is trivially true at Meals 0; the schema says so rather than pretending otherwise.",
+        "Report contents are never parsed (no PDF/xlsx parser); the Totals bar and the crew row carry the numeric proof.",
+        "Test File is read-only here. The ready/cannot-export split belongs to E9 (export file) and A4 (earning codes)."
+    ],
+    "workflow": "E8",
+    "label": "e08-finalize-gross-pay",
+    "dayOffset": -18,
+    "rule": {
+        "name": "AG CA 2022",
+        "dailyOvertimeAfterHours": 8,
+        "doubleTimeAfterHours": 12,
+        "overtimeMultiplier": 1.5,
+        "doubleTimeMultiplier": 2
+    },
+    "capture": {
+        "timeIn": { "hour": 6, "minute": 0 },
+        "timeOut": { "hour": 19, "minute": 0 }
+    },
+    "expected": {
+        "timeCards": 2,
+        "jobCards": 1,
+        "employees": 1,
+        "pieces": 0,
+        "hourlyRate": 20,
+        "grossMinutes": 780,
+        "mealMinutes": 0,
+        "netMinutes": 780,
+        "grossHours": 13,
+        "mealHours": 0,
+        "netHours": 13,
+        "regularHours": 8,
+        "overtimeHours": 4,
+        "doubleTimeHours": 1,
+        "totalAmount": 320,
+        "transferToast": { "jobCards": 1, "timeCards": 2 },
+        "status": "Ready",
+        "exportedCell": "No",
+        "employeesChip": "All employees",
+        "testFileDescription": "Check which job cards can be exported. No data is changed."
+    },
+    "report": {
+        "name": "Payroll Summary",
+        "reportName": "JobCardPayrollSummary",
+        "formats": ["excel", "pdf"],
+        "excelFilename": "^Job Card - Payroll Summary .+\\.xlsx$"
+    },
+    "testFile": { "exportType": "payroll" },
+    "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -18, "cardTypes": [0, 1] }
+    ]
+}

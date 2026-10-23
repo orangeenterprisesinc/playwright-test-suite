@@ -707,6 +707,38 @@ export class TransferToJobCardsPage extends BasePage {
             .toBeGreaterThanOrEqual(wanted);
     }
 
+    /**
+     * Analyze again without expecting candidates. analyzeCandidates polls for at least N rows, which a fully
+     * transferred crew can never satisfy; this waits for the screen's own analyze job to settle instead.
+     */
+    async reanalyze(): Promise<void> {
+        await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 20_000 });
+        const posted = this.page.waitForResponse(
+            (r) => r.request().method() === 'POST' && /\/transfer-to-job-cards\/analyze$/.test(new URL(r.url()).pathname),
+            { timeout: 30_000 },
+        );
+        posted.catch(() => undefined);
+        // A 202 hands back a job the screen then polls; a 200 is already settled, so this may never fire.
+        const settled = this.page.waitForResponse(
+            async (r) => {
+                if (r.request().method() !== 'GET' || !/\/transfer-to-job-cards\/analyze\/[^/]+$/.test(new URL(r.url()).pathname)) return false;
+                const state = String(((await r.json().catch(() => ({}))) as { status?: string }).status ?? '');
+                return !['pending', 'running', 'queued'].includes(state);
+            },
+            { timeout: 60_000 },
+        );
+        settled.catch(() => undefined);
+        await this.analyzeCandidatesButton.click();
+        // Returning to the screen after a transfer (same session, same scope) has served the pre-transfer grid
+        // and sent no analyze at all (2026-10-22). That is a product finding, so it fails by name, not by timeout.
+        const response = await posted.catch(() => null);
+        expect(response, 'Analyze Transfer Candidates sent no POST transfer-to-job-cards/analyze (stale candidate grid)').not.toBeNull();
+        expect(response!.ok(), `POST transfer-to-job-cards/analyze answered ${response!.status()}`).toBe(true);
+        if (response!.status() === 202) await settled;
+        // Absent when nothing is left to list, so a miss is not an error.
+        await this.gridCaption.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
+    }
+
     /** Tick one candidate row by its Reference — never the header select-all. */
     async selectCandidate(reference: string): Promise<void> {
         const checkbox = this.page.getByRole('checkbox', { name: `Select ${reference}` });
