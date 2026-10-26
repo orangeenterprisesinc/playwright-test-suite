@@ -555,3 +555,335 @@ export const JourneyE6RoundingCaseSchema = z
     });
 
 export type JourneyE6RoundingCase = z.infer<typeof JourneyE6RoundingCaseSchema>;
+
+// E3 (weekly overtime): a six-day week on one rule. Daily buckets per the rule, then regular hours accrue toward the
+// weekly threshold (considerRegHoursOnly4WeeklyOt) and the excess moves to overtime. The refinements derive the week
+// and the three wrong-engine contrasts, so the data cannot drift out of agreement with itself.
+const E3Bucket = z
+    .object({
+        gross: z.number().positive(),
+        regular: z.number().min(0),
+        overtime: z.number().min(0),
+        double: z.number().min(0),
+        amount: z.number(),
+    })
+    .strict();
+const E3Split = z.object({ regular: z.number(), overtime: z.number() }).strict();
+
+interface E3WeekInput {
+    rule: { overtimeDailyHours: number; doubleTimeDailyHours: number; weeklyOvertimeHours: number; weeklyDays: number };
+    days: Array<{ timeIn: z.infer<typeof TimeOfDay>; timeOut: z.infer<typeof TimeOfDay> }>;
+}
+
+function e3Derive(s: E3WeekInput) {
+    const { rule } = s;
+    const daily = s.days.map((d) => {
+        const gross = (minutes(d.timeOut) - minutes(d.timeIn)) / 60;
+        return {
+            gross,
+            regular: Math.min(gross, rule.overtimeDailyHours),
+            overtime: Math.max(Math.min(gross, rule.doubleTimeDailyHours) - rule.overtimeDailyHours, 0),
+            double: Math.max(gross - rule.doubleTimeDailyHours, 0),
+        };
+    });
+    // `countDailyOvertime` selects what accrues toward the weekly threshold: regular only (the rule's setting) or regular + daily overtime.
+    const weekly = (countDailyOvertime: boolean) => {
+        let counted = 0;
+        return daily.map((d) => {
+            const room = Math.max(rule.weeklyOvertimeHours - counted, 0);
+            const worked = countDailyOvertime ? d.regular + d.overtime : d.regular;
+            const regular = Math.min(d.regular, Math.min(worked, room));
+            counted += countDailyOvertime ? worked : regular;
+            return { ...d, regular, overtime: d.overtime + (d.regular - regular) };
+        });
+    };
+    const sum = (rows: Array<{ regular: number; overtime: number }>) => ({
+        regular: rows.reduce((t, r) => t + r.regular, 0),
+        overtime: rows.reduce((t, r) => t + r.overtime, 0),
+    });
+    return {
+        perDay: weekly(false),
+        contrasts: {
+            dailyCountedTowardWeekly: sum(weekly(true)),
+            weeklyIgnored: sum(daily),
+            dayRuleOnLastDay: sum(weekly(false).map((d, i) => (i === s.days.length - 1 ? { ...d, regular: 0, overtime: d.regular + d.overtime } : d))),
+        },
+    };
+}
+
+export const JourneyE3WeeklyOvertimeCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('E3'),
+        label: z.string().min(1),
+        /** Exactly one Monday inside; the week is that Monday to the following Saturday. */
+        mondayWindow: z.object({ earliest: z.number().int(), latest: z.number().int() }).strict(),
+        rule: z
+            .object({
+                name: z.string().min(1),
+                overtimeDailyHours: z.number().positive(),
+                doubleTimeDailyHours: z.number().positive(),
+                weeklyOvertimeHours: z.number().positive(),
+                /** "Weekly Overtime (1.5) starts on Day": the Nth day worked is all overtime; 7 keeps a six-day week clear of it. */
+                weeklyDays: z.number().int().positive(),
+            })
+            .strict(),
+        hourlyRate: z.number().positive(),
+        overtimeMultiplier: z.number().positive(),
+        doubleTimeMultiplier: z.number().positive(),
+        days: z.array(z.object({ weekday: z.number().int().min(0), timeIn: TimeOfDay, timeOut: TimeOfDay }).strict()).min(2),
+        /** Expected values of the environment gates; read, never written. */
+        gates: z
+            .object({
+                considerRegHoursOnly4WeeklyOt: z.boolean(),
+                doWeeklyCalculationsOnJobCard: z.boolean(),
+                firstDayOfWeek: z.number().int(),
+            })
+            .strict(),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                jobCards: z.number().int().positive(),
+                status: z.string().min(1),
+                perDay: z.array(E3Bucket).min(2),
+                totals: z
+                    .object({
+                        gross: z.number().positive(),
+                        net: z.number().positive(),
+                        meals: z.number().min(0),
+                        regular: z.number().min(0),
+                        overtime: z.number().min(0),
+                        double: z.number().min(0),
+                        amount: z.number(),
+                    })
+                    .strict(),
+                /** What each wrong engine would read; the week must NOT show any of these. */
+                contrasts: z.object({ dailyCountedTowardWeekly: E3Split, weeklyIgnored: E3Split, dayRuleOnLastDay: E3Split }).strict(),
+                transferToast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
+            })
+            .strict(),
+        /** Empty by design: the week's offsets are only known at run time, so the flow sweeps per day itself. */
+        cleanup: z.array(CleanupStepSchema).length(0),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+        const { expected, rule, mondayWindow: window } = s;
+        const length = s.days.length;
+
+        if (window.latest - window.earliest !== 6) issue(['mondayWindow'], 'latest - earliest must be 6: exactly one Monday inside');
+        if (window.latest + (length - 1) > -1) issue(['mondayWindow', 'latest'], 'the last week day must be in the past (<= -1)');
+        if (window.earliest <= -13 && window.latest + (length - 1) >= -21) {
+            issue(
+                ['mondayWindow', 'earliest'],
+                'days -13..-21 are excluded: D10 -13, E2 -14, D3 -15, D5 -16, E8 -18 and E13 -21 assert whole-date-scope Ready/Blocking pills or a crew-less candidate guard that E3\'s untransferred rows would break',
+            );
+        }
+        s.days.forEach((d, i) => {
+            if (d.weekday !== i) issue(['days', i, 'weekday'], `must be ${i}: weekdays run 0..${length - 1} from Monday in order`);
+            if (!(minutes(d.timeIn) < minutes(d.timeOut))) issue(['days', i], 'timeIn must be before timeOut');
+            if (d.timeIn.minute % 15 !== 0 || d.timeOut.minute % 15 !== 0) issue(['days', i], 'times must sit on a quarter hour (Time Rounding at Transfer is 15 minutes)');
+        });
+
+        if (expected.timeCards !== 2 * length) issue(['expected', 'timeCards'], 'a crew time-in and a crew time-out per day');
+        if (expected.jobCards !== length) issue(['expected', 'jobCards'], 'one job card per day');
+        if (expected.transferToast.jobCards !== expected.jobCards) issue(['expected', 'transferToast', 'jobCards'], 'must equal expected.jobCards');
+        if (expected.transferToast.timeCards !== expected.timeCards) issue(['expected', 'transferToast', 'timeCards'], 'must equal expected.timeCards');
+
+        const derived = e3Derive(s);
+        if (expected.perDay.length !== length) {
+            issue(['expected', 'perDay'], `must have one entry per day (${length})`);
+            return;
+        }
+        derived.perDay.forEach((want, i) => {
+            const got = expected.perDay[i];
+            const amount = round2(want.regular * s.hourlyRate + want.overtime * s.hourlyRate * s.overtimeMultiplier + want.double * s.hourlyRate * s.doubleTimeMultiplier);
+            for (const key of ['gross', 'regular', 'overtime', 'double'] as const) {
+                if (!near(got[key], want[key])) issue(['expected', 'perDay', i, key], `must be ${want[key]} (daily buckets, then regular hours accrue toward ${rule.weeklyOvertimeHours})`);
+            }
+            if (!near(got.amount, amount)) issue(['expected', 'perDay', i, 'amount'], `must be ${amount} (regular x rate + overtime x rate x ${s.overtimeMultiplier} + double x rate x ${s.doubleTimeMultiplier})`);
+            if (!near(got.regular + got.overtime + got.double, got.gross)) issue(['expected', 'perDay', i], 'conservation: regular + overtime + double must equal gross');
+        });
+
+        const total = (pick: (b: z.infer<typeof E3Bucket>) => number) => expected.perDay.reduce((t, b) => t + pick(b), 0);
+        const { totals } = expected;
+        for (const [key, value] of [
+            ['gross', total((b) => b.gross)],
+            ['net', total((b) => b.gross)],
+            ['regular', total((b) => b.regular)],
+            ['overtime', total((b) => b.overtime)],
+            ['double', total((b) => b.double)],
+            ['amount', round2(total((b) => b.amount))],
+        ] as const) {
+            if (!near(totals[key], value)) issue(['expected', 'totals', key], `must equal the sum of perDay (${value})`);
+        }
+        if (totals.meals !== 0) issue(['expected', 'totals', 'meals'], 'E3 CREW carries no lunch, so Meals is 0');
+
+        for (const key of ['dailyCountedTowardWeekly', 'weeklyIgnored', 'dayRuleOnLastDay'] as const) {
+            const want = derived.contrasts[key];
+            const got = expected.contrasts[key];
+            if (!near(got.regular, want.regular) || !near(got.overtime, want.overtime)) {
+                issue(['expected', 'contrasts', key], `must be regular ${want.regular} / overtime ${want.overtime}`);
+            }
+            if (near(got.regular, totals.regular) && near(got.overtime, totals.overtime)) {
+                issue(['expected', 'contrasts', key], 'must differ from totals, or the test cannot tell the wrong engine apart');
+            }
+        }
+    });
+
+export type JourneyE3WeeklyOvertimeCase = z.infer<typeof JourneyE3WeeklyOvertimeCaseSchema>;
+
+// E1 (weekly regular-rate averaging): two jobs at two rates in one week. The weekly regular rate is straight-time pay over
+// gross hours (OT premium excluded); with the department's Weekly Overtime Method set, overtime follows that average and
+// is re-priced when a later transfer moves it. The refinements re-derive every amount, so the data cannot drift.
+type E1Clock = z.infer<typeof TimeOfDay>;
+
+/** One day's daily buckets under the rule (no weekly threshold: E1 stays far below it). */
+export function e1Split(rule: { overtimeDailyHours: number; doubleTimeDailyHours: number }, d: { timeIn: E1Clock; timeOut: E1Clock }) {
+    const gross = (minutes(d.timeOut) - minutes(d.timeIn)) / 60;
+    return {
+        gross,
+        regular: Math.min(gross, rule.overtimeDailyHours),
+        overtime: Math.max(Math.min(gross, rule.doubleTimeDailyHours) - rule.overtimeDailyHours, 0),
+        double: Math.max(gross - rule.doubleTimeDailyHours, 0),
+    };
+}
+
+const E1Day = z
+    .object({ weekday: z.number().int().min(0), job: z.enum(['high', 'low']), timeIn: TimeOfDay, timeOut: TimeOfDay })
+    .strict();
+type E1DayData = z.infer<typeof E1Day>;
+
+const E1Expected = z
+    .object({
+        weeklyRate: z.number().positive(),
+        /** Weekday index (as a string) to the job card's Amount, for every day worked so far. */
+        rows: z.record(z.string(), z.number()),
+        totals: z.object({ regular: z.number().min(0), overtime: z.number().min(0), double: z.number().min(0), amount: z.number() }).strict(),
+        /** First transfer only: the Totals Amount if overtime were priced at the job's own rate (method None). */
+        contrastAmount: z.number().optional(),
+        /** Last transfer only: the Totals Amount if the earlier days were not re-priced when the average moved. */
+        staleAmount: z.number().optional(),
+    })
+    .strict();
+
+export const JourneyE1RegularRateCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('E1'),
+        label: z.string().min(1),
+        /** Exactly one Monday inside; the days are that Monday onwards. */
+        mondayWindow: z.object({ earliest: z.number().int(), latest: z.number().int() }).strict(),
+        rule: z
+            .object({
+                name: z.string().min(1),
+                overtimeDailyHours: z.number().positive(),
+                doubleTimeDailyHours: z.number().positive(),
+            })
+            .strict(),
+        /** Mirrors the fixture jobs' Hourly Rate; the flow asserts they agree after the Job form read-back. */
+        rates: z.object({ high: z.number().positive(), low: z.number().positive() }).strict(),
+        overtimeMultiplier: z.number().positive(),
+        method: z.enum(['entireRate', 'premiumOnly']),
+        transfers: z
+            .array(
+                z
+                    .object({
+                        days: z.array(E1Day).min(1),
+                        toast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
+                        expected: E1Expected,
+                    })
+                    .strict(),
+            )
+            .length(2),
+        /** Expected values of the environment gates; read, never written. */
+        gates: z.object({ employerPayOvertimeBasedOnWeeklyAvg: z.string().min(1) }).strict(),
+        /** Empty by design: the days' offsets are only known at run time, so the flow sweeps per day itself. */
+        cleanup: z.array(CleanupStepSchema).length(0),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+        const window = s.mondayWindow;
+        const days = s.transfers.flatMap((t) => t.days);
+        const length = days.length;
+
+        if (window.latest - window.earliest !== 6) issue(['mondayWindow'], 'latest - earliest must be 6: exactly one Monday inside');
+        if (window.latest + (length - 1) > -1) issue(['mondayWindow', 'latest'], 'the last day must be in the past (<= -1)');
+        if (window.earliest <= -13 && window.latest + (length - 1) >= -21) {
+            issue(['mondayWindow', 'earliest'], 'days -13..-21 are excluded: other journeys assert whole-date-scope pills there that E1\'s untransferred rows would break');
+        }
+        days.forEach((d, i) => {
+            if (d.weekday !== i) issue(['transfers'], `day ${i} must have weekday ${i}: weekdays run 0..${length - 1} from Monday in order across the transfers`);
+            if (!(minutes(d.timeIn) < minutes(d.timeOut))) issue(['transfers'], `day ${i}: timeIn must be before timeOut`);
+            if (d.timeIn.minute % 15 !== 0 || d.timeOut.minute % 15 !== 0) issue(['transfers'], `day ${i}: times must sit on a quarter hour (Time Rounding at Transfer is 15 minutes)`);
+            if (e1Split(s.rule, d).double !== 0) issue(['transfers'], `day ${i}: no day may reach double time, E1 proves the overtime premium only`);
+        });
+
+        type Method = 'entireRate' | 'premiumOnly' | 'none';
+        const amountOf = (d: E1DayData, average: number, method: Method): number => {
+            const sp = e1Split(s.rule, d);
+            const rate = s.rates[d.job];
+            const base = sp.regular * rate;
+            if (method === 'entireRate') return base + sp.overtime * s.overtimeMultiplier * average;
+            if (method === 'premiumOnly') return base + sp.overtime * rate + sp.overtime * (s.overtimeMultiplier - 1) * average;
+            return base + sp.overtime * s.overtimeMultiplier * rate;
+        };
+        const averageOf = (ds: E1DayData[]): number =>
+            ds.reduce((t, d) => t + e1Split(s.rule, d).gross * s.rates[d.job], 0) / ds.reduce((t, d) => t + e1Split(s.rule, d).gross, 0);
+
+        const last = s.transfers.length - 1;
+        s.transfers.forEach((t, i) => {
+            const at = ['transfers', i];
+            const so = s.transfers.slice(0, i + 1).flatMap((x) => x.days);
+            const { expected: e } = t;
+
+            if (t.toast.jobCards !== t.days.length) issue([...at, 'toast', 'jobCards'], 'one job card per day of this transfer');
+            if (t.toast.timeCards !== 2 * t.days.length) issue([...at, 'toast', 'timeCards'], 'a crew time-in and a crew time-out per day of this transfer');
+
+            const average = averageOf(so);
+            if (!near(e.weeklyRate, average)) issue([...at, 'expected', 'weeklyRate'], `must be ${average} (straight-time pay / gross hours of the days so far)`);
+
+            const want = so.map((d) => round2(amountOf(d, average, s.method)));
+            if (Object.keys(e.rows).length !== so.length) issue([...at, 'expected', 'rows'], `must have one entry per day worked so far (${so.length})`);
+            want.forEach((w, k) => {
+                const got = e.rows[String(k)];
+                if (got === undefined || !near(got, w)) issue([...at, 'expected', 'rows', String(k)], `must be ${w} (${s.method} at weekly average ${average})`);
+            });
+
+            const splits = so.map((d) => e1Split(s.rule, d));
+            const sum = (pick: (b: ReturnType<typeof e1Split>) => number) => splits.reduce((acc, b) => acc + pick(b), 0);
+            for (const [key, value] of [
+                ['regular', sum((b) => b.regular)],
+                ['overtime', sum((b) => b.overtime)],
+                ['double', sum((b) => b.double)],
+                ['amount', round2(want.reduce((a, b) => a + b, 0))],
+            ] as const) {
+                if (!near(e.totals[key], value)) issue([...at, 'expected', 'totals', key], `must be ${value}`);
+            }
+
+            if (i === 0) {
+                const contrast = round2(so.reduce((a, d) => a + amountOf(d, average, 'none'), 0));
+                if (e.contrastAmount === undefined || !near(e.contrastAmount, contrast)) issue([...at, 'expected', 'contrastAmount'], `must be ${contrast} (overtime at the job's own rate)`);
+                else if (near(e.contrastAmount, e.totals.amount)) issue([...at, 'expected', 'contrastAmount'], 'must differ from totals.amount, or the test cannot tell an unapplied method apart');
+            } else if (e.contrastAmount !== undefined) {
+                issue([...at, 'expected', 'contrastAmount'], 'belongs to the first transfer only');
+            }
+
+            if (i === last && i > 0) {
+                const stale = round2(s.transfers[i - 1].expected.totals.amount + t.days.reduce((a, d) => a + amountOf(d, average, s.method), 0));
+                if (e.staleAmount === undefined || !near(e.staleAmount, stale)) issue([...at, 'expected', 'staleAmount'], `must be ${stale} (the earlier transfer's total plus this transfer's days, nothing re-priced)`);
+                else if (near(e.staleAmount, e.totals.amount)) issue([...at, 'expected', 'staleAmount'], 'must differ from totals.amount, or the test cannot tell a missed re-price apart');
+                const prev = s.transfers[i - 1].expected.rows;
+                if (!Object.keys(prev).some((k) => e.rows[k] !== undefined && !near(e.rows[k], prev[k]))) {
+                    issue([...at, 'expected', 'rows'], 'at least one earlier day must be re-priced by this transfer, or the average never moved');
+                }
+            } else if (e.staleAmount !== undefined) {
+                issue([...at, 'expected', 'staleAmount'], 'belongs to the last transfer only');
+            }
+        });
+    });
+
+export type JourneyE1RegularRateCase = z.infer<typeof JourneyE1RegularRateCaseSchema>;

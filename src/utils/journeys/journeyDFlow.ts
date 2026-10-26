@@ -60,6 +60,8 @@ interface TransferRun {
     scenario: { label: string; expected: { jobCards: number } };
     crew: EnsuredRecord;
     day: string;
+    /** Every `YYYY-MM-DD` of a multi-day scope, first to last; `day` stays the first. Absent for a one-day run. */
+    days?: string[];
     jobCardIds: number[];
     ctx: CleanupContext;
 }
@@ -295,7 +297,8 @@ export async function openScopedCandidates(
     const own = new Set((run.ctx.cards ?? []).map((c) => String(c.reference)));
 
     await transfer.openFromMenu();
-    await transfer.scopeToDay(run.day);
+    if (run.days?.length) await transfer.scopeToRange(run.days[0], run.days[run.days.length - 1]);
+    else await transfer.scopeToDay(run.day);
     await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
 
     if (opts.crew) {
@@ -351,7 +354,10 @@ export async function commitTransfer(
     testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: job card ids recorded for cleanup, execute job read for the run id` });
     let jobCardCounters: number[] = [];
     await expect(async () => {
-        const written = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+        const written: JobCardRecord[] = [];
+        for (const day of run.days ?? [run.day]) {
+            written.push(...(await listJobCards(sessionApi, { from: day, to: day })).filter((c) => Number(c.crewCounter) === run.crew.id));
+        }
         for (const card of written) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
         jobCardCounters = written.map((c) => c.jobCardCounter);
         if (written.length < run.scenario.expected.jobCards) {
@@ -360,7 +366,10 @@ export async function commitTransfer(
             if (!/^(complete|running|pending|queued|)$/i.test(job.status)) {
                 throw new Error(`transfer execute job ${jobId} ended ${job.status}: ${job.error ?? JSON.stringify(job.raw)}`);
             }
-            throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far`);
+            // A "complete" run can still have refused days (a duplicate Reference, 2026-10-26); name them.
+            const days = ((job.raw as { days?: Array<{ date?: string; error?: string }> } | undefined)?.days ?? []).filter((d) => d.error);
+            const refused = days.length ? ` — the execute refused ${days.length} day(s): ${days.map((d) => `${String(d.date).slice(0, 10)}: ${d.error}`).join(' | ')}` : '';
+            throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far${refused}`);
         }
     }).toPass({ timeout: 120_000 });
     expect(

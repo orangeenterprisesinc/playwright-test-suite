@@ -26,3 +26,13 @@ export function journeyE6Fixture(): JourneyE6Fixture {
     if (!FIXTURE.e6) throw new Error('src/data/journey-e/fixture.json has no "e6" block');
     return FIXTURE.e6;
 }
+
+export function journeyE3Fixture(): NonNullable<typeof FIXTURE.e3> {
+    if (!FIXTURE.e3) throw new Error('src/data/journey-e/fixture.json has no "e3" block');
+    return FIXTURE.e3;
+}
+
+export function journeyE1Fixture(): NonNullable<typeof FIXTURE.e1> {
+    if (!FIXTURE.e1) throw new Error('src/data/journey-e/fixture.json has no "e1" block');
+    return FIXTURE.e1;
+}

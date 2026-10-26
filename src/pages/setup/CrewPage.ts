@@ -263,6 +263,21 @@ export class CrewPage extends SetupScreenPage {
         };
     }
 
+    /**
+     * Put the crew in a department and save. A no-op when it already shows that department; otherwise the form
+     * is re-opened by `saveEdit`, so the return value is a fresh-load read-back. Call on an open, hydrated Edit form.
+     */
+    async setDepartment(name: string): Promise<string> {
+        // The department list loads after the form; an early read is "" and would re-pick an already-correct crew.
+        await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        if (!PickerComponent.labelPattern(name).test(await this.departmentCombobox.inputValue())) {
+            await this.pickers.pickCombobox(this.departmentCombobox, name);
+            await this.saveEdit();
+            await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        }
+        return (await this.departmentCombobox.inputValue()).replace(/^[^:]*: /, '').trim();
+    }
+
     /** The user currently set to be notified, as the picker displays it. */
     async readNotifyUser(): Promise<string> {
         return this.notifyUserCombobox.inputValue();

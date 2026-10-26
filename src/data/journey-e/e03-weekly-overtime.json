@@ -1,0 +1,45 @@
+{
+    "_notes": [
+        "E3 - Weekly overtime. One crew and picker work Monday to Saturday on E3 JOB under E3's own rule E3 RULE (OT after 8, DT after 12, weekly OT after 40 regular hours, 'starts on Day' 7). AG CA 2022 starts weekly OT on day 6, which pays Saturday wholly as overtime and hides the after-40 rule (measured 2026-10-26).",
+        "Mon 6 h, Tue-Fri 9 h, Sat 6 h: regular reaches 38 by Friday, so Saturday reads 2 regular + 4 weekly overtime; the week reads 40 / 8 / 0 on 48 gross (1040.00).",
+        "The Monday is the one in days -12..-6, computed at run time. Days -13..-21 are other journeys' pill-checking days and are excluded on purpose.",
+        "cleanup is empty by design: the week's offsets are only known at run time, so the flow runs per-day crew-scoped sweeps itself."
+    ],
+    "workflow": "E3",
+    "label": "e03-weekly-overtime",
+    "mondayWindow": { "earliest": -12, "latest": -6 },
+    "rule": { "name": "E3 RULE", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "weeklyOvertimeHours": 40, "weeklyDays": 7 },
+    "hourlyRate": 20,
+    "overtimeMultiplier": 1.5,
+    "doubleTimeMultiplier": 2,
+    "days": [
+        { "weekday": 0, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 12, "minute": 0 } },
+        { "weekday": 1, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 15, "minute": 0 } },
+        { "weekday": 2, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 15, "minute": 0 } },
+        { "weekday": 3, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 15, "minute": 0 } },
+        { "weekday": 4, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 15, "minute": 0 } },
+        { "weekday": 5, "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 12, "minute": 0 } }
+    ],
+    "gates": { "considerRegHoursOnly4WeeklyOt": true, "doWeeklyCalculationsOnJobCard": true, "firstDayOfWeek": 2 },
+    "expected": {
+        "timeCards": 12,
+        "jobCards": 6,
+        "status": "Ready",
+        "perDay": [
+            { "gross": 6, "regular": 6, "overtime": 0, "double": 0, "amount": 120 },
+            { "gross": 9, "regular": 8, "overtime": 1, "double": 0, "amount": 190 },
+            { "gross": 9, "regular": 8, "overtime": 1, "double": 0, "amount": 190 },
+            { "gross": 9, "regular": 8, "overtime": 1, "double": 0, "amount": 190 },
+            { "gross": 9, "regular": 8, "overtime": 1, "double": 0, "amount": 190 },
+            { "gross": 6, "regular": 2, "overtime": 4, "double": 0, "amount": 160 }
+        ],
+        "totals": { "gross": 48, "net": 48, "meals": 0, "regular": 40, "overtime": 8, "double": 0, "amount": 1040 },
+        "contrasts": {
+            "dailyCountedTowardWeekly": { "regular": 37, "overtime": 11 },
+            "weeklyIgnored": { "regular": 44, "overtime": 4 },
+            "dayRuleOnLastDay": { "regular": 38, "overtime": 10 }
+        },
+        "transferToast": { "jobCards": 6, "timeCards": 12 }
+    },
+    "cleanup": []
+}

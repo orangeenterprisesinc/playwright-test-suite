@@ -14,9 +14,18 @@ export interface OvertimeRuleData {
     doubleTimeDailyHours: number;
     wageOrder: string;
     agType: boolean;
+    /** "Weekly Overtime (1.5) starts after Regular Hours"; left as it is when absent. */
+    weeklyRegularHours?: number;
+    /** "Weekly Overtime (1.5) starts on Day": the Nth day worked in the week is all overtime (AG CA 2022 = 6). */
+    weeklyStartDay?: number;
 }
 
-export type OvertimeRuleReadBack = Omit<OvertimeRuleData, 'name'>;
+export type OvertimeRuleReadBack = Omit<OvertimeRuleData, 'name' | 'weeklyRegularHours' | 'weeklyStartDay'> & {
+    weeklyRegularHours: number | null;
+    weeklyStartDay: number | null;
+};
+
+const optionalNumber = (value: string): number | null => (value.trim() === '' ? null : Number(value));
 
 export class OvertimeRulePage extends SetupScreenPage {
     readonly nameInput: Locator;
@@ -24,6 +33,8 @@ export class OvertimeRulePage extends SetupScreenPage {
     readonly doubleTimeHoursInput: Locator;
     readonly wageOrderInput: Locator;
     readonly agTypeSwitch: Locator;
+    readonly weeklyHoursInput: Locator;
+    readonly weeklyDayInput: Locator;
 
     constructor(page: Page) {
         super(page, {
@@ -38,6 +49,8 @@ export class OvertimeRulePage extends SetupScreenPage {
         this.doubleTimeHoursInput = page.getByRole('spinbutton', { name: 'Double-Time Daily Hours' });
         this.wageOrderInput = page.getByRole('textbox', { name: 'Wage Order' });
         this.agTypeSwitch = page.getByRole('switch', { name: 'Ag Type' });
+        this.weeklyHoursInput = page.getByRole('spinbutton', { name: 'Weekly Overtime (1.5) starts after Regular Hours' });
+        this.weeklyDayInput = page.getByRole('spinbutton', { name: 'Weekly Overtime (1.5) starts on Day' });
     }
 
     protected get firstFormField(): Locator {
@@ -83,6 +96,8 @@ export class OvertimeRulePage extends SetupScreenPage {
         await this.doubleTimeHoursInput.fill(String(data.doubleTimeDailyHours));
         await this.wageOrderInput.fill(data.wageOrder);
         await this.setAgType(data.agType);
+        if (data.weeklyRegularHours !== undefined) await this.weeklyHoursInput.fill(String(data.weeklyRegularHours));
+        if (data.weeklyStartDay !== undefined) await this.weeklyDayInput.fill(String(data.weeklyStartDay));
         // Name last: validity is only recomputed when a plain text input blurs.
         await this.nameInput.fill(data.name);
     }
@@ -100,6 +115,8 @@ export class OvertimeRulePage extends SetupScreenPage {
             doubleTimeDailyHours: Number(await this.doubleTimeHoursInput.inputValue()),
             wageOrder: await this.wageOrderInput.inputValue(),
             agType: (await this.agTypeSwitch.getAttribute('aria-checked')) === 'true',
+            weeklyRegularHours: optionalNumber(await this.weeklyHoursInput.inputValue()),
+            weeklyStartDay: optionalNumber(await this.weeklyDayInput.inputValue()),
         };
     }
 
@@ -121,6 +138,14 @@ export class OvertimeRulePage extends SetupScreenPage {
         }
         if (current.agType !== data.agType) {
             await this.setAgType(data.agType);
+            dirty = true;
+        }
+        if (data.weeklyRegularHours !== undefined && current.weeklyRegularHours !== data.weeklyRegularHours) {
+            await this.weeklyHoursInput.fill(String(data.weeklyRegularHours));
+            dirty = true;
+        }
+        if (data.weeklyStartDay !== undefined && current.weeklyStartDay !== data.weeklyStartDay) {
+            await this.weeklyDayInput.fill(String(data.weeklyStartDay));
             dirty = true;
         }
         if (!dirty) return current;

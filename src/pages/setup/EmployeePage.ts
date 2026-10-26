@@ -261,6 +261,21 @@ export class EmployeePage extends SetupScreenPage {
         await this.saveEdit();
     }
 
+    /**
+     * Put the employee in a department and save. Department is a creatable combobox, so the pick is the exact
+     * anchored label. A no-op when already set; otherwise `saveEdit` re-opens the record and the return value is a
+     * fresh-load read-back. Call on an open, hydrated Edit form.
+     */
+    async setDepartment(name: string): Promise<string> {
+        await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        if (!PickerComponent.labelPattern(name).test(await this.departmentCombobox.inputValue())) {
+            await this.pickers.pickCombobox(this.departmentCombobox, name);
+            await this.saveEdit();
+            await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        }
+        return (await this.departmentCombobox.inputValue()).replace(/^[^:]*: /, '').trim();
+    }
+
     /** `Face: Enrolled` / `Left iris: Not enrolled` … chip for one slot. */
     faceIrisChip(slot: string): Locator {
         return this.generalSection.getByText(new RegExp(`^${slot}: (Enrolled|Not enrolled)$`));

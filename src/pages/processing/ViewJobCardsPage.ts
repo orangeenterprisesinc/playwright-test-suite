@@ -3,6 +3,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { ReportDialog, type ReportOutput } from './ReportDialog';
 import { TestFileSheet } from './TestFileSheet';
+import { pickRangeInPopup, usDate } from './dateRangePopup';
 
 /** The Totals bar, read by label. Numbers are NaN while a value is empty. */
 export interface JobCardTotals {
@@ -123,6 +124,20 @@ export class ViewJobCardsPage extends BasePage {
 
         const end = `${month}/${date}/${year}`;
         await expect(this.dateRange, `the date scope must read ${end} – ${end}`).toContainText(new RegExp(`${end}\\s*[–-]\\s*${end}`), { timeout: 20_000 });
+    }
+
+    /** A multi-day scope: two day-cell clicks, read back before Apply, the chip asserted at both ends. Nothing loads until {@link applyFilter}. */
+    async scopeToRange(from: string, to: string): Promise<void> {
+        await this.expandFilter();
+        await this.dateRange.getByRole('button', { name: 'First Day Start – Last Day Start' }).click({ timeout: 15_000 });
+        const popup = this.page.getByRole('dialog');
+        await popup.waitFor({ state: 'visible', timeout: 10_000 });
+        await pickRangeInPopup(popup, from, to);
+        await popup.getByRole('button', { name: /^apply$/i }).click();
+        await expect(this.dateRange, `the date scope must read ${usDate(from)} – ${usDate(to)}`).toContainText(
+            new RegExp(`${usDate(from)}\\s*[–-]\\s*${usDate(to)}`),
+            { timeout: 20_000 },
+        );
     }
 
     /**
@@ -306,6 +321,15 @@ export class ViewJobCardsPage extends BasePage {
         if (!match) throw new Error(`Job Cards '${header}' reads "${text}", which carries no clock time`);
         const hour = (Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0);
         return `${String(hour).padStart(2, '0')}:${match[2]}`;
+    }
+
+    /** "9/23/26 7:00 AM" → "2026-09-23". */
+    async readDay(row: Locator, header: string): Promise<string> {
+        const text = await this.readCell(row, header);
+        const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(text);
+        if (!match) throw new Error(`Job Cards '${header}' reads "${text}", which carries no date`);
+        const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+        return `${year}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
     }
 
     /** The row's Reference is its aria-label. */

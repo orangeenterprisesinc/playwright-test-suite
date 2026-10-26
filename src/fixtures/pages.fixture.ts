@@ -31,6 +31,7 @@ import { ViewJobCardsPage } from '../pages/processing/ViewJobCardsPage';
 import { ViewTimeCardsPage } from '../pages/processing/ViewTimeCardsPage';
 import { JobPage } from '../pages/setup/JobPage';
 import { OvertimeRulePage } from '../pages/setup/OvertimeRulePage';
+import { DepartmentPage } from '../pages/setup/DepartmentPage';
 import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
 import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
 import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
@@ -92,6 +93,8 @@ export interface PageObjects {
     readonly job: JobPage;
     /** Setup ▸ Over-Time-Rule, `/setup/overtime-rules` — E13's two wage-order rules. */
     readonly overtimeRule: OvertimeRulePage;
+    /** Setup ▸ Department, `/setup/departments` — E1's own department and its Weekly Overtime Method. */
+    readonly department: DepartmentPage;
 
     // ── setup: the fixture rows, created and repaired on screen (UI-first) ──
     /** Setup ▸ Ranch, `/setup/ranches`. */
@@ -157,6 +160,7 @@ export function createPageObjects(page: Page): PageObjects {
         get viewTimeCards() { return lazy('viewTimeCards', () => new ViewTimeCardsPage(page)); },
         get job() { return lazy('job', () => new JobPage(page)); },
         get overtimeRule() { return lazy('overtimeRule', () => new OvertimeRulePage(page)); },
+        get department() { return lazy('department', () => new DepartmentPage(page)); },
         get ranch() { return lazy('ranch', () => new RanchPage(page)); },
         get field() { return lazy('field', () => new FieldPage(page)); },
         get crew() { return lazy('crew', () => new CrewPage(page)); },

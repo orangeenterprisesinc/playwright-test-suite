@@ -352,6 +352,8 @@ export interface OvertimeRuleSpec {
     doubleTimeDailyHours: number;
     wageOrder: string;
     agType: boolean;
+    weeklyRegularHours?: number;
+    weeklyStartDay?: number;
 }
 
 /**
@@ -389,13 +391,54 @@ export async function ensureOvertimeRuleOnScreen(
     const id = overtimeRule.savedIdFromUrl();
     const before = await overtimeRule.readRule();
     const after = await overtimeRule.setRule(spec);
-    const wanted = { overtimeDailyHours: spec.overtimeDailyHours, doubleTimeDailyHours: spec.doubleTimeDailyHours, wageOrder: spec.wageOrder, agType: spec.agType };
-    if (JSON.stringify(after) !== JSON.stringify(wanted)) {
-        throw new Error(`Over-Time Rule '${spec.name}': repaired on screen but the form reads ${JSON.stringify(after)}, wanted ${JSON.stringify(wanted)}.`);
+    // Only the fields the spec sets are compared; the weekly ones are optional (E13 leaves them as they are).
+    const { name: _name, ...wanted } = spec;
+    const shown = Object.fromEntries(Object.keys(wanted).map((key) => [key, after[key as keyof typeof after]]));
+    if (JSON.stringify(shown) !== JSON.stringify(wanted)) {
+        throw new Error(`Over-Time Rule '${spec.name}': repaired on screen but the form reads ${JSON.stringify(shown)}, wanted ${JSON.stringify(wanted)}.`);
     }
     const repaired = JSON.stringify(before) !== JSON.stringify(after);
     if (repaired) annotate(deps, 'fixture-repaired-on-screen', `Over-Time Rule '${spec.name}': ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
     return { id, name: spec.name, source: 'existing', repaired };
+}
+
+export interface DepartmentSpec {
+    name: string;
+}
+
+/**
+ * Departments carry no code, so they are keyed by name like rules. The list read only decides create-or-open; the
+ * Weekly Overtime Method is set by the caller on the Edit form. A binned department keeps its name (WEBPET-2368),
+ * so a rejected create with no live row fails by name instead of looping.
+ */
+export async function ensureDepartmentOnScreen(
+    spec: DepartmentSpec,
+    deps: OnScreenDeps,
+): Promise<{ id: number; name: string; source: 'existing' | 'created' }> {
+    const exists = async (): Promise<boolean> => {
+        const res = await deps.api.get('departments');
+        if (!res.ok()) throw new Error(`GET departments failed with ${String(res.status())}`);
+        const body = (await res.json()) as Record<string, unknown>[] | { items?: Record<string, unknown>[] };
+        const rows = Array.isArray(body) ? body : (body.items ?? []);
+        return rows.some((r) => String(r.name ?? '').trim() === spec.name.trim() && r.active !== false);
+    };
+    const { department } = deps.pages;
+
+    if (!(await exists())) {
+        if ((await department.createDepartment(spec)) === 'created') {
+            annotate(deps, 'fixture-created-on-screen', `Department '${spec.name}'`);
+            return { id: department.savedIdFromUrl(), name: spec.name, source: 'created' };
+        }
+        if (!(await exists())) {
+            throw new Error(
+                `The New Department form rejected '${spec.name}' and no such department exists afterwards, so it was not a ` +
+                    'lost race — a recycle-bin department may still own the name. Check Deleted Records.',
+            );
+        }
+    }
+
+    await department.openByName(spec.name);
+    return { id: department.savedIdFromUrl(), name: spec.name, source: 'existing' };
 }
 
 // ── Public API ──────────────────────────────────────────────────────

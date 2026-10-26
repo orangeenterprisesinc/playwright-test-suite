@@ -42,6 +42,20 @@ const E13Block = z
 // E11 reuses E2's crew and picker; this block holds only its own job (earning codes live in the scenario JSON).
 const E11Block = z.object({ job: E2Job }).strict();
 
+// E1 owns a department, its own crew and picker, and two jobs at different rates (the average sits between them).
+const E1Block = z
+    .object({
+        department: z.object({ name: z.string().min(1) }).strict(),
+        crew: Entity,
+        picker: Entity,
+        jobs: z.object({ high: E2Job, low: E2Job }).strict(),
+    })
+    .strict();
+
+const E3Block = E2Block.extend({
+    rule: E13Rule.extend({ weeklyRegularHours: z.number().positive(), weeklyStartDay: z.number().int().positive() }).strict(),
+}).strict();
+
 export const JourneyEFixtureSchema = z
     .object({
         _notes: z.array(z.string()).optional(),
@@ -49,11 +63,15 @@ export const JourneyEFixtureSchema = z
         e11: E11Block.optional(),
         e13: E13Block.optional(),
         e6: E6Block.optional(),
+        // E3 has the same shape as E2: its own crew, picker and job.
+        e3: E3Block.optional(),
+        e1: E1Block.optional(),
     })
     .strict();
 
 export type JourneyEFixture = z.infer<typeof JourneyEFixtureSchema>;
 export type JourneyE2Fixture = z.infer<typeof E2Block>;
+export type JourneyE1Fixture = z.infer<typeof E1Block>;
 export type JourneyE11Fixture = z.infer<typeof E11Block>;
 export type JourneyE6Fixture = z.infer<typeof E6Block>;
 export { E2Block };
