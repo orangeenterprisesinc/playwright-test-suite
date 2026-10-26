@@ -1322,6 +1322,16 @@ export async function seedOnScreenDay(
     };
 }
 
+/** The slice of a run `guardReversibleRun` reads: D5's run and Journey E's own-jobs run both satisfy it. */
+export interface ReversibleRun {
+    scenario: { label: string };
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    day: string;
+    startedAt: Date;
+    sessionUserId: number;
+}
+
 /** The slice of a D5 run the shared transfer helpers read. Crew-scoped, never filtered by crew on screen. */
 function ownDayView(run: JourneyD5Run, expectedJobCards: number) {
     return {
@@ -1364,9 +1374,10 @@ export async function transferOwnDay(
  * the audit list and the day's job cards.
  */
 export async function guardReversibleRun(
-    run: JourneyD5Run,
+    run: ReversibleRun,
     opts: { sessionApi: APIRequestContext; pages: PageObjects; testInfo: TestInfo },
     transfer: TransferOutcome,
+    expected: { jobCards: number; timeCards: number } = { jobCards: 1, timeCards: 2 },
 ): Promise<TransferRunRecord> {
     // Plumbing (d): refuses to reverse a run that is not this test's own; the reverse itself stays on screen.
     opts.testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: transfer-run list read to refuse a foreign run` });
@@ -1384,8 +1395,10 @@ export async function guardReversibleRun(
     if (record.authorCounter !== run.sessionUserId) refuse(`run ${param} was written by user ${record.authorCounter}, not session user ${run.sessionUserId}.`);
     const stamp = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(record.runAtUtc) ? record.runAtUtc : `${record.runAtUtc}Z`;
     if (!(Date.parse(stamp) >= run.startedAt.getTime() - 60_000)) refuse(`run ${param} (${record.runAtUtc}) predates this test's start.`);
-    if (record.jobCardCount !== 1 || record.timeCardCount !== 2 || record.jobCardsModified !== 0) {
-        refuse(`run ${param} reads ${record.jobCardCount} job card(s), ${record.timeCardCount} time card(s), ${record.jobCardsModified} modified — expected 1, 2, 0.`);
+    if (record.jobCardCount !== expected.jobCards || record.timeCardCount !== expected.timeCards || record.jobCardsModified !== 0) {
+        refuse(
+            `run ${param} reads ${record.jobCardCount} job card(s), ${record.timeCardCount} time card(s), ${record.jobCardsModified} modified — expected ${expected.jobCards}, ${expected.timeCards}, 0.`,
+        );
     }
 
     const dayIds = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c)).map((c) => c.jobCardCounter);

@@ -75,6 +75,17 @@ export class LeftNavigationPage extends BasePage {
         // `.all()` below does not wait, and right after a goto('/') the dashboard has not rendered the
         // sidebar yet: it would see no candidates, click nothing, and hang on the final wait (2026-10-13).
         await this.menuItems(group).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
+        // A unique group button says whether it is open. The child's visibility cannot: "Setup" is also a top-level
+        // group, so with Administration still shut, File ▸ Administration ▸ Setup looked open (E13, 2026-10-26).
+        const groupButtons = this.page.getByRole('button', { name: group, exact: true }).filter({ visible: true });
+        if ((await groupButtons.count()) === 1) {
+            const expanded = await groupButtons.first().getAttribute('aria-expanded');
+            if (expanded === 'true' || expanded === 'false') {
+                if (expanded === 'false') await groupButtons.first().click();
+                await childItem.waitFor({ state: 'visible', timeout: 10_000 });
+                return;
+            }
+        }
         // Re-checked after the render: the group may already be open, and a click would collapse it.
         if (await childItem.isVisible().catch(() => false)) return;
         // "Setup" is both a top-level group and File ▸ Administration ▸ Setup, and the nested one comes first

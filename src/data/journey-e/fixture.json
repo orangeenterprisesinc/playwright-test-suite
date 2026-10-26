@@ -5,6 +5,21 @@
     "Names start with 'E2 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^E\\d{1,2} / so the residue sweep and fixtureReconcile can never reclaim them. The trailing space matters: 'E2EEmp_' and the other E2E sweep prefixes stay sweepable.",
     "E2 JOB carries hourlyRate 20 so 1.5x and 2x are exact in two decimals; the overtime rule (AG CA 2022) and the rate are applied through the Job form on every run, because ensureOnScreen never applies either."
   ],
+  "e6": {
+    "jobs": {
+      "jobA": { "code": "4611", "name": "E6 JOB A", "paymentType": "Time", "hourlyRate": 20 },
+      "jobB": { "code": "4612", "name": "E6 JOB B", "paymentType": "Time", "hourlyRate": 20 },
+      "jobC": { "code": "4613", "name": "E6 JOB C", "paymentType": "Time", "hourlyRate": 20 }
+    }
+  },
+  "e11": {
+    "job": {
+      "code": "4616",
+      "name": "E11 JOB",
+      "paymentType": "Time",
+      "hourlyRate": 20
+    }
+  },
   "e2": {
     "crew": {
       "code": "8016",
@@ -19,6 +34,16 @@
       "name": "E2 JOB",
       "paymentType": "Time",
       "hourlyRate": 20
+    }
+  },
+  "e13": {
+    "rules": {
+      "ruleA": { "name": "E13 RULE A", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "wageOrder": "E13A", "agType": false },
+      "ruleB": { "name": "E13 RULE B", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "wageOrder": "E13B", "agType": false }
+    },
+    "jobs": {
+      "jobA": { "code": "4614", "name": "E13 JOB A", "paymentType": "Time", "hourlyRate": 20, "rule": "ruleA" },
+      "jobB": { "code": "4615", "name": "E13 JOB B", "paymentType": "Time", "hourlyRate": 20, "rule": "ruleB" }
     }
   }
 }

@@ -346,6 +346,58 @@ export async function ensureCrewTableOnScreen(
     return { ...raced, source: 'existing' };
 }
 
+export interface OvertimeRuleSpec {
+    name: string;
+    overtimeDailyHours: number;
+    doubleTimeDailyHours: number;
+    wageOrder: string;
+    agType: boolean;
+}
+
+/**
+ * Rules carry no code, so they are keyed by name. The list read only decides create-or-open; the
+ * thresholds, wage order and Ag Type are read back from the Edit form and repaired there.
+ */
+export async function ensureOvertimeRuleOnScreen(
+    spec: OvertimeRuleSpec,
+    deps: OnScreenDeps,
+): Promise<{ id: number; name: string; source: 'existing' | 'created'; repaired: boolean }> {
+    const exists = async (): Promise<boolean> => {
+        const res = await deps.api.get('overtime-rules');
+        if (!res.ok()) throw new Error(`GET overtime-rules failed with ${String(res.status())}`);
+        const body = (await res.json()) as Record<string, unknown>[] | { items?: Record<string, unknown>[] };
+        const rows = Array.isArray(body) ? body : (body.items ?? []);
+        return rows.some((r) => String(r.name ?? '').trim() === spec.name.trim() && r.active !== false);
+    };
+    const { overtimeRule } = deps.pages;
+
+    if (!(await exists())) {
+        if ((await overtimeRule.createRule(spec)) === 'created') {
+            annotate(deps, 'fixture-created-on-screen', `Over-Time Rule '${spec.name}'`);
+            return { id: overtimeRule.savedIdFromUrl(), name: spec.name, source: 'created', repaired: false };
+        }
+        // Lookup-then-create is not atomic; a binned rule keeps its name (WEBPET-2368) and rejects the same way.
+        if (!(await exists())) {
+            throw new Error(
+                `The New Over-Time Rule form rejected '${spec.name}' and no such rule exists afterwards, so it was not a ` +
+                    'lost race — a recycle-bin rule may still own the name. Check Deleted Records.',
+            );
+        }
+    }
+
+    await overtimeRule.openByName(spec.name);
+    const id = overtimeRule.savedIdFromUrl();
+    const before = await overtimeRule.readRule();
+    const after = await overtimeRule.setRule(spec);
+    const wanted = { overtimeDailyHours: spec.overtimeDailyHours, doubleTimeDailyHours: spec.doubleTimeDailyHours, wageOrder: spec.wageOrder, agType: spec.agType };
+    if (JSON.stringify(after) !== JSON.stringify(wanted)) {
+        throw new Error(`Over-Time Rule '${spec.name}': repaired on screen but the form reads ${JSON.stringify(after)}, wanted ${JSON.stringify(wanted)}.`);
+    }
+    const repaired = JSON.stringify(before) !== JSON.stringify(after);
+    if (repaired) annotate(deps, 'fixture-repaired-on-screen', `Over-Time Rule '${spec.name}': ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+    return { id, name: spec.name, source: 'existing', repaired };
+}
+
 // ── Public API ──────────────────────────────────────────────────────
 
 export const ensureRanchOnScreen = (spec: RanchSpec, deps: OnScreenDeps) => ensureOnScreen(RANCH, spec, deps);

@@ -122,7 +122,8 @@
                 "regression"
             ],
             "demo": true,
-            "status": "draft",
+            "jira": "PET-12671",
+            "status": "automated",
             "enabled": false
         },
         {
@@ -225,7 +226,8 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
+            "jira": "PET-12675",
+            "status": "automated",
             "enabled": false
         },
         {
@@ -267,8 +269,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12676",
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

@@ -1,0 +1,56 @@
+{
+    "_notes": [
+        "E11 - Reverse export. E2's crew and picker on day -20 with E11's own job (E11 JOB 4616, rate 20, AG CA 2022): 06:00-14:00, no meal, 8 regular hours, 160.00.",
+        "job.earningCodes is typed into the Job form's Earning Code field on every run (catalog A3). E2 JOB carries none (earnDedCode null, 2026-10-26), so E11 has its own job; the value is the one every exportable job on dev carries (4000-General et al.).",
+        "The correction moves the card's Field from B1 FIELD (journey-b fixture 'field') to B2 FIELD EAST ('field2') after the reverse; totals are never edited (an edit after export blocks reverse).",
+        "The export file's contents belong to E9/E10; Job Costing reverse is deferred (same route, other export type)."
+    ],
+    "workflow": "E11",
+    "label": "e11-reverse-export",
+    "dayOffset": -20,
+    "job": { "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
+    "rule": {
+        "name": "AG CA 2022",
+        "dailyOvertimeAfterHours": 8,
+        "doubleTimeAfterHours": 12,
+        "overtimeMultiplier": 1.5,
+        "doubleTimeMultiplier": 2
+    },
+    "capture": {
+        "timeIn": { "hour": 6, "minute": 0 },
+        "timeOut": { "hour": 14, "minute": 0 }
+    },
+    "expected": {
+        "timeCards": 2,
+        "jobCards": 1,
+        "employees": 1,
+        "hourlyRate": 20,
+        "mealMinutes": 0,
+        "grossHours": 8,
+        "regularHours": 8,
+        "overtimeHours": 0,
+        "doubleTimeHours": 0,
+        "totalAmount": 160,
+        "transferToast": { "jobCards": 1, "timeCards": 2 },
+        "exportedNo": "No",
+        "exportedYes": "Yes"
+    },
+    "export": {
+        "type": "Payroll",
+        "candidateStatus": "Pending",
+        "destination": "Famous 120.03 · File output",
+        "runCreatedToast": "Export run created",
+        "nothingToExport": "Nothing to export"
+    },
+    "reverse": {
+        "type": "Payroll",
+        "performedBy": "Su",
+        "prompt": "This will flip {n} Job Card(s) back to not-exported",
+        "confirmButton": "Reverse run"
+    },
+    "correction": { "fromField": "field", "toField": "field2" },
+    "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -20, "cardTypes": [0, 1] },
+        { "kind": "restore", "target": "e2JobRuleAndRate" }
+    ]
+}

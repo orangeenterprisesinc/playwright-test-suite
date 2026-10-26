@@ -2,6 +2,7 @@ import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { ListDateRangeComponent } from '../../components/ListDateRangeComponent';
+import { PickerComponent } from '../../components/PickerComponent';
 
 /**
  * Input ▸ Job Card (`/input/job-cards`, catalog D6) — the screen D6 recalculates on (not View ▸ Job Cards,
@@ -36,9 +37,13 @@ export class JobCardsPage extends BasePage {
     private readonly continueButton: Locator;
     private readonly reviewCount: Locator;
     private readonly executeButton: Locator;
-    /** Edit Job Card form — read-only use; Delete and Save are deliberately not exposed. */
+    /** Edit Job Card form — Delete is deliberately never exposed; the one save is the Field correction (E11). */
     readonly piecesInput: Locator;
     readonly pieceRateInput: Locator;
+    /** CALIBRATE: label /^Field/i assumed for the Edit Job Card form's Field combobox. */
+    readonly fieldCombobox: Locator;
+    readonly saveButton: Locator;
+    private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
         super(page);
@@ -59,6 +64,9 @@ export class JobCardsPage extends BasePage {
         this.executeButton = this.wizard.getByTestId('recalculate-review-execute');
         this.piecesInput = page.locator('#pieces');
         this.pieceRateInput = page.locator('#pieceRate');
+        this.fieldCombobox = page.getByRole('combobox', { name: /^Field/i }).first();
+        this.saveButton = page.getByRole('button', { name: /^Save$/ });
+        this.pickers = new PickerComponent(page);
     }
 
     async goto(): Promise<void> {
@@ -164,6 +172,27 @@ export class JobCardsPage extends BasePage {
 
     readPieceRate(): Promise<number> {
         return this.readNumber(this.pieceRateInput);
+    }
+
+    /** The Field combobox's value once the form has hydrated. */
+    async readField(): Promise<string> {
+        await expect(this.fieldCombobox).not.toHaveValue('', { timeout: 30_000 });
+        await expect(this.fieldCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        return this.fieldCombobox.inputValue();
+    }
+
+    /** Change the open card's Field and Save; waits for the PUT and asserts 2xx. A card already on `name` is left alone. Returns the PUT status (0 when nothing was sent). */
+    async changeFieldAndSave(name: string): Promise<number> {
+        if (PickerComponent.labelPattern(name).test(await this.readField())) return 0;
+        await this.pickers.pickCombobox(this.fieldCombobox, name);
+        await this.fieldCombobox.blur();
+        await expect(this.saveButton, `Save stayed disabled after changing Field to ${name}`).toBeEnabled({ timeout: 15_000 });
+        const put = this.page.waitForResponse((r) => r.request().method() === 'PUT' && /\/job-cards\/\d+$/.test(new URL(r.url()).pathname), { timeout: 30_000 });
+        put.catch(() => undefined);
+        await this.saveButton.click();
+        const status = (await put).status();
+        expect(status, 'PUT job-cards/{id} for the Field correction').toBeLessThan(300);
+        return status;
     }
 
     /** Leaves the form unsaved by navigating back to the list, whose date range lives in the URL. */

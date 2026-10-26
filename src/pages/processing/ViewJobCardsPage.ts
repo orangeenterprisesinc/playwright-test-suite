@@ -30,7 +30,7 @@ export interface JobCardCounts {
     pieces: DisplayedOfLoaded;
 }
 
-const ordinal = (n: number): string => {
+export const ordinal = (n: number): string => {
     if (n % 10 === 1 && n % 100 !== 11) return 'st';
     if (n % 10 === 2 && n % 100 !== 12) return 'nd';
     if (n % 10 === 3 && n % 100 !== 13) return 'rd';
@@ -137,6 +137,14 @@ export class ViewJobCardsPage extends BasePage {
 
     async applyFilter(): Promise<void> {
         await this.load(this.page.getByTestId('view-job-cards-apply'));
+    }
+
+    /** Expands the filter, flips the Include Exported switch only if its state differs, and asserts it. Apply after. */
+    async setIncludeExported(on: boolean): Promise<void> {
+        await this.expandFilter();
+        if ((await this.includeExportedSwitch.isChecked()) !== on) await this.includeExportedSwitch.click();
+        if (on) await expect(this.includeExportedSwitch, 'Include Exported must be on').toBeChecked({ timeout: 10_000 });
+        else await expect(this.includeExportedSwitch, 'Include Exported must be off').not.toBeChecked({ timeout: 10_000 });
     }
 
     async refresh(): Promise<void> {
