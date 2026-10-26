@@ -1709,37 +1709,50 @@ export async function seedWeek(run: JourneyE3Run, opts: E3Deps): Promise<SeedRes
     return { timeCardCounters: [...own.keys()] };
 }
 
-/** Roster Ready per own id, the preview's row count (values are evidence only, WEBPET-3823), then one Mon-Sat commit. */
+/** Six daily commits, Monday to Saturday, as the office transfers; Saturday's preview is kept as evidence (WEBPET-3823). */
 export async function transferWeek(run: JourneyE3Run, opts: E3Deps, seed: SeedResult): Promise<TransferOutcome> {
     const { testInfo, pages } = opts;
     const transfer = pages.transferToJobCards;
     const { expected, label } = run.scenario;
 
-    const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
-    await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
-    // No pill is asserted: they count every foreign row in a six-day scope.
-    for (const id of seed.timeCardCounters) {
-        expect.soft(await transfer.rowStatusText(id), `${label}: time card ${id} must read ${expected.status} before the commit`).toBe(expected.status);
-    }
-    await transfer.openJobCardsTab();
-    const preview = await transfer.previewOvertimeBuckets();
-    expect(preview, `${label}: the preview must show one row per day`).toHaveLength(expected.jobCards);
-    testInfo.annotations.push({ type: 'preview-evidence', description: JSON.stringify(preview.map((r) => [r.job, r.grossTime, r.regularHours, r.overtime])) });
-    await transfer.openTimeCardsTab();
+    let outcome: TransferOutcome | undefined;
+    for (const [i, day] of run.days.entries()) {
+        // seedWeek records exactly two own cards per day, in day order.
+        const ids = seed.timeCardCounters.slice(i * 2, i * 2 + 2);
+        const scope = {
+            scenario: { label: `${label} ${day}`, expected: { jobCards: 1 } },
+            crew: run.crew,
+            day,
+            jobCardIds: run.jobCardIds,
+            ctx: { ...run.ctx, cards: (run.ctx.cards ?? []).filter((c) => ids.includes(c.timeCardCounter)) },
+        };
 
-    let outcome: TransferOutcome;
-    try {
-        outcome = await commitTransfer(run, opts, seed, candidates, expected.transferToast);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (/ended (error|fail)/i.test(message) && run.poison.length) {
-            throw new Error(`${message}\nPoison scan before the run: ${run.poison.join('; ')}`);
+        const candidates = await openScopedCandidates(scope, { pages, crew: run.crew.name }, { timeCardCounters: ids });
+        await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+        for (const id of ids) {
+            expect.soft(await transfer.rowStatusText(id), `${label}: time card ${id} on ${day} must read ${expected.status} before the commit`).toBe(expected.status);
         }
-        throw error;
+        if (i === run.days.length - 1) {
+            await transfer.openJobCardsTab();
+            const preview = await transfer.previewOvertimeBuckets();
+            expect(preview, `${label}: the preview on ${day} must show the day's one job card`).toHaveLength(1);
+            testInfo.annotations.push({ type: 'preview-evidence', description: JSON.stringify(preview.map((r) => [r.job, r.grossTime, r.regularHours, r.overtime])) });
+            await transfer.openTimeCardsTab();
+        }
+
+        try {
+            outcome = await commitTransfer(scope, opts, { timeCardCounters: ids }, candidates, expected.transferToast);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (/ended (error|fail)/i.test(message) && run.poison.length) {
+                throw new Error(`${message}\nPoison scan before the run: ${run.poison.join('; ')}`);
+            }
+            throw error;
+        }
+        await pages.viewJobCards.waitForTransferLanding();
+        expect(pages.viewJobCards.transferRunParam(), `${label}: the app lands with ${day}'s run id`).toBe(outcome.transferRunCounter);
     }
-    await pages.viewJobCards.waitForTransferLanding();
-    expect(pages.viewJobCards.transferRunParam(), `${label}: the app lands with this transfer's run id`).toBe(outcome.transferRunCounter);
-    return outcome;
+    return outcome as TransferOutcome;
 }
 
 /** View ▸ Job Cards, Mon-Sat, crew chip: one row per day, the Totals bar, conservation, and the named contrasts on a mismatch. */
@@ -2060,7 +2073,7 @@ export async function seedDays(run: JourneyE1Run, opts: E1Deps, weekdays: number
     return { timeCardCounters: [...seeded.keys()] };
 }
 
-/** Roster Ready per own id, then one commit of this transfer's days (Mon-Tue, then Wed alone); the week's card ids are re-recorded after it. */
+/** Roster Ready per own id, then one commit of this transfer's days; the week's card ids are re-recorded after it. */
 export async function transferDays(run: JourneyE1Run, opts: E1Deps, seed: SeedResult, index: number): Promise<TransferOutcome> {
     const { pages } = opts;
     const transfer = pages.transferToJobCards;

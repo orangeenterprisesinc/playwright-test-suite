@@ -659,6 +659,7 @@ export const JourneyE3WeeklyOvertimeCaseSchema = z
                     .strict(),
                 /** What each wrong engine would read; the week must NOT show any of these. */
                 contrasts: z.object({ dailyCountedTowardWeekly: E3Split, weeklyIgnored: E3Split, dayRuleOnLastDay: E3Split }).strict(),
+                /** The toast of each daily commit (one day's job card and its two time cards). */
                 transferToast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
             })
             .strict(),
@@ -688,8 +689,8 @@ export const JourneyE3WeeklyOvertimeCaseSchema = z
 
         if (expected.timeCards !== 2 * length) issue(['expected', 'timeCards'], 'a crew time-in and a crew time-out per day');
         if (expected.jobCards !== length) issue(['expected', 'jobCards'], 'one job card per day');
-        if (expected.transferToast.jobCards !== expected.jobCards) issue(['expected', 'transferToast', 'jobCards'], 'must equal expected.jobCards');
-        if (expected.transferToast.timeCards !== expected.timeCards) issue(['expected', 'transferToast', 'timeCards'], 'must equal expected.timeCards');
+        if (expected.transferToast.jobCards !== 1) issue(['expected', 'transferToast', 'jobCards'], 'one job card per daily commit');
+        if (expected.transferToast.timeCards !== 2) issue(['expected', 'transferToast', 'timeCards'], 'two time cards per daily commit');
 
         const derived = e3Derive(s);
         if (expected.perDay.length !== length) {
@@ -763,7 +764,7 @@ const E1Expected = z
         totals: z.object({ regular: z.number().min(0), overtime: z.number().min(0), double: z.number().min(0), amount: z.number() }).strict(),
         /** First transfer only: the Totals Amount if overtime were priced at the job's own rate (method None). */
         contrastAmount: z.number().optional(),
-        /** Last transfer only: the Totals Amount if the earlier days were not re-priced when the average moved. */
+        /** Last transfer only, when there is more than one: the Totals Amount if the earlier days were not re-priced when the average moved. */
         staleAmount: z.number().optional(),
     })
     .strict();
@@ -786,6 +787,7 @@ export const JourneyE1RegularRateCaseSchema = z
         rates: z.object({ high: z.number().positive(), low: z.number().positive() }).strict(),
         overtimeMultiplier: z.number().positive(),
         method: z.enum(['entireRate', 'premiumOnly']),
+        /** One or more transfers in weekday order; with more than one, the last must re-price an earlier day. */
         transfers: z
             .array(
                 z
@@ -796,7 +798,7 @@ export const JourneyE1RegularRateCaseSchema = z
                     })
                     .strict(),
             )
-            .length(2),
+            .min(1),
         /** Expected values of the environment gates; read, never written. */
         gates: z.object({ employerPayOvertimeBasedOnWeeklyAvg: z.string().min(1) }).strict(),
         /** Empty by design: the days' offsets are only known at run time, so the flow sweeps per day itself. */

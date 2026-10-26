@@ -2,6 +2,7 @@
     "_notes": [
         "E3 - Weekly overtime. One crew and picker work Monday to Saturday on E3 JOB under E3's own rule E3 RULE (OT after 8, DT after 12, weekly OT after 40 regular hours, 'starts on Day' 7). AG CA 2022 starts weekly OT on day 6, which pays Saturday wholly as overtime and hides the after-40 rule (measured 2026-10-26).",
         "Mon 6 h, Tue-Fri 9 h, Sat 6 h: regular reaches 38 by Friday, so Saturday reads 2 regular + 4 weekly overtime; the week reads 40 / 8 / 0 on 48 gross (1040.00).",
+        "One transfer commit per day, Monday to Saturday, so Saturday's after-40 split is computed from the saved week; a single Mon-Sat execute hits a JobCard_Reference_Unique race (measured 2026-10-26).",
         "The Monday is the one in days -12..-6, computed at run time. Days -13..-21 are other journeys' pill-checking days and are excluded on purpose.",
         "cleanup is empty by design: the week's offsets are only known at run time, so the flow runs per-day crew-scoped sweeps itself."
     ],
@@ -39,7 +40,7 @@
             "weeklyIgnored": { "regular": 44, "overtime": 4 },
             "dayRuleOnLastDay": { "regular": 38, "overtime": 10 }
         },
-        "transferToast": { "jobCards": 6, "timeCards": 12 }
+        "transferToast": { "jobCards": 1, "timeCards": 2 }
     },
     "cleanup": []
 }

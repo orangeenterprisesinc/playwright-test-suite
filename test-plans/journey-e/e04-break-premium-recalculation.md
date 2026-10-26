@@ -6,6 +6,13 @@
 
 **Catalog summary:** recompute paid-break pay as the weekly average rate moves through the week. On each day's calculation, revisit the week's prior paid breaks, re-price them at the updated weekly average and iterate until totals stabilise.
 
+## Scope decision (2026-10-26, Gukan)
+
+Manual cases only; the row stays `draft`. Two reasons, in order:
+
+1. **The workflow is the saved-week re-price.** Every catalog step is "a later day's calculation revisits and re-prices the week's earlier breaks". E1 showed on su (2026-10-26, twice) that a one-day transfer does not re-price the week's written cards when the averaging method is on the department (WEBPET-3158 is In Review; bug draft in the hand-off). A spec would fail by product on its first real step.
+2. **Paid Break Job is tenant state.** When the re-price works, the path is D10's: `designatePaidBreakJob` (`journeyDFlow.ts`) sets Preferences ▸ Job ▸ Paid Break Job on screen under `withPreferencesLock` and `finishCleanup` restores it; `seedExerciseAndBreakDay` punches the break. E4 then owns a break job and two work jobs at 20 / 35, seeds Mon and Tue with a paid break each, transfers Mon, then Tue, and proves Monday's break card re-priced to the 27.50 average on View ▸ Job Cards.
+
 ## Why it cannot run under the constraint
 
 - **A paid break becomes a job card only when `paidBreakJob` is set.** D10 measured this live on 2026-10-05 on su: with `paidBreakJob` null, a crew time-in onto a break job "is an ordinary job change … No break card, no auto-return". With it set, the same day yields the break card. There is nothing to re-price without that card.

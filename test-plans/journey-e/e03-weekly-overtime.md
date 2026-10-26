@@ -2,7 +2,7 @@
 
 ## Application Overview
 
-**Revision 1, 2026-10-26. Planned at code level** (no browser) from the orchestrator's read-only dev probe (su) and the E2/E6/E13 flows. Siblings: `e02-california-daily-overtime.md` (the daily rule), `e13-…` (own-jobs pattern).
+**Revision 2, 2026-10-26: six daily commits, Monday to Saturday** (see *Dev results*). **Revision 1 was planned at code level** (no browser) from the orchestrator's read-only dev probe (su) and the E2/E6/E13 flows. Siblings: `e02-california-daily-overtime.md` (the daily rule), `e13-…` (own-jobs pattern).
 
 > **Six days, one worker, one rule — and 40 regular hours crossed in the middle of Saturday.** E3 works its own crew and picker Monday to Saturday on its own job under `AG CA 2022` (daily OT after 8, DT after 12, weekly OT after 40). Monday is 6 h. Tuesday to Friday are 9 h each (8 regular + 1 daily OT). Saturday is 6 h. Only regular hours count toward 40 (`considerRegHoursOnly4WeeklyOt = true`): regular reaches 38 by Friday, so Saturday must read **2 regular + 4 weekly overtime**. The week must read **Regular 40 · Overtime 8 · Double 0** on 48 gross. Each wrong engine gives different totals: counting daily OT toward 40 gives 37/11, ignoring weekly OT gives 44/4, and a seventh-day rule firing on day 6 gives 38/10.
 >
@@ -51,8 +51,7 @@
 - Setup ▸ Job: `E3 JOB` shows Overtime Rule `AG CA 2022` and Hourly Rate 20 after a fresh load.
 - File ▸ Administration ▸ Setup ▸ Over-Time-Rule ▸ `AG CA 2022` reads Over-Time Daily Hours **8**, Double-Time Daily Hours **12**, Ag Type **off**. It is read only and never repaired, because the rule is shared. The weekly threshold (40) and `weeklyDays` (6) are not on that form; they are an `environment-gate` read from `GET overtime-rules/{id}` (fail by name if not 40 / 6) and annotated `api-only-evidence`.
 - With E3 CREW / E3 PICKER ONE punched on screen (crew time-in 06:00 on E3 JOB, crew time-out 12:00 Mon, 15:00 Tue–Fri, 12:00 Sat), the Transfer screen scoped Mon–Sat and filtered to E3 CREW offers exactly the **12** own References, each with status **Ready**.
-- The Job Cards preview tab shows **6** rows. Values are recorded as `preview-evidence`, not asserted (WEBPET-3823 stale preview).
-- Transferring shows "Transfer complete — 6 job cards written, 12 time cards transferred." and lands with this run's id.
+- The transfer is committed **one day at a time, Monday to Saturday**, as the office does it. Each day's commit shows "Transfer complete — 1 job card written, 2 time cards transferred." and lands with its own run id. Saturday's Job Cards preview tab shows **1** row, recorded as `preview-evidence`, not asserted (WEBPET-3823 stale preview).
 - View ▸ Job Cards, scoped Mon–Sat and Apply, then crew chip E3 CREW: **6 rows**, one per day, with Gross / Regular / Overtime / Double / Amount:
   - Mon **6 / 6 / 0 / 0 / 120**
   - Tue, Wed, Thu, Fri **9 / 8 / 1 / 0 / 190** each
@@ -61,7 +60,7 @@
 - **Conservation:** Regular + Overtime + Double = Gross (48) on every row and in Totals. A larger sum means hours were double-counted, and the test fails by name.
 - **Named contrasts** (the failure message names the mechanism):
   - Totals 37 / 11 (Fri 7/2, Sat 0/6): "daily overtime counted toward the weekly 40 despite considerRegHoursOnly4WeeklyOt=true".
-  - Totals 44 / 4 (Sat 6/0): "weekly overtime not applied at transfer (doWeeklyCalculationsOnJobCard=true)".
+  - Totals 44 / 4 (Sat 6/0): "weekly overtime not applied at transfer (doWeeklyCalculationsOnJobCard=true)" — day by day this also means the saved Mon–Fri cards were not counted toward the 40.
   - Totals 38 / 10 (Fri 8/1, Sat 0/6): "seventh-day rule applied on day 6 (weeklyDays=6)".
 - Preference gates, read and never written; each fails by name and is annotated `environment-gate`: `considerRegHoursOnly4WeeklyOt === true`, `doWeeklyCalculationsOnJobCard === true`, `firstDayOfWeek === 2`, `viewJobCardsAfterTransfer === true`, `maximumDaysForTransferExport >= |Monday offset|`. `useAverageRateForOvertime` / `payOvertimeBasedOnWeeklyAvg` / `groupOvertimeByWageOrder` are recorded only: one job at one rate makes any averaging equal 20.
 - **Federal-daily vs state-weekly OT tagging for export.** *— deferred: E2/E9 own export tagging; no screen separates daily from weekly OT hours.*
@@ -128,7 +127,7 @@ The click semantics after the default range are unmeasured. The read-back makes 
       "weeklyIgnored": { "regular": 44, "overtime": 4 },
       "seventhDayOnDaySix": { "regular": 38, "overtime": 10 }
     },
-    "transferToast": { "jobCards": 6, "timeCards": 12 }
+    "transferToast": { "jobCards": 1, "timeCards": 2 }
   },
   "cleanup": []
 }
@@ -140,7 +139,7 @@ The click semantics after the default range are unmeasured. The read-back makes 
   - `weekday` values are exactly 0…5 in order; every time is on a quarter hour (Time Rounding at Transfer = 15 min).
   - `perDay` is **derived** and must equal the data: the daily buckets per the rule, then regular capped cumulatively at `weeklyOvertimeHours` with the excess moved to overtime. Amount = reg×rate + ot×rate×1.5 + dt×rate×2. `totals` = Σ perDay.
   - Each `contrasts` entry is derived by its rule and must differ from `totals`, so the test is not vacuous.
-  - `timeCards === 2 × days.length`; `jobCards === days.length`.
+  - `timeCards === 2 × days.length`; `jobCards === days.length`; `transferToast` is the per-day toast, `{1, 2}`.
   - `cleanup` is empty by design: the week's offsets are only known at run time, so the flow runs per-day crew-scoped sweeps itself (a `_notes` line says so).
 
 ## Preconditions
@@ -200,13 +199,13 @@ test.describe('E3 · Weekly overtime', { tag: ['@JourneyE', '@E3'] }, () => {
 });
 ```
 
-`test.setTimeout(900_000)` (six seeded days, one 6-day transfer). No `test.slow()`.
+`test.setTimeout(900_000)` (six seeded days, six daily commits). No `test.slow()`.
 
 ## Open questions for the tester
 
 Non-blocking. The plan's default stands unless the tester objects.
 
-- [ ] **1. One Mon–Sat transfer, or day by day?** WEBPET-2060's fail note (Hilario, 09-15) asks that "Transfer should recalculate the week's job cards when transferring only one day". E3 commits the week at once, the simplest legitimate user path. Daily transfers are E1's second-transfer proof.
+- [x] **1. One Mon–Sat transfer, or day by day?** Day by day (revision 2). It is how the office transfers, Saturday's after-40 split is then computed from the saved Mon–Fri cards, and one Mon–Sat execute hits a Reference race on dev (*Dev results*).
 - [ ] **2. `weeklyDays = 6` semantics.** The plan reads it as "the seventh consecutive day is special", so six days never trigger it. If the engine reads it as "from day 6", the test fails by name ("seventh-day rule applied on day 6").
 - [ ] **3. Part-time weekly exception** (catalog variation): which setting carries it in web PET? Deferred until named.
 
@@ -226,10 +225,10 @@ Non-blocking. The plan's default stands unless the tester objects.
     - expect: the rule form reads 8 / 12 / Ag Type off; the weekly gate reads 40 / 6 (or fails by name)
   2. **Seed on screen.** `seedWeek`: for each of the six days, `crewTimeIn.punchIn` 06:00 on E3 JOB → wait until that day's crew time-in is readable → `crewTimeOut.punchOut` (12:00 / 15:00). Ids are recorded per day before any assertion.
     - expect: exactly 2 own time cards per day, 12 in total
-  3. **Roster.** `openScopedCandidates(run with days, { pages, crew })`, which calls `scopeToRange(Mon, Sat)`, analyzes, filters by Work Crew and guards. Then `rowStatusText` for each own id. Then the Job Cards tab: 6 preview rows (`preview-evidence`), back to the Time Cards tab.
-    - expect: exactly the 12 own References, all Ready; `selectAllRowsCheckbox` not checked
-  4. **Commit (catalog steps 1+2).** `commitTransfer(…, toast {6, 12})` (per-day id polls) → `waitForTransferLanding` → `transferRunParam() === transferRunCounter`.
-    - expect: "Transfer complete — 6 job cards written, 12 time cards transferred."
+  3. **Roster, per day.** For each day Monday → Saturday: `openScopedCandidates` scoped to that day and filtered by Work Crew, then `rowStatusText` for the day's two own ids. On Saturday only, the Job Cards tab: 1 preview row (`preview-evidence`), back to the Time Cards tab.
+    - expect: exactly the day's 2 own References, both Ready; `selectAllRowsCheckbox` not checked
+  4. **Commit, per day (catalog steps 1+2).** `commitTransfer(…, toast {1, 2})` → `waitForTransferLanding` → `transferRunParam() === transferRunCounter`, six times.
+    - expect: "Transfer complete — 1 job card written, 2 time cards transferred." on each day
   5. **Prove on screen.** `view.openFromMenu` → `scopeToRange(Mon, Sat)` → `applyFilter` → `filterByCrew(E3 CREW)` → crew chip reads exactly E3 CREW → poll Totals gross 48 → read Totals → `rowsForCrew` (6) → per row `readDay('Time In')`, Gross Time, Regular Hours, Overtime, Double Time, Amount, sorted by day.
     - expect: per-day buckets equal `expected.perDay`; Saturday reads 2 / 4
     - expect: Totals equal `expected.totals`, First Date = Monday; Regular + Overtime + Double = Gross
@@ -242,4 +241,5 @@ Non-blocking. The plan's default stands unless the tester objects.
 - **AG CA 2022 cannot carry this workflow.** Its "Weekly Overtime (1.5) starts on Day" = 6 (the `overTimeWeeklyDays` key, read wrongly in this plan as a seventh-day setting) makes the whole sixth day worked overtime. The preview showed Saturday 0 regular / 6 overtime, which is the 38 / 10 contrast. E3 therefore owns **E3 RULE** (8 / 12, weekly after 40 regular hours, starts on day 7, Ag off), created and checked on File ▸ Administration ▸ Setup ▸ Over-Time-Rule. The weekly fields are on that form, so the API read for the threshold is gone. The contrast is renamed `dayRuleOnLastDay`.
 - **Red by product:** the one Monday–Saturday transfer writes only some of the six job cards. `GET transfer-to-job-cards/execute/{id}` reports `status: complete` with per-day errors `Violation of UNIQUE KEY constraint 'JobCard_Reference_Unique' … (261026-000000N-JC-041-Su)`. One run wrote 5 of 6 cards, the next 1 of 6. The reference number is reused from job cards that earlier runs deleted (soft-deleted rows keep their Reference). `commitTransfer` now quotes those per-day errors.
 - Seeding six days on screen, the Mon–Sat range scope (Today preset → from → to) and the Transfer roster all worked.
-- Runner row parked `automated, enabled 0` until the reference defect is fixed.
+- Revision 1's runner row was parked `automated, enabled 0` on this result.
+- **Scope decision (2026-10-26, Gukan):** WEBPET-2059 is Done (Passed QA 2026-09-11) and PET-12669 closes on the verified claim, weekly overtime after 40 regular hours without double-counting. Revision 2 commits the week **one day at a time**, the office's path; the assertions on View ▸ Job Cards are unchanged. The multi-day Reference race is a bug draft in the hand-off, not something the spec works around in its assertions.

@@ -2,7 +2,7 @@
 
 ## Application Overview
 
-**Revision 1, 2026-10-26. Planned at code level; generation is gated on the Open questions (checkpoint).** Built on the measured Department form (`/setup/departments/<id>`, section **Job Card ▸ Overtime & Rounding**, combobox **Weekly Overtime Method**, empty on every department; the departments API carries `payOvertimeBasedOnWeeklyAvg`, null everywhere; the employer value is "None").
+**Revision 2, 2026-10-26: one Monday–Wednesday transfer** (see *Scope decision* at the end). Revision 1 transferred Mon–Tue and then Wednesday alone; its result is kept under *Dev results*. Built on the measured Department form (`/setup/departments/<id>`, section **Job Card ▸ Overtime & Rounding**, combobox **Weekly Overtime Method**, empty on every department; the departments API carries `payOvertimeBasedOnWeeklyAvg`, null everywhere; the employer value is "None").
 
 > **Two rates, one week, and an overtime premium priced at the week's average, then re-priced when the week grows.** E1's picker works Monday 5 h on `E1 JOB HIGH` ($35) and Tuesday 10 h on `E1 JOB LOW` ($20); Tuesday's last 2 h are daily OT. The weekly regular rate is straight-time pay ÷ hours = (175 + 200) / 15 = **$25**. The job's own rate gives $30/h OT. With the averaging method set on **E1's own department**, Tuesday's OT must follow $25. E1 then adds Wednesday (5 h on HIGH) and transfers only Wednesday. The average moves to (175 + 200 + 175) / 20 = **$27.50**, and **Tuesday's already-written OT must be re-priced**: catalog step 3, and Hilario's WEBPET-2060 note.
 >
@@ -48,22 +48,14 @@
 - E1 CREW and E1 PICKER ONE show Department `E1 DEPARTMENT` after a fresh load. Jobs too, if the Job form has a Department field (OQ 2).
 - E1 JOB HIGH: `AG CA 2022`, rate 35. E1 JOB LOW: `AG CA 2022`, rate 20 (Job form read-back).
 - Gate (read): the employer `payOvertimeBasedOnWeeklyAvg` is None, so the department is the only lever (otherwise fail by name).
-- **Transfer 1 (Mon–Tue):** 4 own References Ready; toast "2 job cards written, 4 time cards transferred."; View ▸ Job Cards Mon–Tue + crew chip:
+- **One transfer (Mon–Wed):** 6 own References Ready; toast "3 job cards written, 6 time cards transferred."; View ▸ Job Cards Mon–Wed + crew chip:
   - Mon **5 / 5 / 0 / 175.00** (gross / regular / OT / amount)
-  - Tue **10 / 8 / 2 / T1**
-  - Totals Regular 13 · Overtime 2 · Amount **A1**
-- **Transfer 2 (Wed only):** 2 own References Ready; toast "1 job card written, 2 time cards transferred."; View ▸ Job Cards Mon–Wed + crew chip: Mon 175.00, Wed **5 / 5 / 0 / 175.00**, Tue Amount **T2**, Totals Amount **A2**.
-- Amounts by method (the schema derives them; avg1 = 25, avg2 = 27.5):
-
-| Method (OQ 1) | T1 | A1 | T2 | A2 | Stale A2 (no re-price) |
-|---|---|---|---|---|---|
-| OT hours at 1.5 × weekly average ("entire rate") | 235.00 | 410.00 | 242.50 | 592.50 | 585.00 |
-| OT straight at job rate + 0.5 × average ("premium only") | 225.00 | 400.00 | 227.50 | 577.50 | 575.00 |
-| *contrast: None (job rate)* | *220.00* | *395.00* | *220.00* | *570.00* | — |
-
-- Named failures:
-  - A1 = 395: "OT priced at the job rate — the department's Weekly Overtime Method was not applied (which department does the engine read?)".
-  - A2 = stale value: "Tuesday's OT not re-priced when Wednesday moved the weekly average (WEBPET-2057/2060)".
+  - Tue **10 / 8 / 2 / 242.50** (8 × 20 + 2 × 1.5 × 27.50)
+  - Wed **5 / 5 / 0 / 175.00**
+  - Totals Regular 18 · Overtime 2 · Double 0 · Amount **592.50**
+- The weekly regular rate is (175 + 200 + 175) / 20 = **27.50** (schema-derived). Under "Premium Only" Tuesday would read 227.50 and the week 577.50; the scenario uses Entire Rate.
+- Named failure: Totals 570.00 (Tuesday 220.00): "OT priced at the job rate — the department's Weekly Overtime Method was not applied (which department does the engine read?)".
+- **Catalog step 3 (an earlier day re-priced by a later one-day transfer)** is not in the spec: see *Scope decision*. The schema still accepts a second transfer with `staleAmount`, so the step is re-added by data when the product supports it.
 - `calculationDesc` of each own card is recorded as `api-only-evidence` (no screen shows the regular rate).
 - **Piece-rate variation** (average shifts daily per person). *— deferred: two hourly rates move the average the same way; piece capture adds D9's crew piece-out flow and a piece-rate rounding question. Candidate follow-up.*
 - **Paid-break dependency.** *— deferred to E4, which is not showable on dev (`paidBreakJob` null).*
@@ -187,15 +179,12 @@ test.describe('E1 · Weekly regular-rate averaging', { tag: ['@JourneyE', '@E1']
 **Steps:**
   1. **Arrange** (`prepareJourneyE1`).
     - expect: Department form method = the scenario label; Crew/Employee forms show E1 DEPARTMENT; Job forms show the rule and rates 35 / 20
-  2. **Seed Mon + Tue on screen** (`seedWeekDays`, as E3's seeding).
-    - expect: 4 own time cards
-  3. **Transfer 1** (Mon–Tue range + crew): roster guard, Ready, then `commitTransfer` with toast {2,4}; re-record job-card ids for Mon–Wed.
-  4. **Read 1:** View ▸ Job Cards Mon–Tue → Apply → crew chip → rows by `readDay` → Totals.
-    - expect: Mon 175, Tue `T1`, Totals OT 2 and Amount `A1`; on 395 the failure is named
-  5. **Seed Wed on screen; Transfer 2** (Wed only + crew): toast {1,2}; re-record ids for Mon–Wed.
-  6. **Read 2:** View ▸ Job Cards Mon–Wed → crew chip.
-    - expect: Mon 175, Wed 175, Tue `T2`, Totals Amount `A2`; on the stale value the failure is named (WEBPET-2057/2060)
-  7. Record `calculationDesc` per own card (`api-only-evidence`). **Teardown** in `finally`.
+  2. **Seed Mon–Wed on screen** (`seedDays`).
+    - expect: 6 own time cards
+  3. **Transfer** (Mon–Wed range + crew): roster guard, Ready, then `commitTransfer` with toast {3,6}; re-record job-card ids for Mon–Wed.
+  4. **Read:** View ▸ Job Cards Mon–Wed → Apply → crew chip → rows by `readDay` → Totals.
+    - expect: Mon 175, Tue 242.50, Wed 175, Totals OT 2 and Amount 592.50; on 570 the failure is named
+  5. Record `calculationDesc` per own card (`api-only-evidence`). **Teardown** in `finally`.
 
 ## Checkpoint answers (orchestrator, read-only probe on dev 2026-10-26)
 
@@ -211,4 +200,10 @@ test.describe('E1 · Weekly regular-rate averaging', { tag: ['@JourneyE', '@E1']
 - **Catalog step 3 fails by name.** After transferring Wednesday only, Tuesday still reads **235.00** and Totals **585.00**. The test expects 242.50 / 592.50 (average 27.50). This is Hilario's 2026-09-15 WEBPET-2060 failure ("Transfer should recalculate the week's job cards when transferring only one day", passed 09-23) and the gap Rahul logged as WEBPET-3158 ("only the selected cards are written back").
 - View ▸ Job Cards' date popup opens on a range: a click before its start moves the start, a click after it moves the end. `pickRangeInPopup` now presses **Today** first, then from, then to.
 - Department menu path: File ▸ Administration ▸ Setup ▸ Department.
-- Runner row parked `automated, enabled 0`. Re-enable it when one-day transfers re-price the week, or switch step 3 to Recalculate if the product owner rules that is the intended path (manual case E1-03).
+- Revision 1's runner row was parked `automated, enabled 0` on this result.
+
+## Scope decision (2026-10-26, Gukan)
+
+WEBPET-2057 is Done (Passed QA 2026-10-01) and PET-12491 is to be closed on the automation of that verified claim: the weekly average regular rate drives the overtime premium. Revision 2 therefore transfers Monday–Wednesday in one commit and proves Tuesday 242.50 / Totals 592.50 at the 27.50 average on View ▸ Job Cards.
+
+The re-price of an already-written day by a later one-day transfer (catalog step 3) is a product gap on dev: WEBPET-3158 (the saved-week sibling re-price) is still In Review, and with the method set on the department only it did not fire. It is tracked as a bug draft in the hand-off (Relates WEBPET-3158 / WEBPET-2060) and as manual case **E1-02**. When it works, add the second transfer back to the scenario JSON (the schema keeps the `staleAmount` rules for it).

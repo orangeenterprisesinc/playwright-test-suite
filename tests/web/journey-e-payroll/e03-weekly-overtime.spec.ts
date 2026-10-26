@@ -13,7 +13,7 @@ test.describe('E3 · Weekly overtime', { tag: ['@JourneyE', '@E3'] }, () => {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E3' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Twelve punches on screen over six days, one six-day transfer, View > Job Cards; each with per-action screenshots.
+        // Twelve punches on screen over six days, six daily transfers, View > Job Cards; each with per-action screenshots.
         test.setTimeout(900_000);
 
         const scenario = await loadScenario(JourneyE3WeeklyOvertimeCaseSchema, testInfo);
@@ -29,7 +29,7 @@ test.describe('E3 · Weekly overtime', { tag: ['@JourneyE', '@E3'] }, () => {
             const seed = await seedWeek(run, deps);
             expect(seed.timeCardCounters, `${scenario.label}: all own time cards are seeded`).toHaveLength(scenario.expected.timeCards);
 
-            // 3-4. Roster Ready, preview row count, one Monday-to-Saturday commit (catalog steps 1 + 2).
+            // 3-4. Six daily commits, Monday to Saturday (catalog steps 1 + 2); Saturday's preview is kept as evidence.
             await transferWeek(run, deps, seed);
 
             // 5. Prove on screen: per-day buckets, Totals, conservation, named contrasts.
