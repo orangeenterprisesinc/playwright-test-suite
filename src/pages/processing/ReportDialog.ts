@@ -111,10 +111,12 @@ export class ReportDialog {
         return output;
     }
 
+    // The dialog can re-render or close itself after a download, detaching the Close button mid-click;
+    // an unbounded click then waited out the whole test (E8, run 40188410670).
     private async closeIfOpen(): Promise<void> {
-        if (await this.dialog.isVisible().catch(() => false)) {
-            await this.closeButton.click();
-            await expect(this.dialog).toBeHidden({ timeout: 15_000 });
-        }
+        await expect(async () => {
+            if (await this.dialog.isVisible()) await this.closeButton.click({ timeout: 5_000 });
+            await expect(this.dialog).toBeHidden({ timeout: 2_000 });
+        }, 'the Report dialog must close').toPass({ timeout: 30_000 });
     }
 }

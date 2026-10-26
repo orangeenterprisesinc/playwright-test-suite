@@ -17,26 +17,23 @@
  * filling both inputs alone still loads zero rows — "Choose a date range and
  * click Apply to load records."), {@link filterToDay} must click it too.
  */
-import { Locator, Page } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 import { WebpetListPage } from '../WebpetListPage';
 
 /**
  * @extends WebpetListPage
  */
 export class TimeInListPage extends WebpetListPage {
-    /** Start of the date window. */
-    readonly filterFrom: Locator;
-    /** End of the date window. */
-    readonly filterTo: Locator;
+    /** Opens the From – To range picker (replaced the #filter-from / #filter-to inputs, run 40188410670). */
+    readonly dateRangeTrigger: Locator;
     /** Commits the date window — the grid loads nothing until this is clicked. */
     readonly applyButton: Locator;
 
     constructor(page: Page) {
         super(page, '/input/time-in', /time in/i);
 
-        this.filterFrom = page.locator('#filter-from');
-        this.filterTo = page.locator('#filter-to');
-        this.applyButton = page.getByRole('button', { name: /^apply$/i });
+        this.dateRangeTrigger = page.getByRole('button', { name: 'From – To' });
+        this.applyButton = page.getByTestId('list-date-range-apply');
     }
 
     /**
@@ -50,10 +47,34 @@ export class TimeInListPage extends WebpetListPage {
      */
     static readonly RANCH_CELL_INDEX = 5;
 
-    /** Narrow the grid to a single day and load it — filling the inputs alone loads nothing. */
+    /**
+     * Narrow the grid to a single day and load it. The picker only commits through its own Apply (typed segments and
+     * Escape are discarded), and the toolbar Apply then loads the rows. Measured live 2026-10-26.
+     */
     async filterToDay(day: string): Promise<void> {
-        await this.filterFrom.fill(day);
-        await this.filterTo.fill(day);
+        const [year, month, date] = day.split('-');
+        const target = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+        const monthName = target.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+
+        await this.dateRangeTrigger.click();
+        const picker = this.page.getByRole('dialog').filter({ has: this.page.getByRole('grid') });
+        // Two months show side by side; the first one's caption steers the paging.
+        const caption = picker.getByRole('status').first();
+        for (let step = 0; step < 36; step += 1) {
+            const shown = new Date(`${(await caption.innerText()).trim()} 1 UTC`);
+            if (shown.getTime() === target.getTime()) break;
+            const direction = shown < target ? 'Next' : 'Previous';
+            await picker.getByRole('button', { name: `Go to the ${direction} Month` }).click();
+            await expect(caption).not.toHaveText(shown.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }));
+        }
+        const dayButton = picker.getByRole('button', { name: new RegExp(`, ${monthName} ${Number(date)}(st|nd|rd|th), ${year}`) }).first();
+        // Start and end of a one-day range.
+        await dayButton.click();
+        await dayButton.click();
+        await picker.getByRole('button', { name: 'Apply', exact: true }).click();
+        await expect(picker).toBeHidden();
+        const shown = `${month}/${date}/${year}`;
+        await expect(this.dateRangeTrigger).toContainText(`${shown} – ${shown}`);
         await this.applyButton.click();
     }
 
