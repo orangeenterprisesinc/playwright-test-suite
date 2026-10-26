@@ -25,7 +25,6 @@ test.describe('E8 · Finalize gross pay', { tag: ['@JourneyE', '@E8'] }, () => {
     }, async ({ sessionApi, pages }, testInfo) => {
         // E2's setup path, the Transfer screen twice, View > Job Cards, two report runs and a Test File sheet,
         // each with per-action screenshots; a skipped-budget outcome would leave residue on a shared environment.
-        test.slow();
         test.setTimeout(480_000);
 
         const scenario = await loadScenario(JourneyE8FinalizeCaseSchema, testInfo);

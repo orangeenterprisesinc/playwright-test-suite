@@ -155,7 +155,7 @@ if (AGENT_SEED_ENABLED) process.env.AGENT_SEED = '1';
 const WEBPET_PARITY = process.env.WEBPET_PARITY !== '0';
 
 /**
- * Retry policy: an explicit `RETRY` value always wins; otherwise retry twice
+ * Retry policy: an explicit `RETRY` value always wins; otherwise retry once
  * in CI to absorb infrastructure flakiness, and never locally so failures
  * surface immediately while developing.
  */
@@ -165,7 +165,7 @@ function resolveRetries(): number {
         const parsed = parseInt(raw, 10);
         if (!isNaN(parsed) && parsed >= 0) return parsed;
     }
-    return IS_CI ? 2 : 0;
+    return IS_CI ? 1 : 0;
 }
 
 /**

@@ -25,7 +25,6 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
             { type: 'testCaseId', description: 'D3' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.slow();
         test.setTimeout(journeyD3TimeoutMs(testInfo));
 
         const scenario = await loadScenario(JourneyD3CorrectionCaseSchema, testInfo);

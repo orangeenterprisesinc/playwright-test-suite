@@ -111,7 +111,7 @@ behaviour.
 | `RUNNER_DATA_DIR` | Override the runner-row directory (default `src/data/runner`). |
 | `DATA_FILE_PATH_JSON` / `_CSV` | Read one hand-made file instead of the per-journey directory. Escape hatch; unset by default. |
 | `WARMUP_TIMEOUT_MS` | Budget for the app readiness probe in global setup. `0` disables it — useful against an already-hot environment. |
-| `RETRY` | Override retry count (defaults: CI 2, local 0). |
+| `RETRY` | Override retry count (defaults: CI 1, local 0). |
 | `SLOW_MO` | Delay in ms between browser actions (default `0`). Set it when the recorded video has to be readable by a person — bug evidence, demos. Inflates wall-clock, so raise `--timeout` alongside it. |
 | `VIDEO_HEIGHT` | Recording height for the journey suite, default `480` (16:9 → 854×480); the browser window stays `WINDOW_WIDTH`×`WINDOW_HEIGHT`. Set `1080` for bug-report evidence where the money columns must be legible — a red run at 1080p shipped a 763 MB report. |
 | `EMAIL_RECIPIENTS_FILE` | **Deprecated** (email only). The routing table. Recipients are resolved per branch+trigger from `config/notifications/recipients.csv`; `EMAIL_TO` is only the fallback when that file is missing or has no matching row. Edit the table, not the env file. |

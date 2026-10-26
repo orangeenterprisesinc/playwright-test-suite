@@ -22,7 +22,7 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
             { type: 'testCaseId', description: 'A9' },
         ],
     }, async ({ pages, sessionApi }, testInfo) => {
-        test.slow();
+        test.setTimeout(360_000);
         const scenario = await loadScenario(PieceOutConfigCaseSchema, testInfo);
         const { screen, write, device: deviceSpec, expected } = scenario;
 
@@ -50,19 +50,33 @@ test.describe('A9 · Piece-out and sticker-roll configuration', { tag: ['@Journe
             // Written by the import engine, never by an operator.
             await expect(prefs.field(screen.readOnlyField)).toHaveJSProperty('readOnly', true);
 
+            // A killed run skips the restore, and the next run snapshots the written values as the originals,
+            // so the record can already hold them; Save then stays disabled. Only differing fields are touched.
             // The piece bounds live on Pocket, not on the sticker section.
+            let changed = 0;
             await prefs.gotoSection(screen.pocketSection);
-            for (const [fieldId, value] of Object.entries(write.pocket)) await prefs.setValue(fieldId, value);
+            for (const [fieldId, value] of Object.entries(write.pocket)) {
+                if ((await prefs.displayedValue(fieldId)) !== String(value)) { await prefs.setValue(fieldId, value); changed += 1; }
+            }
 
             // and the barcode function is chosen by its label and must persist as the wire value.
             await prefs.gotoSection(screen.stickerSection);
             for (const [fieldId, value] of Object.entries(write.stickers)) {
-                if (fieldId === screen.barcodeFunctionField) await prefs.choose(fieldId, barcodeLabel);
-                else await prefs.setValue(fieldId, value);
+                if (fieldId === screen.barcodeFunctionField) {
+                    if ((await prefs.displayedValue(fieldId)) !== barcodeLabel) { await prefs.choose(fieldId, barcodeLabel); changed += 1; }
+                } else if ((await prefs.displayedValue(fieldId)) !== String(value)) {
+                    await prefs.setValue(fieldId, value);
+                    changed += 1;
+                }
             }
 
-            const saveStatus = await prefs.save();
-            expect(expected.savedStatuses, `PUT preferences answered ${saveStatus}`).toContain(saveStatus);
+            const saveStatus = await prefs.saveIfDirty();
+            expect(saveStatus === null && changed > 0, `${changed} field(s) changed but Save stayed disabled — check the inline field errors`).toBe(false);
+            if (saveStatus === null) {
+                testInfo.annotations.push({ type: 'already-stored', description: 'Preferences already held every A9 value; Save stayed disabled, the reload below proves them' });
+            } else {
+                expect(expected.savedStatuses, `PUT preferences answered ${saveStatus}`).toContain(saveStatus);
+            }
 
             // Reopen and confirm the screen comes back with what was saved.
             await prefs.gotoPreferences();
