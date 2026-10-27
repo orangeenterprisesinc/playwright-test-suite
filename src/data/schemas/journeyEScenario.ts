@@ -889,3 +889,202 @@ export const JourneyE1RegularRateCaseSchema = z
     });
 
 export type JourneyE1RegularRateCase = z.infer<typeof JourneyE1RegularRateCaseSchema>;
+
+// E9 (payroll export file) and E10 (export-identifier matching): a crew day exported through Export to Accounting. The
+// shared slices are what the flow's openCrewExport / confirmCrewExport / reverseOwnExport read.
+const ExportScreen = z
+    .object({
+        type: z.enum(['Payroll', 'Cost Accounting']),
+        candidateStatus: z.string().min(1),
+        destination: z.string().min(1),
+        runCreatedToast: z.string().min(1),
+        nothingToExport: z.string().min(1),
+    })
+    .strict();
+
+// Tenant preferences the export depends on: read from GET preferences and never written.
+const ExportGates = z
+    .object({
+        payrollExportFormat: z.number().int(),
+        payrollExportDailySummary: z.number().int(),
+        earnDeductionCodeLocation: z.number().int(),
+        exportToAccountingSelectionByDate: z.boolean(),
+    })
+    .strict();
+
+const E9Bucket = z
+    .object({ hours: z.number().positive(), regular: z.number().min(0), overtime: z.number().min(0), amount: z.number() })
+    .strict();
+
+export const JourneyE9PayrollExportFileCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('E9'),
+        label: z.string().min(1),
+        /** E2 CREW is busy on -14, -18..-21 and the E1/E3 week; -17 is free and inside maximumDaysForTransferExport = 21. */
+        dayOffset: z.number().int(),
+        rule: z.object({ name: z.string().min(1), dailyOvertimeAfterHours: z.number().positive() }).strict(),
+        hourlyRate: z.number().positive(),
+        /** Typed on each Job form on every run; `nocode` is cleared, so the gap is always there. */
+        jobs: z.object({ coded: z.object({ earningCodes: z.string().min(1) }).strict(), nocode: z.object({ earningCodes: z.string() }).strict() }).strict(),
+        fix: z.object({ job: z.enum(['coded', 'nocode']), earningCodes: z.string().min(1) }).strict(),
+        segments: z.array(z.object({ job: z.enum(['coded', 'nocode']), start: TimeOfDay }).strict()),
+        timeOut: TimeOfDay,
+        gates: ExportGates,
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                jobCards: z.number().int().positive(),
+                perJob: z.object({ coded: E9Bucket, nocode: E9Bucket }).strict(),
+                totals: z.object({ hours: z.number().positive(), amount: z.number() }).strict(),
+                transferToast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
+                exportedNo: z.string().min(1),
+                exportedYes: z.string().min(1),
+                testFileBefore: z
+                    .object({ ready: z.number().int().min(0), cannotExport: z.number().int().min(0), gapFailure: z.string().min(1) })
+                    .strict(),
+                testFileAfter: z.object({ ready: z.number().int().min(0), cannotExport: z.number().int().min(0) }).strict(),
+                recordsWritten: z.number().int().positive(),
+            })
+            .strict(),
+        export: ExportScreen,
+        /** RegExp source of a record line in the file; every non-blank line until the Famous 120.03 layout is measured. */
+        file: z.object({ recordLine: z.string().min(1) }).strict(),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const { expected, segments, rule } = s;
+
+        if (s.dayOffset !== -17) issue(['dayOffset'], 'E9 owns day -17 (E2 CREW is busy on -14, -18, -19, -20, -21 and the E1/E3 week -12..-6)');
+        if (segments.length !== 2) issue(['segments'], 'exactly two segments');
+        if (segments[0]?.job !== 'coded' || segments[1]?.job !== 'nocode') issue(['segments'], 'two different jobs, coded before nocode');
+
+        const starts = segments.map((g) => minutes(g.start));
+        const ends = [...starts.slice(1), minutes(s.timeOut)];
+        segments.forEach((seg, i) => {
+            if (!(ends[i] > starts[i])) issue(['segments', i], 'starts must strictly increase and end before timeOut');
+            const bucket = expected.perJob[seg.job];
+            const span = (ends[i] - starts[i]) / 60;
+            if (bucket.hours !== span) issue(['expected', 'perJob', seg.job, 'hours'], `must equal the segment's span (${span})`);
+            if (!(bucket.hours <= rule.dailyOvertimeAfterHours)) issue(['expected', 'perJob', seg.job, 'hours'], 'must not exceed rule.dailyOvertimeAfterHours');
+            if (bucket.regular !== bucket.hours) issue(['expected', 'perJob', seg.job, 'regular'], 'must equal hours');
+            if (bucket.overtime !== 0) issue(['expected', 'perJob', seg.job, 'overtime'], 'must be 0');
+            if (bucket.amount !== round2(bucket.hours * s.hourlyRate)) issue(['expected', 'perJob', seg.job, 'amount'], 'must equal hours x hourlyRate');
+        });
+        const { coded, nocode } = expected.perJob;
+        if (expected.totals.hours !== coded.hours + nocode.hours) issue(['expected', 'totals', 'hours'], 'must be the sum of both jobs');
+        if (expected.totals.amount !== round2(coded.amount + nocode.amount)) issue(['expected', 'totals', 'amount'], 'must be the sum of both jobs');
+
+        if (expected.timeCards !== segments.length + 1) issue(['expected', 'timeCards'], 'one crew time-in per segment plus the crew time-out');
+        if (expected.jobCards !== segments.length) issue(['expected', 'jobCards'], 'one job card per segment');
+        if (expected.transferToast.jobCards !== expected.jobCards) issue(['expected', 'transferToast', 'jobCards'], 'must equal expected.jobCards');
+        if (expected.transferToast.timeCards !== expected.timeCards) issue(['expected', 'transferToast', 'timeCards'], 'must equal expected.timeCards');
+
+        if (s.jobs.coded.earningCodes === '') issue(['jobs', 'coded', 'earningCodes'], 'the coded job must carry an earning code');
+        if (s.jobs.nocode.earningCodes !== '') issue(['jobs', 'nocode', 'earningCodes'], "the nocode job must be cleared: the gap is what Test File flags (see the _notes for the fallback)");
+        if (s.fix.job !== 'nocode') issue(['fix', 'job'], 'the fix is made on the nocode job');
+
+        const before = expected.testFileBefore;
+        if (before.ready + before.cannotExport !== expected.jobCards) issue(['expected', 'testFileBefore'], 'ready + cannotExport must equal jobCards');
+        if (before.cannotExport !== 1) issue(['expected', 'testFileBefore', 'cannotExport'], 'exactly the nocode card cannot export');
+        if (expected.testFileAfter.ready !== expected.jobCards) issue(['expected', 'testFileAfter', 'ready'], 'must equal jobCards');
+        if (expected.testFileAfter.cannotExport !== 0) issue(['expected', 'testFileAfter', 'cannotExport'], 'must be 0');
+        if (expected.recordsWritten !== expected.jobCards) issue(['expected', 'recordsWritten'], 'must equal jobCards');
+        try {
+            new RegExp(s.file.recordLine);
+        } catch {
+            issue(['file', 'recordLine'], 'must compile as a RegExp');
+        }
+
+        const timeCardsStep = s.cleanup.find((step) => step.kind === 'timeCards');
+        if (timeCardsStep?.kind !== 'timeCards' || timeCardsStep.dayOffset !== -17 || !timeCardsStep.employeeCodes.includes('8017')) {
+            issue(['cleanup'], 'a timeCards cleanup step with dayOffset -17 and employee 8017 is required');
+        }
+        if (s.cleanup.some((step) => step.kind === 'restore')) issue(['cleanup'], "no restore step: E9's jobs belong to the scenario and are re-armed on screen every run");
+    });
+
+export type JourneyE9PayrollExportFileCase = z.infer<typeof JourneyE9PayrollExportFileCaseSchema>;
+
+export const JourneyE10ExportIdentifierCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('E10'),
+        label: z.string().min(1),
+        /** E9 is -17; E2 CREW's other days are -14, -18..-21 and the E1/E3 week. */
+        dayOffset: z.number().int(),
+        rule: z.object({ name: z.string().min(1), dailyOvertimeAfterHours: z.number().positive() }).strict(),
+        hourlyRate: z.number().positive(),
+        job: z.object({ earningCodes: z.string().min(1) }).strict(),
+        /** Alphanumeric and space-free: neither equals nor contains the other or the job name. */
+        identifiers: z.object({ initial: z.string().min(1), corrected: z.string().min(1) }).strict(),
+        capture: z.object({ timeIn: TimeOfDay, timeOut: TimeOfDay }).strict(),
+        gates: ExportGates.extend({
+            allowRecordExportIdModify: z.boolean(),
+            usePreviousJobExportId: z.number().int(),
+            lockJobCardsAfterExport: z.string().min(1),
+        }).strict(),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                jobCards: z.number().int().positive(),
+                grossHours: z.number().positive(),
+                regularHours: z.number().positive(),
+                overtimeHours: z.number().min(0),
+                totalAmount: z.number(),
+                transferToast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
+                exportedNo: z.string().min(1),
+                exportedYes: z.string().min(1),
+                testFileAfterFix: z.object({ ready: z.number().int().min(0), cannotExport: z.number().int().min(0) }).strict(),
+                recordsWritten: z.number().int().positive(),
+            })
+            .strict(),
+        export: ExportScreen,
+        reverse: z
+            .object({
+                type: z.string().min(1),
+                performedBy: z.string().min(1),
+                /** `{n}` is the job-card count. */
+                prompt: z.string().min(1),
+                confirmButton: z.string().min(1),
+            })
+            .strict(),
+        cleanup: z.array(CleanupStepSchema).default([]),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const { capture, expected, identifiers } = s;
+
+        if (s.dayOffset !== -15) issue(['dayOffset'], 'E10 owns day -15 (shared with D3 on D3 CREW, analyze-only; E9 -17; E2 CREW busy on -14, -18..-21)');
+        if (!(minutes(capture.timeIn) < minutes(capture.timeOut))) issue(['capture'], 'timeIn must be before timeOut');
+        if (expected.grossHours !== (minutes(capture.timeOut) - minutes(capture.timeIn)) / 60) issue(['expected', 'grossHours'], 'must equal (timeOut - timeIn) / 60');
+        if (!(expected.grossHours <= s.rule.dailyOvertimeAfterHours)) issue(['expected', 'grossHours'], 'must not exceed rule.dailyOvertimeAfterHours: E10 carries no overtime');
+        if (expected.regularHours !== expected.grossHours) issue(['expected', 'regularHours'], 'must equal grossHours');
+        if (expected.overtimeHours !== 0) issue(['expected', 'overtimeHours'], 'must be 0');
+        if (expected.totalAmount !== round2(expected.regularHours * s.hourlyRate)) issue(['expected', 'totalAmount'], 'must equal regularHours x hourlyRate');
+
+        if (expected.timeCards !== 2) issue(['expected', 'timeCards'], 'a crew time-in and a crew time-out');
+        if (expected.jobCards !== 1) issue(['expected', 'jobCards'], 'one job card for the one crew day');
+        if (expected.transferToast.jobCards !== expected.jobCards) issue(['expected', 'transferToast', 'jobCards'], 'must equal expected.jobCards');
+        if (expected.transferToast.timeCards !== expected.timeCards) issue(['expected', 'transferToast', 'timeCards'], 'must equal expected.timeCards');
+
+        for (const key of ['initial', 'corrected'] as const) {
+            if (!/^[A-Za-z0-9]+$/.test(identifiers[key])) issue(['identifiers', key], 'must be alphanumeric and space-free');
+        }
+        if (identifiers.initial === identifiers.corrected) issue(['identifiers'], 'the correction must change the identifier');
+        if (identifiers.initial.includes(identifiers.corrected) || identifiers.corrected.includes(identifiers.initial)) {
+            issue(['identifiers'], 'neither identifier may contain the other, or a substring search of the file is ambiguous');
+        }
+
+        if (expected.testFileAfterFix.ready !== expected.jobCards) issue(['expected', 'testFileAfterFix', 'ready'], 'must equal jobCards');
+        if (expected.testFileAfterFix.cannotExport !== 0) issue(['expected', 'testFileAfterFix', 'cannotExport'], 'must be 0');
+        if (expected.recordsWritten !== expected.jobCards) issue(['expected', 'recordsWritten'], 'must equal jobCards');
+
+        const timeCardsStep = s.cleanup.find((step) => step.kind === 'timeCards');
+        if (timeCardsStep?.kind !== 'timeCards' || timeCardsStep.dayOffset !== -15) issue(['cleanup'], 'a timeCards cleanup step with dayOffset -15 is required');
+        if (s.cleanup.some((step) => step.kind === 'restore')) issue(['cleanup'], "no restore step: E10 JOB's identifier is re-armed on screen every run");
+    });
+
+export type JourneyE10ExportIdentifierCase = z.infer<typeof JourneyE10ExportIdentifierCaseSchema>;

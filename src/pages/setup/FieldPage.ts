@@ -13,7 +13,7 @@
  * listing the whole tenant's 13 ranches. Note `#overTimeRulesCounter` here carries a
  * capital T; the Job form spells the same field with a lower-case one.
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { SetupScreenPage, type FormOutcome } from '../SetupScreenPage';
 import { PickerComponent } from '../../components/PickerComponent';
 
@@ -24,6 +24,7 @@ export interface NewFieldData {
     ranch: string;
     crop?: string;
     state?: string;
+    exportIdentifier?: string;
 }
 
 /**
@@ -50,6 +51,8 @@ export class FieldPage extends SetupScreenPage {
     readonly flowRateInput: Locator;
     readonly flowRateUnitSelect: Locator;
     readonly irrigationEfficiencyInput: Locator;
+    /** Textbox "Export Identifier" (`#exportIdentifier`, as on Crop/Ranch/Job); unmeasured on this form. */
+    readonly exportIdentifierInput: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -70,6 +73,7 @@ export class FieldPage extends SetupScreenPage {
         // The only picker on these screens with no stable id — addressed by its label.
         this.flowRateUnitSelect = page.getByRole('combobox', { name: 'Flow Rate Unit' });
         this.irrigationEfficiencyInput = page.locator('#percentIrrigationEfficiency');
+        this.exportIdentifierInput = page.locator('#exportIdentifier');
         this.pickers = new PickerComponent(page);
     }
 
@@ -94,6 +98,7 @@ export class FieldPage extends SetupScreenPage {
         await this.irrigationEfficiencyInput.fill(IRRIGATION_DEFAULTS.efficiency);
 
         await this.codeInput.fill(data.code);
+        if (data.exportIdentifier) await this.exportIdentifierInput.fill(data.exportIdentifier);
         // Name last: whole-form validity only recomputes when a text input blurs, and
         // the base blurs Name after this returns.
         await this.nameInput.fill(data.name);
@@ -101,6 +106,43 @@ export class FieldPage extends SetupScreenPage {
 
     async createField(data: NewFieldData): Promise<FormOutcome> {
         return this.createOnScreen(() => this.fillForm(data));
+    }
+
+    /** Read once the form has hydrated (Name holds the record's value), or an already-set field looks empty. */
+    async readExportIdentifier(): Promise<string> {
+        await expect(this.nameInput).not.toHaveValue('', { timeout: 30_000 });
+        await this.exportIdentifierInput.waitFor({ state: 'visible', timeout: 15_000 });
+        return this.exportIdentifierInput.inputValue();
+    }
+
+    /** Read-first no-op; otherwise types, saves and returns what a fresh load of the record shows. */
+    async setExportIdentifier(value: string): Promise<string> {
+        const current = await this.readExportIdentifier();
+        if (current === value) return current;
+        await expect(this.exportIdentifierInput, 'Export Identifier is read-only — allowRecordExportIdModify / SU gate').toBeEnabled();
+
+        await this.exportIdentifierInput.fill(value);
+        await this.exportIdentifierInput.blur();
+        const saveEnabled = await expect(this.saveButton).toBeEnabled({ timeout: 5_000 }).then(
+            () => true,
+            () => false,
+        );
+        // A row made through the API can lack the four irrigation values the form requires, which leaves Save gated.
+        if (!saveEnabled) await this.fillIrrigationBlanks();
+        await this.saveEdit();
+        return this.readExportIdentifier();
+    }
+
+    private async fillIrrigationBlanks(): Promise<void> {
+        if ((await this.areaInput.inputValue()) === '') await this.areaInput.fill(IRRIGATION_DEFAULTS.area);
+        if ((await this.flowRateInput.inputValue()) === '') await this.flowRateInput.fill(IRRIGATION_DEFAULTS.flowRate);
+        if ((await this.irrigationEfficiencyInput.inputValue()) === '') {
+            await this.irrigationEfficiencyInput.fill(IRRIGATION_DEFAULTS.efficiency);
+        }
+        const unit = ((await this.flowRateUnitSelect.textContent()) ?? '').trim();
+        if (unit === '' || /^Select/i.test(unit)) {
+            await this.pickers.pickSelect(this.flowRateUnitSelect, IRRIGATION_DEFAULTS.flowRateUnit);
+        }
     }
 }
 

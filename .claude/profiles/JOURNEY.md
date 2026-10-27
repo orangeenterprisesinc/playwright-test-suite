@@ -37,6 +37,7 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
   `npm run runner:sync` regenerates the JSON mirrors, `npm run runner:check`
   fails on drift, `npm run coverage:catalog` reports per-workflow state.
 * Data: one JSON scenario file per spec, `src/data/journey-<x>/<spec-basename>.json`, loaded with `loadScenario(schema, testInfo)` (`src/utils/data/scenarioLoader.ts`) and validated by `src/data/schemas/`; shared fixture tables in `src/data/journey-<x>/fixture.json`; generated factories in `src/data/generated/` (flows only — specs may not import them); cleanup declared as `cleanup: CleanupStep[]` in the JSON and run by `runCleanup` — under the cleanup allowance of the UI-first rule below, never the DB. The only inline literals in a spec: `testCaseId`, `tag:`, titles, `expect()` messages.
+* Transfer isolation: data and cleanup are per test. Each committing spec owns a (day, crew) pair, recorded in the scenario `_notes` and the schema checks (two specs may share a day on different crews). A commit goes through `openScopedCandidates({ crew })` → `scopeToTimeCardCrew`; the Work Crew grid filter only hides rows, it is not scope. `commitTransfer` rejects an execute whose `crewIds` is `[]`, and a short analyze fails by name (lost job vs time cards not on screen).
 * Conventions by path (agents Read on demand, never restated here):
   specs `.claude/skills/pw-spec-author/SKILL.md` · page objects
   `.claude/skills/pw-page-object/SKILL.md` · runner/gate mechanics

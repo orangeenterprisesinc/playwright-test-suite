@@ -10,13 +10,23 @@ import { setTimeout as sleep } from 'node:timers/promises';
 const POLL_MS = 250;
 const STALE_MS = 120_000;
 
-function lockDir(): string {
+function lockDir(name: string): string {
     const tenant = createHash('sha1').update(process.env.API_URL || 'local').digest('hex').slice(0, 8);
-    return join(tmpdir(), `pts-preferences-${tenant}.lock`);
+    return join(tmpdir(), `pts-${name}-${tenant}.lock`);
 }
 
-export async function withPreferencesLock<T>(fn: () => Promise<T>): Promise<T> {
-    const dir = lockDir();
+export function withPreferencesLock<T>(fn: () => Promise<T>): Promise<T> {
+    return withFileLock('preferences', fn);
+}
+
+// Export to Accounting hands every worker the user's single draft run, so a second worker's Refresh→Save
+// would commit or delete the draft under the first. The window includes a Test File and a Save: 10 min stale.
+export function withExportDraftLock<T>(fn: () => Promise<T>): Promise<T> {
+    return withFileLock('export-draft', fn, 600_000);
+}
+
+export async function withFileLock<T>(name: string, fn: () => Promise<T>, staleMs = STALE_MS): Promise<T> {
+    const dir = lockDir(name);
     for (;;) {
         try {
             mkdirSync(dir);
@@ -26,7 +36,7 @@ export async function withPreferencesLock<T>(fn: () => Promise<T>): Promise<T> {
             try {
                 // A holder killed mid-run never releases; its lock ages out. The rename is atomic, so
                 // two waiters that both see it stale cannot both clear it and end up holding together.
-                if (Date.now() - statSync(dir).mtimeMs > STALE_MS) {
+                if (Date.now() - statSync(dir).mtimeMs > staleMs) {
                     const stale = `${dir}.stale-${String(process.pid)}`;
                     renameSync(dir, stale);
                     rmSync(stale, { recursive: true, force: true });

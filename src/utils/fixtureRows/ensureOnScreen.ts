@@ -35,7 +35,7 @@ export interface OnScreenDeps {
 }
 
 /** What a repair put right. Each maps to one form control. */
-export type Repair = 'active' | 'homeCrew';
+export type Repair = 'active' | 'homeCrew' | 'exportIdentifier';
 
 export interface EnsuredOnScreen extends EnsuredRecord {
     /** Where the row came from — `created` is the only one that drove a form. */
@@ -203,6 +203,8 @@ export interface FieldSpec extends CodedSpec {
     ranch: { id: number; name: string };
     crop?: string;
     state?: string;
+    /** Defaults to the code; the Famous writer refuses cards whose Field has none. */
+    exportIdentifier?: string;
 }
 
 const FIELD: EntitySpec<FieldSpec> = {
@@ -216,8 +218,19 @@ const FIELD: EntitySpec<FieldSpec> = {
             ranch: spec.ranch.name,
             crop: spec.crop,
             state: spec.state,
+            exportIdentifier: spec.exportIdentifier ?? spec.code,
         });
         return outcome === 'created' ? pages.field.savedIdFromUrl() : null;
+    },
+    readDetail: ({ api }, id) => getDetail(api, 'fields', id),
+    // Never overwrites a value that is set.
+    needsRepair: (detail) =>
+        typeof detail.exportIdentifier !== 'string' || detail.exportIdentifier.trim() === '' ? ['exportIdentifier'] : [],
+    async repair({ pages }, id, name, _repairs, spec) {
+        await pages.field.gotoEditById(id, name);
+        const wanted = spec.exportIdentifier ?? spec.code;
+        const shown = await pages.field.setExportIdentifier(wanted);
+        if (shown !== wanted) throw new Error(`Field '${name}': Export Identifier reads '${shown}' after saving, wanted '${wanted}'.`);
     },
 };
 

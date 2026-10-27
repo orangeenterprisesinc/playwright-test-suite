@@ -330,10 +330,16 @@ export class TransferToJobCardsPage extends BasePage {
      * date commit — it parks on "Ready to analyze." until this is clicked.
      */
     async analyze(): Promise<void> {
-        // Wire the analyze responses BEFORE the click so a per-process job-store
-        // 404 (GET …/analyze/{jobId} — WEBPET-1907 class, seen on multi-task dev)
-        // is captured for tryWaitForCandidates to diagnose, instead of surfacing
-        // as a bare locator timeout on the grid caption.
+        this.watchAnalyzeResponses();
+        await this.analyzeButton.click();
+    }
+
+    /**
+     * Wire the analyze responses BEFORE the click so a per-process job-store 404
+     * (GET …/analyze/{jobId} — WEBPET-1907 class, seen on multi-task dev) is captured
+     * for the caller to diagnose, instead of surfacing as a bare locator timeout.
+     */
+    private watchAnalyzeResponses(): void {
         this.analyzeResponses = [];
         this.analyzeRetries = 0;
         this.analyzeSaw404 = false;
@@ -349,7 +355,6 @@ export class TransferToJobCardsPage extends BasePage {
                 });
         };
         this.page.on('response', this.analyzeResponseHandler);
-        await this.analyzeButton.click();
     }
 
     private detachAnalyzeResponseListener(): void {
@@ -847,17 +852,30 @@ export class TransferToJobCardsPage extends BasePage {
             { timeout: 30_000 },
         );
         posted.catch(() => undefined);
-        await this.analyzeCandidatesButton.click();
-        const wanted = opts.expected ?? 1;
-        await expect
-            .poll(async () => (await this.candidateReferences()).length, {
-                timeout: 90_000,
-                message: `analyze loaded no transfer candidates (expected ${wanted})`,
-            })
-            .toBeGreaterThanOrEqual(wanted);
-        const sent = await posted.catch(() => null);
-        const body = (sent?.postDataJSON() ?? {}) as { crewIds?: unknown[] };
-        return { crewIds: body.crewIds ?? [] };
+        this.watchAnalyzeResponses();
+        try {
+            await this.analyzeCandidatesButton.click();
+            const wanted = opts.expected ?? 1;
+            try {
+                await expect
+                    .poll(async () => (await this.candidateReferences()).length, { timeout: 90_000 })
+                    .toBeGreaterThanOrEqual(wanted);
+            } catch {
+                const loaded = (await this.candidateReferences()).length;
+                const lost = this.analyzeSaw404 || (await this.analyzeRetryButton.isVisible().catch(() => false));
+                throw new Error(
+                    `analyze loaded ${loaded} of ${wanted} transfer candidate(s) — ` +
+                        (lost
+                            ? 'analyze job lost (GET …/analyze/{jobId} 404 not_found or "Try again" shown)'
+                            : 'the expected time cards are not on the Transfer screen (already transferred by another run, or not created)'),
+                );
+            }
+            const sent = await posted.catch(() => null);
+            const body = (sent?.postDataJSON() ?? {}) as { crewIds?: unknown[] };
+            return { crewIds: body.crewIds ?? [] };
+        } finally {
+            this.detachAnalyzeResponseListener();
+        }
     }
 
     /**
@@ -911,7 +929,7 @@ export class TransferToJobCardsPage extends BasePage {
      * Commit the transfer for the ticked rows. The confirm step reports any warning issues before
      * it proceeds; warnings are expected on a piece day (`warn.zero_rate`) and do not block.
      */
-    async runTransfer(): Promise<string | null> {
+    async runTransfer(): Promise<{ jobId: string | null; crewIds: unknown[] }> {
         const commit = this.transferButton;
         try {
             await expect(commit).toBeEnabled({ timeout: 30_000 });
@@ -937,7 +955,8 @@ export class TransferToJobCardsPage extends BasePage {
         }
         const response = await executed;
         const body = (await response?.json().catch(() => null)) as { jobId?: string } | null;
-        return body?.jobId ?? null;
+        const sent = (response?.request().postDataJSON() ?? {}) as { crewIds?: unknown[] };
+        return { jobId: body?.jobId ?? null, crewIds: sent.crewIds ?? [] };
     }
 
     // ── Blocking-exception correction (D3) — pills, banner, Time In panel edit ──
@@ -1068,30 +1087,36 @@ export class TransferToJobCardsPage extends BasePage {
         await save.click();
     }
 
-    /** Fill and Save the open Add Time-In dialog. Work Crew auto-fills from the employee's home crew. */
+    /** Work Crew auto-fills from the employee's home crew when it has one; pick it only on a mismatch. */
+    private async pickWorkCrew(dialog: Locator, crew: string): Promise<void> {
+        const crewInput = dialog.getByRole('combobox', { name: /^Work Crew\b/ });
+        const prefilled = await expect(crewInput).toHaveValue(crew, { timeout: 10_000 }).then(() => true, () => false);
+        if (!prefilled) {
+            await crewInput.click({ timeout: 15_000 });
+            await this.page.keyboard.type(crew);
+            await this.page.getByRole('option', { name: crew }).first().click({ timeout: 15_000 });
+            await expect(crewInput).toHaveValue(crew);
+        }
+    }
+
+    /** Fill and Save the open Add Time-In dialog. */
     async addTimeIn(values: { day: string; time: string; employee: string; crew: string; ranch: string; field: string; phase: string }): Promise<void> {
         const dialog = this.addRecordDialog('timeIn');
         await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${values.day}T${values.time}`);
         await this.pickEmployee(dialog, values.employee);
-        const crewInput = dialog.getByRole('combobox', { name: /^Work Crew\b/ });
-        const prefilled = await expect(crewInput).toHaveValue(values.crew, { timeout: 10_000 }).then(() => true, () => false);
-        if (!prefilled) {
-            await crewInput.click({ timeout: 15_000 });
-            await this.page.keyboard.type(values.crew);
-            await this.page.getByRole('option', { name: values.crew }).first().click({ timeout: 15_000 });
-            await expect(crewInput).toHaveValue(values.crew);
-        }
+        await this.pickWorkCrew(dialog, values.crew);
         await this.pickOption(dialog, 'Ranch', values.ranch);
         await this.pickOption(dialog, 'Field', values.field);
         await this.pickOption(dialog, 'Phase', values.phase);
         await this.saveAddRecord(dialog);
     }
 
-    /** Fill and Save the open Add Time-Out dialog: only Date / Time and Employee are required. */
-    async addTimeOut(values: { day: string; time: string; employee: string }): Promise<void> {
+    /** Fill and Save the open Add Time-Out dialog. Date / Time and Employee are required; the Work Crew is set so a crew-scoped Transfer sees the card. */
+    async addTimeOut(values: { day: string; time: string; employee: string; crew: string }): Promise<void> {
         const dialog = this.addRecordDialog('timeOut');
         await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${values.day}T${values.time}`);
         await this.pickEmployee(dialog, values.employee);
+        await this.pickWorkCrew(dialog, values.crew);
         await this.saveAddRecord(dialog);
     }
 

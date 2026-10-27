@@ -1,5 +1,5 @@
 /**
- * File ▸ Administration ▸ Restore or Reverse ▸ Reverse Payroll Export to Accounting (`/export-to-accounting/reverse`).
+ * File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll) (`/export-to-accounting/reverse`).
  * Every row belongs to the tenant, not the run: reverseRun clicks Reverse only on the caller's row and a page.route
  * guard aborts a reverse POST for any other run id (BulkDeleteHistoryPage.undoBatch pattern). Locators unmeasured
  * beyond the 2026-10-26 probe (CALIBRATE: toast, prompt container).
@@ -17,8 +17,8 @@ export interface ReverseRunRow {
     jobCards: number;
 }
 
-const MENU = ['File', 'Administration', 'Restore or Reverse', 'Reverse Payroll Export to Accounting'];
-const MENU_WITHOUT_ADMINISTRATION = ['File', 'Restore or Reverse', 'Reverse Payroll Export to Accounting'];
+const MENU = ['File', 'Administration', 'Restore or Reverse', 'Reverse Export to Accounting (Payroll)'];
+const MENU_WITHOUT_ADMINISTRATION = ['File', 'Restore or Reverse', 'Reverse Export to Accounting (Payroll)'];
 
 export class ReverseExportPage extends BasePage {
     readonly pageUrl = '/export-to-accounting/reverse';

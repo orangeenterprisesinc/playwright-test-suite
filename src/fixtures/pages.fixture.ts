@@ -113,7 +113,7 @@ export interface PageObjects {
     readonly bulkDeleteHistory: BulkDeleteHistoryPage;
     /** File ▸ Export to Accounting, `/export-to-accounting` (E11). */
     readonly exportToAccounting: ExportToAccountingPage;
-    /** File ▸ Administration ▸ Restore or Reverse ▸ Reverse Payroll Export to Accounting (E11). */
+    /** File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll) (E11). */
     readonly reverseExport: ReverseExportPage;
 
     // ── Input ▸ Batch — the office crew punches (D6 arrange) ──

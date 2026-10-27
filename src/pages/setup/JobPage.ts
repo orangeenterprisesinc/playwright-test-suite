@@ -40,6 +40,8 @@ export class JobPage extends SetupScreenPage {
     readonly considerEmployeeRateControl: Locator;
     /** Textbox "Earning Code" (measured 2026-10-26); comma-separated, e.g. RH,,OT,,DT,,RDP,,ODT,,DDT. */
     readonly earningCodesInput: Locator;
+    /** Textbox "Export Identifier" (`#exportIdentifier`); defaults to the name on a new job, editable for SU. */
+    readonly exportIdentifierInput: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -59,6 +61,7 @@ export class JobPage extends SetupScreenPage {
         this.overtimeRulesCombobox = page.locator('#overtimeRulesCounter');
         this.considerEmployeeRateControl = page.getByLabel(/Consider Employee Rate/i);
         this.earningCodesInput = page.getByRole('textbox', { name: 'Earning Code', exact: true });
+        this.exportIdentifierInput = page.locator('#exportIdentifier');
         this.pickers = new PickerComponent(page);
     }
 
@@ -203,6 +206,31 @@ export class JobPage extends SetupScreenPage {
 
         await this.gotoEditById(id, name);
         return this.readEarningCodes();
+    }
+
+    /** Read once the form has hydrated (Name holds the record's value), or an already-set field looks empty. */
+    async readExportIdentifier(): Promise<string> {
+        await expect(this.nameInput).not.toHaveValue('', { timeout: 30_000 });
+        await this.exportIdentifierInput.waitFor({ state: 'visible', timeout: 15_000 });
+        return this.exportIdentifierInput.inputValue();
+    }
+
+    /** Read-first no-op; otherwise types, saves and returns what a fresh load of the record shows. */
+    async setExportIdentifier(value: string): Promise<string> {
+        const current = await this.readExportIdentifier();
+        if (current === value) return current;
+        await expect(this.exportIdentifierInput, 'Export Identifier is read-only — allowRecordExportIdModify / SU gate').toBeEnabled();
+
+        const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue();
+        await this.exportIdentifierInput.fill(value);
+        await this.exportIdentifierInput.blur();
+        await expect(this.saveButton, `Save stayed disabled after setting Export Identifier to ${value}`).toBeEnabled({ timeout: 15_000 });
+        await this.saveButton.click();
+        await expect(this.unsavedChangesBar).toBeHidden({ timeout: 15_000 });
+
+        await this.gotoEditById(id, name);
+        return this.readExportIdentifier();
     }
 
     /** Control shape is unverified (checkbox, switch or select), so try each reading in turn. */

@@ -1,8 +1,24 @@
+import { readFileSync } from 'node:fs';
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
-import type { JourneyE13WageOrderSplitCase, JourneyE3WeeklyOvertimeCase, JourneyE6RoundingCase, JourneyE8FinalizeCase } from '@data/schemas/journeyEScenario';
-import { journeyE11Fixture, journeyE13Fixture, journeyE1Fixture, journeyE2Fixture, journeyE3Fixture } from '@data/journey-e/fixture';
+import type {
+    JourneyE10ExportIdentifierCase,
+    JourneyE13WageOrderSplitCase,
+    JourneyE3WeeklyOvertimeCase,
+    JourneyE6RoundingCase,
+    JourneyE8FinalizeCase,
+    JourneyE9PayrollExportFileCase,
+} from '@data/schemas/journeyEScenario';
+import {
+    journeyE10Fixture,
+    journeyE11Fixture,
+    journeyE13Fixture,
+    journeyE1Fixture,
+    journeyE2Fixture,
+    journeyE3Fixture,
+    journeyE9Fixture,
+} from '@data/journey-e/fixture';
 import { e1Split } from '@data/schemas/journeyEScenario';
 import type { JourneyE11ReverseExportCase, JourneyE1RegularRateCase } from '@data/schemas/journeyEScenario';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
@@ -14,7 +30,7 @@ import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard }
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope } from '@utils/cleanup/cleanupScope';
-import { withPreferencesLock } from '@utils/sync/preferencesLock';
+import { withExportDraftLock, withPreferencesLock } from '@utils/sync/preferencesLock';
 import { runCleanup, type CleanupContext, type CleanupStep } from '@utils/cleanup/runCleanup';
 import type { SeedResult } from '@utils/journeys/journeyDFlow';
 import {
@@ -398,30 +414,42 @@ export async function assertCardState(
     return { reference };
 }
 
+/** What openCrewExport / confirmCrewExport read of a run and a scenario; E9, E10 and E11 satisfy them structurally. */
+type ExportRunSlice = Pick<JourneyE2Run, 'crew' | 'picker' | 'day'> & { exportRunIds: number[] };
+interface CrewExportScenario {
+    label: string;
+    expected: { jobCards: number };
+    export: { type: 'Payroll' | 'Cost Accounting'; candidateStatus: string; destination: string; runCreatedToast: string; nothingToExport: string };
+}
+
+const recordRunId =
+    (run: ExportRunSlice) =>
+    (body: Record<string, unknown>): void => {
+        run.exportRunIds.push(runIdOf(body));
+    };
+
 /**
- * Export to Accounting for the crew's day: Refresh (draft id recorded at once), the roster and Flags guards, Export and Confirm.
- * Fails by name on the known defect (no export request / "Nothing to export").
+ * Export to Accounting for the crew's day, up to the footer: Refresh (draft id recorded at once) and the roster and Flags
+ * guards. `requireNoFlags: false` is for a day expected to carry a gap (E9's Test File step); Flags are then evidence.
  */
-export async function exportCrewDay(
-    run: JourneyE11Run,
+export async function openCrewExport(
+    run: ExportRunSlice,
     deps: E11Deps,
-    scenario: JourneyE11ReverseExportCase,
+    scenario: CrewExportScenario,
     pass: 'first' | 'second',
-): Promise<{ runId: number }> {
+    opts: { requireNoFlags: boolean },
+): Promise<void> {
     const { testInfo, pages } = deps;
     const exp = pages.exportToAccounting;
     const { expected } = scenario;
     const label = `${scenario.label} (${pass} export)`;
-    const record = (body: Record<string, unknown>): void => {
-        run.exportRunIds.push(runIdOf(body));
-    };
+    const record = recordRunId(run);
 
     await exp.openFromMenu();
     await exp.selectType(scenario.export.type);
     await exp.scopeToDay(run.day);
     await exp.scopeToCrew(run.crew.name);
     const refreshed = await exp.refresh(record);
-    const runId = run.exportRunIds[run.exportRunIds.length - 1];
     expect(refreshed.runStatus, `${label}: POST …/runs`).toBeLessThan(300);
     expect(refreshed.candidatesStatus, `${label}: POST …/candidates`).toBeLessThan(300);
     await expect(exp.toastText(scenario.export.runCreatedToast), `${label}: the draft run toast`).toBeVisible({ timeout: 15_000 });
@@ -432,14 +460,39 @@ export async function exportCrewDay(
         expect(row.crew, `${label}: Crew`).toBe(run.crew.name);
         expect(row.employee, `${label}: Employee`).toContain(run.picker.name);
         expect(row.status, `${label}: Status`).toBe(scenario.export.candidateStatus);
-        expect(row.flags, `${label}: Flags "${row.flags}" — the card cannot be exported (check the E11 JOB earning codes); never healed`).toBe('');
+        if (opts.requireNoFlags) {
+            expect(row.flags, `${label}: Flags "${row.flags}" — the card cannot be exported (check the job's earning codes); never healed`).toBe('');
+        } else {
+            testInfo.annotations.push({ type: 'export-evidence', description: `${label}: Flags "${row.flags}" for ${row.employee}` });
+        }
     }
     await expect(exp.destinationText, `${label}: the destination`).toContainText(scenario.export.destination);
     expect(await exp.exportCount(), `${label}: the Export button's count`).toBe(expected.jobCards);
+}
+
+/**
+ * Export and Confirm on the page openCrewExport left. Fails by name on the known defect (no export request / "Nothing to
+ * export"). `exportedRunId` is the id in the run's own answer when it carries one, otherwise the draft's.
+ */
+export async function confirmCrewExport(
+    run: ExportRunSlice,
+    deps: E11Deps,
+    scenario: CrewExportScenario,
+    pass: 'first' | 'second',
+    opts: { testFileEvidence: boolean } = { testFileEvidence: true },
+): Promise<{ runId: number; exportedRunId: number; savedFile: string }> {
+    const { testInfo, pages } = deps;
+    const exp = pages.exportToAccounting;
+    const { expected } = scenario;
+    const label = `${scenario.label} (${pass} export)`;
+    const record = recordRunId(run);
+    const runId = run.exportRunIds[run.exportRunIds.length - 1];
+
     const readyBefore = await exp.readyCount();
     expect(readyBefore, `${label}: Ready before the export`).toBeGreaterThanOrEqual(expected.jobCards);
-    // Evidence only: Test File names the earning-code source a failed export would not.
-    testInfo.annotations.push({ type: 'test-file-evidence', description: `${pass}: ${JSON.stringify(await exp.readTestFile())}` });
+    // Evidence only: Test File names the earning-code source a failed export would not. Skipped after an asserting
+    // Test File on the same page: a re-open there serves cached results and never re-POSTs (E9, 2026-10-27).
+    if (opts.testFileEvidence) testInfo.annotations.push({ type: 'test-file-evidence', description: `${pass}: ${JSON.stringify(await exp.readTestFile())}` });
 
     const outcome = await exp.exportOwn({
         expectedCount: expected.jobCards,
@@ -453,6 +506,14 @@ export async function exportCrewDay(
 
     const runBody = JSON.stringify(outcome.runBody ?? null);
     testInfo.annotations.push({ type: 'export-run-response', description: `${pass}: ${runBody}` });
+    // The run's own answer may name another id than the draft; both are torn down, and Recent Exports is read by this one.
+    let exportedRunId = runId;
+    try {
+        exportedRunId = runIdOf(outcome.runBody);
+    } catch {
+        // No id in the answer (for example "Nothing to export"): the draft is the run.
+    }
+    if (!run.exportRunIds.includes(exportedRunId)) run.exportRunIds.push(exportedRunId);
     const sent = outcome.requests.filter((r) => !/\/export-to-accounting\/(candidates|runs)$/.test(r.path));
     expect(sent.length, `${label}: Confirm sent no export request; saw ${JSON.stringify(outcome.requests)}`).toBeGreaterThan(0);
     // The page shows only "Nothing to export — no JobCards matched…" even when a card matched and failed; the run's
@@ -470,11 +531,32 @@ export async function exportCrewDay(
         await exp.refresh(record);
         await expect.poll(() => exp.readyCount(), { message: `${label}: Ready must drop below ${readyBefore} after the export`, timeout: 30_000 }).toBeLessThan(readyBefore);
     }
-    return { runId };
+    expect(outcome.download, `${label}: the Save export file dialog must hand over the export file`).not.toBeNull();
+    return { runId, exportedRunId, savedFile: outcome.download?.path ?? '' };
 }
 
+/** Export to Accounting for the crew's day end to end: openCrewExport (Flags required clean), then confirmCrewExport. */
+export async function exportCrewDay(
+    run: ExportRunSlice,
+    deps: E11Deps,
+    scenario: CrewExportScenario,
+    pass: 'first' | 'second',
+): Promise<{ runId: number; exportedRunId: number; savedFile: string }> {
+    return withExportDraftLock(async () => {
+        await openCrewExport(run, deps, scenario, pass, { requireNoFlags: true });
+        return confirmCrewExport(run, deps, scenario, pass);
+    });
+}
+
+export { withExportDraftLock };
+
 /** Reverse page: the own run's row (newest matching type, user and count since the test began), reversed, and gone from the list. */
-export async function reverseOwnExport(run: JourneyE11Run, deps: E11Deps, scenario: JourneyE11ReverseExportCase, runId: number): Promise<void> {
+export async function reverseOwnExport(
+    run: { startedAt: Date },
+    deps: E11Deps,
+    scenario: { label: string; expected: { jobCards: number }; reverse: { type: string; performedBy: string; prompt: string; confirmButton: string } },
+    runId: number,
+): Promise<void> {
     const { sessionApi, testInfo, pages } = deps;
     const rev = pages.reverseExport;
     const { expected, reverse } = scenario;
@@ -535,6 +617,292 @@ export async function assertRunListed(run: JourneyE11Run, deps: E11Deps, scenari
     const since = run.startedAt.getTime() - 5 * 60_000;
     const mine = entries.filter((e) => e.type === reverse.type && e.performedBy === reverse.performedBy && e.jobCards === expected.jobCards && e.at.getTime() >= since);
     expect(mine, `${scenario.label}: the re-export is listed for reversal; the list shows ${JSON.stringify(entries.map((e) => [e.runDate, e.type, e.performedBy, e.jobCards]))}`).not.toHaveLength(0);
+}
+
+// ── E9 / E10 — payroll export file and export-identifier matching ──
+
+/** The slice of an export scenario the shared setup reads; the E9 and E10 schemas satisfy it structurally. */
+export interface EExportSetup extends EOwnJobsSetup {
+    gates: Record<string, number | string | boolean>;
+}
+
+export interface JourneyEExportRun<K extends string = string> extends JourneyEOwnJobsRun<K> {
+    /** Every draft id the browser's POST …/runs returned, plus the …/run answer's id; teardown reverses or drops them. */
+    exportRunIds: number[];
+}
+
+// Recorded, never asserted: they decide what an export means but no workflow step here depends on them.
+const EXPORT_EVIDENCE_KEYS = ['lockJobCardsAfterExport', 'exportRate', 'exportAmount', 'famousVerifyMinimumWage', 'stateCodeForFamous', 'allowDuplicateJobExportId'];
+
+/**
+ * Own-jobs setup with the crew's export residue healed before the sweeps, the tenant's export gates read (never written)
+ * and own export runs registered for teardown after the own-jobs entry, so the newest-first drain reverses them first.
+ */
+export async function prepareJourneyEExport<K extends string>(
+    scenario: EExportSetup,
+    deps: OwnJobsDeps,
+    jobsSpec: Record<K, EOwnJobSpec>,
+): Promise<JourneyEExportRun<K>> {
+    const { sessionApi, testInfo } = deps;
+    const warn = (name: string, error: unknown) =>
+        testInfo.attach(name, { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' });
+
+    const own = await prepareJourneyEOwnJobs(scenario, deps, jobsSpec, {
+        beforeSweep: ({ crew, day }) => healExportResidue(sessionApi, { crewId: crew.id, day, label: scenario.label }),
+    });
+
+    const exportRunIds: number[] = [];
+    const registration = currentScope(testInfo)?.add(`${scenario.label} export runs`, (api) => cleanupExportRuns(api, exportRunIds, warn));
+    const cleanup = async (): Promise<void> => {
+        await cleanupExportRuns(sessionApi, exportRunIds, warn);
+        registration?.complete();
+        await own.cleanup();
+    };
+
+    const preferences = await getPreferences(sessionApi);
+    for (const [key, want] of Object.entries(scenario.gates)) {
+        if (String(preferences[key]) !== String(want)) {
+            throw new Error(`${scenario.label}: environment-gate: ${key} reads ${String(preferences[key])}, the scenario needs ${String(want)} (never written).`);
+        }
+    }
+    for (const key of EXPORT_EVIDENCE_KEYS) {
+        testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
+    }
+    return { ...own, exportRunIds, cleanup };
+}
+
+export async function prepareJourneyE9(scenario: JourneyE9PayrollExportFileCase, deps: OwnJobsDeps): Promise<JourneyEExportRun<'coded' | 'nocode'>> {
+    const { jobs } = journeyE9Fixture();
+    for (const key of ['coded', 'nocode'] as const) {
+        if (jobs[key].hourlyRate !== scenario.hourlyRate) throw new Error(`${scenario.label}: fixture job ${jobs[key].name} rate ${jobs[key].hourlyRate} differs from the scenario's ${scenario.hourlyRate}.`);
+    }
+    return prepareJourneyEExport(scenario, deps, {
+        coded: { ...jobs.coded, earningCodes: scenario.jobs.coded.earningCodes },
+        nocode: { ...jobs.nocode, earningCodes: scenario.jobs.nocode.earningCodes },
+    });
+}
+
+export async function prepareJourneyE10(scenario: JourneyE10ExportIdentifierCase, deps: OwnJobsDeps): Promise<JourneyEExportRun<'job'>> {
+    const { job } = journeyE10Fixture();
+    if (job.hourlyRate !== scenario.hourlyRate) throw new Error(`${scenario.label}: fixture job ${job.name} rate ${job.hourlyRate} differs from the scenario's ${scenario.hourlyRate}.`);
+    for (const identifier of Object.values(scenario.identifiers)) {
+        if (identifier === job.name || identifier.includes(job.name) || job.name.includes(identifier)) {
+            throw new Error(`${scenario.label}: identifier '${identifier}' must not equal or contain the job name '${job.name}'.`);
+        }
+    }
+    return prepareJourneyEExport(scenario, deps, {
+        job: { ...job, earningCodes: scenario.job.earningCodes, exportIdentifier: scenario.identifiers.initial },
+    });
+}
+
+/** Commit the own rows and land on View > Job Cards with this run's id (E11's transferE11Day for any own-jobs run). */
+export async function transferExportDay<K extends string>(
+    run: JourneyEOwnJobsRun<K>,
+    deps: OwnJobsDeps,
+    scenario: { label: string; expected: { transferToast: { jobCards: number; timeCards: number } } },
+    seed: SeedResult,
+): Promise<void> {
+    const { pages } = deps;
+    const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
+    const result = await commitTransfer(run, deps, seed, candidates, scenario.expected.transferToast);
+    await pages.viewJobCards.waitForTransferLanding();
+    expect(pages.viewJobCards.transferRunParam(), `${scenario.label}: the app lands with this transfer's run id`).toBe(result.transferRunCounter);
+}
+
+export interface OwnCardRow {
+    job: string;
+    regular: number;
+    overtime: number;
+    amount: number;
+}
+
+/**
+ * View > Job Cards for the day and crew: exactly the given rows, each with its hours, amount and Exported cell.
+ * Returns the employee token the export file must carry: the Export Identifier cell, else the picker's code.
+ */
+export async function assertOwnCards(
+    run: Pick<JourneyE2Run, 'crew' | 'picker' | 'day'>,
+    deps: OwnJobsDeps,
+    opts: { label: string; exported: boolean; exportedCell: string; rows: OwnCardRow[] },
+): Promise<{ employeeToken: string }> {
+    const { testInfo, pages } = deps;
+    const view = pages.viewJobCards;
+    const label = `${opts.label} (${opts.exported ? 'exported' : 'not exported'})`;
+
+    await view.openFromMenu();
+    await view.scopeToDay(run.day);
+    await view.setIncludeExported(opts.exported);
+    await view.applyFilter();
+    await view.filterByCrew(run.crew.name);
+    await expect(view.rowsForCrew(run.crew.name), `${label}: exactly the crew's ${opts.rows.length} job card(s)`).toHaveCount(opts.rows.length);
+
+    const tokens = new Set<string>();
+    for (const want of opts.rows) {
+        const rows = view.rowsForCrewAndJob(run.crew.name, want.job);
+        await expect(rows, `${label}: one row for ${want.job}`).toHaveCount(1);
+        const row = rows.first();
+        await expect(await view.cellByHeader(row, 'Exported'), `${label}: ${want.job} Exported`).toHaveText(opts.exportedCell);
+        await expect.soft(await view.cellByHeader(row, 'Employee'), `${label}: ${want.job} Employee`).toContainText(run.picker.name);
+        expect.soft(await view.readNumber(row, 'Regular Hours'), `${label}: ${want.job} Regular Hours`).toBe(want.regular);
+        expect.soft(await view.readNumber(row, 'Overtime'), `${label}: ${want.job} Overtime`).toBe(want.overtime);
+        expect.soft(await view.readNumber(row, 'Amount'), `${label}: ${want.job} Amount`).toBe(want.amount);
+
+        const identifier = await view.readCell(row, 'Export Identifier').catch(() => '');
+        if (identifier) tokens.add(identifier);
+        if (opts.exported) {
+            const runNumber = await view.readCell(row, 'Run Number').catch(() => 'no such column');
+            testInfo.annotations.push({ type: 'export-evidence', description: `${label}: ${want.job} Export Identifier=${identifier || 'blank'} Run Number=${runNumber}` });
+        }
+    }
+    expect(tokens.size, `${label}: every card of the employee shows the same Export Identifier; saw ${JSON.stringify([...tokens])}`).toBeLessThanOrEqual(1);
+    const [token] = [...tokens];
+    // Famous 120.03's Employee ID column is the employee's Export Identifier, else the name cut to 6 characters (measured 2026-10-27).
+    const fallback = [...run.picker.name].slice(0, 6).join('');
+    if (!token) testInfo.annotations.push({ type: 'identifier-evidence', description: `${label}: Export Identifier cell blank or absent; the employee token is the name's first 6 characters '${fallback}'` });
+    return { employeeToken: token ?? fallback };
+}
+
+/** The footer's Test File on the export page: summary, results alert and failure lines, dismissed with No and closed. */
+export async function testFileOnExport(
+    deps: OwnJobsDeps,
+    opts: { label: string; jobCards: number; ready: number; cannotExport: number; gapFailure?: string },
+): Promise<void> {
+    const { testInfo, pages } = deps;
+    const exp = pages.exportToAccounting;
+    const sheet = exp.testFile;
+    const label = `${opts.label} (Test File)`;
+
+    await sheet.open();
+    await expect(sheet.heading, `${label}: the sheet is titled Test File`).toBeVisible();
+    const summary = await sheet.readSummary();
+    const results = await sheet.resultsCounts();
+    const failures = await sheet.failureTexts();
+    testInfo.annotations.push({ type: 'test-file-evidence', description: `${label}: ready=${summary.ready} cannotExport=${summary.cannotExport} failures=${JSON.stringify(failures)}` });
+
+    expect({ ready: summary.ready, cannotExport: summary.cannotExport }, `${label}: ready / cannot export`).toEqual({ ready: opts.ready, cannotExport: opts.cannotExport });
+    expect(results, `${label}: the results alert`).toEqual({ correct: opts.ready, incorrect: opts.cannotExport });
+    if (opts.gapFailure) {
+        const gap = opts.gapFailure;
+        expect(failures.some((f) => f.includes(gap)), `${label}: a failure line contains "${gap}"; saw ${JSON.stringify(failures)}`).toBe(true);
+        expect(failures.some((f) => /Earning Code/i.test(f)), `${label}: a failure line names the Earning Code; saw ${JSON.stringify(failures)}`).toBe(true);
+    } else {
+        expect(failures, `${label}: no failure lines`).toEqual([]);
+    }
+
+    await sheet.dismissResults();
+    await sheet.close();
+    expect(await exp.exportCount(), `${label}: Test File exports nothing, so the button still reads the count`).toBe(opts.jobCards);
+}
+
+/** Setup > Job: set the job's Earning Code on its form and read it back after a fresh load. */
+export async function fixEarningCode<K extends string>(
+    run: Pick<JourneyEOwnJobsRun<K>, 'jobs'>,
+    deps: OwnJobsDeps,
+    opts: { label: string; job: K; earningCodes: string },
+): Promise<void> {
+    const job = run.jobs[opts.job];
+    await deps.pages.job.gotoEditById(job.id, job.name);
+    const shown = await deps.pages.job.setEarningCodes(opts.earningCodes);
+    expect(shown, `${opts.label}: the Job form for ${job.name} must read the earning code after a fresh load`).toBe(opts.earningCodes);
+}
+
+/** Catalog E10 step 1: the Job form shows an editable Export Identifier that is not the job's name. */
+export async function assertJobIdentifier<K extends string>(
+    run: Pick<JourneyEOwnJobsRun<K>, 'jobs'>,
+    deps: OwnJobsDeps,
+    opts: { label: string; job: K; identifier: string },
+): Promise<void> {
+    const job = run.jobs[opts.job];
+    const page = deps.pages.job;
+    await page.gotoEditById(job.id, job.name);
+    const shown = await page.readExportIdentifier();
+    expect(shown, `${opts.label}: the Job form for ${job.name} reads Export Identifier ${opts.identifier}`).toBe(opts.identifier);
+    expect(shown, `${opts.label}: the Export Identifier must differ from the job's name`).not.toBe(job.name);
+    await expect(page.exportIdentifierInput, `${opts.label}: the Export Identifier input is editable`).toBeEnabled();
+}
+
+/** Setup > Job: change the Export Identifier, read it back after a fresh load, and the Name is unchanged. */
+export async function setJobExportIdentifier<K extends string>(
+    run: Pick<JourneyEOwnJobsRun<K>, 'jobs'>,
+    deps: OwnJobsDeps,
+    opts: { label: string; job: K; identifier: string },
+): Promise<void> {
+    const job = run.jobs[opts.job];
+    const page = deps.pages.job;
+    await page.gotoEditById(job.id, job.name);
+    const shown = await page.setExportIdentifier(opts.identifier);
+    expect(shown, `${opts.label}: the Job form for ${job.name} must read Export Identifier ${opts.identifier} after a fresh load`).toBe(opts.identifier);
+    await expect(page.nameInput, `${opts.label}: the Name is unchanged`).toHaveValue(job.name);
+}
+
+/**
+ * Recent Exports proves the run on screen: the own row (by id, never the newest) opens to "N succeeded · 0 failed · 0
+ * skipped". The file is the one the Save export file dialog downloaded (`savedFile`); the page offers no later download.
+ */
+export async function readRecentExportFile(
+    deps: OwnJobsDeps,
+    opts: { label: string; runId: number; recordsWritten: number; fileName: string; savedFile: string | undefined },
+): Promise<{ text: string }> {
+    const { testInfo, pages } = deps;
+    const exp = pages.exportToAccounting;
+    const label = `${opts.label} (Recent Exports)`;
+
+    await exp.openRecentExports();
+    await expect(exp.recentRow(opts.runId), `${label}: the own run ${opts.runId} is listed`).toBeVisible({ timeout: 15_000 });
+    const detail = await exp.recentRunDetail(opts.runId);
+    testInfo.annotations.push({ type: 'export-evidence', description: `${label}: run ${opts.runId} ${JSON.stringify(detail)}` });
+    expect({ succeeded: detail.succeeded, failed: detail.failed, skipped: detail.skipped }, `${label}: run ${opts.runId} outcome`).toEqual({
+        succeeded: opts.recordsWritten,
+        failed: 0,
+        skipped: 0,
+    });
+    expect(detail.jobCards, `${label}: one JobCard line per exported card`).toHaveLength(opts.recordsWritten);
+    await exp.closeRecentExports();
+
+    expect(opts.savedFile, `${label}: Save produced no export file`).toBeTruthy();
+    const savedFile = opts.savedFile as string;
+    const text = readFileSync(savedFile, 'utf8');
+    expect(text.length, `${label}: the saved export file is not empty`).toBeGreaterThan(0);
+    await testInfo.attach(opts.fileName, { path: savedFile, contentType: 'text/plain' });
+    return { text };
+}
+
+/** E9: exactly N record lines, each carrying the employee token the Job Cards grid shows. The whole file is annotated. */
+export function assertFileRecords(
+    text: string,
+    deps: Pick<OwnJobsDeps, 'testInfo'>,
+    opts: { label: string; recordLine: string; expectedRecords: number; employeeToken: string },
+): void {
+    const label = `${opts.label} (file)`;
+    const all = text.split(/\r?\n/);
+    all.slice(0, 50).forEach((line, i) => deps.testInfo.annotations.push({ type: 'export-file-evidence', description: `${label} line ${i + 1}: ${line}` }));
+    const pattern = new RegExp(opts.recordLine);
+    const records = all.filter((line) => line.trim() !== '' && pattern.test(line));
+    expect(records, `${label}: exactly ${opts.expectedRecords} record line(s) matching /${opts.recordLine}/`).toHaveLength(opts.expectedRecords);
+    for (const line of records) {
+        expect(line, `${label}: every record line carries the employee token '${opts.employeeToken}' (Export Identifier, else the name's first 6 characters)`).toContain(opts.employeeToken);
+    }
+}
+
+/** E10: the first file carries the initial identifier, the second the corrected one and neither the old one nor the job name. */
+export function assertFileIdentifier(
+    text: string,
+    deps: Pick<OwnJobsDeps, 'testInfo'>,
+    opts: { label: string; pass: 'first' | 'second'; identifiers: { initial: string; corrected: string }; jobName: string },
+): void {
+    const { initial, corrected } = opts.identifiers;
+    const label = `${opts.label} (${opts.pass} file)`;
+    const carries = opts.pass === 'first' ? initial : corrected;
+    deps.testInfo.annotations.push({ type: 'export-file-evidence', description: `${label}: ${JSON.stringify(text.split(/\r?\n/).filter(Boolean).slice(0, 20))}` });
+
+    if (opts.pass === 'second' && text.includes(initial)) {
+        throw new Error(
+            `${label}: the re-export still carries ${initial} — the identifier looks bound at transfer; the catalog variation (reverse job cards, fix, re-transfer) is the real path — plan decision, not a heal.`,
+        );
+    }
+    expect(text.includes(carries), `${label}: the payroll file carries no Job identifier — expected '${carries}'; a product gap or a property of the format is a human decision, never a swapped token`).toBe(true);
+    const lacks = opts.pass === 'first' ? [opts.jobName] : [initial, opts.jobName];
+    for (const token of lacks) expect(text.includes(token), `${label}: the file must not contain '${token}'`).toBe(false);
 }
 
 // ── E8 — finalize gross pay ──
@@ -1053,6 +1421,10 @@ export interface EOwnJobSpec {
     hourlyRate: number;
     /** Overtime rule for this job; the scenario's rule when absent. */
     rule?: string;
+    /** Typed on the Job form on every run ('' clears it); left alone when absent. */
+    earningCodes?: string;
+    /** Typed on the Job form on every run; left alone when absent. */
+    exportIdentifier?: string;
 }
 
 /** The slice of an own-jobs scenario the shared setup reads; the E6 and E13 schemas satisfy it structurally. */
@@ -1084,6 +1456,7 @@ export async function prepareJourneyEOwnJobs<K extends string>(
     scenario: EOwnJobsSetup,
     opts: OwnJobsDeps,
     jobsSpec: Record<K, EOwnJobSpec>,
+    hooks: { beforeSweep?: (run: { crew: EnsuredRecord; day: string }) => Promise<void> } = {},
 ): Promise<JourneyEOwnJobsRun<K>> {
     const { sessionApi, testInfo, pages } = opts;
     const F = journeyE2Fixture();
@@ -1152,6 +1525,8 @@ export async function prepareJourneyEOwnJobs<K extends string>(
     // Fixture gate: resolves the rule id the field gate below compares against; it throws, it is not proof.
     const ruleCounter = await resolveRuleCounter(sessionApi, scenario.rule.name);
 
+    await hooks.beforeSweep?.({ crew, day });
+
     // Before phase: job cards first (a transferred time card cannot be deleted), then the declared steps, then time cards.
     await allowApiWrites('cleanup', `${scenario.label} before-phase: crew job cards`, () => sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }));
     await runCleanup(scenario.cleanup, sessionApi, testInfo, { phase: 'before', office, snapshots: ctx.snapshots });
@@ -1184,6 +1559,16 @@ export async function prepareJourneyEOwnJobs<K extends string>(
         const shownRate = await pages.job.setHourlyRate(spec.hourlyRate);
         expect(shownRule, `${scenario.label}: the Job form for ${job.name} must show the overtime rule after saving`).toContain(ruleName);
         expect(Number(shownRate), `${scenario.label}: the Job form for ${job.name} must show the hourly rate after saving`).toBe(spec.hourlyRate);
+        if (spec.earningCodes !== undefined) {
+            await pages.job.gotoEditById(job.id, job.name);
+            const shownCodes = await pages.job.setEarningCodes(spec.earningCodes);
+            expect(shownCodes, `${scenario.label}: the Job form for ${job.name} must show the earning codes after saving`).toBe(spec.earningCodes);
+        }
+        if (spec.exportIdentifier !== undefined) {
+            await pages.job.gotoEditById(job.id, job.name);
+            const shownIdentifier = await pages.job.setExportIdentifier(spec.exportIdentifier);
+            expect(shownIdentifier, `${scenario.label}: the Job form for ${job.name} must show the export identifier after saving`).toBe(spec.exportIdentifier);
+        }
     }
 
     // fixture-gate: the reads below throw on a fixture the day's arithmetic cannot tolerate; they are not proof.

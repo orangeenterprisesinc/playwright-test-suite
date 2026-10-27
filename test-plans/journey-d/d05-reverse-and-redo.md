@@ -10,7 +10,7 @@
 >
 > **Binding safety constraints** (inherited from D3/D9, plus the reverse):
 > * Never touch the header **Select all rows**, any **Delete** (grid row, panel, or the Job Cards **Delete ▾** menu, whose items include `view-job-cards-delete-all`), **Recalculate**, or **Multi Edit/Update**. Rows are ticked by Reference only (`selectCandidate`).
-> * The transfer **execute re-plans the whole day**. Before each commit, `openScopedCandidates` therefore runs **without a crew filter** and must see exactly this run's two References.
+> * Every D5 Transfer is scoped by **Time Card Crew = D5 CREW**, so the analyze and the execute carry `crewIds` and cannot commit another run's cards on the day. Before each commit, `openScopedCandidates` must see exactly this run's two References. An unscoped execute or a short analyze fails by name.
 > * **Reverse is clicked only for this run's own transfer run.**
 >   * The Job Cards Reverse posts `POST /transfer-to-job-cards/runs/{transferRun}/reverse`, where `{transferRun}` is the URL parameter the transfer navigated with. This comes from the deployed bundle `index-N_7lm9SA.js`.
 >   * `guardReversibleRun` refuses (it throws and does not click) unless that id belongs to this test's run.
@@ -119,7 +119,7 @@ Source: WEBPET-2050 QA re-test, signed off 2026-10-14 (tester's tenant). The rec
 | `openAddRecord(kind: 'timeIn'\|'timeOut')` | Click the trigger → `getByTestId('v2-add-record-item-' + kind)` (menu items "Add Time-In" / "Add Time-Out") → wait for `addRecordDialog(kind)` |
 | `addRecordDialog(kind)` | `page.getByRole('dialog', { name: 'Add Time-In' \| 'Add Time-Out' })` |
 | `addTimeIn({ day, time, employee, crew, ranch, field, phase })` | See "Filling Add Time-In" below |
-| `addTimeOut({ day, time, employee })` | Requires only **Date / Time \*** and **Employee \***. Pieces, Work Crew, Run, Job, Ranch, Field, Work Order, Load, GPS and Memo are optional. The footer's Cancel becomes **"Discard changes"** once the form is dirty, alongside Save and Close |
+| `addTimeOut({ day, time, employee, crew })` | Requires **Date / Time \*** and **Employee \***; D5 also sets **Work Crew = `D5 CREW`** (`pickWorkCrew`, shared with Add Time-In) so the crew-scoped Transfer sees the card. Pieces, Run, Job, Ranch, Field, Work Order, Load, GPS and Memo are optional. The footer's Cancel becomes **"Discard changes"** once the form is dirty, alongside Save and Close |
 | `recordToast(text)` | `page.getByText(text, { exact: true })`: "Time In record created" / "Time Out record created" / "Time Out record saved" |
 | `pickOption(scope: Locator, label, name)` | The body of `pickPanelOption`, refactored to take a scope. `pickPanelOption` keeps its signature |
 | `timeOutPanel` | Same shape as `timeInPanel`: a `div` filtered on heading `/^Time Out$/` + button `/^Save$/`, `.last()`. _Inferred from the shared form; verify on the first run_ |
@@ -165,9 +165,9 @@ No delete, recalculate, multi-edit or export member is added.
 
 - **Fixture day `dayOffset: -16`.**
   - Decided with the tester on 2026-10-15: E2 already owns -14 and commits real transfers there.
-  - Day ownership: B 0…-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14, D3 -15, **D5 -16**.
+  - Day ownership: B 0…-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14, D3 -15 (E10 shares it on E2 CREW), **D5 -16**. Each committing spec owns a (day, crew) pair.
   - -16 is inside `maximumDaysForTransferExport` (21).
-  - Foreign residue on the day is caught by the whole-day guard in `openScopedCandidates`.
+  - E10 moved from -16 to -15, so D5 no longer shares its day with E10. Foreign residue on the day is caught by the Time Card Crew scope and the roster guard in `openScopedCandidates`. `seedOnScreenDay` also fails by name if the saved Time Out's crew is not `D5 CREW`.
 - **Scenario JSON:** `src/data/journey-d/d05-reverse-and-redo.json`, validated by `JourneyD5ReverseCaseSchema` (`.strict()`). Shape:
 
   ```text
@@ -246,7 +246,7 @@ export async function readAfterReverse(run: JourneyD5Run, opts: { sessionApi: AP
 export async function readRedo(run: JourneyD5Run, opts: { sessionApi: APIRequestContext; testInfo: TestInfo }, seed: D5Seed): Promise<{ work: JobCardRecord[]; penalty: JobCardRecord[]; other: JobCardRecord[]; timeCards: OfficeTimeCard[] }>;
 ```
 
-- **`transferOwnDay`** = `openScopedCandidates(view, { pages }, seed)` + `commitTransfer`. The guard runs with **no `crew`**, so it covers the whole day. `view` is `run` with `scenario: { label, expected: { jobCards: expectedJobCards } }`.
+- **`transferOwnDay`** = `openScopedCandidates(view, { pages }, seed)` + `commitTransfer`. Both pass `crew: run.crew.name`, so the analyze is scoped by Time Card Crew and `commitTransfer` rejects an execute with `crewIds []`. `view` is `run` with `scenario: { label, expected: { jobCards: expectedJobCards } }`.
 - **Two backward-compatible changes to shared helpers:**
   - `commitTransfer` reads `readExecuteJob(jobId)` once after its poll and returns the real `transferRunCounter`. Today that field is hard-coded `0`.
   - A new `listTransferRuns(request): Promise<TransferRunRecord[]>` in `src/utils/api/transferToJobCardsApi.ts`. Fields: `transferRunCounter, auditGroupId, authorCounter, authorName, runAtUtc, jobCardCount, timeCardCount, jobCardsModified, status`. The body is `{ runs }`, newest first (measured).
@@ -317,4 +317,4 @@ test.describe('D5 · Reverse and redo', { tag: ['@JourneyD', '@D5'] }, () => {
 
 ## Open questions for the tester
 
-None. The fixture day was resolved on 2026-10-15: E2 owns -14, so D5 uses -16.
+None. The fixture day was resolved on 2026-10-15: E2 owns -14, so D5 uses -16. E10 moved to -15 on 2026-10-28 so that no other committing spec shares D5's day.
