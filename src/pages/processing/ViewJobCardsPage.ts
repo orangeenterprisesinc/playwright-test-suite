@@ -197,6 +197,10 @@ export class ViewJobCardsPage extends BasePage {
         const option = this.page.getByRole('button', { name, exact: true });
         await expect(option, `the Crews chip offers no "${name}" option (no loaded row belongs to it)`).toBeVisible({ timeout: 15_000 });
         await option.click();
+        // The list re-renders after the search debounce and drops a toggle made in between (E1/E3/E13, 2026-10-27), so the
+        // pressed state is read back and the click repeated once; Clear (N) below is the proof either way.
+        const pressed = await expect(option).toHaveAttribute('aria-pressed', 'true', { timeout: 2_000 }).then(() => true, () => false);
+        if (!pressed) await option.click();
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(search).toBeHidden({ timeout: 10_000 });

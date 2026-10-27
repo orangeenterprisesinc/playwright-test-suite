@@ -299,7 +299,15 @@ export async function openScopedCandidates(
     await transfer.openFromMenu();
     if (run.days?.length) await transfer.scopeToRange(run.days[0], run.days[run.days.length - 1]);
     else await transfer.scopeToDay(run.day);
-    await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
+    // The Work Crew filter below only narrows the display; Transfer commits what analyze loaded, so scope the analyze itself.
+    if (opts.crew) await transfer.scopeToTimeCardCrew(opts.crew);
+    const analyzed = await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
+    if (opts.crew) {
+        expect(
+            analyzed.crewIds.length,
+            'transfer scope: analyze went out unscoped (crewIds []) — a concurrent run\'s time cards would be transferred',
+        ).toBeGreaterThan(0);
+    }
 
     if (opts.crew) {
         await transfer.filterByCrew(opts.crew);
