@@ -9,7 +9,6 @@ import type { LoginPage } from '@pages/shell/LoginPage';
 import { loadScenario } from '@utils/data/scenarioLoader';
 
 // The valid pair is environment (env files / CI secrets), read per test so a test.use override still applies.
-// getConfigValue also decrypts an ENC(...) credential; a raw process.env read would type the ciphertext.
 const validUserName = (): string => getConfigValue(ConfigProperties.USER_NAME);
 const validPassword = (): string => getConfigValue(ConfigProperties.PASSWORD);
 

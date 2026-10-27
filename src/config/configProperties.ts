@@ -7,13 +7,7 @@
  *
  * Variable names use the standard convention (`BASE_URL`, `USER_NAME`,
  * `PASSWORD`) that the CI secrets are configured against.
- *
- * Any value may be stored encrypted as `ENC(...)` — {@link getConfigValue}
- * decrypts transparently (see src/config/secrets.ts). Because every consumer in
- * the suite already reads config through this accessor, encryption required no
- * call-site changes.
  */
-import { decryptIfNeeded } from './secrets';
 
 /**
  * Enumeration of all framework configuration property keys.
@@ -171,17 +165,9 @@ export enum ConfigProperties {
  *
  * Looks up the environment variable corresponding to the given {@link ConfigProperties} key.
  * Returns the fallback value if the environment variable is not set.
- *
- * Values stored as `ENC(...)` are decrypted here (see src/config/secrets.ts), so
- * a credential can be protected at rest without touching any call site. Plaintext
- * passes through untouched, so encryption is opt-in per key.
- *
- * @throws {Error} When the value is `ENC(...)` but `SECRET_KEY` is missing or wrong
  */
 export function getConfigValue(key: ConfigProperties, fallback: string = ''): string {
-    const raw = process.env[key];
-    if (raw === undefined) return fallback;
-    return decryptIfNeeded(raw);
+    return process.env[key] ?? fallback;
 }
 
 /**

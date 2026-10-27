@@ -5,9 +5,9 @@
  *   npm run notify:reminder                # post (subject to the Slack gate)
  *   npm run notify:reminder -- --dry-run   # print the payload, post nothing
  *
- * Node runs this .ts file directly via type stripping, exactly like
- * scripts/config/secret.ts — hence the `.ts` extensions on the imports below and
- * the `--disable-warning=MODULE_TYPELESS_PACKAGE_JSON` flag in the npm script.
+ * Node runs this .ts file directly via type stripping — hence the `.ts`
+ * extensions on the imports below and the
+ * `--disable-warning=MODULE_TYPELESS_PACKAGE_JSON` flag in the npm script.
  * That also constrains what it may import: src/reporting/deliver/slack/{gate,
  * blocks,slackApi}.ts all resolve to node builtins only, so nothing here needs
  * a transpiler. Reading credentials from process.env rather than

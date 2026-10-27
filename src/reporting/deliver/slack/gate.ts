@@ -6,8 +6,8 @@
  * workflow_dispatch / repository_dispatch runs stay silent, so the channel never
  * fills with noise from someone debugging a selector.
  *
- * Reads process.env directly instead of going through configProperties: none of
- * these keys is ever an `ENC(...)` secret, and staying import-free lets
+ * Reads process.env directly instead of going through configProperties:
+ * staying import-free lets
  * scripts/notify/slack-reminder.ts (run by Node's type stripping, which cannot
  * resolve extensionless relative imports) apply the same gate rather than a
  * second copy of it. The keys are documented in src/config/configProperties.ts.

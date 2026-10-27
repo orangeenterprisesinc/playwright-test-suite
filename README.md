@@ -86,10 +86,9 @@ playwright-test-suite/
 ├── package.json                      # Dependencies and scripts
 ├── .mcp.json                         # MCP servers (Claude Code reads root only)
 │
-├── .env.dev  .env.qa                 # committed per-environment config; any
-│                                     #   sensitive value stored as ENC(...)
+├── .env.dev  .env.qa                 # committed per-environment config, no secrets
 ├── .env.example                      # documented template
-├── .env                              # personal overrides + SECRET_KEY (gitignored)
+├── .env                              # personal overrides + real credentials (gitignored)
 │
 ├── config/                           # ALL configuration, grouped by tool
 │   ├── lint/.eslintrc.json           #   code standards
