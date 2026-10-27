@@ -24,7 +24,7 @@ Do not merge the Pull Request automatically.
 ## GitHub CI loop
 
 ```text
-PR → Claude code review + GitHub CI → GREEN → Human review → Human merge
+PR → GitHub CI → GREEN → Human review → Human merge
 ```
 
 If CI fails:
@@ -45,14 +45,8 @@ deploy lag) is reported as such, not "fixed" in test code.
 
 ## Code review
 
-Every non-draft PR to `main` gets two reviewers:
-
-* **Claude code review** — `.github/workflows/claude-code-review.yml` posts inline
-  comments and a summary, checking the diff against CLAUDE.md, the domain profile
-  it touches, and the `pw-spec-author` / `pw-locator-hardening` conventions. It is
-  advisory and runs no tests.
-* **Code owners** — `.github/CODEOWNERS` requests the owner's review automatically
-  (GitHub skips the PR's own author).
+`.github/CODEOWNERS` requests the code owner's review on every PR to `main`
+automatically (GitHub skips the PR's own author).
 
 On a PR it opened, the orchestrator answers every review comment: it fixes and pushes
 the ones it can verify (re-validating locally first), or replies on the thread
@@ -61,8 +55,6 @@ When a push dismisses an approval, it says whose approval is needed again.
 
 ### One-time setup (human-only)
 
-* Add the `ANTHROPIC_API_KEY` repository secret (or install the Claude GitHub App
-  with `/install-github-app`). Until then the review job fails at the action step.
 * Settings → Branches → `main`: require a pull request with ≥1 approval, require
   review from Code Owners, and dismiss stale approvals on new commits.
 
