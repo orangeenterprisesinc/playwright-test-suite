@@ -6,7 +6,7 @@ into per-area sub-tickets. Companion to [`README.md`](./README.md) (run playbook
 and [`delllano-e2e-seed.sql`](./delllano-e2e-seed.sql) (the committed seed).
 
 > Branch: `feature/WEBPET-831_rewrite-remaining-e2e-specs-delllano`
-> Baseline command: `E2E_ADMIN_USER=su E2E_ADMIN_PASSWORD=oe pnpm exec playwright test`
+> Baseline command: `E2E_ADMIN_USER=su E2E_ADMIN_PASSWORD=<from .env / 1Password> pnpm exec playwright test`
 
 ## Where we are
 

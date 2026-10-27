@@ -1,10 +1,9 @@
 # 0006 — Sensitive env values are stored encrypted as `ENC(...)`
 
-- **Status:** superseded — feature removed 2026-08-25. Sensitive values live in
-  plain text in the gitignored `.env` (and in CI secrets). With `SECRET_KEY`
-  necessarily stored in the same file as the ciphertext, the at-rest gain was
-  marginal, and the extra concept made onboarding a fresh clone harder to
-  explain than it was worth. The record below is kept for history.
+- **Status:** accepted — removed 2026-08-25, restored 2026-10-27. The removal
+  argued `SECRET_KEY` beside the ciphertext made the at-rest gain marginal; it was
+  restored because the protection that matters here is against the screen-share,
+  pasted-log and `git add -f` leaks listed below, not against someone holding both.
 - **Date:** 2026-07-31
 
 ## Context
