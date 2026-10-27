@@ -32,7 +32,9 @@ node_modules/
 .auth/
 
 # Personal env overrides and real credentials — loaded by envLoader as the base
-# file, never committed. The committed .env.local/.dev/.qa carry no secrets.
+# file, never committed. Values here may be plain or ENC(...) ciphertext
+# (src/config/secrets.ts); SECRET_KEY lives here too. The committed .env.dev/.qa
+# carry no credentials, not even encrypted ones (ADR 0006).
 .env
 # ...but never ignore the committed per-environment files or the template.
 !.env.example
