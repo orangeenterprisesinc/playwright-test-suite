@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect } from '@playwright/test';
 import type { APIRequestContext, TestInfo } from '@playwright/test';
 import type { PageObjects } from '@fixtures/pages.fixture';
@@ -29,7 +30,7 @@ import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard }
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope } from '@utils/cleanup/cleanupScope';
-import { withPreferencesLock } from '@utils/sync/preferencesLock';
+import { withExportDraftLock, withPreferencesLock } from '@utils/sync/preferencesLock';
 import { runCleanup, type CleanupContext, type CleanupStep } from '@utils/cleanup/runCleanup';
 import type { SeedResult } from '@utils/journeys/journeyDFlow';
 import {
@@ -479,7 +480,7 @@ export async function confirmCrewExport(
     scenario: CrewExportScenario,
     pass: 'first' | 'second',
     opts: { testFileEvidence: boolean } = { testFileEvidence: true },
-): Promise<{ runId: number; exportedRunId: number }> {
+): Promise<{ runId: number; exportedRunId: number; savedFile: string }> {
     const { testInfo, pages } = deps;
     const exp = pages.exportToAccounting;
     const { expected } = scenario;
@@ -530,7 +531,8 @@ export async function confirmCrewExport(
         await exp.refresh(record);
         await expect.poll(() => exp.readyCount(), { message: `${label}: Ready must drop below ${readyBefore} after the export`, timeout: 30_000 }).toBeLessThan(readyBefore);
     }
-    return { runId, exportedRunId };
+    expect(outcome.download, `${label}: the Save export file dialog must hand over the export file`).not.toBeNull();
+    return { runId, exportedRunId, savedFile: outcome.download?.path ?? '' };
 }
 
 /** Export to Accounting for the crew's day end to end: openCrewExport (Flags required clean), then confirmCrewExport. */
@@ -539,10 +541,14 @@ export async function exportCrewDay(
     deps: E11Deps,
     scenario: CrewExportScenario,
     pass: 'first' | 'second',
-): Promise<{ runId: number; exportedRunId: number }> {
-    await openCrewExport(run, deps, scenario, pass, { requireNoFlags: true });
-    return confirmCrewExport(run, deps, scenario, pass);
+): Promise<{ runId: number; exportedRunId: number; savedFile: string }> {
+    return withExportDraftLock(async () => {
+        await openCrewExport(run, deps, scenario, pass, { requireNoFlags: true });
+        return confirmCrewExport(run, deps, scenario, pass);
+    });
 }
+
+export { withExportDraftLock };
 
 /** Reverse page: the own run's row (newest matching type, user and count since the test began), reversed, and gone from the list. */
 export async function reverseOwnExport(
@@ -750,25 +756,21 @@ export async function assertOwnCards(
     }
     expect(tokens.size, `${label}: every card of the employee shows the same Export Identifier; saw ${JSON.stringify([...tokens])}`).toBeLessThanOrEqual(1);
     const [token] = [...tokens];
-    if (!token) testInfo.annotations.push({ type: 'identifier-evidence', description: `${label}: Export Identifier cell blank or absent; the employee token is the picker code ${run.picker.code}` });
-    return { employeeToken: token ?? run.picker.code };
+    // Famous 120.03's Employee ID column is the employee's Export Identifier, else the name cut to 6 characters (measured 2026-10-27).
+    const fallback = [...run.picker.name].slice(0, 6).join('');
+    if (!token) testInfo.annotations.push({ type: 'identifier-evidence', description: `${label}: Export Identifier cell blank or absent; the employee token is the name's first 6 characters '${fallback}'` });
+    return { employeeToken: token ?? fallback };
 }
 
-/**
- * The footer's Test File on the export page: summary, results alert and failure lines, dismissed with No and closed.
- * `soft` is for the earning-code check that bug draft 4 breaks (regression between 2026-10-09 and 10-26): the run then
- * still reaches the export, whose hard "Nothing to export" assertion quotes the server's reason.
- */
+/** The footer's Test File on the export page: summary, results alert and failure lines, dismissed with No and closed. */
 export async function testFileOnExport(
     deps: OwnJobsDeps,
-    opts: { label: string; jobCards: number; ready: number; cannotExport: number; gapFailure?: string; soft: boolean },
+    opts: { label: string; jobCards: number; ready: number; cannotExport: number; gapFailure?: string },
 ): Promise<void> {
     const { testInfo, pages } = deps;
     const exp = pages.exportToAccounting;
     const sheet = exp.testFile;
     const label = `${opts.label} (Test File)`;
-    const check = (opts.soft ? expect.soft : expect) as unknown as typeof expect;
-    const defect = opts.soft ? ' — bug draft 4: missing_earning_code, a regression between 2026-10-09 and 10-26 (web-pet #1504/#1508 are candidates)' : '';
 
     await sheet.open();
     await expect(sheet.heading, `${label}: the sheet is titled Test File`).toBeVisible();
@@ -777,14 +779,14 @@ export async function testFileOnExport(
     const failures = await sheet.failureTexts();
     testInfo.annotations.push({ type: 'test-file-evidence', description: `${label}: ready=${summary.ready} cannotExport=${summary.cannotExport} failures=${JSON.stringify(failures)}` });
 
-    check({ ready: summary.ready, cannotExport: summary.cannotExport }, `${label}: ready / cannot export${defect}`).toEqual({ ready: opts.ready, cannotExport: opts.cannotExport });
-    check(results, `${label}: the results alert${defect}`).toEqual({ correct: opts.ready, incorrect: opts.cannotExport });
+    expect({ ready: summary.ready, cannotExport: summary.cannotExport }, `${label}: ready / cannot export`).toEqual({ ready: opts.ready, cannotExport: opts.cannotExport });
+    expect(results, `${label}: the results alert`).toEqual({ correct: opts.ready, incorrect: opts.cannotExport });
     if (opts.gapFailure) {
         const gap = opts.gapFailure;
-        check(failures.some((f) => f.includes(gap)), `${label}: a failure line contains "${gap}"; saw ${JSON.stringify(failures)}${defect}`).toBe(true);
-        check(failures.some((f) => /Earning Code/i.test(f)), `${label}: a failure line names the Earning Code; saw ${JSON.stringify(failures)}${defect}`).toBe(true);
+        expect(failures.some((f) => f.includes(gap)), `${label}: a failure line contains "${gap}"; saw ${JSON.stringify(failures)}`).toBe(true);
+        expect(failures.some((f) => /Earning Code/i.test(f)), `${label}: a failure line names the Earning Code; saw ${JSON.stringify(failures)}`).toBe(true);
     } else {
-        check(failures, `${label}: no failure lines${defect}`).toEqual([]);
+        expect(failures, `${label}: no failure lines`).toEqual([]);
     }
 
     await sheet.dismissResults();
@@ -834,12 +836,12 @@ export async function setJobExportIdentifier<K extends string>(
 }
 
 /**
- * Recent Exports: the own run's row (by id, never the newest), "N records written", and its Download file.
- * "No export file was stored for this run" fails by name.
+ * Recent Exports proves the run on screen: the own row (by id, never the newest) opens to "N succeeded · 0 failed · 0
+ * skipped". The file is the one the Save export file dialog downloaded (`savedFile`); the page offers no later download.
  */
 export async function readRecentExportFile(
     deps: OwnJobsDeps,
-    opts: { label: string; runId: number; recordsWritten: number; fileName: string; noStoredFile: string },
+    opts: { label: string; runId: number; recordsWritten: number; fileName: string; savedFile: string | undefined },
 ): Promise<{ text: string }> {
     const { testInfo, pages } = deps;
     const exp = pages.exportToAccounting;
@@ -847,16 +849,22 @@ export async function readRecentExportFile(
 
     await exp.openRecentExports();
     await expect(exp.recentRow(opts.runId), `${label}: the own run ${opts.runId} is listed`).toBeVisible({ timeout: 15_000 });
-    expect(await exp.recordsWritten(opts.runId), `${label}: records written for run ${opts.runId}`).toBe(opts.recordsWritten);
-
-    const file = await exp.downloadRunFile(opts.runId, testInfo.outputPath(opts.fileName));
-    expect(file.stored, `${label}: "${opts.noStoredFile}" for run ${opts.runId} — fails by name, never healed`).toBe(true);
-    expect(file.status, `${label}: GET …/download/${opts.runId}`).toBe(200);
-    expect(file.bytes, `${label}: the downloaded file is not empty`).toBeGreaterThan(0);
-    await testInfo.attach(opts.fileName, { path: file.path, contentType: 'text/plain' });
-    testInfo.annotations.push({ type: 'export-evidence', description: `${label}: suggested filename ${file.suggestedFilename}, ${file.bytes} bytes` });
+    const detail = await exp.recentRunDetail(opts.runId);
+    testInfo.annotations.push({ type: 'export-evidence', description: `${label}: run ${opts.runId} ${JSON.stringify(detail)}` });
+    expect({ succeeded: detail.succeeded, failed: detail.failed, skipped: detail.skipped }, `${label}: run ${opts.runId} outcome`).toEqual({
+        succeeded: opts.recordsWritten,
+        failed: 0,
+        skipped: 0,
+    });
+    expect(detail.jobCards, `${label}: one JobCard line per exported card`).toHaveLength(opts.recordsWritten);
     await exp.closeRecentExports();
-    return { text: file.text };
+
+    expect(opts.savedFile, `${label}: Save produced no export file`).toBeTruthy();
+    const savedFile = opts.savedFile as string;
+    const text = readFileSync(savedFile, 'utf8');
+    expect(text.length, `${label}: the saved export file is not empty`).toBeGreaterThan(0);
+    await testInfo.attach(opts.fileName, { path: savedFile, contentType: 'text/plain' });
+    return { text };
 }
 
 /** E9: exactly N record lines, each carrying the employee token the Job Cards grid shows. The whole file is annotated. */
@@ -872,7 +880,7 @@ export function assertFileRecords(
     const records = all.filter((line) => line.trim() !== '' && pattern.test(line));
     expect(records, `${label}: exactly ${opts.expectedRecords} record line(s) matching /${opts.recordLine}/`).toHaveLength(opts.expectedRecords);
     for (const line of records) {
-        expect(line, `${label}: every record line carries the employee token '${opts.employeeToken}' shown on View > Job Cards`).toContain(opts.employeeToken);
+        expect(line, `${label}: every record line carries the employee token '${opts.employeeToken}' (Export Identifier, else the name's first 6 characters)`).toContain(opts.employeeToken);
     }
 }
 

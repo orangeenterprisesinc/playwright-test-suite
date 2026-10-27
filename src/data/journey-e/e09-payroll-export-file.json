@@ -3,7 +3,7 @@
         "E9 - Payroll export file. E2 CREW / E2 PICKER ONE on day -17 split across E9's own Time jobs (4621 CODED, 4622 NOCODE), rate 20, AG CA 2022: 06:00-10:00 and 10:00-14:00, 4 regular hours and 80.00 each.",
         "jobs.nocode.earningCodes is cleared on its Job form on every run, so the gap Test File flags is always there; fix.earningCodes puts the code back on screen. If the Job form cannot save an empty code (plan Open question 4), use ',,OT,,DT,,RDP,,ODT,,DDT' (empty RH slot) here - data only.",
         "expected.testFileBefore.gapFailure is the text E8 measured for a null code; a cleared code may render 'No Earning Code is configured for this job card' instead (plan Open question 3) - pin it here after the first run.",
-        "file.recordLine is a RegExp source for a record line of the Famous 120.03 file; every non-blank line until the layout is measured (plan Open question 2)."
+        "file.recordLine is a RegExp source for a record line of the Famous 120.03 file: the state code then the work date (measured 2026-10-27, e.g. '0        E2 PICRH    1CA10/10/20260 ...'; Employee ID = Export Identifier, else the name cut to 6)."
     ],
     "workflow": "E9",
     "label": "e09-payroll-export-file",
@@ -43,9 +43,8 @@
         "candidateStatus": "Pending",
         "destination": "Famous 120.03 · File output",
         "runCreatedToast": "Export run created",
-        "nothingToExport": "Nothing to export",
-        "noStoredFile": "No export file was stored for this run"
+        "nothingToExport": "Nothing to export"
     },
-    "file": { "recordLine": "\\S" },
+    "file": { "recordLine": "CA\\d{2}/\\d{2}/\\d{4}" },
     "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -17, "cardTypes": [0, 1] }]
 }

@@ -19,6 +19,7 @@ import {
     setJobExportIdentifier,
     testFileOnExport,
     transferExportDay,
+    withExportDraftLock,
 } from '@utils/journeys/journeyEFlow';
 
 test.describe('E10 · Export-identifier matching', { tag: ['@JourneyE', '@E10'] }, () => {
@@ -63,7 +64,7 @@ test.describe('E10 · Export-identifier matching', { tag: ['@JourneyE', '@E10'] 
                 runId: first.exportedRunId,
                 recordsWritten: expected.recordsWritten,
                 fileName: 'e10-export-first.txt',
-                noStoredFile: scenario.export.noStoredFile,
+                savedFile: first.savedFile,
             });
             assertFileIdentifier(firstFile.text, deps, { label: scenario.label, pass: 'first', identifiers, jobName: run.jobs.job.name });
 
@@ -78,18 +79,19 @@ test.describe('E10 · Export-identifier matching', { tag: ['@JourneyE', '@E10'] 
             await setJobExportIdentifier(run, deps, { label: scenario.label, job: 'job', identifier: identifiers.corrected });
 
             // 10. Catalog step 3: Test File again before re-exporting.
-            await openCrewExport(run, deps, scenario, 'second', { requireNoFlags: true });
-            await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, soft: false, ...expected.testFileAfterFix });
-
             // 11. Export again: a new run whose file carries E10PH2 and neither E10PH1 nor the name.
-            const second = await confirmCrewExport(run, deps, scenario, 'second', { testFileEvidence: false });
+            const second = await withExportDraftLock(async () => {
+                await openCrewExport(run, deps, scenario, 'second', { requireNoFlags: true });
+                await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, ...expected.testFileAfterFix });
+                return confirmCrewExport(run, deps, scenario, 'second', { testFileEvidence: false });
+            });
             expect(second.exportedRunId, `${scenario.label}: the re-export is a new run`).not.toBe(first.exportedRunId);
             const secondFile = await readRecentExportFile(deps, {
                 label: scenario.label,
                 runId: second.exportedRunId,
                 recordsWritten: expected.recordsWritten,
                 fileName: 'e10-export-second.txt',
-                noStoredFile: scenario.export.noStoredFile,
+                savedFile: second.savedFile,
             });
             assertFileIdentifier(secondFile.text, deps, { label: scenario.label, pass: 'second', identifiers, jobName: run.jobs.job.name });
 

@@ -16,6 +16,7 @@ import {
     seedJobChangeDay,
     testFileOnExport,
     transferExportDay,
+    withExportDraftLock,
 } from '@utils/journeys/journeyEFlow';
 
 test.describe('E9 · Payroll export file', { tag: ['@JourneyE', '@E9'] }, () => {
@@ -51,20 +52,23 @@ test.describe('E9 · Payroll export file', { tag: ['@JourneyE', '@E9'] }, () => 
             const { employeeToken } = await assertOwnCards(run, deps, cards(false));
 
             // 5. Export to Accounting: Payroll, the day, the crew, Refresh. The gap may raise a Flag, so Flags are evidence here.
-            await openCrewExport(run, deps, scenario, 'first', { requireNoFlags: false });
-
             // 6. Test File before the fix: 1 ready, 1 cannot export, the earning-code failure.
-            await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, soft: true, ...expected.testFileBefore });
+            // The export draft is the user's single run, shared by parallel workers: hold it from Refresh to the end of use.
+            await withExportDraftLock(async () => {
+                await openCrewExport(run, deps, scenario, 'first', { requireNoFlags: false });
+                await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, ...expected.testFileBefore });
+            });
 
             // 7. Fix the gap on the Job form.
             await fixEarningCode(run, deps, { label: scenario.label, job: scenario.fix.job, earningCodes: scenario.fix.earningCodes });
 
             // 8. Re-open the export page and Test File again: 2 ready, 0 cannot export.
-            await openCrewExport(run, deps, scenario, 'second', { requireNoFlags: true });
-            await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, soft: true, ...expected.testFileAfter });
-
             // 9. Export both cards and confirm.
-            const exported = await confirmCrewExport(run, deps, scenario, 'second', { testFileEvidence: false });
+            const exported = await withExportDraftLock(async () => {
+                await openCrewExport(run, deps, scenario, 'second', { requireNoFlags: true });
+                await testFileOnExport(deps, { label: scenario.label, jobCards: expected.jobCards, ...expected.testFileAfter });
+                return confirmCrewExport(run, deps, scenario, 'second', { testFileEvidence: false });
+            });
 
             // 10. Recent Exports: the own run's row, then its file.
             const file = await readRecentExportFile(deps, {
@@ -72,7 +76,7 @@ test.describe('E9 · Payroll export file', { tag: ['@JourneyE', '@E9'] }, () => 
                 runId: exported.exportedRunId,
                 recordsWritten: expected.recordsWritten,
                 fileName: 'e09-export.txt',
-                noStoredFile: scenario.export.noStoredFile,
+                savedFile: exported.savedFile,
             });
 
             // 11. The file holds exactly the two records, each carrying the employee token.

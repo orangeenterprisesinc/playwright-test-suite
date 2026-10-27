@@ -17,8 +17,9 @@
 ## Earlier verdict (2026-10-27, revision 1, superseded)
 
 * Revision 1 was a verdict with no spec. Jira `WEBPET-2065` was closed Done on 2026-09-29, although every step was marked Fail at QA on 09-07 and 09-09. Its nine bugs (2702, 2792, 2794, 2796, 2877, 2872, 2873, 2876, 2783) are Done. `WEBPET-2795` (database backup option) is Deferred and is not an automation target.
-* On su, E11 measured on 2026-10-26: `POST …/export-to-accounting/run` → `matched 1, exported 0, failed 1, missing_earning_code` for a card whose Job carries `RH,,OT,,DT,,RDP,,ODT,,DDT` with `earnDeductionCodeLocation = 3` (Job). The page shows only "Nothing to export". This is bug draft 4 in `HANDOFF-2026-10-26-E6-E11-E13.md`, not yet filed. web-pet PRs #1504 and #1508 are not a fix.
-* **New fact (2026-10-27): this is a regression.** Run 10 (Su, payroll, finalized 2026-10-09, 11 cards, jobs 4000-General / 1031-BED PREP) carries the identical `earnDedCode` string and **did** export on 10-09. So the break falls between 10-09 and 10-26. The candidates are web-pet #1504 and #1508, merged 10-23 and 10-24.
+* On su, E11 (10-26) and E9/E10 (10-27) saw every card refused: `POST …/export-to-accounting/run` → `missing_earning_code`, and Test File said "No Earning Code is configured for this job card", although the Jobs carry `RH,,OT,,DT,,RDP,,ODT,,DDT`.
+* **Root cause (measured 2026-10-27, Datadog `service:tigerden env:dev "row rejected by provider validation"`):** provider `famous-120-3` refuses cards 10442/10445/10446/10450/10451 with **"Field: Export Identifier can not be empty."** Since web-pet #1467 (10-20), validation dry-runs the whole Famous writer. Under the cost-centre module the Cost Center column is the card's **Field** Export Identifier, and it is required (legacy parity). su's `B1 FIELD` (4101) has `exportIdentifier: null`. QA Admin S1's fields all have one, and its card exports. This is not an earning-code regression: run 10's 10-09 export predates #1467. The API reports any writer refusal as `missing_earning_code`. That mislabel is a separate product bug (drafted for Gukan) and is never asserted around here.
+* **Fix (test data, on screen):** `ensureFieldOnScreen` repairs a blank Field Export Identifier on the Field form, setting it to the field's code (`4101` / `4102`). See Preconditions.
 * **Decision (Gukan, 2026-10-27):** E9 is Done, so it is automated on the catalog's claim now. If the product fails on dev, the spec is red by name and the row is parked `automated, enabled 0` with the bug. There will be no verdict-only plan and no assertion healed around a failure.
 
 | Artifact | Path |
@@ -166,7 +167,7 @@
 ## Preconditions
 
 - [ ] **Export-residue heal before the sweeps.** `healExportResidue(crew, day −17)` runs through the new `beforeSweep` hook of `prepareJourneyEOwnJobs`. A killed run can leave the crew's day exported, and the sweeps cannot delete exported cards. The run is reversed only if it holds exclusively this crew's cards of the day; otherwise the step fails by name.
-- [ ] **Fixture rows and job forms.** Ranch, field, crew, picker and the two jobs are ensured on screen (`arrange` only inside `ensureOnScreen` when a row is missing or binned). Each job's rule, rate and earning code are set on its Job form and read back after a fresh load (read-first no-op). The **NOCODE job is cleared on every run**, re-arming the gap the previous run fixed.
+- [ ] **Fixture rows and job forms.** Ranch, field, crew, picker and the two jobs are ensured on screen (`arrange` only inside `ensureOnScreen` when a row is missing or binned). Each job's rule, rate and earning code are set on its Job form and read back after a fresh load (read-first no-op). The **NOCODE job is cleared on every run**, re-arming the gap the previous run fixed. The fixture Field's **Export Identifier** must not be blank, or the Famous writer refuses the card. `ensureFieldOnScreen` reads it (`GET fields/{id}`, plumbing). When it is blank, the function sets it to the field's code on Setup ▸ Field: menu ▸ list filter ▸ row ▸ `#exportIdentifier` ▸ Save ▸ read back after a fresh load.
 - [ ] **Fixture gates (`prepareJourneyEOwnJobs`).** The crew has no exercise job, break automation or lunch. The picker has no own rate. The field's overtime rule equals the jobs' rule. `maximumDaysForTransferExport ≥ 17`. `viewJobCardsAfterTransfer true`. `session/me` names the user. Then `assertTransferLandingGate`.
 - [ ] **Export gates.** The `gates` keys are read from `GET preferences` and never written. A mismatch fails by name as `environment-gate: <key> reads <v>, E9 needs <w>`. `lockJobCardsAfterExport`, `exportRate`, `exportAmount`, `famousVerifyMinimumWage` and `stateCodeForFamous` are recorded as `preference-evidence`.
 - [ ] **`startedAt` recorded.**
@@ -180,6 +181,7 @@ Browser-issued and observed, so no row:
 - `POST …/run` after Confirm;
 - `GET …/download/{id}`;
 - the Job form's `PUT jobs/{id}`;
+- the Field form's `PUT fields/{id}` (fixture repair, only while the identifier is blank);
 - View ▸ Job Cards' `GET job-cards`.
 
 | Step / call | Endpoint | Allowance | Why | Proof on screen |
@@ -217,7 +219,7 @@ No `arrange` is declared outside `ensureOnScreen`. No preference is written. No 
 
 ## Test case
 
-Runner row `journey-e.csv:10`: `status` → `automated` and `jira` stays `PET-12493`. `enabled` stays **0** while the export defect stands; it is flipped last, once green on dev. Category `ui`. CSV `tags` = `regression`, `demo` = 1.
+Runner row `journey-e.csv:10`: `status` → `automated` and `jira` stays `PET-12493`. `enabled` stays **0** until the first green dev run; it is flipped last. Category `ui`. CSV `tags` = `regression`, `demo` = 1.
 
 ```ts
 test.describe('E9 · Payroll export file', { tag: ['@JourneyE', '@E9'] }, () => {
@@ -282,7 +284,7 @@ First-run calibrations. Each one states what the spec asserts regardless.
   - **Asserted regardless:** a non-empty file whose record lines number exactly 2 and carry the same employee token the screen shows.
   - **If the Export Identifier cell is blank:** the token is the picker's code `8017` (the card's `code`). Calibrate which one; never both.
 - [ ] **3. The NOCODE failure text.**
-  - **Measured texts:** E8 measured "does not contain the Earning Code for Regular Time" for a job with a **null** code. E11 saw "No Earning Code is configured for this job card" on a **coded** job (the defect).
+  - **Measured texts:** E8 measured "does not contain the Earning Code for Regular Time" for a job with a **null** code. E11 saw "No Earning Code is configured for this job card" on a **coded** job. That was the blank Field Export Identifier, mislabelled, so it says nothing about a cleared code.
   - **First run:** if a cleared (`''`) code renders the second text, pin `gapFailure` to it.
   - **Asserted regardless:** 1 ready / 1 cannot export, and a failure line containing `Earning Code`.
 - [ ] **4. Can the Earning Code be cleared to empty on the Job form?** If Save stays disabled, the gap becomes the catalog's own example, "missing a regular-time earning code": NOCODE gets `,,OT,,DT,,RDP,,ODT,,DDT` (empty RH slot). Only the JSON changes. The assertions stay.
@@ -294,28 +296,46 @@ First-run calibrations. Each one states what the spec asserts regardless.
 - Open question 5's policy: a fix the Test File does not see fails E9 by name. Confirm that this is a product failure and not a missing Recalculate step.
 - "No export file was stored for this run" on a File-output tenant fails E9 by name. Confirm that this is a product failure on a Done ticket, not an environment gap of the server folder `C:\emptrack\Accounting`.
 
-## Dev results expected on the first run (2026-10-27 dev build)
+## Dev results expected on the next run (after the Field Export Identifier repair)
 
-- **Most likely red at step 3a or step 4, by product.** E11's coded card got "No Earning Code is configured for this job card" from Test File and `missing_earning_code` from `POST …/run`. So Test File may read **0 ready / 2 cannot export**, and the export may answer `nothingToExport: true`.
-- **Soft vs hard assertions.** The Test File count assertions are `expect.soft`, with a message naming bug draft 4 and the 10-09 → 10-26 regression (run 10 exported the same code string; candidates web-pet #1504/#1508). The run therefore reaches the export, whose hard "Nothing to export" assertion stops it and quotes `failures[].reason`.
-- **Row and bug.** The row is parked `automated, enabled 0` with bug draft 4 filed. The Recent Exports, file and Exported Yes steps stay unverified on dev until the fix lands.
+- **Field repair, once.** The first run annotates `fixture-repaired-on-screen: Field 'B1 FIELD': exportIdentifier`, and also `B2 FIELD EAST` when E11 runs. Later runs read a non-blank value and skip the form.
+- **Test File is hard.** Before the fix: 1 ready / 1 cannot export, and NOCODE's failure line names the Earning Code. After the fix: 2 ready / 0. This run pins NOCODE's real text in `expected.testFileBefore.gapFailure` (Open question 3; data only).
+- **Still first-run calibration:** the Recent Exports locators (`export-v2-history-*` are guesses) and run identity, the download, and `file.recordLine`. The S1 Famous line is fixed-width, and the field id and crew sit near its end.
+- **Row.** `automated, enabled 0` until this run is green on dev, then flipped.
 
 ## Decisions (2026-10-27, Gukan's rule: Done tickets are automated now, product failures are looked at later)
 
 - Open question 5 (fix not seen by Test File): **product failure, fail by name.** No Recalculate is added; the catalog's fix is the Job form.
 - "No export file was stored for this run" on this File-output tenant: **fails by name.** Whether it is product or the server folder is decided on the bug, not in the spec.
-- Expected first run: red by product (bug draft 4); row parked `automated, enabled 0`, bug filed from the run's evidence.
+- Expected next run: green once the fixture Field carries an Export Identifier. A red is triaged per the Healer notes and never softened. The `missing_earning_code` mislabel is its own bug, outside this spec.
 
 ## Dev results (2026-10-27, su, `UI_FIRST_GUARD=enforce`, bundles `index-Be3btT6B.js` then `index-BQKz7htu.js`)
 
 - **Red by product at the export, as expected.** Steps 1–5 pass on screen (fixture rows, both jobs' rule/rate/code, 3 time cards, transfer toast "2 job cards written, 3 time cards transferred", View ▸ Job Cards 2 × Regular 4 · Amount 80 · Exported No, Candidates 2 rows, footer Famous 120.03 · File output, "Export 2 JobCards").
-- **Test File reads 0 ready / 2 cannot export before AND after the fix** — the coded job fails too, with "No Earning Code is configured for this job card" (soft, recorded). The header pill says "2 Ready — Will export on the next run" at the same time, and the sheet's Export file box says "No job cards in this filter would be written to an export file." A null code and a cleared code render the same text; `gapFailure` stays E8's text for the null-code case and is soft.
+- **Test File read 0 ready / 2 cannot export before AND after the fix.** The coded job failed too, with "No Earning Code is configured for this job card", while the header pill said "2 Ready". Cause: the blank `B1 FIELD` Export Identifier (Root cause above), mislabelled as an earning-code failure.
 - **Export → Confirm** sends the request; `POST …/export-to-accounting/run` answers 200 `{"summary":{"matched":2,"exported":0,"failed":2,"truncated":false},"failures":[{"jobCardCounter":…,"reason":"missing_earning_code"},…],"deliveredVia":"download","nothingToExport":true}` and the page shows only "Nothing to export". The spec fails by name quoting this body. `deliveredVia: "download"` is new on the 10-27 bundle: the file is meant to stream as a browser download.
 - **Framework fact:** re-opening Test File on the same page serves cached results and never re-POSTs, so `TestFileSheet.open()` (which waits for both POSTs) times out; the evidence-only read in `confirmCrewExport` is skipped after an asserting Test File (`testFileEvidence: false`), and `readTestFile()`'s failure path now closes the sheet with its own Close button (Escape leaves it open and hides the grid).
 - Candidates Employee cell renders ": E2 PICKER ONE" (empty identifier prefix); `assertOwnCards` falls back to the picker code when the Job Cards Export Identifier cell is blank.
 - Cleanup verified by API read after the runs: no E2 CREW cards or time cards on −17, no draft or finalized own runs.
-- **Row:** `automated, enabled 0` until the export defect is fixed (bug draft 4 of 10-26, now with E9's evidence: run 10 exported the same code string on 10-09; every card is refused since at least 10-26, on 10-27's bundle too).
+- **Row:** `automated, enabled 0` until a green dev run after the Field Export Identifier repair.
 - Unverified on dev until then: Recent Exports locators/wording, the download, the Famous line layout (`file.recordLine` still `\S`).
+
+## Dev results, green (2026-10-27 evening, su, `UI_FIRST_GUARD=enforce`)
+
+- **E9, E10 and E11 green**, alone and all three together on 2 workers (6.1 m). E11 is green end to end for the first time.
+- **Field repair:** `ensureFieldOnScreen` set `B1 FIELD` to `4101` and `B2 FIELD EAST` to its code, once each.
+- **Save export file (new product step):** after Export ▸ confirm an `alertdialog "Save export file"` holds the file; the JobCards
+  are marked exported only after Save ("Export complete — the JobCards are now marked exported."). Playwright cannot drive the
+  native Save As picker, so `exportOwn` hides `showSaveFilePicker` and clicks the fallback **Save**, which downloads the file.
+  Coverage caveat: a real Chromium user sees "Save As…" (picker branch); the spec exercises the download branch.
+- **Recent Exports (measured):** rows are `export-v2-history-row-{id}`; opening one shows "N succeeded · N failed · N skipped" and
+  one "JobCard #id" line per card. There is no "records written" text and no Download file: the file exists only at Save.
+- **File layout (Famous 120.03):** e.g. `0        E2 PICRH    1CA10/10/20260 … NE2 CREW … 4101 … E9 JOB`. Employee ID = the
+  employee Export Identifier, else the name cut to 6 characters; then the earning code, state and date; the field id (Cost
+  Center) and the job identifier near the end. `file.recordLine` is pinned to the state + date.
+- **Concurrency:** the export page's draft run is per user. Two workers exporting as `su` shared draft run 33 and one got 500
+  "export run not found". Every Refresh→Save window now holds `withExportDraftLock` (cross-worker file lock).
+- **Menu:** the Reverse screen's leaf is "Reverse Export to Accounting (Payroll)".
 
 ## Test Scenarios
 
@@ -351,8 +371,8 @@ First-run calibrations. Each one states what the spec asserts regardless.
     - expect: POST …/run answers 2xx, a success toast, no 'Nothing to export' (fails by name with failures[].reason)
     - expect: Ready drops
   7. Recent Exports: own run row → Download file
-    - expect: Row reads '2 records written'
-    - expect: GET …/download/{own id} 200, a non-empty file saved and attached; 'No export file was stored for this run' fails by name
-    - expect: Exactly 2 record lines, both carrying the employee token shown on View > Job Cards
+    - expect: The own run opens to '2 succeeded · 0 failed · 0 skipped' with two JobCard lines
+    - expect: The file is the one Save downloaded (non-empty, attached); Recent Exports offers no download
+    - expect: Exactly 2 record lines (state + date), each carrying the employee token (Export Identifier, else the name's first 6 characters)
   8. View > Job Cards, Include Exported on
     - expect: Both rows Exported Yes with unchanged hours and amounts

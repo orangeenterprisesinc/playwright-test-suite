@@ -39,8 +39,7 @@
         "candidateStatus": "Pending",
         "destination": "Famous 120.03 · File output",
         "runCreatedToast": "Export run created",
-        "nothingToExport": "Nothing to export",
-        "noStoredFile": "No export file was stored for this run"
+        "nothingToExport": "Nothing to export"
     },
     "reverse": { "type": "Payroll", "performedBy": "Su", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
     "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -16, "cardTypes": [0, 1] }]

@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { Download, Locator, Page, Response, Route, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
@@ -35,18 +35,6 @@ export interface ExportOutcome {
 
 const CONFIRM_TEXT = /^Export (\d+) JobCard(?:\(s\)|s)? to (.+) via (.+)\?$/;
 const OWN_PATH = /\/export-to-accounting\/runs\/(\d+)/;
-const DOWNLOAD_PATH = /\/export-to-accounting\/download\/(\d+)/;
-
-export interface RunFile {
-    /** false when "No export file was stored for this run" showed instead of a download. */
-    stored: boolean;
-    /** The `GET …/download/{id}` answer; 0 when none was seen. */
-    status: number;
-    path: string;
-    bytes: number;
-    suggestedFilename: string;
-    text: string;
-}
 
 /**
  * File ▸ Export to Accounting (`/export-to-accounting`, v2). Locators come from the 2026-10-26 dev probe and are
@@ -66,7 +54,6 @@ export class ExportToAccountingPage extends BasePage {
     // CALIBRATE: the Recent Exports locators are unmeasured; the webpet ExportDispatchWorkspacePage testids are a reference only.
     readonly recentButton: Locator;
     readonly recentSheet: Locator;
-    readonly noStoredFileText: Locator;
     private readonly pickPrompt: Locator;
     private readonly leftNav: LeftNavigationPage;
 
@@ -83,7 +70,6 @@ export class ExportToAccountingPage extends BasePage {
         this.testFile = new TestFileSheet(page);
         this.recentButton = page.getByTestId('export-v2-history-button').or(page.getByRole('button', { name: /^Recent/ })).first();
         this.recentSheet = page.getByTestId('export-v2-history-sheet').or(page.getByRole('dialog', { name: /Recent Exports/i })).first();
-        this.noStoredFileText = page.getByText(/No export file was stored for this run/);
     }
 
     async openFromMenu(): Promise<void> {
@@ -153,7 +139,7 @@ export class ExportToAccountingPage extends BasePage {
     }
 
     async openRecentExports(): Promise<void> {
-        await this.recentButton.click();
+        await this.recentButton.click({ timeout: 15_000 });
         await this.recentSheet.waitFor({ state: 'visible', timeout: 15_000 });
     }
 
@@ -167,37 +153,23 @@ export class ExportToAccountingPage extends BasePage {
         return this.page.getByTestId(`export-v2-history-row-${runId}`);
     }
 
-    async recordsWritten(runId: number): Promise<number> {
+    /**
+     * Opens the own run's row (measured 2026-10-27): the sheet swaps to a detail view, "N succeeded · N failed · N skipped"
+     * plus one "JobCard #id" line per card, then returns to the list. The file is not downloadable here; it exists only at Save.
+     */
+    async recentRunDetail(runId: number): Promise<{ succeeded: number; failed: number; skipped: number; jobCards: number[] }> {
         const row = this.recentRow(runId);
         await row.waitFor({ state: 'visible', timeout: 15_000 });
-        const text = (await row.innerText()).replace(/\s+/g, ' ');
-        const count = /(\d+) records? written/.exec(text)?.[1];
-        if (count === undefined) throw new Error(`Recent Exports row ${runId} shows no "N records written": "${text.slice(0, 200)}"`);
-        return Number(count);
-    }
-
-    /**
-     * Download file on the own run's row. Throws if the response answers another run's id; returns `stored: false`
-     * when "No export file was stored for this run" shows instead of a download.
-     */
-    async downloadRunFile(runId: number, saveTo: string): Promise<RunFile> {
-        const isDownload = (r: Response): boolean => r.request().method() === 'GET' && DOWNLOAD_PATH.test(new URL(r.url()).pathname);
-        const response = this.page.waitForResponse(isDownload, { timeout: 30_000 });
-        const download = this.page.waitForEvent('download', { timeout: 30_000 });
-        response.catch(() => undefined);
-        download.catch(() => undefined);
-        await this.recentRow(runId).getByRole('button', { name: /Download file/i }).click();
-
-        const file = await Promise.race([download, this.noStoredFileText.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => null)]);
-        const answered = await response.catch(() => null);
-        if (answered) {
-            const answeredId = Number(DOWNLOAD_PATH.exec(new URL(answered.url()).pathname)?.[1]);
-            if (answeredId !== runId) throw new Error(`Refusing the download: the response is for run ${answeredId}, this test owns run ${runId}.`);
-        }
-        const status = answered?.status() ?? 0;
-        if (!file) return { stored: false, status, path: saveTo, bytes: 0, suggestedFilename: '', text: '' };
-        await file.saveAs(saveTo);
-        return { stored: true, status, path: saveTo, bytes: statSync(saveTo).size, suggestedFilename: file.suggestedFilename(), text: readFileSync(saveTo, 'utf8') };
+        const isToggle = (await row.evaluate((e) => e.tagName)) === 'BUTTON';
+        await (isToggle ? row : row.getByRole('button', { name: /^(payroll|cost)/i })).click({ timeout: 15_000 });
+        const summary = this.recentSheet.getByText(/\d+ succeeded · \d+ failed · \d+ skipped/);
+        await summary.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {
+            throw new Error(`Recent Exports run ${runId}: the detail view shows no "N succeeded · N failed · N skipped" line.`);
+        });
+        const [succeeded, failed, skipped] = ((await summary.innerText()).match(/\d+/g) ?? []).map(Number);
+        const jobCards = (await this.recentSheet.getByText(/^JobCard #\d+$/).allInnerTexts()).map((t) => Number(/\d+/.exec(t)?.[0]));
+        await this.recentSheet.getByRole('button', { name: 'Back to list' }).click({ timeout: 15_000 });
+        return { succeeded, failed, skipped, jobCards };
     }
 
     toastText(text: string | RegExp): Locator {
@@ -326,14 +298,9 @@ export class ExportToAccountingPage extends BasePage {
         const dialog = this.page.getByRole('alertdialog').or(this.page.getByRole('dialog'));
         let sawNothing = false;
         let confirmText = '';
-        let download: Download | null = null;
-        const downloaded = this.page.waitForEvent('download', { timeout: 40_000 }).then(
-            (d) => {
-                download = d;
-                return d;
-            },
-            () => null,
-        );
+        const saveDialog = this.page.getByRole('alertdialog', { name: /Save export file/i });
+        const savedToast = this.page.getByText(/Export complete — the JobCards are now marked exported/);
+        const saveFailed = this.page.getByText(/The file could not be saved/);
 
         await this.page.route('**/export-to-accounting/**', guard);
         this.page.on('response', onResponse);
@@ -343,6 +310,8 @@ export class ExportToAccountingPage extends BasePage {
             confirmText = ((await dialog.getByText(CONFIRM_TEXT).first().innerText()) ?? '').trim();
             const shown = Number(CONFIRM_TEXT.exec(confirmText)?.[1]);
             if (shown !== opts.expectedCount) throw new Error(`The confirm dialog reads "${confirmText}", expected ${opts.expectedCount} job card(s); not confirming.`);
+            // The SPA reads showSaveFilePicker at Save time; undefined makes it fall back to an anchor download Playwright can capture.
+            await this.page.evaluate(() => Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true }));
             await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 
             await expect
@@ -355,16 +324,28 @@ export class ExportToAccountingPage extends BasePage {
                 )
                 .toBe(true)
                 .catch(() => undefined);
+            // Nothing is marked exported until Save: the "Save export file" dialog holds the file and blocks the page.
+            let saved: ExportOutcome['download'] = null;
+            if (!sawNothing && (await saveDialog.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true, () => false))) {
+                const downloading = this.page.waitForEvent('download', { timeout: 30_000 });
+                downloading.catch(() => undefined);
+                await saveDialog.getByRole('button', { name: 'Save', exact: true }).click({ timeout: 10_000 });
+                const file: Download | null = await downloading.catch(() => null);
+                const outcomeToast = await Promise.race([
+                    savedToast.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'saved' as const),
+                    saveFailed.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'failed' as const),
+                ]).catch(() => 'none' as const);
+                if (outcomeToast === 'failed') throw new Error('The file could not be saved — the Save export file dialog answered failure; nothing is marked exported.');
+                if (outcomeToast === 'none') throw new Error('Save was clicked but neither "Export complete — the JobCards are now marked exported." nor a save failure appeared within 30s.');
+                if (!file) throw new Error('Save completed but the browser raised no download event for the export file.');
+                if (opts.saveDownloadTo) {
+                    await file.saveAs(opts.saveDownloadTo);
+                    saved = { path: opts.saveDownloadTo, bytes: statSync(opts.saveDownloadTo).size };
+                }
+            }
             const toast = this.page.locator('[data-sonner-toast]').or(this.page.getByRole('status'));
             await toast.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
             const toasts = (await toast.allInnerTexts()).map((t) => t.trim()).filter(Boolean);
-            await Promise.race([downloaded, new Promise((r) => setTimeout(r, 5_000))]);
-            let saved: ExportOutcome['download'] = null;
-            const file = download as Download | null;
-            if (file && opts.saveDownloadTo) {
-                await file.saveAs(opts.saveDownloadTo);
-                saved = { path: opts.saveDownloadTo, bytes: statSync(opts.saveDownloadTo).size };
-            }
             if (blocked.length) throw new Error(`Refused an export request for a run that is not ours: ${blocked.join(', ')}`);
             return {
                 requests,

@@ -899,7 +899,6 @@ const ExportScreen = z
         destination: z.string().min(1),
         runCreatedToast: z.string().min(1),
         nothingToExport: z.string().min(1),
-        noStoredFile: z.string().min(1),
     })
     .strict();
 

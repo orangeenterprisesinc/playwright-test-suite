@@ -57,7 +57,13 @@ export class DataGridComponent extends BaseComponent {
      * records can share a name, so the id in the href is what makes the row unique.
      */
     editLinkTo(name: string, href: string): Locator {
-        return this.editLink(name).and(this.page.locator(`a[href="${href}"], a[href^="${href}?"]`));
+        return this.editLinkById(name).and(this.page.locator(`a[href="${href}"], a[href^="${href}?"]`));
+    }
+
+    /** The Fields list labels its link bare "Edit Field" (2026-10-27); only safe where the href pins the id. */
+    private editLinkById(name: string): Locator {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return this.page.getByRole('link', { name: new RegExp(`^Edit ${this.entity}(: .*${escaped}.*)?$`, 'i') });
     }
 
     /**
@@ -68,7 +74,7 @@ export class DataGridComponent extends BaseComponent {
      */
     async openRecord(name: string, editPath: string): Promise<void> {
         await this.nameFilter.fill(name);
-        const settled = this.editLink(name).and(this.page.locator(`a[href^="${editPath}?"]`));
+        const settled = this.editLinkById(name).and(this.page.locator(`a[href^="${editPath}?"]`));
         await settled.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {
             throw new Error(`No filtered Edit ${this.entity} link to ${editPath} after filtering the list by '${name}'`);
         });

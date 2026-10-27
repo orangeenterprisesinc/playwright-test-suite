@@ -193,7 +193,7 @@
             "demo": true,
             "jira": "PET-12493",
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "E10",
@@ -214,7 +214,7 @@
             ],
             "jira": "PET-12674",
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "E11",
@@ -235,7 +235,7 @@
             ],
             "jira": "PET-12675",
             "status": "automated",
-            "enabled": false
+            "enabled": true
         },
         {
             "id": "E12",

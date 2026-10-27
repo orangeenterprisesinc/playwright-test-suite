@@ -29,7 +29,7 @@
   * (a) the identifier is a Job-form field of its own, independent of the name;
   * (b) the exported file carries the identifier, not the name;
   * (c) the fix path works.
-* (b) and (c) need the file. So E10 is built after E9 on E9's fixtures and helpers, plus E11's reverse helper. It waits on the same export defect (bug draft 4: `missing_earning_code`, regression between 10-09 and 10-26). A spec of (a) alone would prove nothing about export.
+* (b) and (c) need the file. So E10 is built after E9 on E9's fixtures and helpers, plus E11's reverse helper. Its first dev run was refused like E9's, for the same cause: the blank `B1 FIELD` Export Identifier (see the E9 plan's Root cause). `ensureFieldOnScreen` now repairs it on screen. A spec of (a) alone would prove nothing about export.
 * **Decision (Gukan, 2026-10-27):** E10 is Done, so it is automated on the catalog's claim now. If the product fails on dev, the spec is red by name and the row is parked `automated, enabled 0` with the bug.
 
 | Artifact | Path |
@@ -64,7 +64,7 @@
 | # | Catalog step | Office surface (measured 2026-10-27) | Automatable? |
 |---|---|---|---|
 | 1 | Confirm each job's export identifier matches the accounting code, not the job name. | **Setup ▸ Job** (`/setup/jobs/{id}`): `#name` "Name *" and **`#exportIdentifier` "Export Identifier"**. The identifier is a text field, editable on edit for su (SU; `allowRecordExportIdModify true`). A new job's identifier defaults to its name (E11 JOB → "E11 JOB"). The Job's identifier is **not** copied onto the job card: `jobCard.exportIdentifier` and `code` are the employee's. | **yes, on screen.** The Job form read-back shows Export Identifier ≠ Name, and the exported file carries the identifier and not the name |
-| 2 | On a rejection, either fix the identifier in Pet Tiger and reverse-then-re-export, or add the missing code in the accounting system first. | Reverse on **File ▸ Administration ▸ Restore or Reverse ▸ Reverse Payroll Export to Accounting** (E11 `reverseOwnExport`). Fix on the Job form (Export Identifier → `E10PH2`). Re-export on Export to Accounting. | **yes, on screen** for the PET Tiger branch. The rejection itself and "add the code in the accounting system" are **not automatable**: they happen in Famous, outside PET Web |
+| 2 | On a rejection, either fix the identifier in Pet Tiger and reverse-then-re-export, or add the missing code in the accounting system first. | Reverse on **File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll)** (E11 `reverseOwnExport`). Fix on the Job form (Export Identifier → `E10PH2`). Re-export on Export to Accounting. | **yes, on screen** for the PET Tiger branch. The rejection itself and "add the code in the accounting system" are **not automatable**: they happen in Famous, outside PET Web |
 | 3 | Re-run the test file before re-exporting. | Export page footer **Test File** (`TestFileSheet`, as E9) | **yes, on screen** |
 | var. | If job cards were already transferred with a bad identifier, reverse the job cards, fix, re-transfer, then export. | View ▸ Job Cards ▸ Reverse (`guardReversibleRun`, `openReverse`/`confirmReverse`, E6's `reverseOwnPass`) → fix → re-transfer → export | *deferred.* Implemented only if the first working export proves that the identifier is bound at transfer (Open question 2) |
 
@@ -101,7 +101,7 @@
 | Fixture rows, punches, Transfer | as E9 | existing | unchanged |
 | Setup ▸ Job (edit) | `Setup ▸ Job` | `src/pages/setup/JobPage.ts` | **+ export-identifier members (below)** |
 | Export to Accounting + Test File + Recent Exports | `File ▸ Export to Accounting` | `ExportToAccountingPage.ts` (+ `TestFileSheet`) | as extended by E9 (`testFile`, `openRecentExports`, `recentRow`, `recordsWritten`, `downloadRunFile`, `closeRecentExports`). No E10 additions |
-| Reverse Payroll Export | `File ▸ Administration ▸ Restore or Reverse ▸ Reverse Payroll Export to Accounting` | `src/pages/admin/ReverseExportPage.ts` | exists, unchanged |
+| Reverse Payroll Export | `File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll)` | `src/pages/admin/ReverseExportPage.ts` | exists, unchanged |
 | View ▸ Job Cards | `View ▸ Job Cards` | `ViewJobCardsPage.ts` | exists, unchanged |
 
 **`JobPage` additions** (pattern: `CrewPage.exportIdentifierInput`; the save dance mirrors `setEarningCodes`):
@@ -210,7 +210,7 @@ No `arrange` is declared outside `ensureOnScreen`. No preference is written. No 
 
 ## Test case
 
-Runner row `journey-e.csv:11`: `status` → `automated` and `jira` stays `PET-12674`. `enabled` stays **0** while the export defect stands; it is flipped last. Category `ui`. CSV `tags` = `regression`, `demo` = 0.
+Runner row `journey-e.csv:11`: `status` → `automated` and `jira` stays `PET-12674`. `enabled` stays **0** until the first green dev run; it is flipped last. Category `ui`. CSV `tags` = `regression`, `demo` = 0.
 
 ```ts
 test.describe('E10 · Export-identifier matching', { tag: ['@JourneyE', '@E10'] }, () => {
@@ -284,23 +284,23 @@ First-run calibrations. Each one states what the spec asserts regardless.
 - Open question 1's policy: a payroll file without the Job identifier fails E10 by name. Confirm, or rule that Famous 120.03 carries no phase and that E10 then needs another format (a tenant preference, which is never written, so it would become a gate).
 - Open question 2's policy: if the identifier is bound at transfer, is the variation the spec's path from then on? The spec now fails by name and does not branch.
 
-## Dev results expected on the first run (2026-10-27 dev build)
+## Dev results expected on the next run (after the Field Export Identifier repair)
 
-- **Red at the first export by product, as in E11.** `POST …/run` answers `nothingToExport: true` with `failures: [{ reason: "missing_earning_code" }]` for `E10 JOB`, which carries the same code string as run 10, exported on 10-09. That is bug draft 4, a regression between 10-09 and 10-26 (candidates web-pet #1504/#1508).
-- **What stays unverified until the fix.** The identifier proof, the reverse and the re-export.
-- **Row.** Parked `automated, enabled 0` with the bug.
+- **The first export should write 1 record.** E9's arrange repairs `B1 FIELD`'s blank Export Identifier on its Field form. The `missing_earning_code` refusal was that problem, mislabelled.
+- **First-run calibrations remain:** Open questions 1–5. The S1 Famous line is fixed-width with the field id and crew near the end, so the Job identifier's position is read from the attached file.
+- **Row.** `automated, enabled 0` until green on dev.
 
 ## Decisions (2026-10-27, Gukan's rule: Done tickets are automated now, product failures are looked at later)
 
 - No Job identifier in the Famous 120.03 file: **fails by name**; a format change would be a preference write, so it stays a bug/gate question outside the spec.
 - Second file still shows `E10PH1` (identifier bound at transfer): **fails by name, no branch.** The catalog's reverse-job-cards path becomes a plan revision only after that run proves it.
-- Expected first run: red by product with E9 (same export defect); row parked `automated, enabled 0`.
+- Expected next run: green with E9 once the Field Export Identifier is repaired; row `automated, enabled 0` until then.
 
 ## Dev results (2026-10-27, su, `UI_FIRST_GUARD=enforce`, bundle `index-BQKz7htu.js`)
 
 - Steps 1–4 pass on screen: `E10 JOB` reads Export Identifier `E10PH1` after a fresh load (set on the Job form), 2 time cards, transfer "1 job card written, 2 time cards transferred", View ▸ Job Cards Regular 8 · Amount 160 · Exported No, Candidates 1 row, "Export 1 JobCards".
-- **Red by product at the first export:** `POST …/run` → `{"summary":{"matched":1,"exported":0,"failed":1},"failures":[{"jobCardCounter":…,"reason":"missing_earning_code"}],"deliveredVia":"download","nothingToExport":true}` — the same defect as E9/E11; fails by name. Reverse, the identifier fix, the second Test File and the re-export are unverified on dev.
-- Cleanup verified by API read: no cards, time cards or runs left on −16. Row `automated, enabled 0` with E9.
+- **Red by product at the first export:** `POST …/run` → `{"summary":{"matched":1,"exported":0,"failed":1},"failures":[{"jobCardCounter":…,"reason":"missing_earning_code"}],"deliveredVia":"download","nothingToExport":true}` — Datadog shows the refusal is provider `famous-120-3`'s "Field: Export Identifier can not be empty." (card 10450): the blank `B1 FIELD` identifier, mislabelled. Fails by name. Reverse, the identifier fix, the second Test File and the re-export are unverified on dev.
+- Cleanup verified by API read: no cards, time cards or runs left on −16. Row `automated, enabled 0` until green on dev.
 
 ## Test Scenarios
 
