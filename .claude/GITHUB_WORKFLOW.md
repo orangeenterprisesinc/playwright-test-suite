@@ -24,7 +24,7 @@ Do not merge the Pull Request automatically.
 ## GitHub CI loop
 
 ```text
-PR → GitHub CI → GREEN → Human review → Human merge
+PR → Claude code review + GitHub CI → GREEN → Human review → Human merge
 ```
 
 If CI fails:
@@ -43,6 +43,29 @@ Continue this loop only while the failure is reasonably actionable. Do not repea
 retry without diagnosing. A red caused by the environment (dev session loss, staging
 deploy lag) is reported as such, not "fixed" in test code.
 
+## Code review
+
+Every non-draft PR to `main` gets two reviewers:
+
+* **Claude code review** — `.github/workflows/claude-code-review.yml` posts inline
+  comments and a summary, checking the diff against CLAUDE.md, the domain profile
+  it touches, and the `pw-spec-author` / `pw-locator-hardening` conventions. It is
+  advisory and runs no tests.
+* **Code owners** — `.github/CODEOWNERS` requests the owner's review automatically
+  (GitHub skips the PR's own author).
+
+On a PR it opened, the orchestrator answers every review comment: it fixes and pushes
+the ones it can verify (re-validating locally first), or replies on the thread
+saying why not. It never resolves a human reviewer's thread for a larger design ask.
+When a push dismisses an approval, it says whose approval is needed again.
+
+### One-time setup (human-only)
+
+* Add the `ANTHROPIC_API_KEY` repository secret (or install the Claude GitHub App
+  with `/install-github-app`). Until then the review job fails at the action step.
+* Settings → Branches → `main`: require a pull request with ≥1 approval, require
+  review from Code Owners, and dismiss stale approvals on new commits.
+
 ## Human approval boundary
 
 The following require human control unless explicitly authorized:
@@ -54,6 +77,6 @@ The following require human control unless explicitly authorized:
 * Unrelated architectural changes
 
 ```text
-Claude:  Analyze → Implement → Test → Heal → Commit → Push → PR → CI
+Claude:  Analyze → Implement → Test → Heal → Commit → Push → PR → CI → Review fixes
 Human:   Review → Merge
 ```

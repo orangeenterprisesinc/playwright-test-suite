@@ -1,0 +1,5 @@
+# Reviewers GitHub requests automatically on every PR. GitHub never requests a
+# review from the PR's own author, so this only takes effect on PRs opened by
+# someone else. Enforcement (a code-owner approval before merge) is the
+# "Require review from Code Owners" branch-protection setting on main.
+* @gukapriyanintuware-stack
