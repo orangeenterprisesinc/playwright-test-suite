@@ -97,7 +97,7 @@ says agent, invoke the agent.
 | Failure, cause known, single file | main session + `pw-locator-hardening` / `pw-spec-author` — no agents |
 | New page object only | `pw-page-object` skill, main session |
 | Runner CSV / tags / annotation edits | `data-driven-testing` / `pw-spec-author`, main session |
-| Small spec from a scenario pasted in chat | `ui-` / `api-` / `workflow-script-generator` skill, main session |
+| Small spec from a scenario pasted in chat | `ui-` / `api-script-generator` skill, main session |
 | Shared-core change (fixtures/gate/utils/config) | Planner (Fable 5) → Generator; both suites' validation |
 | CI red | [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) loop → Healer |
 

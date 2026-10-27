@@ -5,7 +5,7 @@ description: Use when the user asks to generate or update a Playwright API test 
 
 ## Playwright API Script Generator
 
-Generate API-only Playwright + TypeScript specs (no browser) that match the **current repository conventions first**, while using supported framework features when the scenario requires them. This is the API sibling of `/ui-script-generator` — for UI browser journeys use that skill; for UI+API hybrids use `/workflow-script-generator`.
+Generate API-only Playwright + TypeScript specs (no browser) that match the **current repository conventions first**, while using supported framework features when the scenario requires them. This is the API sibling of `/ui-script-generator` — for UI browser journeys use that skill; for UI+API hybrids (category `workflow`) use `/ui-script-generator`.
 
 ### Role
 
