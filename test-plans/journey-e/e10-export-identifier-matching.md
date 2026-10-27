@@ -4,7 +4,7 @@
 
 **Revision 2, 2026-10-27. Planned at code level** (MCP browser unavailable). Sources: the orchestrator's read-only su probes on dev (2026-10-27), the E11 plan and helpers, and the E9 plan (revision 2), which E10 builds on. This revision replaces revision 1, which only recorded a verdict.
 
-> **Export a job by its export identifier, fix the identifier the accounting system rejected, and re-export it.** E10 gives its own Time job `E10 JOB` (4623, rate 20, earning codes typed as in E11) an **Export Identifier that is not its name**: `E10PH1`, set on the Job form on every run. It seeds a crew day on screen (E2 CREW, E2 PICKER ONE, day −16, 06:00–14:00, one card), transfers it and exports it. It downloads the run's file from **Recent Exports** and proves the line carries **`E10PH1`, not `E10 JOB`**. The accounting system then rejects the code, a step outside PET Web. E10 follows the catalog's fix path:
+> **Export a job by its export identifier, fix the identifier the accounting system rejected, and re-export it.** E10 gives its own Time job `E10 JOB` (4623, rate 20, earning codes typed as in E11) an **Export Identifier that is not its name**: `E10PH1`, set on the Job form on every run. It seeds a crew day on screen (E2 CREW, E2 PICKER ONE, day −15, 06:00–14:00, one card), transfers it and exports it. It downloads the run's file from **Recent Exports** and proves the line carries **`E10PH1`, not `E10 JOB`**. The accounting system then rejects the code, a step outside PET Web. E10 follows the catalog's fix path:
 > 1. reverse that export on the Reverse page;
 > 2. change the identifier on the Job form to `E10PH2`;
 > 3. **re-run the Test File** (1 ready, 0 cannot export);
@@ -75,7 +75,7 @@
   - **E10's own:** `allowRecordExportIdModify true`, `usePreviousJobExportId 0` (an export must not substitute an earlier identifier), `lockJobCardsAfterExport "No"` (reverse and re-export allowed), and `maximumDaysForTransferExport ≥ 16`.
   - **On a mismatch:** the step fails by name, `environment-gate: <key>`. `allowDuplicateJobExportId` is recorded as `preference-evidence`.
 - **Catalog step 1, Job form after a fresh load.** `E10 JOB` (4623) reads Name **`E10 JOB`**, Export Identifier **`E10PH1`**, Overtime Rule `AG CA 2022`, Hourly Rate `20` and Earning Code `RH,,OT,,DT,,RDP,,ODT,,DDT`. The flow asserts that the identifier ≠ the name. The Export Identifier input is **enabled**.
-- **Seed.** On day −16, two time cards are seeded on screen for E2 CREW: crew time-in 06:00 on `E10 JOB` and crew time-out 14:00. The Crew Time In job option label is recorded as `identifier-evidence` (expected `E10PH1 : E10 JOB`; the picker matches by `labelPattern`).
+- **Seed.** On day −15, two time cards are seeded on screen for E2 CREW: crew time-in 06:00 on `E10 JOB` and crew time-out 14:00. The Crew Time In job option label is recorded as `identifier-evidence` (expected `E10PH1 : E10 JOB`; the picker matches by `labelPattern`).
 - **Transfer.** The transfer shows "Transfer complete — 1 job card written, 2 time cards transferred." and lands with this run's id. View ▸ Job Cards (day, Crews = E2 CREW, Include Exported off) shows 1 row reading **Regular Hours 8 · Overtime 0 · Amount 160 · Exported `No`**.
 - **First export (E9/E11 path, nothing new asserted).**
   - **Candidates.** Exactly 1 row (Crew `E2 CREW`, Status `Pending`). The footer reads `Famous 120.03 · File output`; the button reads `Export 1 JobCards`.
@@ -122,13 +122,13 @@
   - 4623 was probed free on 2026-10-27 (4621/4622 are E9's).
   - The `E10 ` prefix is protected by `/^E\d{1,2} /`.
   - Crew 8016 and picker 8017 come from `journeyE2Fixture()`. Ranch and field are B1 RANCH / B1 FIELD.
-- **Day −16.** It is free for E2 CREW inside the 21-day window. D5 uses −16 with its own crew; everything here is crew-scoped on screen.
+- **Day −15.** It is free for E2 CREW inside the 21-day window. D3 also uses −15 with its own crew (D3 CREW) and commits nothing. Each committing spec owns a (day, crew) pair, and every Transfer here is scoped by Time Card Crew, so the execute carries `crewIds`. D5 moved to its own crew scope on −16 and no longer shares a day with E10.
 - **Identifiers.** They are short, alphanumeric and space-free, so a substring search of the file is unambiguous and they cannot equal or contain the name `E10 JOB`. The initial one is re-armed on screen by every run's arrange (read-first no-op), so a killed run that left `E10PH2` heals itself.
 - **Scenario JSON** (`src/data/journey-e/e10-export-identifier-matching.json`, `JourneyE10ExportIdentifierCaseSchema`; it satisfies `EOwnJobsSetup` structurally):
 
 ```jsonc
 {
-  "workflow": "E10", "label": "e10-export-identifier-matching", "dayOffset": -16,
+  "workflow": "E10", "label": "e10-export-identifier-matching", "dayOffset": -15,
   "rule": { "name": "AG CA 2022", "dailyOvertimeAfterHours": 8 },
   "hourlyRate": 20,
   "job": { "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
@@ -151,23 +151,23 @@
     "noStoredFile": "No export file was stored for this run"
   },
   "reverse": { "type": "Payroll", "performedBy": "Su", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
-  "cleanup": [ { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -16, "cardTypes": [0, 1] } ]
+  "cleanup": [ { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -15, "cardTypes": [0, 1] } ]
 }
 ```
 
   `superRefine` rules:
-  - **Day.** `dayOffset === -16` (E9 −17, E2 CREW's other days named in the message).
+  - **Day.** `dayOffset === -15` (shared with D3 on D3 CREW; E9 −17, E2 CREW's other days named in the message).
   - **Hours and amount.** `timeIn < timeOut` and `grossHours === span`. `grossHours ≤ rule.dailyOvertimeAfterHours`, `regularHours === grossHours`, `overtimeHours === 0`, and `totalAmount === round2(regularHours × hourlyRate)`.
   - **Card counts.** `timeCards === 2`, `jobCards === 1`, and the toast equals both.
   - **Identifiers.** Both match `/^[A-Za-z0-9]+$/`. `initial !== corrected`, and neither contains the other.
   - **Test File and export.** `testFileAfterFix.ready === jobCards` and `cannotExport === 0`. `recordsWritten === jobCards`.
   - **Job.** `job.earningCodes` is non-empty (without it the export refuses by design and E10 would prove nothing).
-  - **Cleanup.** A `timeCards` step with `dayOffset -16` is present, and there is **no** `restore` step.
+  - **Cleanup.** A `timeCards` step with `dayOffset -15` is present, and there is **no** `restore` step.
   - **In the flow, against the fixture:** both identifiers ≠ `journeyE10Fixture().job.name`.
 
 ## Preconditions
 
-- [ ] **E9's arrange, through the same `prepareJourneyEExport`.** One job spec: `{ job: { ...journeyE10Fixture().job, earningCodes, exportIdentifier: identifiers.initial } }`. It runs residue heal (crew, −16) → fixtures on screen → sweeps → Job form (rule, rate, earning code, Export Identifier, each read back) → fixture gates → `gates` → session user → export-run teardown registration.
+- [ ] **E9's arrange, through the same `prepareJourneyEExport`.** One job spec: `{ job: { ...journeyE10Fixture().job, earningCodes, exportIdentifier: identifiers.initial } }`. It runs residue heal (crew, −15) → fixtures on screen → sweeps → Job form (rule, rate, earning code, Export Identifier, each read back) → fixture gates → `gates` → session user → export-run teardown registration.
 - [ ] **`assertTransferLandingGate`.**
 - [ ] **`startedAt` recorded** (Reverse row window).
 
@@ -196,7 +196,7 @@ No `arrange` is declared outside `ensureOnScreen`. No preference is written. No 
 
 | Phase | Step | How |
 |---|---|---|
-| before | export-residue heal (crew, −16) → crew job cards → `timeCards` step → crew time cards | `prepareJourneyEExport` → `prepareJourneyEOwnJobs({ beforeSweep })` |
+| before | export-residue heal (crew, −15) → crew job cards → `timeCards` step → crew time cards | `prepareJourneyEExport` → `prepareJourneyEOwnJobs({ beforeSweep })` |
 | after, 1 | own export runs: both exports and every draft. The first is already reversed, so it is skipped by status | `cleanupExportRuns(run.exportRunIds)`, registered after the own-jobs cleanup (drained first) |
 | after, 2 | own job cards by id → `timeCards` step → own time cards by id → crew-day sweep | own-jobs `finishCleanup` |
 | — | `E10 JOB`'s Export Identifier (`E10PH2` after the test) | **not restored.** The next run's arrange sets `E10PH1` on screen (scenario-owned job) |
@@ -277,7 +277,7 @@ First-run calibrations. Each one states what the spec asserts regardless.
   - **Asserted regardless:** presence of the corrected identifier and absence of the old one.
 - [ ] **4. "records written" wording.** The bundle's i18n is "{{count}} records written". It may pluralise to "1 record written". The regex `/(\d+) records? written/` covers both. Asserted: the count is 1.
 - [ ] **5. Recent Exports locators and run identity.** As E9 Open question 1. They are shared members, calibrated once.
-- [ ] **6. Day −16 neighbours.** Day −16 is shared with D5 (own crew). If a foreign dangling time-in makes the transfer write 0 cards, move to −13 (JSON + `superRefine`). E9's fallback is −15, so the two never collide on E2 CREW.
+- [ ] **6. Day −15 neighbours.** Day −15 is shared with D3 (D3 CREW, analyze-only). E10 runs on its own (day, crew) pair, so D3's rows are never in its scope. If a foreign dangling time-in on E2 CREW makes the transfer write 0 cards, move to −13 (JSON + `superRefine`). E9's old fallback of −15 is now E10's day, so E9 must not fall back there.
 - [ ] **7. The picker label after an identifier change.** Crew Time In may offer `E10PH1 : E10 JOB`. `PickerComponent.labelPattern` matches the name tail, and `assertOwnCards` matches the Job cell with `toContain(name)`. The label is recorded as evidence only.
 
 **Needs a human decision before generation:**
@@ -300,7 +300,7 @@ First-run calibrations. Each one states what the spec asserts regardless.
 
 - Steps 1–4 pass on screen: `E10 JOB` reads Export Identifier `E10PH1` after a fresh load (set on the Job form), 2 time cards, transfer "1 job card written, 2 time cards transferred", View ▸ Job Cards Regular 8 · Amount 160 · Exported No, Candidates 1 row, "Export 1 JobCards".
 - **Red by product at the first export:** `POST …/run` → `{"summary":{"matched":1,"exported":0,"failed":1},"failures":[{"jobCardCounter":…,"reason":"missing_earning_code"}],"deliveredVia":"download","nothingToExport":true}` — Datadog shows the refusal is provider `famous-120-3`'s "Field: Export Identifier can not be empty." (card 10450): the blank `B1 FIELD` identifier, mislabelled. Fails by name. Reverse, the identifier fix, the second Test File and the re-export are unverified on dev.
-- Cleanup verified by API read: no cards, time cards or runs left on −16. Row `automated, enabled 0` until green on dev.
+- Cleanup verified by API read: no cards, time cards or runs left on −15. Row `automated, enabled 0` until green on dev.
 
 ## Test Scenarios
 
@@ -313,13 +313,13 @@ First-run calibrations. Each one states what the spec asserts regardless.
 **File:** `tests/web/journey-e-payroll/e10-export-identifier-matching.spec.ts`
 
 **Steps:**
-  1. Arrange via prepareJourneyEExport: residue heal for E2 CREW on day -16, fixtures on screen, E10 JOB (4623) rule AG CA 2022, rate 20, Earning Code RH,,OT,,DT,,RDP,,ODT,,DDT and Export Identifier E10PH1 on its Job form; read export gates
+  1. Arrange via prepareJourneyEExport: residue heal for E2 CREW on day -15, fixtures on screen, E10 JOB (4623) rule AG CA 2022, rate 20, Earning Code RH,,OT,,DT,,RDP,,ODT,,DDT and Export Identifier E10PH1 on its Job form; read export gates
     - expect: Job form after a fresh load: Name 'E10 JOB', Export Identifier 'E10PH1' (differs from the name), input enabled
     - expect: allowRecordExportIdModify true, usePreviousJobExportId 0, lockJobCardsAfterExport No and E9's format gates, or fail by name
   2. Seed on screen: crew time-in 06:00 on E10 JOB, crew time-out 14:00; transfer the crew day
     - expect: Toast 'Transfer complete — 1 job card written, 2 time cards transferred.'
     - expect: View > Job Cards: 1 row, Regular Hours 8, Overtime 0, Amount 160, Exported No
-  3. Export to Accounting (Payroll, day -16, Job Card Crew = E2 CREW): Refresh, Export 1 JobCards, confirm
+  3. Export to Accounting (Payroll, day -15, Job Card Crew = E2 CREW): Refresh, Export 1 JobCards, confirm
     - expect: Exactly 1 own candidate, footer 'Famous 120.03 · File output'
     - expect: Export request 2xx, success toast, no 'Nothing to export' (fails by name with failures[].reason)
   4. Recent Exports: own run row → Download file

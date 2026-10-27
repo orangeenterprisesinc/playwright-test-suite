@@ -285,12 +285,12 @@ export async function seedFixtureDay(
  * can be ticked (day -11 and -12 carry other people's untransferred rows on dev, and the header
  * "Select all rows" is select-all-across-filter, not the visible rows). Returns the candidates.
  *
- * `crew` is off by default. When given, the Work Crew filter is applied after the analyze (its
- * options come from the loaded rows) and before the guard.
+ * `crew` is required: the analyze (and so the execute) is scoped by Time Card Crew, then the Work Crew
+ * filter is applied after the analyze (its options come from the loaded rows) and before the guard.
  */
 export async function openScopedCandidates(
     run: TransferRun,
-    opts: { pages: PageObjects; crew?: string },
+    opts: { pages: PageObjects; crew: string },
     seed: SeedResult,
 ): Promise<string[]> {
     const transfer = opts.pages.transferToJobCards;
@@ -300,20 +300,16 @@ export async function openScopedCandidates(
     if (run.days?.length) await transfer.scopeToRange(run.days[0], run.days[run.days.length - 1]);
     else await transfer.scopeToDay(run.day);
     // The Work Crew filter below only narrows the display; Transfer commits what analyze loaded, so scope the analyze itself.
-    if (opts.crew) await transfer.scopeToTimeCardCrew(opts.crew);
+    await transfer.scopeToTimeCardCrew(opts.crew);
     const analyzed = await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
-    if (opts.crew) {
-        expect(
-            analyzed.crewIds.length,
-            'transfer scope: analyze went out unscoped (crewIds []) — a concurrent run\'s time cards would be transferred',
-        ).toBeGreaterThan(0);
-    }
+    expect(
+        analyzed.crewIds.length,
+        `${run.scenario.label}: transfer scope: analyze went out unscoped (crewIds []) — a concurrent run's time cards would be transferred`,
+    ).toBeGreaterThan(0);
 
-    if (opts.crew) {
-        await transfer.filterByCrew(opts.crew);
-        // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
-        await expect.poll(async () => (await transfer.candidateReferences()).length, { timeout: 30_000 }).toBe(own.size).catch(() => undefined);
-    }
+    await transfer.filterByCrew(opts.crew);
+    // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
+    await expect.poll(async () => (await transfer.candidateReferences()).length, { timeout: 30_000 }).toBe(own.size).catch(() => undefined);
 
     const candidates = await transfer.candidateReferences();
     const outsiders = candidates.filter((r) => !own.has(r));
@@ -353,7 +349,7 @@ export async function commitTransfer(
         .transferCompleteToast(toast.jobCards, toast.timeCards)
         .waitFor({ state: 'visible', timeout: 150_000 })
         .then(() => true, () => false);
-    const jobId = await transfer.runTransfer();
+    const { jobId, crewIds } = await transfer.runTransfer();
     if (!jobId) throw new Error('The Transfer click sent no POST transfer-to-job-cards/execute to the server, so nothing was ever queued.');
 
     // Plumbing (d): ids are recorded on every poll, before anything is asserted. Recording them afterwards
@@ -361,6 +357,7 @@ export async function commitTransfer(
     // their source time cards become undeletable, and the next run finds an employee already clocked in.
     testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: job card ids recorded for cleanup, execute job read for the run id` });
     let jobCardCounters: number[] = [];
+    let pollError: unknown;
     await expect(async () => {
         const written: JobCardRecord[] = [];
         for (const day of run.days ?? [run.day]) {
@@ -379,7 +376,13 @@ export async function commitTransfer(
             const refused = days.length ? ` — the execute refused ${days.length} day(s): ${days.map((d) => `${String(d.date).slice(0, 10)}: ${d.error}`).join(' | ')}` : '';
             throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far${refused}`);
         }
-    }).toPass({ timeout: 120_000 });
+    }).toPass({ timeout: 120_000 }).catch((e: unknown) => { pollError = e; });
+    // Checked after the id poll so this run's own cards are recorded for cleanup even when the scope was wrong.
+    expect(
+        crewIds.length,
+        `${run.scenario.label}: transfer scope: execute went out unscoped (crewIds []) — every analyzed card on the day, other runs' included, was committed`,
+    ).toBeGreaterThan(0);
+    if (pollError) throw pollError;
     expect(
         await toastSeen,
         `${run.scenario.label}: the 'Transfer complete — ${toast.jobCards} job card(s) written, ${toast.timeCards} time cards transferred.' toast must be seen`,
@@ -401,11 +404,11 @@ export async function commitTransfer(
  * ids a transfer would actually write, via each row's `sourceRecordIds`. That preview is also
  * non-committing, so it is safe to call before `execute`.
  *
- * Pass `crew` to also apply the Work Crew filter before the roster guard (default off).
+ * `crew` scopes the analyze by Time Card Crew and applies the Work Crew filter before the roster guard.
  */
 export async function guardedTransfer(
     run: TransferRun,
-    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects; crew?: string },
+    opts: { sessionApi: APIRequestContext; testInfo: TestInfo; pages: PageObjects; crew: string },
     seed: SeedResult,
 ): Promise<TransferOutcome> {
     const candidates = await openScopedCandidates(run, { pages: opts.pages, crew: opts.crew }, seed);
@@ -1295,7 +1298,7 @@ export async function prepareJourneyD5(
 /**
  * Creates the day's two time cards on screen — Add Time-In (07:00) and the deliberately wrong Add
  * Time-Out (11:00) — then reads them back and records both before anything is asserted. The picker
- * is the filter: the Time Out carries no Work Crew, so a crew filter would miss it.
+ * is the filter for the read-back. Both cards carry D5 CREW, so the Transfer scope by Time Card Crew sees them.
  */
 export async function seedOnScreenDay(
     run: JourneyD5Run,
@@ -1313,7 +1316,7 @@ export async function seedOnScreenDay(
     await expect(transfer.recordToast(expected.toasts.timeInCreated), `${run.scenario.label}: the Time In must save`).toBeVisible();
 
     await transfer.openAddRecord('timeOut');
-    await transfer.addTimeOut({ day: run.day, time: clock(wrongTimeOut), employee: run.picker.name });
+    await transfer.addTimeOut({ day: run.day, time: clock(wrongTimeOut), employee: run.picker.name, crew: run.crew.name });
     await expect(transfer.recordToast(expected.toasts.timeOutCreated), `${run.scenario.label}: the Time Out must save`).toBeVisible();
 
     let own: OfficeTimeCard[] = [];
@@ -1330,6 +1333,9 @@ export async function seedOnScreenDay(
         throw new Error(`${run.scenario.label}: expected one Time In and one Time Out for ${run.picker.name} on ${run.day}, found card types ${JSON.stringify(own.map((c) => c.cardType))}.`);
     }
     if (own.some((c) => c.transferred)) throw new Error(`${run.scenario.label}: a freshly created time card already reads transferred.`);
+    if (Number(timeOutCard.crewCounter) !== run.crew.id) {
+        throw new Error(`${run.scenario.label}: the Time Out saved with Work Crew ${String(timeOutCard.crewCounter)}, not ${run.crew.name} (${run.crew.id}) — a crew-scoped Transfer would not see it.`);
+    }
     return {
         timeCardCounters: own.map((c) => c.timeCardCounter),
         timeInId: timeInCard.timeCardCounter,
@@ -1349,7 +1355,7 @@ export interface ReversibleRun {
     sessionUserId: number;
 }
 
-/** The slice of a D5 run the shared transfer helpers read. Crew-scoped, never filtered by crew on screen. */
+/** The slice of a D5 run the shared transfer helpers read. */
 function ownDayView(run: JourneyD5Run, expectedJobCards: number) {
     return {
         scenario: { label: run.scenario.label, expected: { jobCards: expectedJobCards } },
@@ -1361,8 +1367,8 @@ function ownDayView(run: JourneyD5Run, expectedJobCards: number) {
 }
 
 /**
- * Re-load the day on the Transfer screen and guard the roster. Runs WITHOUT a crew filter: the execute
- * re-plans the whole day, so the screen must offer exactly this run's two References and nothing else.
+ * Re-load the day on the Transfer screen scoped to D5 CREW and guard the roster: the screen must offer
+ * exactly this run's two References and nothing else.
  */
 export async function reanalyzeOwnDay(
     run: JourneyD5Run,
@@ -1370,7 +1376,7 @@ export async function reanalyzeOwnDay(
     seed: D5Seed,
     expectedJobCards: number,
 ): Promise<string[]> {
-    return openScopedCandidates(ownDayView(run, expectedJobCards), { pages: opts.pages }, seed);
+    return openScopedCandidates(ownDayView(run, expectedJobCards), { pages: opts.pages, crew: run.crew.name }, seed);
 }
 
 /** Analyze, guard, tick the two own rows by Reference and commit; commitTransfer asserts the toast. */
@@ -1381,7 +1387,7 @@ export async function transferOwnDay(
     expectedJobCards: number,
 ): Promise<TransferOutcome> {
     const view = ownDayView(run, expectedJobCards);
-    const candidates = await openScopedCandidates(view, { pages: opts.pages }, seed);
+    const candidates = await openScopedCandidates(view, { pages: opts.pages, crew: run.crew.name }, seed);
     return commitTransfer(view, opts, seed, candidates, { jobCards: expectedJobCards, timeCards: seed.timeCardCounters.length });
 }
 

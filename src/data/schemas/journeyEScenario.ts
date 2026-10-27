@@ -1057,7 +1057,7 @@ export const JourneyE10ExportIdentifierCaseSchema = z
         const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
         const { capture, expected, identifiers } = s;
 
-        if (s.dayOffset !== -16) issue(['dayOffset'], 'E10 owns day -16 (E9 is -17; E2 CREW is busy on -14, -18..-21 and the E1/E3 week)');
+        if (s.dayOffset !== -15) issue(['dayOffset'], 'E10 owns day -15 (shared with D3 on D3 CREW, analyze-only; E9 -17; E2 CREW busy on -14, -18..-21)');
         if (!(minutes(capture.timeIn) < minutes(capture.timeOut))) issue(['capture'], 'timeIn must be before timeOut');
         if (expected.grossHours !== (minutes(capture.timeOut) - minutes(capture.timeIn)) / 60) issue(['expected', 'grossHours'], 'must equal (timeOut - timeIn) / 60');
         if (!(expected.grossHours <= s.rule.dailyOvertimeAfterHours)) issue(['expected', 'grossHours'], 'must not exceed rule.dailyOvertimeAfterHours: E10 carries no overtime');
@@ -1083,7 +1083,7 @@ export const JourneyE10ExportIdentifierCaseSchema = z
         if (expected.recordsWritten !== expected.jobCards) issue(['expected', 'recordsWritten'], 'must equal jobCards');
 
         const timeCardsStep = s.cleanup.find((step) => step.kind === 'timeCards');
-        if (timeCardsStep?.kind !== 'timeCards' || timeCardsStep.dayOffset !== -16) issue(['cleanup'], 'a timeCards cleanup step with dayOffset -16 is required');
+        if (timeCardsStep?.kind !== 'timeCards' || timeCardsStep.dayOffset !== -15) issue(['cleanup'], 'a timeCards cleanup step with dayOffset -15 is required');
         if (s.cleanup.some((step) => step.kind === 'restore')) issue(['cleanup'], "no restore step: E10 JOB's identifier is re-armed on screen every run");
     });
 

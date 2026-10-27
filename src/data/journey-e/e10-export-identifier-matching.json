@@ -1,12 +1,12 @@
 {
     "_notes": [
-        "E10 - Export-identifier matching. E2 CREW / E2 PICKER ONE on day -16, one 06:00-14:00 card on E10 JOB (4623, rate 20, AG CA 2022): 8 regular hours, 160.00.",
+        "E10 - Export-identifier matching. E2 CREW / E2 PICKER ONE on day -15, one 06:00-14:00 card on E10 JOB (4623, rate 20, AG CA 2022): 8 regular hours, 160.00.",
         "identifiers.initial is set on the Job form on every run (a killed run that left 'corrected' heals itself); the test reverses the first export, sets identifiers.corrected and exports again. Both are alphanumeric, space-free and neither contains the other or the job name, so a substring search of the file is unambiguous.",
         "The accounting system's rejection happens in Famous, outside PET Web; it is recorded as not-automatable and the corrected identifier is treated as the code it expects."
     ],
     "workflow": "E10",
     "label": "e10-export-identifier-matching",
-    "dayOffset": -16,
+    "dayOffset": -15,
     "rule": { "name": "AG CA 2022", "dailyOvertimeAfterHours": 8 },
     "hourlyRate": 20,
     "job": { "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
@@ -42,5 +42,5 @@
         "nothingToExport": "Nothing to export"
     },
     "reverse": { "type": "Payroll", "performedBy": "Su", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
-    "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -16, "cardTypes": [0, 1] }]
+    "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -15, "cardTypes": [0, 1] }]
 }
