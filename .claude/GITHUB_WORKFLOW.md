@@ -43,21 +43,6 @@ Continue this loop only while the failure is reasonably actionable. Do not repea
 retry without diagnosing. A red caused by the environment (dev session loss, staging
 deploy lag) is reported as such, not "fixed" in test code.
 
-## Code review
-
-`.github/CODEOWNERS` requests the code owner's review on every PR to `main`
-automatically (GitHub skips the PR's own author).
-
-On a PR it opened, the orchestrator answers every review comment: it fixes and pushes
-the ones it can verify (re-validating locally first), or replies on the thread
-saying why not. It never resolves a human reviewer's thread for a larger design ask.
-When a push dismisses an approval, it says whose approval is needed again.
-
-### One-time setup (human-only)
-
-* Settings → Branches → `main`: require a pull request with ≥1 approval, require
-  review from Code Owners, and dismiss stale approvals on new commits.
-
 ## Human approval boundary
 
 The following require human control unless explicitly authorized:
@@ -69,6 +54,6 @@ The following require human control unless explicitly authorized:
 * Unrelated architectural changes
 
 ```text
-Claude:  Analyze → Implement → Test → Heal → Commit → Push → PR → CI → Review fixes
+Claude:  Analyze → Implement → Test → Heal → Commit → Push → PR → CI
 Human:   Review → Merge
 ```
