@@ -36,6 +36,15 @@
       "hourlyRate": 20
     }
   },
+  "e9": {
+    "jobs": {
+      "coded": { "code": "4621", "name": "E9 JOB CODED", "paymentType": "Time", "hourlyRate": 20 },
+      "nocode": { "code": "4622", "name": "E9 JOB NOCODE", "paymentType": "Time", "hourlyRate": 20 }
+    }
+  },
+  "e10": {
+    "job": { "code": "4623", "name": "E10 JOB", "paymentType": "Time", "hourlyRate": 20 }
+  },
   "e2": {
     "crew": {
       "code": "8016",

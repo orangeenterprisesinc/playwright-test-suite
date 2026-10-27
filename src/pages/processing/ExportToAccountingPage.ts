@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { Download, Locator, Page, Response, Route, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
@@ -35,6 +35,18 @@ export interface ExportOutcome {
 
 const CONFIRM_TEXT = /^Export (\d+) JobCard(?:\(s\)|s)? to (.+) via (.+)\?$/;
 const OWN_PATH = /\/export-to-accounting\/runs\/(\d+)/;
+const DOWNLOAD_PATH = /\/export-to-accounting\/download\/(\d+)/;
+
+export interface RunFile {
+    /** false when "No export file was stored for this run" showed instead of a download. */
+    stored: boolean;
+    /** The `GET …/download/{id}` answer; 0 when none was seen. */
+    status: number;
+    path: string;
+    bytes: number;
+    suggestedFilename: string;
+    text: string;
+}
 
 /**
  * File ▸ Export to Accounting (`/export-to-accounting`, v2). Locators come from the 2026-10-26 dev probe and are
@@ -50,6 +62,11 @@ export class ExportToAccountingPage extends BasePage {
     readonly grid: Locator;
     readonly exportButton: Locator;
     readonly destinationText: Locator;
+    readonly testFile: TestFileSheet;
+    // CALIBRATE: the Recent Exports locators are unmeasured; the webpet ExportDispatchWorkspacePage testids are a reference only.
+    readonly recentButton: Locator;
+    readonly recentSheet: Locator;
+    readonly noStoredFileText: Locator;
     private readonly pickPrompt: Locator;
     private readonly leftNav: LeftNavigationPage;
 
@@ -63,6 +80,10 @@ export class ExportToAccountingPage extends BasePage {
         this.grid = page.getByRole('grid', { name: 'Candidates' });
         this.exportButton = page.getByRole('button', { name: /^Export (\d+) JobCards?$/ });
         this.destinationText = page.getByText(/·\s*File output/).first();
+        this.testFile = new TestFileSheet(page);
+        this.recentButton = page.getByTestId('export-v2-history-button').or(page.getByRole('button', { name: /^Recent/ })).first();
+        this.recentSheet = page.getByTestId('export-v2-history-sheet').or(page.getByRole('dialog', { name: /Recent Exports/i })).first();
+        this.noStoredFileText = page.getByText(/No export file was stored for this run/);
     }
 
     async openFromMenu(): Promise<void> {
@@ -131,6 +152,54 @@ export class ExportToAccountingPage extends BasePage {
         return { runStatus: runsResponse.status(), candidatesStatus: candidatesResponse.status() };
     }
 
+    async openRecentExports(): Promise<void> {
+        await this.recentButton.click();
+        await this.recentSheet.waitFor({ state: 'visible', timeout: 15_000 });
+    }
+
+    async closeRecentExports(): Promise<void> {
+        await this.page.keyboard.press('Escape');
+        await expect(this.recentSheet).toBeHidden({ timeout: 15_000 });
+    }
+
+    /** The own run's row by id; never "the newest row", so a missing own row fails by name. */
+    recentRow(runId: number): Locator {
+        return this.page.getByTestId(`export-v2-history-row-${runId}`);
+    }
+
+    async recordsWritten(runId: number): Promise<number> {
+        const row = this.recentRow(runId);
+        await row.waitFor({ state: 'visible', timeout: 15_000 });
+        const text = (await row.innerText()).replace(/\s+/g, ' ');
+        const count = /(\d+) records? written/.exec(text)?.[1];
+        if (count === undefined) throw new Error(`Recent Exports row ${runId} shows no "N records written": "${text.slice(0, 200)}"`);
+        return Number(count);
+    }
+
+    /**
+     * Download file on the own run's row. Throws if the response answers another run's id; returns `stored: false`
+     * when "No export file was stored for this run" shows instead of a download.
+     */
+    async downloadRunFile(runId: number, saveTo: string): Promise<RunFile> {
+        const isDownload = (r: Response): boolean => r.request().method() === 'GET' && DOWNLOAD_PATH.test(new URL(r.url()).pathname);
+        const response = this.page.waitForResponse(isDownload, { timeout: 30_000 });
+        const download = this.page.waitForEvent('download', { timeout: 30_000 });
+        response.catch(() => undefined);
+        download.catch(() => undefined);
+        await this.recentRow(runId).getByRole('button', { name: /Download file/i }).click();
+
+        const file = await Promise.race([download, this.noStoredFileText.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => null)]);
+        const answered = await response.catch(() => null);
+        if (answered) {
+            const answeredId = Number(DOWNLOAD_PATH.exec(new URL(answered.url()).pathname)?.[1]);
+            if (answeredId !== runId) throw new Error(`Refusing the download: the response is for run ${answeredId}, this test owns run ${runId}.`);
+        }
+        const status = answered?.status() ?? 0;
+        if (!file) return { stored: false, status, path: saveTo, bytes: 0, suggestedFilename: '', text: '' };
+        await file.saveAs(saveTo);
+        return { stored: true, status, path: saveTo, bytes: statSync(saveTo).size, suggestedFilename: file.suggestedFilename(), text: readFileSync(saveTo, 'utf8') };
+    }
+
     toastText(text: string | RegExp): Locator {
         return this.page.getByText(text).first();
     }
@@ -179,7 +248,7 @@ export class ExportToAccountingPage extends BasePage {
      * Evidence only — it never throws, so a sheet change cannot fail the export it describes.
      */
     async readTestFile(): Promise<{ ready: number; cannotExport: number; failures: string[] } | { error: string }> {
-        const sheet = new TestFileSheet(this.page);
+        const sheet = this.testFile;
         try {
             await sheet.open();
             const summary = await sheet.readSummary();
@@ -188,7 +257,8 @@ export class ExportToAccountingPage extends BasePage {
             await sheet.close();
             return { ...summary, failures };
         } catch (e) {
-            await this.page.keyboard.press('Escape').catch(() => undefined);
+            // Escape does not close this sheet; a sheet left open hides the grid from the export that follows.
+            await sheet.close().catch(() => this.page.keyboard.press('Escape').catch(() => undefined));
             return { error: String(e).slice(0, 300) };
         }
     }

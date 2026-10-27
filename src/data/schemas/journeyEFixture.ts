@@ -42,6 +42,12 @@ const E13Block = z
 // E11 reuses E2's crew and picker; this block holds only its own job (earning codes live in the scenario JSON).
 const E11Block = z.object({ job: E2Job }).strict();
 
+// E9 owns two jobs: one with its earning code typed, one with it cleared (the gap Test File flags).
+const E9Block = z.object({ jobs: z.object({ coded: E2Job, nocode: E2Job }).strict() }).strict();
+
+// E10 owns one job whose export identifier differs from its name (identifiers live in the scenario JSON).
+const E10Block = z.object({ job: E2Job }).strict();
+
 // E1 owns a department, its own crew and picker, and two jobs at different rates (the average sits between them).
 const E1Block = z
     .object({
@@ -61,6 +67,8 @@ export const JourneyEFixtureSchema = z
         _notes: z.array(z.string()).optional(),
         e2: E2Block.optional(),
         e11: E11Block.optional(),
+        e9: E9Block.optional(),
+        e10: E10Block.optional(),
         e13: E13Block.optional(),
         e6: E6Block.optional(),
         // E3 has the same shape as E2: its own crew, picker and job.
@@ -73,5 +81,7 @@ export type JourneyEFixture = z.infer<typeof JourneyEFixtureSchema>;
 export type JourneyE2Fixture = z.infer<typeof E2Block>;
 export type JourneyE1Fixture = z.infer<typeof E1Block>;
 export type JourneyE11Fixture = z.infer<typeof E11Block>;
+export type JourneyE9Fixture = z.infer<typeof E9Block>;
+export type JourneyE10Fixture = z.infer<typeof E10Block>;
 export type JourneyE6Fixture = z.infer<typeof E6Block>;
 export { E2Block };
