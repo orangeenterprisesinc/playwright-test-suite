@@ -3,8 +3,39 @@
     "Fixed Journey E fixture (catalog E2, plan test-plans/journey-e/e02-california-daily-overtime.md). Built on screen through src/utils/fixtureRows/ensureOnScreen.ts, never by API POST, and never deleted.",
     "Codes continue Journey D's block: D10 took crew 8014 / employee 8015 and jobs 4604-4606. Job code 4602 stays burnt by a soft-deleted 'D6 JOB RATE PROBE' that owns its code in the recycle bin (WEBPET-2368) and would 409 the New Job form. 8016, 8017 and 4607 were probed free (live rows and recycle bin) on 2026-10-05.",
     "Names start with 'E2 ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^E\\d{1,2} / so the residue sweep and fixtureReconcile can never reclaim them. The trailing space matters: 'E2EEmp_' and the other E2E sweep prefixes stay sweepable.",
-    "E2 JOB carries hourlyRate 20 so 1.5x and 2x are exact in two decimals; the overtime rule (AG CA 2022) and the rate are applied through the Job form on every run, because ensureOnScreen never applies either."
+    "E2 JOB carries hourlyRate 20 so 1.5x and 2x are exact in two decimals; the overtime rule (AG CA 2022) and the rate are applied through the Job form on every run, because ensureOnScreen never applies either.",
+    "E3 (weekly overtime) owns crew 8022 / employee 8023 / job 4617; 8018/8019 are D3's. Codes must be probed free (live rows and recycle bin) before the first commit."
   ],
+  "e1": {
+    "department": { "name": "E1 DEPARTMENT" },
+    "crew": { "code": "8024", "name": "E1 CREW" },
+    "picker": { "code": "8025", "name": "E1 PICKER ONE" },
+    "jobs": {
+      "high": { "code": "4618", "name": "E1 JOB HIGH", "paymentType": "Time", "hourlyRate": 35 },
+      "low": { "code": "4619", "name": "E1 JOB LOW", "paymentType": "Time", "hourlyRate": 20 }
+    }
+  },
+  "e3": {
+    "crew": { "code": "8022", "name": "E3 CREW" },
+    "picker": { "code": "8023", "name": "E3 PICKER ONE" },
+    "job": { "code": "4617", "name": "E3 JOB", "paymentType": "Time", "hourlyRate": 20 },
+    "rule": { "name": "E3 RULE", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "wageOrder": "E3", "agType": false, "weeklyRegularHours": 40, "weeklyStartDay": 7 }
+  },
+  "e6": {
+    "jobs": {
+      "jobA": { "code": "4611", "name": "E6 JOB A", "paymentType": "Time", "hourlyRate": 20 },
+      "jobB": { "code": "4612", "name": "E6 JOB B", "paymentType": "Time", "hourlyRate": 20 },
+      "jobC": { "code": "4613", "name": "E6 JOB C", "paymentType": "Time", "hourlyRate": 20 }
+    }
+  },
+  "e11": {
+    "job": {
+      "code": "4616",
+      "name": "E11 JOB",
+      "paymentType": "Time",
+      "hourlyRate": 20
+    }
+  },
   "e2": {
     "crew": {
       "code": "8016",
@@ -19,6 +50,16 @@
       "name": "E2 JOB",
       "paymentType": "Time",
       "hourlyRate": 20
+    }
+  },
+  "e13": {
+    "rules": {
+      "ruleA": { "name": "E13 RULE A", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "wageOrder": "E13A", "agType": false },
+      "ruleB": { "name": "E13 RULE B", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12, "wageOrder": "E13B", "agType": false }
+    },
+    "jobs": {
+      "jobA": { "code": "4614", "name": "E13 JOB A", "paymentType": "Time", "hourlyRate": 20, "rule": "ruleA" },
+      "jobB": { "code": "4615", "name": "E13 JOB B", "paymentType": "Time", "hourlyRate": 20, "rule": "ruleB" }
     }
   }
 }

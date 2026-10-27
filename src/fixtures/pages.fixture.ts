@@ -24,11 +24,14 @@ import { LeftNavigationPage } from '../pages/shell/LeftNavigationPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { PreferencesPage } from '../pages/admin/PreferencesPage';
 import { NotificationsPage } from '../pages/admin/NotificationsPage';
+import { JobCardPreferencesPage } from '../pages/admin/JobCardPreferencesPage';
 import { TransferToJobCardsPage } from '../pages/processing/TransferToJobCardsPage';
 import { JobCardsPage } from '../pages/processing/JobCardsPage';
 import { ViewJobCardsPage } from '../pages/processing/ViewJobCardsPage';
 import { ViewTimeCardsPage } from '../pages/processing/ViewTimeCardsPage';
 import { JobPage } from '../pages/setup/JobPage';
+import { OvertimeRulePage } from '../pages/setup/OvertimeRulePage';
+import { DepartmentPage } from '../pages/setup/DepartmentPage';
 import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
 import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
 import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
@@ -44,6 +47,8 @@ import { EmployeePage } from '../pages/setup/EmployeePage';
 import { CropPage } from '../pages/setup/CropPage';
 import { DeletedRecordsPage } from '../pages/admin/DeletedRecordsPage';
 import { BulkDeleteHistoryPage } from '../pages/admin/BulkDeleteHistoryPage';
+import { ReverseExportPage } from '../pages/admin/ReverseExportPage';
+import { ExportToAccountingPage } from '../pages/processing/ExportToAccountingPage';
 
 /**
  * Every page object, lazily constructed.
@@ -64,6 +69,8 @@ export interface PageObjects {
     readonly preferences: PreferencesPage;
     /** Setup ▸ Notifications, `/setup/notifications` — UI-005 builds and fires one on screen. */
     readonly notifications: NotificationsPage;
+    /** File ▸ Administration ▸ Job Card Preferences, `/settings/job-card-preferences` — Time Decimal Accuracy (E6). */
+    readonly jobCardPreferences: JobCardPreferencesPage;
     /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
     readonly scanDevice: ScanDevicePage;
     /** Setup ▸ Table — pack-house sub-crew tables, `/setup/crew-tables` (C6). */
@@ -84,6 +91,10 @@ export interface PageObjects {
 
     /** Setup ▸ Job — the job record D6 re-rates on screen. */
     readonly job: JobPage;
+    /** Setup ▸ Over-Time-Rule, `/setup/overtime-rules` — E13's two wage-order rules. */
+    readonly overtimeRule: OvertimeRulePage;
+    /** Setup ▸ Department, `/setup/departments` — E1's own department and its Weekly Overtime Method. */
+    readonly department: DepartmentPage;
 
     // ── setup: the fixture rows, created and repaired on screen (UI-first) ──
     /** Setup ▸ Ranch, `/setup/ranches`. */
@@ -100,6 +111,10 @@ export interface PageObjects {
     readonly deletedRecords: DeletedRecordsPage;
     /** File ▸ Restore or Reverse ▸ Reverse Multi Delete (D8). */
     readonly bulkDeleteHistory: BulkDeleteHistoryPage;
+    /** File ▸ Export to Accounting, `/export-to-accounting` (E11). */
+    readonly exportToAccounting: ExportToAccountingPage;
+    /** File ▸ Administration ▸ Restore or Reverse ▸ Reverse Payroll Export to Accounting (E11). */
+    readonly reverseExport: ReverseExportPage;
 
     // ── Input ▸ Batch — the office crew punches (D6 arrange) ──
     readonly crewTimeIn: CrewTimeInPage;
@@ -136,6 +151,7 @@ export function createPageObjects(page: Page): PageObjects {
         get users() { return lazy('users', () => new UsersPage(page)); },
         get preferences() { return lazy('preferences', () => new PreferencesPage(page)); },
         get notifications() { return lazy('notifications', () => new NotificationsPage(page)); },
+        get jobCardPreferences() { return lazy('jobCardPreferences', () => new JobCardPreferencesPage(page)); },
         get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
         get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
@@ -143,6 +159,8 @@ export function createPageObjects(page: Page): PageObjects {
         get viewJobCards() { return lazy('viewJobCards', () => new ViewJobCardsPage(page)); },
         get viewTimeCards() { return lazy('viewTimeCards', () => new ViewTimeCardsPage(page)); },
         get job() { return lazy('job', () => new JobPage(page)); },
+        get overtimeRule() { return lazy('overtimeRule', () => new OvertimeRulePage(page)); },
+        get department() { return lazy('department', () => new DepartmentPage(page)); },
         get ranch() { return lazy('ranch', () => new RanchPage(page)); },
         get field() { return lazy('field', () => new FieldPage(page)); },
         get crew() { return lazy('crew', () => new CrewPage(page)); },
@@ -150,6 +168,8 @@ export function createPageObjects(page: Page): PageObjects {
         get crop() { return lazy('crop', () => new CropPage(page)); },
         get deletedRecords() { return lazy('deletedRecords', () => new DeletedRecordsPage(page)); },
         get bulkDeleteHistory() { return lazy('bulkDeleteHistory', () => new BulkDeleteHistoryPage(page)); },
+        get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
+        get reverseExport() { return lazy('reverseExport', () => new ReverseExportPage(page)); },
         get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },
         get crewPieceOut() { return lazy('crewPieceOut', () => new CrewPieceOutPage(page)); },
         get crewTimeOut() { return lazy('crewTimeOut', () => new CrewTimeOutPage(page)); },

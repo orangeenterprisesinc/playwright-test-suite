@@ -2,6 +2,7 @@ import { expect, test, Locator, Page, Response } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
+import { pickRangeInPopup, usDate } from './dateRangePopup';
 
 /**
  * Input ▸ Transfer to Job Card (catalog D2/D4) — the screen Amy's Journey B
@@ -821,13 +822,31 @@ export class TransferToJobCardsPage extends BasePage {
         );
     }
 
+    /** A multi-day scope: two day-cell clicks, read back before Apply, the chip asserted at both ends. */
+    async scopeToRange(from: string, to: string): Promise<void> {
+        await this.dateRangeFilter.click();
+        const popup = this.page.getByRole('dialog');
+        await popup.waitFor({ state: 'visible', timeout: 10_000 });
+        await pickRangeInPopup(popup, from, to);
+        await popup.getByRole('button', { name: /^apply$/i }).click();
+        await expect(this.dateRangeFilter, `the date scope must read ${usDate(from)} – ${usDate(to)}`).toContainText(
+            new RegExp(`${usDate(from)}\\s*[–-]\\s*${usDate(to)}`),
+            { timeout: 20_000 },
+        );
+    }
+
     /**
      * Run the analyze and wait for the grid to settle. The click returns immediately while the
      * candidates load, so reading the rows straight afterwards reports an empty screen rather than
      * an unfinished one — and an empty screen is indistinguishable from "nothing to transfer".
      */
-    async analyzeCandidates(opts: { expected?: number } = {}): Promise<void> {
+    async analyzeCandidates(opts: { expected?: number } = {}): Promise<{ crewIds: unknown[] }> {
         await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 20_000 });
+        const posted = this.page.waitForRequest(
+            (r) => r.method() === 'POST' && /\/transfer-to-job-cards\/analyze$/.test(new URL(r.url()).pathname),
+            { timeout: 30_000 },
+        );
+        posted.catch(() => undefined);
         await this.analyzeCandidatesButton.click();
         const wanted = opts.expected ?? 1;
         await expect
@@ -836,6 +855,9 @@ export class TransferToJobCardsPage extends BasePage {
                 message: `analyze loaded no transfer candidates (expected ${wanted})`,
             })
             .toBeGreaterThanOrEqual(wanted);
+        const sent = await posted.catch(() => null);
+        const body = (sent?.postDataJSON() ?? {}) as { crewIds?: unknown[] };
+        return { crewIds: body.crewIds ?? [] };
     }
 
     /**
@@ -1146,6 +1168,27 @@ export class TransferToJobCardsPage extends BasePage {
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(this.crewSearch).toBeHidden({ timeout: 10_000 });
+    }
+
+    /**
+     * Server-side scope: "Search by ▸ Time Card Crew" fills crewIds on analyze and execute. The Work Crew
+     * grid filter is display-only, so a transfer commits every analyzed candidate, other runs' included.
+     */
+    async scopeToTimeCardCrew(name: string): Promise<void> {
+        const criterion = this.page.getByTestId('transfer-search-criterion');
+        const picker = this.page.getByTestId('transfer-filter-crews');
+        const chip = (): Locator => criterion.getByRole('button', { name: `Remove ${name}`, exact: true });
+
+        if (await chip().isVisible()) return;
+        await this.page.getByTestId('transfer-search-by-trigger').click();
+        await this.page.getByTestId('transfer-search-by-crew').click();
+        await expect(picker).toBeVisible({ timeout: 10_000 });
+        await picker.click();
+        const dialog = this.page.getByRole('dialog');
+        await dialog.getByRole('button', { name: name, exact: true }).click();
+        await this.page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden({ timeout: 10_000 });
+        await expect(chip(), `Time Card Crew scope shows "${name}"`).toBeVisible({ timeout: 10_000 });
     }
 
     async clearCrewFilter(): Promise<void> {

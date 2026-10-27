@@ -44,8 +44,8 @@ function asArray(body: unknown): JobCardRecord[] {
     return wrapped?.items ?? wrapped?.data ?? [];
 }
 
-export async function listJobCards(request: APIRequestContext, opts: { from: string; to: string }): Promise<JobCardRecord[]> {
-    const res = await request.get('job-cards', { params: { from: opts.from, to: opts.to } });
+export async function listJobCards(request: APIRequestContext, opts: { from: string; to: string; includeExported?: boolean }): Promise<JobCardRecord[]> {
+    const res = await request.get('job-cards', { params: { from: opts.from, to: opts.to, ...(opts.includeExported ? { includeExported: 'true' } : {}) } });
     if (!res.ok()) {
         throw new Error(`GET job-cards failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
     }

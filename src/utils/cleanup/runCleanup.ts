@@ -56,6 +56,7 @@ interface Restorer {
 //   pieceOutPreferences   → the seven piece-out/sticker-roll preferences A9 writes through the UI
 //   d6JobPieceRate        → the fixture job's pieceRate (D6 raises it, restore puts it back)
 //   e2JobRuleAndRate      → the fixture job's overtimeRulesCounter + hourlyRate (E2/E8 set both on the Job form)
+//   timeDecimalRounding   → the tenant's Time Decimal Accuracy (E6 changes it on screen, restore puts it back even after a timeout)
 //   deviceEmployeeMembership → takes A5's employee id off the shared device (deleting the employee leaves a dangling row)
 const RESTORERS: Record<string, Restorer> = {
     crewNotifyUser: {
@@ -104,6 +105,12 @@ const RESTORERS: Record<string, Restorer> = {
         },
         restore: async (api, snapshot, ctx) => {
             await setJobFields(api, journeyJobId(ctx), snapshot as Record<string, unknown>);
+        },
+    },
+    timeDecimalRounding: {
+        snapshot: async (api) => snapshotPreferences(api, ['timeDecimalRounding']),
+        restore: async (api, snapshot) => {
+            await restorePreferences(api, snapshot as PreferencesSnapshot);
         },
     },
     deviceEmployeeMembership: {

@@ -17,8 +17,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12491",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "E2",
@@ -58,8 +59,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12669",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "E4",
@@ -78,6 +80,7 @@
             "tags": [
                 "regression"
             ],
+            "jira": "PET-12670",
             "status": "draft",
             "enabled": false
         },
@@ -122,7 +125,8 @@
                 "regression"
             ],
             "demo": true,
-            "status": "draft",
+            "jira": "PET-12671",
+            "status": "automated",
             "enabled": false
         },
         {
@@ -225,7 +229,8 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
+            "jira": "PET-12675",
+            "status": "automated",
             "enabled": false
         },
         {
@@ -267,8 +272,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12676",
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

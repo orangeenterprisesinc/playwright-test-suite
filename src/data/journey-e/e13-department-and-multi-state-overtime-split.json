@@ -1,0 +1,43 @@
+{
+    "_notes": [
+        "E13 - Department and multi-state overtime split. Two jobs on two wage-order rules (E13A / E13B, OT after 8, DT after 12), one crew day on -21: 6 h on Job A then 4 h on Job B.",
+        "Pooled, 10 h would read 8 regular + 2 overtime (220.00). With Group Overtime by Wage Order = Yes each bucket stays under 8: 6 + 4 regular, no overtime (200.00).",
+        "Rule, thresholds and the two jobs live in fixture.json (e13). Group Overtime by Wage Order is read on its screen, never written."
+    ],
+    "workflow": "E13",
+    "label": "e13-department-and-multi-state-overtime-split",
+    "dayOffset": -21,
+    "hourlyRate": 20,
+    "overtimeMultiplier": 1.5,
+    "doubleTimeMultiplier": 2,
+    "segments": [
+        { "job": "jobA", "start": { "hour": 6, "minute": 0 } },
+        { "job": "jobB", "start": { "hour": 12, "minute": 0 } }
+    ],
+    "timeOut": { "hour": 16, "minute": 0 },
+    "gates": { "groupOvertimeByWageOrder": "Yes", "payOvertimeBasedOnWeeklyAvg": "None" },
+    "preferenceLabels": { "groupByWageOrder": "Group Overtime by Wage Order" },
+    "expected": {
+        "timeCards": 3,
+        "jobCards": 2,
+        "status": "Ready",
+        "perJob": {
+            "jobA": { "hours": 6, "regular": 6, "overtime": 0, "double": 0, "amount": 120 },
+            "jobB": { "hours": 4, "regular": 4, "overtime": 0, "double": 0, "amount": 80 }
+        },
+        "totals": { "gross": 10, "regular": 10, "overtime": 0, "double": 0, "amount": 200 },
+        "pooledContrast": { "regular": 8, "overtime": 2, "double": 0, "amount": 220 },
+        "transferToast": { "jobCards": 2, "timeCards": 3 }
+    },
+    "annotations": [
+        {
+            "type": "deferred",
+            "description": "Group and report results by department: report output is not automated (Reports epic WEBPET-1839), and whether a Department selects an overtime rule is plan open question 1."
+        },
+        {
+            "type": "out-of-scope",
+            "description": "OT-005 weekly-average overtime (payOvertimeBasedOnWeeklyAvg): None on dev for the employer and every department; read as a gate only, because averaging would change the daily expectation."
+        }
+    ],
+    "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -21, "cardTypes": [0, 1] }]
+}

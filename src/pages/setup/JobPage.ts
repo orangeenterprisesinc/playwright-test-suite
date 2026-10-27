@@ -38,6 +38,8 @@ export class JobPage extends SetupScreenPage {
     readonly paymentTypeSelect: Locator;
     readonly overtimeRulesCombobox: Locator;
     readonly considerEmployeeRateControl: Locator;
+    /** Textbox "Earning Code" (measured 2026-10-26); comma-separated, e.g. RH,,OT,,DT,,RDP,,ODT,,DDT. */
+    readonly earningCodesInput: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -56,6 +58,7 @@ export class JobPage extends SetupScreenPage {
         // Lower-case t here; Setup ▸ Field spells the same field `#overTimeRulesCounter`.
         this.overtimeRulesCombobox = page.locator('#overtimeRulesCounter');
         this.considerEmployeeRateControl = page.getByLabel(/Consider Employee Rate/i);
+        this.earningCodesInput = page.getByRole('textbox', { name: 'Earning Code', exact: true });
         this.pickers = new PickerComponent(page);
     }
 
@@ -176,6 +179,30 @@ export class JobPage extends SetupScreenPage {
         await this.hourlyRateInput.waitFor({ state: 'visible', timeout: 30_000 });
         await expect(this.hourlyRateInput).not.toHaveValue('', { timeout: 30_000 });
         return this.hourlyRateInput.inputValue();
+    }
+
+    /** Read once the form has hydrated (Name holds the record's value), or an already-set field looks empty. */
+    async readEarningCodes(): Promise<string> {
+        await expect(this.nameInput).not.toHaveValue('', { timeout: 30_000 });
+        await this.earningCodesInput.waitFor({ state: 'visible', timeout: 15_000 });
+        return this.earningCodesInput.inputValue();
+    }
+
+    /** Read-first no-op; otherwise types, saves and returns what a fresh load of the record shows. */
+    async setEarningCodes(value: string): Promise<string> {
+        const current = await this.readEarningCodes();
+        if (current === value) return current;
+
+        const id = this.savedIdFromUrl();
+        const name = await this.nameInput.inputValue();
+        await this.earningCodesInput.fill(value);
+        await this.earningCodesInput.blur();
+        await expect(this.saveButton, `Save stayed disabled after setting Earning Codes to ${value}`).toBeEnabled({ timeout: 15_000 });
+        await this.saveButton.click();
+        await expect(this.unsavedChangesBar).toBeHidden({ timeout: 15_000 });
+
+        await this.gotoEditById(id, name);
+        return this.readEarningCodes();
     }
 
     /** Control shape is unverified (checkbox, switch or select), so try each reading in turn. */

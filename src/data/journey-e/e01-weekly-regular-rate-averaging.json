@@ -1,0 +1,34 @@
+{
+    "_notes": [
+        "E1 - Weekly regular-rate averaging. E1 PICKER ONE works Mon 5 h on E1 JOB HIGH (35), Tue 10 h on E1 JOB LOW (20) and Wed 5 h on HIGH, all in one Mon-Wed transfer.",
+        "Weekly regular rate = straight-time pay / gross hours: (175 + 200 + 175) / 20 = 27.5. Method entireRate prices overtime hours at 1.5 x that average.",
+        "Tue: 8 h regular x 20 + 2 h x 1.5 x 27.5 = 242.50. The contrast 570 is the overtime at the job's own rate (method None).",
+        "The one-day re-price of an earlier day (catalog step 3) is deferred as a product gap (WEBPET-3158) and lives in manual case E1-03.",
+        "The Monday is the one in days -12..-6, computed at run time. cleanup is empty by design: the flow sweeps per day itself."
+    ],
+    "workflow": "E1",
+    "label": "e01-weekly-regular-rate-averaging",
+    "mondayWindow": { "earliest": -12, "latest": -6 },
+    "rule": { "name": "AG CA 2022", "overtimeDailyHours": 8, "doubleTimeDailyHours": 12 },
+    "rates": { "high": 35, "low": 20 },
+    "overtimeMultiplier": 1.5,
+    "method": "entireRate",
+    "transfers": [
+        {
+            "days": [
+                { "weekday": 0, "job": "high", "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } },
+                { "weekday": 1, "job": "low", "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 16, "minute": 0 } },
+                { "weekday": 2, "job": "high", "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } }
+            ],
+            "toast": { "jobCards": 3, "timeCards": 6 },
+            "expected": {
+                "weeklyRate": 27.5,
+                "rows": { "0": 175, "1": 242.5, "2": 175 },
+                "totals": { "regular": 18, "overtime": 2, "double": 0, "amount": 592.5 },
+                "contrastAmount": 570
+            }
+        }
+    ],
+    "gates": { "employerPayOvertimeBasedOnWeeklyAvg": "None" },
+    "cleanup": []
+}

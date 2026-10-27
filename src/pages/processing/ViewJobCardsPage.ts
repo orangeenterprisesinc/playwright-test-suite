@@ -3,6 +3,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { ReportDialog, type ReportOutput } from './ReportDialog';
 import { TestFileSheet } from './TestFileSheet';
+import { pickRangeInPopup, usDate } from './dateRangePopup';
 
 /** The Totals bar, read by label. Numbers are NaN while a value is empty. */
 export interface JobCardTotals {
@@ -30,7 +31,7 @@ export interface JobCardCounts {
     pieces: DisplayedOfLoaded;
 }
 
-const ordinal = (n: number): string => {
+export const ordinal = (n: number): string => {
     if (n % 10 === 1 && n % 100 !== 11) return 'st';
     if (n % 10 === 2 && n % 100 !== 12) return 'nd';
     if (n % 10 === 3 && n % 100 !== 13) return 'rd';
@@ -125,6 +126,20 @@ export class ViewJobCardsPage extends BasePage {
         await expect(this.dateRange, `the date scope must read ${end} – ${end}`).toContainText(new RegExp(`${end}\\s*[–-]\\s*${end}`), { timeout: 20_000 });
     }
 
+    /** A multi-day scope: two day-cell clicks, read back before Apply, the chip asserted at both ends. Nothing loads until {@link applyFilter}. */
+    async scopeToRange(from: string, to: string): Promise<void> {
+        await this.expandFilter();
+        await this.dateRange.getByRole('button', { name: 'First Day Start – Last Day Start' }).click({ timeout: 15_000 });
+        const popup = this.page.getByRole('dialog');
+        await popup.waitFor({ state: 'visible', timeout: 10_000 });
+        await pickRangeInPopup(popup, from, to);
+        await popup.getByRole('button', { name: /^apply$/i }).click();
+        await expect(this.dateRange, `the date scope must read ${usDate(from)} – ${usDate(to)}`).toContainText(
+            new RegExp(`${usDate(from)}\\s*[–-]\\s*${usDate(to)}`),
+            { timeout: 20_000 },
+        );
+    }
+
     /**
      * Once loaded (a transfer landing, Apply or Refresh) the filter collapses to "<from> – <to> · Edit filter",
      * hiding the date button and the Include Exported switch.
@@ -137,6 +152,14 @@ export class ViewJobCardsPage extends BasePage {
 
     async applyFilter(): Promise<void> {
         await this.load(this.page.getByTestId('view-job-cards-apply'));
+    }
+
+    /** Expands the filter, flips the Include Exported switch only if its state differs, and asserts it. Apply after. */
+    async setIncludeExported(on: boolean): Promise<void> {
+        await this.expandFilter();
+        if ((await this.includeExportedSwitch.isChecked()) !== on) await this.includeExportedSwitch.click();
+        if (on) await expect(this.includeExportedSwitch, 'Include Exported must be on').toBeChecked({ timeout: 10_000 });
+        else await expect(this.includeExportedSwitch, 'Include Exported must be off').not.toBeChecked({ timeout: 10_000 });
     }
 
     async refresh(): Promise<void> {
@@ -174,6 +197,10 @@ export class ViewJobCardsPage extends BasePage {
         const option = this.page.getByRole('button', { name, exact: true });
         await expect(option, `the Crews chip offers no "${name}" option (no loaded row belongs to it)`).toBeVisible({ timeout: 15_000 });
         await option.click();
+        // The list re-renders after the search debounce and drops a toggle made in between (E1/E3/E13, 2026-10-27), so the
+        // pressed state is read back and the click repeated once; Clear (N) below is the proof either way.
+        const pressed = await expect(option).toHaveAttribute('aria-pressed', 'true', { timeout: 2_000 }).then(() => true, () => false);
+        if (!pressed) await option.click();
         await expect(this.page.getByRole('button', { name: /^Clear \(\d+\)$/ })).toBeVisible({ timeout: 10_000 });
         await this.page.keyboard.press('Escape');
         await expect(search).toBeHidden({ timeout: 10_000 });
@@ -298,6 +325,15 @@ export class ViewJobCardsPage extends BasePage {
         if (!match) throw new Error(`Job Cards '${header}' reads "${text}", which carries no clock time`);
         const hour = (Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0);
         return `${String(hour).padStart(2, '0')}:${match[2]}`;
+    }
+
+    /** "9/23/26 7:00 AM" → "2026-09-23". */
+    async readDay(row: Locator, header: string): Promise<string> {
+        const text = await this.readCell(row, header);
+        const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(text);
+        if (!match) throw new Error(`Job Cards '${header}' reads "${text}", which carries no date`);
+        const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+        return `${year}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
     }
 
     /** The row's Reference is its aria-label. */

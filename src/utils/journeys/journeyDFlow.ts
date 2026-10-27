@@ -60,6 +60,8 @@ interface TransferRun {
     scenario: { label: string; expected: { jobCards: number } };
     crew: EnsuredRecord;
     day: string;
+    /** Every `YYYY-MM-DD` of a multi-day scope, first to last; `day` stays the first. Absent for a one-day run. */
+    days?: string[];
     jobCardIds: number[];
     ctx: CleanupContext;
 }
@@ -295,8 +297,17 @@ export async function openScopedCandidates(
     const own = new Set((run.ctx.cards ?? []).map((c) => String(c.reference)));
 
     await transfer.openFromMenu();
-    await transfer.scopeToDay(run.day);
-    await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
+    if (run.days?.length) await transfer.scopeToRange(run.days[0], run.days[run.days.length - 1]);
+    else await transfer.scopeToDay(run.day);
+    // The Work Crew filter below only narrows the display; Transfer commits what analyze loaded, so scope the analyze itself.
+    if (opts.crew) await transfer.scopeToTimeCardCrew(opts.crew);
+    const analyzed = await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
+    if (opts.crew) {
+        expect(
+            analyzed.crewIds.length,
+            'transfer scope: analyze went out unscoped (crewIds []) — a concurrent run\'s time cards would be transferred',
+        ).toBeGreaterThan(0);
+    }
 
     if (opts.crew) {
         await transfer.filterByCrew(opts.crew);
@@ -351,7 +362,10 @@ export async function commitTransfer(
     testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: job card ids recorded for cleanup, execute job read for the run id` });
     let jobCardCounters: number[] = [];
     await expect(async () => {
-        const written = (await listJobCards(sessionApi, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+        const written: JobCardRecord[] = [];
+        for (const day of run.days ?? [run.day]) {
+            written.push(...(await listJobCards(sessionApi, { from: day, to: day })).filter((c) => Number(c.crewCounter) === run.crew.id));
+        }
         for (const card of written) if (!run.jobCardIds.includes(card.jobCardCounter)) run.jobCardIds.push(card.jobCardCounter);
         jobCardCounters = written.map((c) => c.jobCardCounter);
         if (written.length < run.scenario.expected.jobCards) {
@@ -360,7 +374,10 @@ export async function commitTransfer(
             if (!/^(complete|running|pending|queued|)$/i.test(job.status)) {
                 throw new Error(`transfer execute job ${jobId} ended ${job.status}: ${job.error ?? JSON.stringify(job.raw)}`);
             }
-            throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far`);
+            // A "complete" run can still have refused days (a duplicate Reference, 2026-10-26); name them.
+            const days = ((job.raw as { days?: Array<{ date?: string; error?: string }> } | undefined)?.days ?? []).filter((d) => d.error);
+            const refused = days.length ? ` — the execute refused ${days.length} day(s): ${days.map((d) => `${String(d.date).slice(0, 10)}: ${d.error}`).join(' | ')}` : '';
+            throw new Error(`${written.length} of ${run.scenario.expected.jobCards} job card(s) written so far${refused}`);
         }
     }).toPass({ timeout: 120_000 });
     expect(
@@ -1322,6 +1339,16 @@ export async function seedOnScreenDay(
     };
 }
 
+/** The slice of a run `guardReversibleRun` reads: D5's run and Journey E's own-jobs run both satisfy it. */
+export interface ReversibleRun {
+    scenario: { label: string };
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    day: string;
+    startedAt: Date;
+    sessionUserId: number;
+}
+
 /** The slice of a D5 run the shared transfer helpers read. Crew-scoped, never filtered by crew on screen. */
 function ownDayView(run: JourneyD5Run, expectedJobCards: number) {
     return {
@@ -1364,9 +1391,10 @@ export async function transferOwnDay(
  * the audit list and the day's job cards.
  */
 export async function guardReversibleRun(
-    run: JourneyD5Run,
+    run: ReversibleRun,
     opts: { sessionApi: APIRequestContext; pages: PageObjects; testInfo: TestInfo },
     transfer: TransferOutcome,
+    expected: { jobCards: number; timeCards: number } = { jobCards: 1, timeCards: 2 },
 ): Promise<TransferRunRecord> {
     // Plumbing (d): refuses to reverse a run that is not this test's own; the reverse itself stays on screen.
     opts.testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: transfer-run list read to refuse a foreign run` });
@@ -1384,8 +1412,10 @@ export async function guardReversibleRun(
     if (record.authorCounter !== run.sessionUserId) refuse(`run ${param} was written by user ${record.authorCounter}, not session user ${run.sessionUserId}.`);
     const stamp = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(record.runAtUtc) ? record.runAtUtc : `${record.runAtUtc}Z`;
     if (!(Date.parse(stamp) >= run.startedAt.getTime() - 60_000)) refuse(`run ${param} (${record.runAtUtc}) predates this test's start.`);
-    if (record.jobCardCount !== 1 || record.timeCardCount !== 2 || record.jobCardsModified !== 0) {
-        refuse(`run ${param} reads ${record.jobCardCount} job card(s), ${record.timeCardCount} time card(s), ${record.jobCardsModified} modified — expected 1, 2, 0.`);
+    if (record.jobCardCount !== expected.jobCards || record.timeCardCount !== expected.timeCards || record.jobCardsModified !== 0) {
+        refuse(
+            `run ${param} reads ${record.jobCardCount} job card(s), ${record.timeCardCount} time card(s), ${record.jobCardsModified} modified — expected ${expected.jobCards}, ${expected.timeCards}, 0.`,
+        );
     }
 
     const dayIds = (await listJobCards(opts.sessionApi, { from: run.day, to: run.day })).filter((c) => isOwnD5JobCard(run, c)).map((c) => c.jobCardCounter);

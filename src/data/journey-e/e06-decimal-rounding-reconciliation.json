@@ -1,0 +1,49 @@
+{
+    "_notes": [
+        "E6 - Decimal-rounding reconciliation. E2 CREW / E2 PICKER ONE on day -19, 06:00-14:00 = 480 min as three 160-minute jobs (E6 JOB A/B/C).",
+        "160 min = 2.6666... h, so no precision holds the three cards exactly: cards 1-2 round half-up, the last takes the difference and the day reads 8.",
+        "Pass order matters: 4 (tenant baseline, nothing written) -> reverse -> 2 -> reverse -> 3 -> restore 4 on screen. Teardown deletes pass 3's cards.",
+        "Round Job Change must read OFF or 08:40 / 11:20 move to the rounding grid; it is a gate, never written.",
+        "Amounts are evidence only: money rounding is Hourly Rate Decimal Accuracy, a separate reconciliation."
+    ],
+    "workflow": "E6",
+    "label": "e06-decimal-rounding-reconciliation",
+    "dayOffset": -19,
+    "rule": { "name": "AG CA 2022", "dailyOvertimeAfterHours": 8, "doubleTimeAfterHours": 12 },
+    "hourlyRate": 20,
+    "segments": [
+        { "job": "jobA", "start": { "hour": 6, "minute": 0 } },
+        { "job": "jobB", "start": { "hour": 8, "minute": 40 } },
+        { "job": "jobC", "start": { "hour": 11, "minute": 20 } }
+    ],
+    "timeOut": { "hour": 14, "minute": 0 },
+    "baselinePrecision": 4,
+    "passes": [
+        { "precision": 4, "cardHours": [2.6667, 2.6667, 2.6666] },
+        { "precision": 2, "cardHours": [2.67, 2.67, 2.66] },
+        { "precision": 3, "cardHours": [2.667, 2.667, 2.666] }
+    ],
+    "expected": {
+        "timeCards": 4,
+        "jobCards": 3,
+        "dayHours": 8,
+        "overtimeHours": 0,
+        "doubleTimeHours": 0,
+        "transferToast": { "jobCards": 3, "timeCards": 4 },
+        "status": "Ready",
+        "roundJobChange": false,
+        "reverseDialog": { "title": "Reverse this transfer?", "text": "returns the source time cards to their un-transferred state" }
+    },
+    "preferenceLabels": {
+        "section": "Accuracy",
+        "timeDecimalAccuracy": "Time Decimal Accuracy",
+        "roundingSection": "Time Rounding",
+        "roundJobChange": "Round Job Change",
+        "roundingMinutes": "Time Rounding at Transfer to Job Cards [Minutes]",
+        "roundingType": "Rounding Type"
+    },
+    "cleanup": [
+        { "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -19, "cardTypes": [0, 1] },
+        { "kind": "restore", "target": "timeDecimalRounding" }
+    ]
+}
