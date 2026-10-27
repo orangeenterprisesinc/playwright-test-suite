@@ -41,7 +41,7 @@ If the live code and older documentation disagree, trust the **live code**.
 - Components: `src/components/*.ts` (all extend `BaseComponent`)
 - Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
-- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts` (typed TS module, e.g. `src/data/static/journey-a/userSetupData.ts`)
+- Scenario test data: `src/data/journey-<x>/<spec-basename>.json`, validated by `src/data/schemas/journey<X>Scenario.ts` and read with `loadScenario(schema, testInfo)`
 - Data helpers: `src/data/readers/DataProvider.ts`
 - Environments: `.env.local` / `.env.dev` / `.env.qa`, selected via `TEST_ENV` (default `local`)
 
@@ -165,7 +165,7 @@ test.use({
 
 #### Framework-supported alternatives that are valid when needed
 
-- `test.use({ testCaseId: '...' })` and `test.use({ testCaseName: '...' })` select a runnerManager data row; only then may you destructure `testCaseData`
+- `test.use({ testCaseId: '...' })` / `test.use({ testCaseName: '...' })` select a runner row; only then may you destructure `testCaseData` (supported, but no live spec uses it — the `testCaseId` annotation is the norm)
 - Non-data-driven tests are valid, but they must **not** destructure `testCaseData` (the fixture skips the test when neither option is set)
 - Component fixtures `navigation`, `modal`, and `form` exist in `base.fixture.ts`, but they are not used by current live specs yet
 - `authenticatedPage` and `apiRequest` fixtures exist for authenticated-context and API-validation scenarios
@@ -186,8 +186,8 @@ Preferred sources of values:
 
 1. the user's scenario
 2. existing nearby specs in `tests/<module>`
-3. the module data file (`src/data/journey-<x>/<name>Data.ts`) for module-specific values
-4. `testCaseData` for data-driven values
+3. the scenario file (`src/data/journey-<x>/<spec-basename>.json`, read with `loadScenario`) for records and expected values
+4. `testCaseData` only when a `test.use` row selector is set (no live spec does this)
 5. `process.env` / `getConfigValue(...)` for environment values
 6. neutral placeholders in examples when showing structure only
 
@@ -195,12 +195,8 @@ If a required value is missing and cannot be inferred safely, ask a focused ques
 
 ### Dynamic test format detection
 
-Do not assume every test case uses a runner data row.
-
-- If the user provides an ID that maps to `id` → `test.use({ testCaseId: '...' })`
-- If they provide a logical test name that maps to `testName` → `test.use({ testCaseName: '...' })`
-- Either of the above permits destructuring `testCaseData`
-- Otherwise: no option fixtures, no `testCaseData`; put module values in `src/data/journey-<x>/<name>Data.ts` and import it directly
+- Default (every live journey spec): `annotation: { type: 'testCaseId', description: '<WF>' }` binds the test to its runner row; values come from the scenario JSON via `loadScenario` — no `test.use`, no `testCaseData`
+- Only if the spec needs the runner row's own fields at runtime: `test.use({ testCaseId: '...' })` or `test.use({ testCaseName: '...' })`, which permits destructuring `testCaseData`
 
 ### Fixture usage accuracy
 
@@ -290,9 +286,9 @@ Wait behavior:
 This framework reads test data **directly from its source — JSON runs from JSON, CSV runs from CSV. There is no conversion or preprocessing step.**
 
 - `TEST_DATA_SOURCE` (`json` | `csv`) in the env file selects the runner data source
-- `src/data/runnerManager.json` stores records under the `runnerManager` key; `src/data/runnerManager.csv` holds the same records — keep both in sync when adding rows
+- Runner rows live in `src/data/runner/journey-<x>.csv` (authored); `journey-<x>.json` is the generated mirror (records under the `runnerManager` key). Edit the CSV, then `npm run runner:sync && npm run runner:check` — never hand-edit the JSON
 - `getTestCaseById(...)` resolves by `id`; `testCaseName` lookup resolves by the `testName` field
-- Module-specific values (error messages, wrong inputs) belong in a directly-imported `src/data/journey-<x>/<name>Data.ts`
+- Scenario values (records, expected results, cleanup) belong in `src/data/journey-<x>/<spec-basename>.json`, read with `loadScenario(<Journey>ScenarioSchema, testInfo)` — see `/data-driven-testing`
 
 `TestCaseData` fields: `id`, `category`, `journey?`, `workflow?`, `testName`, `testTitle`, `testDescription?`, `segments?`, `modules?`, `tags?`, `demo?`, `jira?`, `status?`, `enabled`. (`shouldComplete`/`expectedCount` are legacy and optional — omit them.)
 

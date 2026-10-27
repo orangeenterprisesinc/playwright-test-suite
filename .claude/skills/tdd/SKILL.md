@@ -45,8 +45,9 @@ acceptance criteria; page objects and fixtures are built to make it pass.
   page object or raise the discrepancy with the user.
 - Authenticated flows start from storageState (`.auth/user.json`); only
   login-module tests reset storage state to logged-out.
-- Data values come from `src/data/journey-<x>/<name>Data.ts` or runnerManager
-  rows — never hardcoded into the spec (see /data-driven-testing).
+- Data values come from the scenario file `src/data/journey-<x>/<spec-basename>.json`
+  (`loadScenario`) or the runner row in `src/data/runner/journey-<x>.csv` — never
+  hardcoded into the spec (see /data-driven-testing).
 - Verification gates before declaring done: `npm run typecheck`,
   `npx playwright test --list`, and a real run of the new spec against
   the local stack when it is available.

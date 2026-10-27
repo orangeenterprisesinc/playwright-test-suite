@@ -26,7 +26,7 @@ existing suite on the first pass.
 | Skill | Use it when… | What it does |
 |-------|--------------|--------------|
 | **`ui-script-generator`** | You describe a UI scenario in chat | Generates/updates a Playwright + TS spec that matches repo conventions — POM usage, fixtures, data-driven rules, locator priority — so it runs without rework. |
-| **`data-driven-testing`** | Adding/editing data-driven tests | Manages `runnerManager.json` / `runnerManager.csv` rows and the `testCaseId` / `testCaseName` fixtures. Enforces the **read-directly rule**: JSON runs from JSON, CSV from CSV — *no conversion step*. |
+| **`data-driven-testing`** | Adding/editing data-driven tests | Manages the per-journey runner rows (`src/data/runner/journey-<x>.csv` + generated `.json` mirror), the `testCaseId` annotation, and scenario JSON files (`loadScenario` + zod schemas). Enforces the **read-directly rule**: JSON runs from JSON, CSV from CSV — *no conversion step*. |
 | **`tdd`** | Building a new module test-first | Drives a red → green cycle: write the failing spec from acceptance criteria first, then build the page objects/fixtures to make it pass. |
 | **`jira-to-script`** | "Automate PROJ-123" | End-to-end pipeline: fetch the story via the Jira MCP → plan against the live app → generate the spec → run it → heal any failures. Chains the three agents below. |
 | **`annotate-video`** | You have a screen recording of a manual journey | Stage 1 of the video pipeline: runs the OpenCV frame-diff annotator over the recording and writes timestamped keyframes + change regions to `.video-annotations/<slug>/`. Stops there. See §4. |
@@ -151,7 +151,7 @@ pipeline as any hand-written spec.
 │   └── playwright-test-healer.md          # run → debug → fix failing tests
 └── skills/
     ├── ui-script-generator/SKILL.md       # chat scenario → conforming spec
-    ├── data-driven-testing/SKILL.md       # runnerManager rows + fixtures
+    ├── data-driven-testing/SKILL.md       # journey runner rows + scenario JSON
     ├── tdd/SKILL.md                       # red → green module build
     ├── jira-to-script/SKILL.md            # ticket → plan → generate → run → heal
     ├── annotate-video/SKILL.md            # stage 1: recording → annotations

@@ -107,8 +107,10 @@ test('[Ranch] Verify that …', {
 }, async ({ pages, cleanup }) => { /* … */ });
 ```
 
-`test.use({ testCaseId })` / `test.use({ testCaseName })` work too, and are required
-if the spec needs to destructure `testCaseData`:
+Use the annotation. Every journey spec does; none uses `test.use` or `testCaseData` —
+scenario values come from `loadScenario` (above), not from the runner row. The fixture
+form below is supported but unused; reach for it only if a spec genuinely needs the
+row's fields at runtime:
 
 ```typescript
 test.describe('A2 · Ranch, field, crop, and variety setup', { tag: ['@JourneyA', '@A2'] }, () => {

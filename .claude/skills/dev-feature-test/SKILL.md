@@ -41,8 +41,8 @@ Route by input, per the orchestration workflow (§3 of
 - **Jira ticket id** → follow `/jira-to-script` (fetch story → planner agent →
   generator agent), with one deviation: all runs use `npm run test:dev`
   (dev staging), never the local target.
-- **Pasted scenario** → `/ui-script-generator`, `/api-script-generator`, or
-  `/workflow-script-generator` by scenario shape.
+- **Pasted scenario** → `/ui-script-generator` (UI and UI+API `workflow` specs) or
+  `/api-script-generator` (browserless) by scenario shape.
 - WEBPET-area features load `.claude/profiles/WEBPET.md`; PET-Tiger journey
   features load `.claude/profiles/JOURNEY.md`. Never both.
 

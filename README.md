@@ -820,8 +820,8 @@ test.describe('User Setup Workflow', { tag: '@Workflow' }, () => {
 });
 ```
 
-> Prefer `/api-script-generator` and `/workflow-script-generator` (repo skills) to
-> generate API-only and `@Workflow`-tagged `tests/web/` specs that follow these conventions.
+> Prefer `/api-script-generator` and `/ui-script-generator` (repo skills) to generate
+> API-only and UI / `@Workflow`-tagged `tests/web/` specs that follow these conventions.
 
 ---
 

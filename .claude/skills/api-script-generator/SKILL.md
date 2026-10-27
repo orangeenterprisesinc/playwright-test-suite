@@ -5,7 +5,7 @@ description: Use when the user asks to generate or update a Playwright API test 
 
 ## Playwright API Script Generator
 
-Generate API-only Playwright + TypeScript specs (no browser) that match the **current repository conventions first**, while using supported framework features when the scenario requires them. This is the API sibling of `/ui-script-generator` — for UI browser journeys use that skill; for UI+API hybrids use `/workflow-script-generator`.
+Generate API-only Playwright + TypeScript specs (no browser) that match the **current repository conventions first**, while using supported framework features when the scenario requires them. This is the API sibling of `/ui-script-generator` — for UI browser journeys use that skill; for UI+API hybrids (category `workflow`) use `/ui-script-generator`.
 
 ### Role
 
@@ -49,7 +49,7 @@ generating anything, and follow the conventions in the `ui-script-generator` ski
 - Auth layer: `src/auth/*` — `authContextFactory.ts` (`buildAuthContextOptions()`), `requestBuilder.ts` (`executeWithAuthRetry`, `HttpMethod`, `RequestOptions`), `authorizationManager.ts` (token cache)
 - Config/env access: `src/config/configProperties.ts` (`getConfigValue(ConfigProperties.…)`)
 - Runner test data (data-driven rows): `src/data/runner/journey-<x>.csv` (authored) + `journey-<x>.json` (generated mirror, via `npm run runner:sync`)
-- Module test data (small per-module values): `src/data/journey-<x>/<name>Data.ts`
+- Scenario test data: `src/data/journey-<x>/<spec-basename>.json` (or `src/data/system/` for non-catalog), read with `loadScenario(schema, testInfo)`
 - Environments: `.env.local` / `.env.dev` / `.env.qa`, selected via `TEST_ENV` (default `local`); `API_URL` is the API base
 
 ### Test structure rules — standard Playwright only
@@ -116,8 +116,8 @@ Preferred sources of values, in order:
 
 1. the user's scenario
 2. existing nearby API-only specs in `tests/web`
-3. the module data file (`src/data/journey-<x>/<name>Data.ts`) for module-specific values
-4. `testCaseData` for data-driven values
+3. the scenario file (`src/data/journey-<x>/<spec-basename>.json`, read with `loadScenario`) for records and expected values
+4. `testCaseData` only when a `test.use` row selector is set (no live spec does this)
 5. `getConfigValue(...)` / `process.env` for environment and auth values
 6. neutral placeholders in examples when showing structure only
 
@@ -125,11 +125,10 @@ Resolve entity ids **by name / lookup at runtime** — never hardcode a database
 
 ### Data-driven detection
 
-Same three mutually-exclusive modes as the rest of the suite:
+Same as the rest of the suite:
 
-- ID that maps to a row `id` → `test.use({ testCaseId: 'API-00X' })`
-- logical name that maps to `testName` → `test.use({ testCaseName: '...' })`
-- otherwise non-data-driven; put small values in `src/data/journey-<x>/<name>Data.ts` and import directly
+- Default: the `testCaseId` annotation binds the test to its runner row; values come from the scenario JSON via `loadScenario`
+- Only if the spec needs the row's own fields: `test.use({ testCaseId: '...' })` / `test.use({ testCaseName: '...' })`, then destructure `testCaseData`
 
 Only when a `testCaseId`/`testCaseName` option is set may a spec destructure `testCaseData` (from `api.fixture` too — the option fixtures are inherited). Runner rows live in `src/data/runner/journey-<x>.csv` (authored; run `npm run runner:sync` to regenerate the `.json` mirror) — keep both in sync, use `category: "api"` and an `API-00X` id, tags are pipe-delimited, and set `enabled: true`. Add a real row for the spec you generate (follow the existing `A1-*` rows in `src/data/runner/journey-a.csv` as the shape reference).
 
