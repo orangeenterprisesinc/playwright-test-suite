@@ -100,10 +100,10 @@ if (HEADED) process.env.HEADED = '1';
 /** Maximize to the screen when there is one; give headless a window of a known size otherwise. */
 const WINDOW_ARGS = HEADED ? ['--start-maximized'] : [`--window-size=${WINDOW_SIZE.width},${WINDOW_SIZE.height}`];
 /**
- * Recording size, decoupled from the window: 480p keeps a red run's report in the tens of MB.
- * `VIDEO_HEIGHT=1080` for bug-report evidence where the money columns must be legible.
+ * Recording size, decoupled from the window: 720p keeps grid text legible in Jira evidence, where 480p
+ * was not. `VIDEO_HEIGHT=480` shrinks a red run's report; `1080` gives full-size bug-report frames.
  */
-const VIDEO_HEIGHT = Number(process.env.VIDEO_HEIGHT ?? 480);
+const VIDEO_HEIGHT = Number(process.env.VIDEO_HEIGHT ?? 720);
 const VIDEO_SIZE = {
     width: Math.round((VIDEO_HEIGHT * WINDOW_SIZE.width) / WINDOW_SIZE.height),
     height: VIDEO_HEIGHT,
