@@ -133,6 +133,39 @@ const QuestionSpecJsonSchema = z
     .object({ name: z.string().min(1), requiredResponse: z.string().min(1), allowedResponses: z.string().min(1), questionText: z.string().min(1) })
     .strict();
 
+/** B9: the crew rule set on screen and the engine's preview, as clock times. Jobs are named by role; the flow binds them to the B9 fixture rows. */
+const PaidBreakJsonSchema = z
+    .object({
+        crewRule: z
+            .object({
+                createBreakCardFromTimeIn: z.string().min(1),
+                autoPaidBreakType: z.string().min(1),
+                autoReturnFromBreak: z.string().min(1),
+                breakLengthMinutes: z.number().int().positive(),
+                includeInTransfer: z.boolean(),
+                timeEmployeesIncluded: z.boolean(),
+            })
+            .strict(),
+        segments: z
+            .array(
+                z
+                    .object({
+                        kind: z.enum(['work', 'break']),
+                        job: z.enum(['workJob', 'breakJob']),
+                        start: HHMM,
+                        end: HHMM,
+                        minutes: z.number().int().positive(),
+                    })
+                    .strict(),
+            )
+            .min(3),
+        totals: z.object({ jobCards: z.number().int().positive(), employees: z.number().int().positive(), pieces: z.number().int().nonnegative() }).strict(),
+        totalMinutes: z.number().int().positive(),
+        /** Case-insensitive pattern no Issues group may match. */
+        absentIssuePattern: z.string().min(1),
+    })
+    .strict();
+
 export const JourneyBScenarioSchema = z
     .object({
         _notes: z.array(z.string()).optional(),
@@ -196,7 +229,9 @@ export const JourneyBScenarioSchema = z
         questions: z.array(QuestionSpecJsonSchema).optional(),
         preconditions: z.array(z.enum(['crewNotifyUser', 'undefinedEmployeeSet', 'requireJobInEmpPieceOut', 'stickerStartLocations', 'pieceLimits'])).optional(),
         /** Fixture rows (fixture.json) the flow ensures on screen through the New form before anything is sent. */
-        fixtureRowsOnScreen: z.array(z.enum(['pieceJob'])).min(1).optional(),
+        fixtureRowsOnScreen: z.array(z.enum(['pieceJob', 'b9'])).min(1).optional(),
+        /** B9: set the crew rule on screen, designate the paid-break job and read the engine's preview on Transfer ▸ Job Cards. */
+        paidBreak: PaidBreakJsonSchema.optional(),
         hooks: z
             .object({ beforeImport: z.enum(['codeHistorySnapshot']).optional(), afterImport: z.enum(['codeHistoryDelta']).optional() })
             .strict()
@@ -319,6 +354,34 @@ export const JourneyBScenarioSchema = z
             }
             if (transfer.jobCards !== transfer.members.length) issue(['expected', 'transfer', 'jobCards'], 'the preview proposes one job card per member');
             if (!s.fixtureRowsOnScreen?.includes('pieceJob')) issue(['fixtureRowsOnScreen'], "expected.transfer needs the piece job: add 'pieceJob'");
+        }
+        if (s.paidBreak) {
+            const p = s.paidBreak;
+            const at = (path: (string | number)[], message: string) => issue(['paidBreak', ...path], message);
+            const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+            if (s.workflow !== 'B9' || s.dayOffset !== -10) at([], 'paidBreak belongs to B9, which owns fixture day -10');
+            if (!s.fixtureRowsOnScreen?.includes('b9')) issue(['fixtureRowsOnScreen'], "paidBreak needs the B9 rows: add 'b9'");
+            const breakAt = p.segments.findIndex((g) => g.kind === 'break');
+            if (p.segments.filter((g) => g.kind === 'break').length !== 1) at(['segments'], 'exactly one break segment');
+            else {
+                const brk = p.segments[breakAt];
+                if (brk.minutes !== p.crewRule.breakLengthMinutes) at(['segments', breakAt, 'minutes'], "the break lasts the crew rule's breakLengthMinutes");
+                if (brk.start !== s.records[1]?.time) at(['segments', breakAt, 'start'], 'the break starts at record 1, the Time In on the break job');
+                if (p.segments[breakAt + 1]?.job !== 'workJob') at(['segments', breakAt + 1, 'job'], 'the segment after the break is on the work job');
+            }
+            p.segments.forEach((g, i) => {
+                if (minutes(g.end) - minutes(g.start) !== g.minutes) at(['segments', i, 'minutes'], 'minutes must equal end - start');
+                if (i > 0 && g.start !== p.segments[i - 1].end) at(['segments', i, 'start'], 'segments are contiguous');
+            });
+            const first = s.records[0]?.time;
+            const last = s.records[s.records.length - 1]?.time;
+            if (p.segments[0].start !== first) at(['segments', 0, 'start'], "the first segment starts at record 0's time");
+            if (p.segments[p.segments.length - 1].end !== last) at(['segments', p.segments.length - 1, 'end'], "the last segment ends at the last record's time");
+            const total = p.segments.reduce((sum, g) => sum + g.minutes, 0);
+            if (total !== p.totalMinutes || (first && last && minutes(last) - minutes(first) !== p.totalMinutes)) {
+                at(['totalMinutes'], 'the segments sum to totalMinutes, which equals the time-out minus the first time-in');
+            }
+            if (p.totals.jobCards !== p.segments.length) at(['totals', 'jobCards'], 'one job card per segment');
         }
         if (s.codes?.suffixes?.length && s.codes.parts?.length) issue(['codes', 'parts'], 'use suffixes or parts, not both');
         if ((s.codes?.suffixes?.length || s.codes?.parts?.length) && s.codes.basis !== 'prefix' && !s.codes.length) {

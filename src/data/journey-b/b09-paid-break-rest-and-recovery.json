@@ -1,0 +1,135 @@
+{
+  "_notes": [
+    "B9 — Paid break, field (catalog B9, plan test-plans/journey-b/b09-paid-break-rest-and-recovery.md, PET-12647 automation / WEBPET-1528 manual, runner row B9). Transport, not simulation, happy path only. No recording: the wire shape is decided from the importer, the transfer engine and B10.",
+    "The device sends a work Time In (07:00), a Time In on the paid-break job (09:00) and the Time Out (10:45). No return punch and no break card. The 10-minute break and the return to the work job at 09:10 are the transfer engine's doing, read on Transfer ▸ Job Cards before anything commits.",
+    "Own crew 5109 and jobs 4206/4205 (fixture.json b9) so no hand-made rule on B1 CREW applies. Break Lengths 10, Auto Return From Paid Break, Auto Break Type None, no Exercise Job, set on screen. Paid Break Job is designated on Preferences under the cross-worker paid-break-job lock that D10 shares, and restored to null.",
+    "dayOffset -10: B9's alone for employee 6001 (C6 shares the day with another crew and employees and does not transfer).",
+    "Not asserted: Amount (D10 owns the money), the commit (D10 commits the same engine path), auto-return disallowed, a real return punch, a second break, Create Break Card = No."
+  ],
+  "workflow": "B9",
+  "label": "B9",
+  "dayOffset": -10,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "cards",
+  "cardType": null,
+  "fixtureRowsOnScreen": [
+    "b9"
+  ],
+  "records": [
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6001",
+      "crewCode": "5109",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4206",
+      "time": "07:00"
+    },
+    {
+      "node": "TimeCard",
+      "part": "TI",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6001",
+      "crewCode": "5109",
+      "ranchCode": "4001",
+      "fieldCode": "4101",
+      "jobCode": "4205",
+      "time": "09:00"
+    },
+    {
+      "node": "TimeOut",
+      "part": "TO",
+      "employeeSource": "BarcodeBadge",
+      "employeeCode": "6001",
+      "crewCode": "5109",
+      "time": "10:45"
+    }
+  ],
+  "paidBreak": {
+    "crewRule": {
+      "createBreakCardFromTimeIn": "Everyone",
+      "autoPaidBreakType": "None",
+      "autoReturnFromBreak": "From Paid Break",
+      "breakLengthMinutes": 10,
+      "includeInTransfer": true,
+      "timeEmployeesIncluded": false
+    },
+    "segments": [
+      { "kind": "work", "job": "workJob", "start": "07:00", "end": "09:00", "minutes": 120 },
+      { "kind": "break", "job": "breakJob", "start": "09:00", "end": "09:10", "minutes": 10 },
+      { "kind": "work", "job": "workJob", "start": "09:10", "end": "10:45", "minutes": 95 }
+    ],
+    "totals": {
+      "jobCards": 3,
+      "employees": 1,
+      "pieces": 0
+    },
+    "totalMinutes": 225,
+    "absentIssuePattern": "closing punch|return from break|paid break"
+  },
+  "expected": {
+    "envelope": {
+      "sections": [
+        "TimeCard",
+        "TimeOut"
+      ],
+      "referenceParts": [
+        "TI",
+        "TI",
+        "TO"
+      ],
+      "employeeSources": {
+        "BarcodeBadge": 3
+      },
+      "jobOccurrences": {
+        "4206": 1,
+        "4205": 1
+      },
+      "absentTags": [
+        "BreakCard_Records",
+        "UnpaidBreakCard_Records"
+      ]
+    },
+    "cards": [
+      {
+        "record": 0,
+        "typeText": "Time In",
+        "employeeCode": "6001",
+        "fieldCode": "4101",
+        "jobCode": "4206",
+        "cardType": 1
+      },
+      {
+        "record": 1,
+        "typeText": "Time In",
+        "employeeCode": "6001",
+        "fieldCode": "4101",
+        "jobCode": "4205",
+        "cardType": 1
+      },
+      {
+        "record": 2,
+        "typeText": "Time Out",
+        "employeeCode": "6001",
+        "cardType": 0
+      }
+    ]
+  },
+  "cleanup": [
+    {
+      "kind": "timeCards",
+      "employeeCodes": [
+        "6001"
+      ],
+      "dayOffset": -10
+    },
+    {
+      "kind": "unremovable",
+      "entity": "paidBreakJob",
+      "reason": "restored to null by paidBreakJob.ts restore(), first after-step"
+    }
+  ]
+}

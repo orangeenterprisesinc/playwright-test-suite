@@ -25,7 +25,14 @@ export function withExportDraftLock<T>(fn: () => Promise<T>): Promise<T> {
     return withFileLock('export-draft', fn, 600_000);
 }
 
-export async function withFileLock<T>(name: string, fn: () => Promise<T>, staleMs = STALE_MS): Promise<T> {
+// The tenant's Paid Break Job is one value that D10 and B9 each point at their own job; held from the
+// designation until the restore, across a whole preview or commit, so 10 min stale.
+export function acquirePaidBreakJobLock(): Promise<() => void> {
+    return acquireFileLock('paid-break-job', 600_000);
+}
+
+/** Waits for the lock and returns its release. Prefer {@link withFileLock}; this is for a hold that spans several calls. */
+export async function acquireFileLock(name: string, staleMs = STALE_MS): Promise<() => void> {
     const dir = lockDir(name);
     for (;;) {
         try {
@@ -47,9 +54,14 @@ export async function withFileLock<T>(name: string, fn: () => Promise<T>, staleM
             await sleep(POLL_MS);
         }
     }
+    return () => rmSync(dir, { recursive: true, force: true });
+}
+
+export async function withFileLock<T>(name: string, fn: () => Promise<T>, staleMs = STALE_MS): Promise<T> {
+    const release = await acquireFileLock(name, staleMs);
     try {
         return await fn();
     } finally {
-        rmSync(dir, { recursive: true, force: true });
+        release();
     }
 }

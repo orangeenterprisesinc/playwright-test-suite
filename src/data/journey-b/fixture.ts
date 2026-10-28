@@ -10,6 +10,7 @@ const FIXTURE = JourneyBFixtureSchema.parse(
 
 export const JOURNEY_B_FIXTURE = FIXTURE.entities;
 export const B4_PACK_HOUSE_ROLL = FIXTURE.b4.packHouseRoll;
+export const B9_PAID_BREAK = FIXTURE.b9;
 
 /** `base` shifted by `offset` days (negative moves the punch into the past). */
 export function punchDay(offset: number, base = new Date()): Date {
