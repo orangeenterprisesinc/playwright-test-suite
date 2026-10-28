@@ -348,10 +348,15 @@ export class ViewJobCardsPage extends BasePage {
         return this.grid.getByRole('row').filter({ has: this.page.getByRole('cell', { name, exact: true }) });
     }
 
+    /** The grid's column headers in their current order, "Reorder column " prefix dropped. */
+    async columnHeaders(): Promise<string[]> {
+        await expect(this.grid.getByRole('columnheader').first()).toBeVisible({ timeout: 15_000 });
+        return (await this.grid.getByRole('columnheader').allInnerTexts()).map((h) => h.replace(/^Reorder column /, '').trim());
+    }
+
     /** One row's cell by column header. The layout is user-reorderable, so the index is read, never hard-coded. */
     async cellByHeader(row: Locator, header: string): Promise<Locator> {
-        await expect(this.grid.getByRole('columnheader').first()).toBeVisible({ timeout: 15_000 });
-        const headers = (await this.grid.getByRole('columnheader').allInnerTexts()).map((h) => h.replace(/^Reorder column /, '').trim());
+        const headers = await this.columnHeaders();
         const index = headers.findIndex((h) => h === header || h.startsWith(`${header}\n`));
         if (index < 0) throw new Error(`Job Cards grid has no '${header}' column; headers are ${JSON.stringify(headers)}`);
         return row.getByRole('cell').nth(index);

@@ -17,10 +17,11 @@ import {
     journeyE1Fixture,
     journeyE2Fixture,
     journeyE3Fixture,
+    journeyE5Fixture,
     journeyE9Fixture,
 } from '@data/journey-e/fixture';
 import { e1Split } from '@data/schemas/journeyEScenario';
-import type { JourneyE11ReverseExportCase, JourneyE1RegularRateCase } from '@data/schemas/journeyEScenario';
+import type { JourneyE11ReverseExportCase, JourneyE1RegularRateCase, JourneyE5MinimumWageCase } from '@data/schemas/journeyEScenario';
 import { JOURNEY_B_FIXTURE, punchDay } from '@data/journey-b/fixture';
 import { deleteJobCard, getJobCard, listJobCards } from '@utils/api/jobCardsApi';
 import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
@@ -39,6 +40,7 @@ import {
     ensureEmployeeOnScreen,
     ensureFieldOnScreen,
     ensureJobOnScreen,
+    ensureMinimumWageOnScreen,
     ensureOvertimeRuleOnScreen,
     ensureRanchOnScreen,
 } from '@utils/fixtureRows/ensureOnScreen';
@@ -2213,6 +2215,442 @@ export async function readWeekOnScreen(run: JourneyE3Run, opts: E3Deps): Promise
     expect.soft(totals.regular + totals.overtime + totals.double, `${label}: Totals Regular + Overtime + Double must equal Gross (hours double-counted if larger)`).toBeCloseTo(totals.gross, 4);
     for (const card of cards) {
         expect.soft(card.regular + card.overtime + card.double, `${label}: ${card.day} Regular + Overtime + Double must equal Gross (hours double-counted if larger)`).toBeCloseTo(card.gross, 4);
+    }
+}
+
+// ── E5 — weekly minimum-wage guarantee on piece ──
+
+type E5Deps = E8Deps;
+
+export interface JourneyE5Run {
+    scenario: JourneyE5MinimumWageCase;
+    ranch: EnsuredRecord;
+    field: EnsuredRecord;
+    crew: EnsuredRecord;
+    picker: EnsuredRecord;
+    job: EnsuredRecord;
+    department: { id: number; name: string };
+    minimumWage: { id: number; name: string };
+    /** `YYYY-MM-DD`, Monday first. */
+    days: string[];
+    day: string;
+    jobCardIds: number[];
+    timeCardIds: number[];
+    poison: string[];
+    cleanup(): Promise<void>;
+    readonly ctx: CleanupContext;
+}
+
+/** A value a gate treats as "set": null, undefined, false, 0 and '' are all unset. */
+const isSet = (value: unknown): boolean => value !== null && value !== undefined && value !== false && value !== 0 && value !== '';
+
+/**
+ * E5's minimum wage, department, crew, picker and piece job on screen, the department's wage and method set on the Department
+ * form (the one lever), the read-only gates by name, and a per-day before-phase sweep (job cards first: a transferred time card
+ * cannot be deleted). No preference is written; the employer's method and wage are gates.
+ */
+export async function prepareJourneyE5(scenario: JourneyE5MinimumWageCase, opts: E5Deps): Promise<JourneyE5Run> {
+    const { sessionApi, testInfo, pages } = opts;
+    const F = journeyE5Fixture();
+    const label = scenario.label;
+    const deps = { api: sessionApi, pages, testInfo };
+
+    const ranch = await ensureRanchOnScreen({ code: JOURNEY_B_FIXTURE.ranch.code, name: JOURNEY_B_FIXTURE.ranch.name }, deps);
+    const field = await ensureFieldOnScreen(
+        { code: JOURNEY_B_FIXTURE.field.code, name: JOURNEY_B_FIXTURE.field.name, ranch: { id: ranch.id, name: ranch.name } },
+        deps,
+    );
+    const minimumWage = await ensureMinimumWageOnScreen(F.minimumWage, deps);
+    const department = await ensureDepartmentOnScreen(F.department, deps);
+    // The crew first: the New Employee form's Crew combobox arrives pre-filled with another crew.
+    const crew = await ensureCrewOnScreen(F.crew, deps);
+    const picker = await ensureEmployeeOnScreen({ ...F.picker, homeCrew: { id: crew.id, name: crew.name } }, deps);
+    const job = await ensureJobOnScreen({ code: F.job.code, name: F.job.name, paymentType: F.job.paymentType, pieceRate: F.job.pieceRate }, deps);
+
+    const { mondayOffset, days } = weekDays(scenario.mondayWindow, scenario.days.length);
+    const jobCardIds: number[] = [];
+    const timeCardIds: number[] = [];
+    const office = { ranch, field, job, crew, employees: new Map([[picker.code, picker]]) } as unknown as OfficeFixture;
+    const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
+
+    const warn = (name: string, error: unknown) =>
+        testInfo.attach(name, { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' });
+
+    // `api` is the scope's own untraced context: after a timeout the test's sessionApi throws ENOENT on its trace file.
+    const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
+        await allowApiWrites('cleanup', `${label} teardown: own job cards by id`, async () => {
+            for (const id of jobCardIds) {
+                try {
+                    const card = await getJobCard(api, id);
+                    await deleteJobCard(api, id, card.version);
+                } catch (error) {
+                    await warn(`cleanup-warning-jobCard-${id}`, error);
+                }
+            }
+        });
+        // A separate make-up card, if the engine writes one, is caught by the crew-scoped sweep.
+        for (const day of days) {
+            await allowApiWrites('cleanup', `${label} teardown: crew-scoped job card sweep of ${day}`, () => sweepCrewJobCards(api, { day, crewCounter: crew.id })).catch(
+                () => undefined,
+            );
+        }
+        await allowApiWrites('cleanup', `${label} teardown: own time cards by id`, async () => {
+            for (const id of timeCardIds) {
+                try {
+                    await deleteTimeCard(api, id);
+                } catch (error) {
+                    await warn(`cleanup-warning-timeCard-${id}`, error);
+                }
+            }
+        });
+        for (const day of days) {
+            await allowApiWrites('cleanup', `${label} teardown: crew-scoped sweep of ${day}`, () => sweepCrewTimeCards(api, { day, crewCounter: crew.id })).catch(
+                () => undefined,
+            );
+        }
+    };
+    const registration = currentScope(testInfo)?.add(`${label} cleanup`, finishCleanup);
+    const cleanup = async (): Promise<void> => {
+        await finishCleanup(sessionApi);
+        registration?.complete();
+    };
+
+    // Fixture gate: resolves the rule id the field gate below compares against; it throws, it is not proof.
+    const ruleCounter = await resolveRuleCounter(sessionApi, scenario.rule.name);
+
+    for (const day of days) {
+        await allowApiWrites('cleanup', `${label} before-phase: crew job cards ${day}`, () => sweepCrewJobCards(sessionApi, { day, crewCounter: crew.id }));
+        await allowApiWrites('cleanup', `${label} before-phase: crew time cards ${day}`, () => sweepCrewTimeCards(sessionApi, { day, crewCounter: crew.id }));
+    }
+
+    // The wage record's rate, read after a fresh load: the department's wage is only as good as this number.
+    expect(F.minimumWage.rate, `${label}: fixture ${minimumWage.name} rate must equal the scenario's`).toBe(scenario.minimumWage.rate);
+    await pages.minimumWage.openByName(minimumWage.name);
+    expect(await pages.minimumWage.readRate(), `${label}: the Minimum Wage form must show ${minimumWage.name} at ${scenario.minimumWage.rate} after a fresh load`).toBe(
+        scenario.minimumWage.rate,
+    );
+
+    // The department's wage and method, on screen every run; the read after a fresh load is the proof, the GET only waits for the save.
+    const want = { wage: minimumWage.name, method: scenario.department.minimumWageMethod };
+    await pages.department.openByName(department.name);
+    const shownWage = await pages.department.setMinimumWage(want);
+    expect(shownWage, `${label}: the Department form must show Minimum Wage '${want.wage}' and method '${want.method}' after saving`).toEqual(want);
+    testInfo.annotations.push({ type: 'plumbing-read', description: `${label}: GET departments/${department.id} until the save lands` });
+    await expect
+        .poll(async () => {
+            const stored = await getJson(sessionApi, `departments/${department.id}`);
+            return stored.minimumWageCounter != null && stored.minimumWageMethod != null;
+        }, { message: `${label}: the department's minimumWageCounter and minimumWageMethod must be stored after the save`, timeout: 30_000 })
+        .toBe(true);
+    const storedDepartment = await getJson(sessionApi, `departments/${department.id}`);
+    const departmentKeys = Object.keys(storedDepartment).filter((k) => /minimumwage|firstday/i.test(k));
+    testInfo.annotations.push({
+        type: 'api-only-evidence',
+        description: `department ${department.id}: ${departmentKeys.map((k) => `${k}=${String(storedDepartment[k])}`).join(' ')}`,
+    });
+
+    await pages.crew.gotoEditById(crew.id, crew.name);
+    expect(await pages.crew.setDepartment(department.name), `${label}: the Crew form must show ${department.name} after a fresh load`).toBe(department.name);
+    await pages.employee.gotoEditById(picker.id, picker.name);
+    expect(await pages.employee.setDepartment(department.name), `${label}: the Employee form must show ${department.name} after a fresh load`).toBe(department.name);
+
+    // Both setters need a hydrated form and both leave it after saving, so the record is reopened between them.
+    await pages.job.gotoEditById(job.id, job.name);
+    const shownRule = await pages.job.setOvertimeRule(scenario.rule.name);
+    await pages.job.gotoEditById(job.id, job.name);
+    const shownPieceRate = await pages.job.setPieceRate(scenario.pieceRate);
+    expect(shownRule, `${label}: ${job.name} must show the overtime rule after saving`).toContain(scenario.rule.name);
+    expect(Number(shownPieceRate), `${label}: ${job.name} must show its piece rate after saving`).toBe(scenario.pieceRate);
+    expect(F.job.pieceRate, `${label}: fixture ${job.name} piece rate must equal the scenario's`).toBe(scenario.pieceRate);
+    const considerEmployeeRate = await pages.job.readConsiderEmployeeRate().catch(() => 'unreadable');
+    testInfo.annotations.push({ type: 'job-evidence', description: `${job.name} Consider Employee Rate=${considerEmployeeRate}` });
+
+    // fixture-gate: the reads below throw on a fixture the arithmetic cannot tolerate; they are not proof.
+    testInfo.annotations.push({ type: 'plumbing-read', description: `${label}: crew, employee, field, ranch and state reads` });
+    const storedCrew = await getJson(sessionApi, `crews/${crew.id}`);
+    expect(
+        {
+            exerciseJobCounter: Number(storedCrew.exerciseJobCounter ?? 0),
+            createBreakCardFromTimeIn: Number(storedCrew.createBreakCardFromTimeIn ?? 0),
+            autoPaidBreakType: Number(storedCrew.autoPaidBreakType ?? 0),
+            autoReturnFromBreak: Number(storedCrew.autoReturnFromBreak ?? 0),
+            lunchLengthMinutes: Number(storedCrew.lunchLengthMinutes ?? 0),
+        },
+        `${label}: E5 CREW must carry no exercise job, break automation or lunch`,
+    ).toEqual({ exerciseJobCounter: 0, createBreakCardFromTimeIn: 0, autoPaidBreakType: 0, autoReturnFromBreak: 0, lunchLengthMinutes: 0 });
+    expect(Number(storedCrew.departmentCounter), `${label}: ${crew.name} must carry ${department.name}`).toBe(department.id);
+
+    const storedEmployee = await getJson(sessionApi, `employees/${picker.id}`);
+    expect(Number(storedEmployee.departmentCounter), `${label}: ${picker.name} must carry ${department.name}`).toBe(department.id);
+    for (const key of ['hourlyRate', 'payRate', 'rate']) {
+        if (Number(storedEmployee[key] ?? 0) > 0) {
+            throw new Error(`${label}: ${picker.name} carries ${key}=${String(storedEmployee[key])}, which could price the pieces instead of the job's piece rate.`);
+        }
+    }
+    const employeeMinimum = Object.keys(storedEmployee).filter((k) => /minimum/i.test(k) && isSet(storedEmployee[k]));
+    if (employeeMinimum.length) {
+        throw new Error(`${label}: ${picker.name} carries ${employeeMinimum.map((k) => `${k}=${String(storedEmployee[k])}`).join(', ')}; a per-employee minimum wage would displace the department's.`);
+    }
+
+    const storedField = await getJson(sessionApi, `fields/${field.id}`);
+    testInfo.annotations.push({ type: 'field-evidence', description: `overTimeRulesCounter=${String(storedField.overTimeRulesCounter)}` });
+    if (storedField.overTimeRulesCounter != null && Number(storedField.overTimeRulesCounter) !== ruleCounter) {
+        throw new Error(`${label}: field ${field.name} carries overtime rule ${String(storedField.overTimeRulesCounter)} but the job carries ${ruleCounter}; precedence is unverified.`);
+    }
+
+    // The precedence of a state wage over the department is unmeasured, so a field or ranch in a state that carries one fails by name.
+    const storedRanch = await getJson(sessionApi, `ranches/${ranch.id}`);
+    for (const [who, record] of [['field', storedField], ['ranch', storedRanch]] as const) {
+        const stateId = record.stateCounter ?? record.statesCounter;
+        if (stateId == null) {
+            testInfo.annotations.push({ type: 'state-evidence', description: `${who} ${String(record.name ?? '')}: no state` });
+            continue;
+        }
+        const state = await getJson(sessionApi, `states/${Number(stateId)}`).catch((error: unknown) => {
+            testInfo.annotations.push({ type: 'state-evidence', description: `${who} state ${String(stateId)} unreadable: ${error instanceof Error ? error.message : String(error)}` });
+            return undefined;
+        });
+        if (!state) continue;
+        const keys = Object.keys(state).filter((k) => /minimumwage/i.test(k));
+        testInfo.annotations.push({ type: 'state-evidence', description: `${who} state ${String(stateId)}: ${keys.map((k) => `${k}=${String(state[k])}`).join(' ') || 'no minimum-wage key'}` });
+        const carried = keys.filter((k) => isSet(state[k]));
+        if (carried.length) {
+            throw new Error(`${label}: the ${who}'s state ${String(stateId)} carries ${carried.map((k) => `${k}=${String(state[k])}`).join(', ')}; precedence of a state wage over the department is unmeasured.`);
+        }
+    }
+
+    // Read, never written: each gate fails by name rather than skipping.
+    const preferences = await getPreferences(sessionApi);
+    const gate = (key: string, ok: boolean, wantText: string): void => {
+        testInfo.annotations.push({ type: 'environment-gate', description: `${key}=${String(preferences[key])}` });
+        if (!ok) throw new Error(`${label}: environment-gate: ${key} is ${String(preferences[key])}, E5 needs ${wantText}; it never writes a preference.`);
+    };
+    for (const [key, value] of Object.entries(scenario.gates)) {
+        gate(key, String(preferences[key] ?? null) === String(value), `${String(value)} (the department must be the only source of a weekly guarantee and a wage)`);
+    }
+    gate('viewJobCardsAfterTransfer', preferences.viewJobCardsAfterTransfer === true, 'true');
+    gate('maximumDaysForTransferExport', Number(preferences.maximumDaysForTransferExport) >= Math.abs(mondayOffset), `at least ${Math.abs(mondayOffset)} (the Monday is day ${mondayOffset})`);
+    const pieceCounts = scenario.days.map((d) => d.pieces);
+    gate('maximumNumberOfPieces', Number(preferences.maximumNumberOfPieces) >= Math.max(...pieceCounts), `at least ${Math.max(...pieceCounts)}`);
+    gate('minimumNumberOfPieces', Number(preferences.minimumNumberOfPieces) <= Math.min(...pieceCounts), `at most ${Math.min(...pieceCounts)}`);
+    for (const key of [
+        'chkMinWageForUserRateOverwrite',
+        'pieceDiscrepancyForTimeNPiece',
+        'pieceUnderpaymentEarningCode',
+        'exportUnderpaymentAsTimeJobs',
+        'payPieceByShift',
+        'distributePiecesInShiftByAvg',
+        'payRoundingUp',
+        'famousVerifyMinimumWage',
+        'payIdleTimeAsAverage',
+    ]) {
+        testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
+    }
+
+    testInfo.annotations.push({
+        type: 'department-evidence',
+        description: `crew=${String(storedCrew.departmentCounter)} picker=${String(storedEmployee.departmentCounter)} job=${String((await getJson(sessionApi, `jobs/${job.id}`)).departmentCounter)}`,
+    });
+
+    const poison = await scanPoison(sessionApi, testInfo, days, crew.id);
+
+    return { scenario, ranch, field, crew, picker, job, department, minimumWage, days, day: days[0], jobCardIds, timeCardIds, poison, cleanup, ctx };
+}
+
+/**
+ * Per day: crew time-in on E5 JOB, wait until it is readable, crew piece-out (the day's pieces), crew time-out. Three own time
+ * cards per day, one of them the crew piece-out with no employee. Ids are recorded before anything is asserted.
+ */
+export async function seedPieceDays(run: JourneyE5Run, opts: E5Deps): Promise<SeedResult> {
+    const { sessionApi, pages } = opts;
+    const own = new Map<number, OfficeTimeCard>();
+    const ownOn = async (day: string) => (await listTimeCards(sessionApi, { from: day, to: day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+    const record = (cards: OfficeTimeCard[]): void => {
+        for (const card of cards) {
+            own.set(card.timeCardCounter, card);
+            if (!run.timeCardIds.includes(card.timeCardCounter)) run.timeCardIds.push(card.timeCardCounter);
+        }
+        run.ctx.cards = [...own.values()];
+    };
+
+    for (const [i, day] of run.days.entries()) {
+        const { timeIn, pieceOut, timeOut, pieces } = run.scenario.days[i];
+        await pages.crewTimeIn.punchIn({
+            day,
+            crew: run.crew.name,
+            ranch: run.ranch.name,
+            field: run.field.name,
+            employees: [run.picker.name],
+            job: run.job.name,
+            ...timeIn,
+        });
+        // The time-out form only offers employees with an open time-in, so wait until the saved punch is readable.
+        await expect(async () => {
+            const cards = await ownOn(day);
+            record(cards);
+            expect(cards.filter((c) => Number(c.cardType) === CARD_TYPE.timeIn)).toHaveLength(1);
+        }).toPass({ timeout: 60_000 });
+        await pages.crewPieceOut.pieceOut({ day, crew: run.crew.name, ranch: run.ranch.name, field: run.field.name, job: run.job.name, pieces, ...pieceOut });
+        await pages.crewTimeOut.punchOut({ day, crew: run.crew.name, ...timeOut });
+
+        const cards = await ownOn(day);
+        record(cards);
+        if (cards.length !== 3) throw new Error(`${run.scenario.label}: expected 3 own time cards on ${day} after seeding, found ${cards.length}.`);
+        const pieceOuts = cards.filter((c) => c.employeeCounter === null || c.employeeCounter === undefined);
+        if (pieceOuts.length !== 1) throw new Error(`${run.scenario.label}: expected exactly one crew piece-out (no employee) on ${day}, found ${pieceOuts.length}.`);
+    }
+    return { timeCardCounters: [...own.keys()] };
+}
+
+/**
+ * One commit of both days by Reference after the crew scope, never "Select all rows" (day-by-day commits would freeze Monday
+ * at its own value: WEBPET-3158's saved-week re-price does not fire on su). Row status and the preview are evidence only.
+ */
+export async function transferPieceWeek(run: JourneyE5Run, opts: E5Deps, seed: SeedResult): Promise<TransferOutcome> {
+    const { testInfo, pages } = opts;
+    const transfer = pages.transferToJobCards;
+    const { expected, label } = run.scenario;
+    const scope = {
+        scenario: { label, expected: { jobCards: expected.jobCards } },
+        crew: run.crew,
+        day: run.days[0],
+        days: run.days,
+        jobCardIds: run.jobCardIds,
+        ctx: { ...run.ctx, cards: (run.ctx.cards ?? []).filter((c) => seed.timeCardCounters.includes(c.timeCardCounter)) },
+    };
+
+    const candidates = await openScopedCandidates(scope, { pages, crew: run.crew.name }, seed);
+    await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
+
+    // Piece days carry "No hourly rate available" (D6: non-blocking), so the status is recorded, not asserted Ready.
+    const statuses: string[] = [];
+    for (const id of seed.timeCardCounters) statuses.push(`${id}=${await transfer.rowStatusText(id)}`);
+    testInfo.annotations.push({ type: 'row-status-evidence', description: statuses.join(' ') });
+
+    await transfer.openJobCardsTab();
+    try {
+        const preview = await transfer.previewOvertimeBuckets();
+        testInfo.annotations.push({ type: 'preview-evidence', description: JSON.stringify(preview.map((r) => [r.job, r.grossTime, r.regularHours, r.overtime])) });
+    } catch (error) {
+        testInfo.annotations.push({ type: 'preview-evidence', description: `unreadable: ${error instanceof Error ? error.message : String(error)}` });
+    }
+    await transfer.openTimeCardsTab();
+
+    let outcome: TransferOutcome;
+    try {
+        outcome = await commitTransfer(scope, opts, seed, candidates, expected.toast);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/JobCard_Reference_Unique/.test(message)) {
+            throw new Error(`PRODUCT RED (known multi-day execute defect, do not heal; splitting the transfer would lose the weekly make-up): ${message}`);
+        }
+        if (/ended (error|fail)/i.test(message) && run.poison.length) {
+            throw new Error(`${message}\nPoison scan before the run: ${run.poison.join('; ')}`);
+        }
+        throw error;
+    }
+    await pages.viewJobCards.waitForTransferLanding();
+    expect(pages.viewJobCards.transferRunParam(), `${label}: the app lands with this run's id`).toBe(outcome.transferRunCounter);
+
+    // Plumbing (d): every live own job card across the days, for cleanup (a separate make-up card would be caught here).
+    testInfo.annotations.push({ type: 'plumbing-read', description: `${label}: own job card ids re-recorded across the days for cleanup` });
+    const live: number[] = [];
+    for (const day of run.days) {
+        const cards = (await listJobCards(opts.sessionApi, { from: day, to: day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+        live.push(...cards.map((c) => c.jobCardCounter));
+    }
+    run.jobCardIds.splice(0, run.jobCardIds.length, ...live);
+    return outcome;
+}
+
+export interface PieceWeekRow {
+    day: string;
+    gross: number;
+    regular: number;
+    overtime: number;
+    double: number;
+    amount: number;
+}
+
+/** View ▸ Job Cards, Mon-Tue, crew chip: one row per day, the piece counter, the Totals bar, conservation, and the named contrasts on Amount. */
+export async function readPieceWeekOnScreen(run: JourneyE5Run, opts: E5Deps): Promise<PieceWeekRow[]> {
+    const view = opts.pages.viewJobCards;
+    const { expected, label } = run.scenario;
+    const first = run.days[0];
+    const last = run.days[run.days.length - 1];
+
+    await view.openFromMenu();
+    await view.scopeToRange(first, last);
+    await view.applyFilter();
+    // The scope loads every tenant card of the range: rows and Totals are read only after the crew chip.
+    await view.filterByCrew(run.crew.name);
+    await expect(view.crewChips, `${label}: the Crews filter must read exactly the crew`).toHaveText(run.crew.name);
+    await expect
+        .poll(async () => (await view.readTotals()).gross, { message: `${label}: the Totals bar must settle on the crew's ${expected.totals.gross} gross hours`, timeout: 20_000 })
+        .toBe(expected.totals.gross);
+    const totals = await view.readTotals();
+
+    const rows = view.rowsForCrew(run.crew.name);
+    await expect(rows, `${label}: one row per day`).toHaveCount(expected.jobCards);
+    const cards: PieceWeekRow[] = [];
+    for (let i = 0; i < expected.jobCards; i += 1) {
+        const row = rows.nth(i);
+        cards.push({
+            day: await view.readDay(row, 'Time In'),
+            gross: await view.readNumber(row, 'Gross Time'),
+            regular: await view.readNumber(row, 'Regular Hours'),
+            overtime: await view.readNumber(row, 'Overtime'),
+            double: await view.readNumber(row, 'Double Time'),
+            amount: await view.readNumber(row, 'Amount'),
+        });
+    }
+    cards.sort((a, b) => a.day.localeCompare(b.day));
+    expect(cards.map((c) => c.day), `${label}: one job card per day, ${first} to ${last}`).toEqual(run.days);
+
+    const counts = await view.readCounts();
+    expect.soft(counts.pieces.shown, `${label}: the piece counter must read the week's ${expected.pieces} pieces`).toBe(expected.pieces);
+
+    const at = (value: number) => Math.abs(totals.amount - value) < 0.005;
+    const named = at(expected.contrasts.eachDay)
+        ? " — make-up computed per day: the department's Minimum Wage Method 'Each Week' was not applied (the employer's EachDay was used with the department's wage)"
+        : at(expected.contrasts.never)
+          ? ' — no make-up reached the Amount column. Either the department\'s Minimum Wage record was not read (the employer\'s is empty), or the make-up is held outside Amount. Check the grid-headers evidence and calculationDesc.'
+          : ` — expected ${expected.totals.amount.toFixed(2)} (Each Week), ${expected.contrasts.eachDay.toFixed(2)} (Each Day) or ${expected.contrasts.never.toFixed(2)} (Never)`;
+    expect.soft(totals.amount, `${label}: Totals Amount${named}`).toBeCloseTo(expected.totals.amount, 2);
+
+    expect.soft(
+        { gross: totals.gross, regular: totals.regular, overtime: totals.overtime, double: totals.double },
+        `${label}: the Totals bar Gross / Regular / Overtime / Double`,
+    ).toEqual({ gross: expected.totals.gross, regular: expected.totals.regular, overtime: expected.totals.overtime, double: expected.totals.double });
+    // The make-up folds into the short day's own card (measured 2026-10-28): Monday 120 + 24 = 144, Tuesday 160.
+    expect.soft(
+        cards.map(({ gross, regular, overtime, double, amount }) => ({ gross, regular, overtime, double, amount })),
+        `${label}: per-day Gross / Regular / Overtime / Double / Amount`,
+    ).toEqual(expected.perDay);
+
+    // Conservation: the own rows' Amount sums to the Totals Amount, and no hour is double-counted.
+    expect.soft(cards.reduce((t, c) => t + c.amount, 0), `${label}: the own rows' Amount must sum to the Totals Amount`).toBeCloseTo(totals.amount, 2);
+    expect.soft(totals.regular + totals.overtime + totals.double, `${label}: Totals Regular + Overtime + Double must equal Gross`).toBeCloseTo(totals.gross, 4);
+    for (const card of cards) {
+        expect.soft(card.regular + card.overtime + card.double, `${label}: ${card.day} Regular + Overtime + Double must equal Gross`).toBeCloseTo(card.gross, 4);
+    }
+    return cards;
+}
+
+/** Where the make-up lives has no screen of its own: per-row Amount, the grid's headers and each own card's body, annotated and never asserted. */
+export async function recordMakeUpEvidence(run: JourneyE5Run, opts: E5Deps, cards: PieceWeekRow[]): Promise<void> {
+    const { testInfo, sessionApi, pages } = opts;
+    testInfo.annotations.push({ type: 'makeup-evidence', description: `per-row Amount: ${cards.map((c) => `${c.day}=${c.amount}`).join(' ')} (own cards: ${run.jobCardIds.length})` });
+    testInfo.annotations.push({ type: 'makeup-evidence', description: `grid-headers: ${JSON.stringify(await pages.viewJobCards.columnHeaders())}` });
+
+    testInfo.annotations.push({ type: 'plumbing-read', description: `${run.scenario.label}: GET job-cards/{id} for calculationDesc and minimum-wage keys` });
+    for (const id of run.jobCardIds) {
+        const card = (await getJobCard(sessionApi, id)) as unknown as Json;
+        const keys = Object.keys(card).filter((k) => /minimum|underpay|makeup/i.test(k));
+        testInfo.annotations.push({
+            type: 'api-only-evidence',
+            description: `job card ${id} calculationDesc=${String(card.calculationDesc)} ${keys.map((k) => `${k}=${String(card[k])}`).join(' ')}`.trim(),
+        });
     }
 }
 

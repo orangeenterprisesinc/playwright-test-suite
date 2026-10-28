@@ -32,6 +32,7 @@ import { ViewTimeCardsPage } from '../pages/processing/ViewTimeCardsPage';
 import { JobPage } from '../pages/setup/JobPage';
 import { OvertimeRulePage } from '../pages/setup/OvertimeRulePage';
 import { DepartmentPage } from '../pages/setup/DepartmentPage';
+import { MinimumWagePage } from '../pages/setup/MinimumWagePage';
 import { CrewTimeInPage } from '../pages/input/CrewTimeInPage';
 import { CrewPieceOutPage } from '../pages/input/CrewPieceOutPage';
 import { CrewTimeOutPage } from '../pages/input/CrewTimeOutPage';
@@ -98,6 +99,8 @@ export interface PageObjects {
     readonly overtimeRule: OvertimeRulePage;
     /** Setup ▸ Department, `/setup/departments` — E1's own department and its Weekly Overtime Method. */
     readonly department: DepartmentPage;
+    /** Setup ▸ Minimum Wage, `/setup/minimum-wages` — E5's own wage record (19.00). */
+    readonly minimumWage: MinimumWagePage;
 
     // ── setup: the fixture rows, created and repaired on screen (UI-first) ──
     /** Setup ▸ Ranch, `/setup/ranches`. */
@@ -165,6 +168,7 @@ export function createPageObjects(page: Page): PageObjects {
         get job() { return lazy('job', () => new JobPage(page)); },
         get overtimeRule() { return lazy('overtimeRule', () => new OvertimeRulePage(page)); },
         get department() { return lazy('department', () => new DepartmentPage(page)); },
+        get minimumWage() { return lazy('minimumWage', () => new MinimumWagePage(page)); },
         get ranch() { return lazy('ranch', () => new RanchPage(page)); },
         get field() { return lazy('field', () => new FieldPage(page)); },
         get crew() { return lazy('crew', () => new CrewPage(page)); },

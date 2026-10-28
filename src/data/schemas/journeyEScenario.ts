@@ -1088,3 +1088,156 @@ export const JourneyE10ExportIdentifierCaseSchema = z
     });
 
 export type JourneyE10ExportIdentifierCase = z.infer<typeof JourneyE10ExportIdentifierCaseSchema>;
+
+// E5 (weekly minimum-wage guarantee on piece): one piece job at a piece rate, days that fall short of and clear the day's
+// floor, and a week that falls short in total. With the department's method "Each Week" the make-up is the week's shortfall
+// (floor - piece pay), so a surplus day absorbs part of a low day's gap. Each Day tops up per day; Never adds nothing.
+// The refinements re-derive every number, so the data cannot drift out of agreement with itself.
+const E5Clock = TimeOfDay;
+
+const E5Day = z
+    .object({
+        weekday: z.number().int().min(0),
+        timeIn: E5Clock,
+        pieceOut: E5Clock,
+        timeOut: E5Clock,
+        /** The Crew Piece Out screen rejects more than maximumNumberOfPieces (5 on dev); the flow re-checks the live preference. */
+        pieces: z.number().int().min(1).max(5),
+    })
+    .strict();
+
+export const JourneyE5MinimumWageCaseSchema = z
+    .object({
+        _notes: z.array(z.string()).optional(),
+        workflow: z.literal('E5'),
+        label: z.string().min(1),
+        /** Exactly one Monday inside; the days are that Monday onwards. */
+        mondayWindow: z.object({ earliest: z.number().int(), latest: z.number().int() }).strict(),
+        /** Mirrors the fixture's rate; the flow asserts they agree after the Minimum Wage form read-back. */
+        minimumWage: z.object({ rate: z.number().positive() }).strict(),
+        /** Typed on the Department form on every run; the option text exactly ("Each Week"). */
+        department: z.object({ minimumWageMethod: z.string().min(1) }).strict(),
+        rule: z.object({ name: z.string().min(1), overtimeDailyHours: z.number().positive() }).strict(),
+        /** Mirrors the fixture job's Piece Rate. */
+        pieceRate: z.number().positive(),
+        days: z.array(E5Day).min(2),
+        expected: z
+            .object({
+                timeCards: z.number().int().positive(),
+                jobCards: z.number().int().positive(),
+                toast: z.object({ jobCards: z.number().int().positive(), timeCards: z.number().int().positive() }).strict(),
+                perDay: z
+                    .array(
+                        z
+                            .object({ gross: z.number().positive(), regular: z.number().min(0), overtime: z.number().min(0), double: z.number().min(0), amount: z.number().positive() })
+                            .strict(),
+                    )
+                    .min(2),
+                pieces: z.number().int().positive(),
+                piecePay: z.number().positive(),
+                weeklyFloor: z.number().positive(),
+                makeUp: z.number().positive(),
+                totals: z
+                    .object({
+                        gross: z.number().positive(),
+                        regular: z.number().min(0),
+                        overtime: z.number().min(0),
+                        double: z.number().min(0),
+                        amount: z.number(),
+                    })
+                    .strict(),
+                /** What each wrong engine would read; the week must NOT show either of these. */
+                contrasts: z.object({ eachDay: z.number(), never: z.number() }).strict(),
+            })
+            .strict(),
+        /** Expected values of the environment gates; read, never written. */
+        gates: z
+            .object({
+                minimumWageCalcMethod: z.string().min(1),
+                houlyMinimumWageCounter: z.null(),
+                includeTimeJobsInMinWageCalc: z.boolean(),
+                includeBonusInMinWageCalc: z.boolean(),
+                useMinimumWageColumnType: z.string().min(1),
+                payOvertimeBasedOnWeeklyAvg: z.string().min(1),
+            })
+            .strict(),
+        /** Empty by design: the days' offsets are only known at run time, so the flow sweeps per day itself. */
+        cleanup: z.array(CleanupStepSchema).length(0),
+    })
+    .strict()
+    .superRefine((s, ctx) => {
+        const issue = (path: Array<string | number>, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+        const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+        const { expected, rule, days } = s;
+        const window = s.mondayWindow;
+        const length = days.length;
+
+        if (window.latest - window.earliest !== 6) issue(['mondayWindow'], 'latest - earliest must be 6: exactly one Monday inside');
+        if (window.latest + (length - 1) > -1) issue(['mondayWindow', 'latest'], 'the last day must be in the past (<= -1)');
+        if (window.earliest <= -13 && window.latest + (length - 1) >= -21) {
+            issue(['mondayWindow', 'earliest'], 'days -13..-21 are excluded: other journeys assert whole-date-scope pills there that E5\'s untransferred rows would break');
+        }
+
+        const hoursOf = (d: z.infer<typeof E5Day>): number => (minutes(d.timeOut) - minutes(d.timeIn)) / 60;
+        days.forEach((d, i) => {
+            if (d.weekday !== i) issue(['days', i, 'weekday'], `must be ${i}: weekdays run 0..${length - 1} from Monday in order`);
+            if (!(minutes(d.timeIn) < minutes(d.pieceOut) && minutes(d.pieceOut) < minutes(d.timeOut))) issue(['days', i], 'timeIn must be before pieceOut, and pieceOut before timeOut');
+            for (const key of ['timeIn', 'pieceOut', 'timeOut'] as const) {
+                if (d[key].minute % 15 !== 0) issue(['days', i, key], 'times must sit on a quarter hour (Time Rounding at Transfer is 15 minutes)');
+            }
+            if (hoursOf(d) > rule.overtimeDailyHours) issue(['days', i], 'a day may not exceed rule.overtimeDailyHours: no overtime may mix into the money');
+        });
+
+        const rate = s.minimumWage.rate;
+        const pay = (d: z.infer<typeof E5Day>): number => d.pieces * s.pieceRate;
+        const floor = (d: z.infer<typeof E5Day>): number => hoursOf(d) * rate;
+        const sum = (pick: (d: z.infer<typeof E5Day>) => number): number => days.reduce((t, d) => t + pick(d), 0);
+
+        const piecePay = round2(sum(pay));
+        const weeklyFloor = round2(sum(floor));
+        const makeUp = round2(Math.max(0, weeklyFloor - piecePay));
+        const eachDay = round2(days.reduce((t, d) => t + Math.max(pay(d), floor(d)), 0));
+        const gross = sum(hoursOf);
+
+        if (expected.timeCards !== 3 * length) issue(['expected', 'timeCards'], 'a crew time-in, a crew piece-out and a crew time-out per day');
+        if (expected.jobCards !== length) issue(['expected', 'jobCards'], 'one job card per day: the make-up folds into a day card, no separate card (measured 2026-10-28)');
+        if (expected.toast.jobCards !== expected.jobCards) issue(['expected', 'toast', 'jobCards'], 'must equal expected.jobCards');
+        if (expected.toast.timeCards !== expected.timeCards) issue(['expected', 'toast', 'timeCards'], 'must equal expected.timeCards');
+
+        if (expected.perDay.length !== length) {
+            issue(['expected', 'perDay'], `must have one entry per day (${length})`);
+        } else {
+            days.forEach((d, i) => {
+                const want = { gross: hoursOf(d), regular: hoursOf(d), overtime: 0, double: 0 };
+                for (const key of ['gross', 'regular', 'overtime', 'double'] as const) {
+                    if (!near(expected.perDay[i][key], want[key])) issue(['expected', 'perDay', i, key], `must be ${want[key]}`);
+                }
+            });
+            const amounts = expected.perDay.reduce((t, b) => t + b.amount, 0);
+            if (!near(amounts, expected.totals.amount)) issue(['expected', 'perDay'], `the per-day amounts must sum to totals.amount (${expected.totals.amount})`);
+        }
+
+        if (expected.pieces !== sum((d) => d.pieces)) issue(['expected', 'pieces'], `must be ${sum((d) => d.pieces)}`);
+        if (!near(expected.piecePay, piecePay)) issue(['expected', 'piecePay'], `must be ${piecePay} (sum of pieces x pieceRate)`);
+        if (!near(expected.weeklyFloor, weeklyFloor)) issue(['expected', 'weeklyFloor'], `must be ${weeklyFloor} (sum of hours x minimum wage)`);
+        if (!near(expected.makeUp, makeUp)) issue(['expected', 'makeUp'], `must be ${makeUp} (weekly floor - piece pay)`);
+
+        const { totals } = expected;
+        if (!near(totals.gross, gross)) issue(['expected', 'totals', 'gross'], `must be ${gross}`);
+        if (!near(totals.regular, gross)) issue(['expected', 'totals', 'regular'], `must be ${gross}: every hour is regular`);
+        if (totals.overtime !== 0 || totals.double !== 0) issue(['expected', 'totals'], 'overtime and double must be 0');
+        if (!near(totals.amount, round2(piecePay + makeUp))) issue(['expected', 'totals', 'amount'], `must be ${round2(piecePay + makeUp)} (piece pay + make-up)`);
+        if (!near(expected.contrasts.eachDay, eachDay)) issue(['expected', 'contrasts', 'eachDay'], `must be ${eachDay} (each day at its own max of piece pay and floor)`);
+        if (!near(expected.contrasts.never, piecePay)) issue(['expected', 'contrasts', 'never'], `must be ${piecePay} (piece pay, no guarantee)`);
+
+        // Non-vacuous: the week must tell the three methods apart, and the low day must be absorbed by the high one.
+        const shortfalls = days.map((d) => Math.max(0, floor(d) - pay(d)));
+        if (!days.some((d) => pay(d) < floor(d)) || !days.some((d) => pay(d) > floor(d))) issue(['days'], 'at least one day below its daily floor and one above it');
+        if (!(piecePay < weeklyFloor)) issue(['expected', 'piecePay'], 'piece pay must fall below the weekly floor, or there is no make-up to prove');
+        if (new Set([totals.amount, expected.contrasts.eachDay, expected.contrasts.never]).size !== 3) {
+            issue(['expected'], 'totals.amount, contrasts.eachDay and contrasts.never must be pairwise distinct, or the test cannot tell the methods apart');
+        }
+        if (!(makeUp < Math.max(...shortfalls))) issue(['expected', 'makeUp'], 'must be smaller than the largest single-day shortfall: a surplus day absorbs part of it');
+    });
+
+export type JourneyE5MinimumWageCase = z.infer<typeof JourneyE5MinimumWageCaseSchema>;

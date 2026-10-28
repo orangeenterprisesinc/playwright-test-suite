@@ -1,0 +1,44 @@
+{
+    "_notes": [
+        "E5 - Weekly minimum-wage guarantee on piece. E5 PICKER ONE works one piece job, E5 JOB, at 40 per piece, Mon + Tue 06:00-14:00, in one Mon-Tue transfer.",
+        "E5 DEPARTMENT's Minimum Wage = E5 MINIMUM WAGE (19.00) and Minimum Wage Method = Each Week are the one lever; the employer's EachDay and its empty wage are read-only gates.",
+        "Mon 3 pieces = 120 (floor 152, 32 short); Tue 4 pieces = 160 (floor 152, 8 over). Week: piece pay 280, floor 16 x 19 = 304, make-up 24 (not 32: Tuesday's surplus absorbs 8).",
+        "Contrasts: Each Day = 152 + 160 = 312; Never = 280. The 24.00 make-up folds into Monday's own card (120 + 24 = 144); there is no separate underpayment card (first green run, 2026-10-28).",
+        "The Monday is the one in days -12..-6, computed at run time. cleanup is empty by design: the flow sweeps per day itself."
+    ],
+    "workflow": "E5",
+    "label": "e05-weekly-minimum-wage-guarantee-on-piece",
+    "mondayWindow": { "earliest": -12, "latest": -6 },
+    "minimumWage": { "rate": 19 },
+    "department": { "minimumWageMethod": "Each Week" },
+    "rule": { "name": "AG CA 2022", "overtimeDailyHours": 8 },
+    "pieceRate": 40,
+    "days": [
+        { "weekday": 0, "timeIn": { "hour": 6, "minute": 0 }, "pieceOut": { "hour": 13, "minute": 30 }, "timeOut": { "hour": 14, "minute": 0 }, "pieces": 3 },
+        { "weekday": 1, "timeIn": { "hour": 6, "minute": 0 }, "pieceOut": { "hour": 13, "minute": 30 }, "timeOut": { "hour": 14, "minute": 0 }, "pieces": 4 }
+    ],
+    "expected": {
+        "timeCards": 6,
+        "jobCards": 2,
+        "toast": { "jobCards": 2, "timeCards": 6 },
+        "perDay": [
+            { "gross": 8, "regular": 8, "overtime": 0, "double": 0, "amount": 144 },
+            { "gross": 8, "regular": 8, "overtime": 0, "double": 0, "amount": 160 }
+        ],
+        "pieces": 7,
+        "piecePay": 280,
+        "weeklyFloor": 304,
+        "makeUp": 24,
+        "totals": { "gross": 16, "regular": 16, "overtime": 0, "double": 0, "amount": 304 },
+        "contrasts": { "eachDay": 312, "never": 280 }
+    },
+    "gates": {
+        "minimumWageCalcMethod": "EachDay",
+        "houlyMinimumWageCounter": null,
+        "includeTimeJobsInMinWageCalc": false,
+        "includeBonusInMinWageCalc": false,
+        "useMinimumWageColumnType": "HourlyRate",
+        "payOvertimeBasedOnWeeklyAvg": "None"
+    },
+    "cleanup": []
+}

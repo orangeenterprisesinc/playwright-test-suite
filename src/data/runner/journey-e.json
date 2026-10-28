@@ -105,8 +105,8 @@
                 "regression"
             ],
             "jira": "PET-12492",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "E6",
