@@ -49,6 +49,7 @@ import { DeletedRecordsPage } from '../pages/admin/DeletedRecordsPage';
 import { BulkDeleteHistoryPage } from '../pages/admin/BulkDeleteHistoryPage';
 import { ReverseExportPage } from '../pages/admin/ReverseExportPage';
 import { ExportToAccountingPage } from '../pages/processing/ExportToAccountingPage';
+import { ReportsHubPage } from '../pages/reports/ReportsHubPage';
 
 /**
  * Every page object, lazily constructed.
@@ -71,6 +72,8 @@ export interface PageObjects {
     readonly notifications: NotificationsPage;
     /** File ▸ Administration ▸ Job Card Preferences, `/settings/job-card-preferences` — Time Decimal Accuracy (E6). */
     readonly jobCardPreferences: JobCardPreferencesPage;
+    /** File ▸ Administration ▸ Reports, `/settings/reports` — hub, Run dialog, PDF viewer (R1/R2). */
+    readonly reportsHub: ReportsHubPage;
     /** Scan Devices & Boards list and edit form, `/setup/scan-devices` (B15). */
     readonly scanDevice: ScanDevicePage;
     /** Setup ▸ Table — pack-house sub-crew tables, `/setup/crew-tables` (C6). */
@@ -152,6 +155,7 @@ export function createPageObjects(page: Page): PageObjects {
         get preferences() { return lazy('preferences', () => new PreferencesPage(page)); },
         get notifications() { return lazy('notifications', () => new NotificationsPage(page)); },
         get jobCardPreferences() { return lazy('jobCardPreferences', () => new JobCardPreferencesPage(page)); },
+        get reportsHub() { return lazy('reportsHub', () => new ReportsHubPage(page)); },
         get scanDevice() { return lazy('scanDevice', () => new ScanDevicePage(page)); },
         get crewTable() { return lazy('crewTable', () => new CrewTablePage(page)); },
         get transferToJobCards() { return lazy('transferToJobCards', () => new TransferToJobCardsPage(page)); },
