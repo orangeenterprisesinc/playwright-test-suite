@@ -184,7 +184,7 @@ function parseCatalog(lines) {
     for (const line of lines) {
         if (!line) continue;
 
-        const journeyMatch = /^Journey ([A-F]):\s*(.+)$/.exec(line);
+        const journeyMatch = /^Journey ([A-Z]):\s*(.+)$/.exec(line);
         if (journeyMatch) {
             journey = { id: journeyMatch[1], title: journeyMatch[2].trim() };
             journeys.push(journey);
@@ -194,7 +194,7 @@ function parseCatalog(lines) {
 
         // "A1 · License, serial number, and user setup" — the separator is a
         // middle dot, and the document also uses a plain hyphen in places.
-        const workflowMatch = /^([A-F]\d{1,2})\s*[·•\-–]\s*(.+)$/.exec(line);
+        const workflowMatch = /^([A-Z]\d{1,2})\s*[·•\-–]\s*(.+)$/.exec(line);
         if (workflowMatch && journey) {
             current = {
                 id: workflowMatch[1],
@@ -251,6 +251,22 @@ function parseCatalog(lines) {
     return { journeys, workflows };
 }
 
+/**
+ * Journeys and workflows that carry their own `source` (Journey R comes from the
+ * reports pass/fail sheet, not the docx) are kept across a re-import, with the
+ * modules they name.
+ */
+function readCarriedEntries() {
+    if (!fs.existsSync(OUT)) return { journeys: [], workflows: [], modules: [] };
+    const previous = JSON.parse(fs.readFileSync(OUT, 'utf8'));
+    const workflows = previous.workflows.filter((w) => w.source);
+    return {
+        journeys: previous.journeys.filter((j) => j.source),
+        workflows,
+        modules: [...new Set(workflows.flatMap((w) => w.modules))],
+    };
+}
+
 /** Pulls the appendix's canonical module list so module names can be validated. */
 function parseModuleAppendix(lines) {
     const anchor = lines.findIndex((line) => /^Anonymous Workers,/.test(line));
@@ -287,12 +303,13 @@ function main() {
         console.warn(`No surface mapped, defaulted to 'ui': ${missingSurface.join(', ')}`);
     }
 
+    const carried = readCarriedEntries();
     const catalog = {
         source: path.basename(DOCX),
-        journeys,
-        modules: canonicalModules,
+        journeys: [...journeys, ...carried.journeys],
+        modules: [...new Set([...canonicalModules, ...carried.modules])],
         segments: ['grower', 'perennial-grower', 'pack-house', 'nursery', 'flc'],
-        workflows,
+        workflows: [...workflows, ...carried.workflows],
     };
 
     fs.mkdirSync(path.dirname(OUT), { recursive: true });

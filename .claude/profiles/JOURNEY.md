@@ -14,7 +14,9 @@ Read this profile when the task touches `tests/web/`, `src/data/runner/`,
   harvest, C pack-house, D office processing, E payroll close, F analysis),
   69 workflows. `docs/catalog/PET-Tiger-Workflow-Catalog.docx` →
   `npm run catalog:import` → `src/data/catalog/workflow-catalog.json`.
-  Extract single workflow nodes; never load all 69 into context.
+  Journey R (Reports: R1, R2) is not in the docx; its entries carry a `source`
+  (the reports pass/fail sheet) and survive a re-import.
+  Extract single workflow nodes; never load all of them into context.
 * Pipeline — one workflow id joins five artifacts (full contract in
   `test-plans/README.md`): catalog entry → recording (`docs/media/`, untracked)
   → plan (`test-plans/journey-<x>/<wf>-<slug>.md`, copied from

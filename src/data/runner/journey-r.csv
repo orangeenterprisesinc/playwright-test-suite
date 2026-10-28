@@ -1,0 +1,3 @@
+id,workflow,journey,category,testName,testTitle,testDescription,segments,modules,tags,demo,jira,status,enabled
+R1,R1,R,ui,reportsHubListingFilteringFavorites,"Reports hub: listing, filtering, and favorites","Find a report on the Reports hub by name and module, keep the ones used most as favorites, and see at a glance which reports cannot run yet.",all,Reports,regression,0,PET-12681,automated,1
+R2,R2,R,ui,runDialogAndReportParameters,Run dialog and report parameters,"Run a report from the hub through its Run dialog: readable parameter labels, a variant picker, date, entity, yes/no and choice parameters, then the PDF viewer.",all,Reports,regression,0,PET-12682,automated,1

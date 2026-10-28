@@ -70,7 +70,7 @@ const TIER_TAG_SET = new Set(TIERS.map(([, tag]) => tag));
 const EXTRA_TEST_TAGS = new Set(['@Demo']);
 
 /** Tags a `test.describe()` may carry: the journey, the workflow, or @System. */
-const SUITE_TAG = /^@(?:Journey[A-F]|[A-F]\d{1,2}|System)$/;
+const SUITE_TAG = /^@(?:Journey[A-Z]|[A-Z]\d{1,2}|System)$/;
 
 /**
  * The tier tags a row's `tags` column implies, narrowest first — the order the
@@ -124,7 +124,7 @@ function main() {
         // Catalog rows: the id IS the workflow. One workflow, one happy-path row,
         // one spec — so there is nothing left for a `-001` ordinal to distinguish.
         if (row.workflow) {
-            if (!/^[A-F]\d{1,2}$/.test(row.id)) {
+            if (!/^[A-Z]\d{1,2}$/.test(row.id)) {
                 fail(`${where}: a catalog row's id is its workflow id, e.g. 'C6' — no '-001' suffix`);
             } else if (row.id !== row.workflow) {
                 fail(`${where}: id '${row.id}' does not match workflow '${row.workflow}'`);

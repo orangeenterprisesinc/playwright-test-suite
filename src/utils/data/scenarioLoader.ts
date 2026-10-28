@@ -18,7 +18,7 @@ type MultiCaseFile = { shared?: Record<string, unknown>; cases: Record<string, R
 
 export function scenarioFileFor(specFile: string): string {
     const folder = path.basename(path.dirname(specFile));
-    const journey = folder === 'system' ? 'system' : /^(journey-[a-f])(?:-|$)/.exec(folder)?.[1];
+    const journey = folder === 'system' ? 'system' : /^(journey-[a-z])(?:-|$)/.exec(folder)?.[1];
     if (!journey) throw new Error(`scenarioLoader: '${folder}' is not a journey-<x>-<area> or system folder (${specFile})`);
     return path.join(DATA_ROOT, journey, `${path.basename(specFile).replace(/\.spec\.ts$/, '')}.json`);
 }
