@@ -99,15 +99,14 @@ const HEADED = process.argv.includes('--headed') || process.env.HEADED === '1';
 if (HEADED) process.env.HEADED = '1';
 /** Maximize to the screen when there is one; give headless a window of a known size otherwise. */
 const WINDOW_ARGS = HEADED ? ['--start-maximized'] : [`--window-size=${WINDOW_SIZE.width},${WINDOW_SIZE.height}`];
+const videoSize = (height: number) => ({ width: Math.round((height * WINDOW_SIZE.width) / WINDOW_SIZE.height), height });
 /**
- * Recording size, decoupled from the window: 720p keeps grid text legible in Jira evidence, where 480p
- * was not. `VIDEO_HEIGHT=480` shrinks a red run's report; `1080` gives full-size bug-report frames.
+ * Journey recording size, decoupled from the window: 720p keeps grid text legible in Jira evidence, where
+ * 480p was not. `VIDEO_HEIGHT=480` shrinks a red run's report; `1080` gives full-size bug-report frames.
  */
-const VIDEO_HEIGHT = Number(process.env.VIDEO_HEIGHT ?? 720);
-const VIDEO_SIZE = {
-    width: Math.round((VIDEO_HEIGHT * WINDOW_SIZE.width) / WINDOW_SIZE.height),
-    height: VIDEO_HEIGHT,
-};
+const VIDEO_SIZE = videoSize(Number(process.env.VIDEO_HEIGHT ?? 720));
+/** The web-pet suite records at 480p in framework mode; VIDEO_HEIGHT does not apply to it. */
+const WEBPET_VIDEO_SIZE = videoSize(480);
 /**
  * Spread AFTER `...devices['Desktop Chrome']` in every journey project. The device preset carries
  * `deviceScaleFactor: 1`, and Playwright refuses that alongside `viewport: null` — the run dies in
@@ -290,9 +289,9 @@ export default defineConfig({
         // trace/video to 'retain-on-failure' or 'on-first-retry'.
         screenshot: 'only-on-failure',
         trace: 'on',
-        // 480p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
+        // 720p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
         // but recording at that size shipped a 763 MB report from one red run.
-        // The frame is scaled down to fit, never up.
+        // The frame is scaled down to fit, never up. The webpet project sets its own.
         video: { mode: 'on', size: VIDEO_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
@@ -433,7 +432,7 @@ export default defineConfig({
                                     video: 'off' as const,
                                     screenshot: 'off' as const,
                                 }
-                              : {}),
+                              : { video: { mode: 'on' as const, size: WEBPET_VIDEO_SIZE } }),
                           // NO storageState: src/fixtures/webpet.fixture.ts seeds its
                           // own contexts from tests/webpet/.auth, and notifications.spec.ts's
                           // clean-context tests must start unauthenticated (matching
