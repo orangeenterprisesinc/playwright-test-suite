@@ -44,7 +44,7 @@ test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, 
             // 3 + 4. Scope to the day, analyze, narrow to the crew (never the Employee filter — WEBPET-3397),
             // and refuse to transfer anything but this run's own two references.
             const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
-            await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+            await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
             for (const id of seed.timeCardCounters) {
                 expect.soft(await transfer.rowStatusText(id), `${scenario.label}: time card ${id} must read ${READY_STATUS} before the commit`).toBe(READY_STATUS);
             }
