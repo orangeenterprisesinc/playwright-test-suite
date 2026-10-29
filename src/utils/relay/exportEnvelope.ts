@@ -236,8 +236,16 @@ export function buildCrewTimeInEnvelope({
     return { xml, references };
 }
 
-/** `FromAndroid-{yyMMddHHmmss}-{prefix}.xml`, per OeFileNameBuilder. */
-export function exportFileName(prefix: string, at = new Date()): string {
+export type DeviceFamily = 'android' | 'iphone';
+
+/** `FromAndroid-{yyMMddHHmmss}-{prefix}.xml` per OeFileNameBuilder; iOS PET writes `FromIphone-{yyyyMMddHHmmssSSS}-{prefix}.xml`. */
+export function exportFileName(prefix: string, at = new Date(), family: DeviceFamily = 'android'): string {
+    if (family === 'iphone') {
+        const stamp =
+            `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}` +
+            `${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}${pad(at.getMilliseconds(), 3)}`;
+        return `FromIphone-${stamp}-${prefix}.xml`;
+    }
     const stamp =
         `${pad(at.getFullYear() % 100)}${pad(at.getMonth() + 1)}${pad(at.getDate())}` +
         `${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`;
@@ -373,6 +381,8 @@ export type EmployeeSource = (typeof DEVICE_SCHEMA.employeeSource)[keyof typeof 
 
 export interface DeviceRecord extends Partial<EnvelopeCard> {
     node: RecordNode;
+    /** Which device wrote the row; absent means android. Only PieceOut has an iPhone shape. */
+    deviceFamily?: DeviceFamily;
     part: string;
     employeeSource?: EmployeeSource;
     at?: Date;
@@ -476,6 +486,59 @@ function xmlTag(name: string, value: string): string {
     return `<${name}>${esc(value)}</${name}>`;
 }
 
+/** Every real iPhone file declares this on PieceOut_Records (both samples, and prod's failing file). */
+const IPHONE_PIECE_OUT_LOOKUP_CONTENTS = 'Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code|Variety:Code|AgRow:Code';
+
+// Element order of the real iPhone PieceOut row (FromIphone-20240313142926-A02.xml:1119-1137); all are always emitted, empty when unset.
+const IPHONE_PIECE_OUT_ORDER = [
+    'updateTime',
+    'reference',
+    'numOfPieces',
+    'variety',
+    'workOrder',
+    'traceabilityCode',
+    'employee',
+    'ranch',
+    'job',
+    'crew',
+    'dateTime',
+    'memo',
+    'field',
+    'employeeSource',
+    'agRow',
+    'gpsReading',
+    'load',
+] as const;
+
+/** iOS PET's piece-out: one bare `<DateTime>`, no PieceOutDate/PieceOutTime, PictureVerification or Signature (PET-12946). */
+function buildIphonePieceOutRow(record: DeviceRecord, reference: string, at: Date): string {
+    const T = DEVICE_SCHEMA.tags;
+    const iso = deviceIso(at);
+    const values: Record<(typeof IPHONE_PIECE_OUT_ORDER)[number], string> = {
+        updateTime: iso,
+        reference,
+        numOfPieces: String(record.pieces ?? ''),
+        variety: '',
+        workOrder: '',
+        traceabilityCode: record.traceabilityCode ?? '',
+        employee: record.employeeCode ?? '',
+        ranch: record.ranchCode ?? '',
+        job: record.jobCode ?? '',
+        crew: record.crewCode ?? '',
+        dateTime: iso,
+        memo: '',
+        field: record.fieldCode ?? '',
+        employeeSource: record.employeeSource ?? '',
+        agRow: '',
+        gpsReading: record.gps ?? '',
+        load: '',
+    };
+    const parts = IPHONE_PIECE_OUT_ORDER.map((key) => xmlTag(T[key], values[key]));
+    for (const [tagName, value] of Object.entries(record.extra ?? {})) parts.push(xmlTag(tagName, value));
+    const node = DEVICE_SCHEMA.nodes[record.node];
+    return `<${node}>${parts.join('')}</${node}>`;
+}
+
 /**
  * One row's element list, in the order the B3 plan's sample gives for
  * TimeCard/TimeIn (`punchIn`): Reference, DateIn, TimeIn, Employee, Crew, Job,
@@ -507,6 +570,11 @@ function buildRow(record: DeviceRecord, reference: string, at: Date): string {
             xmlTag(T.updateTime, isoStr) +
             `</${node}>`
         );
+    }
+
+    if (record.deviceFamily === 'iphone' && shape === 'pieceOut') {
+        if (record.node !== 'PieceOut') throw new Error(`no iPhone sample for ${record.node} — never hand-invent XML`);
+        return buildIphonePieceOutRow(record, reference, at);
     }
 
     const parts: string[] = [xmlTag(T.reference, reference)];
@@ -584,6 +652,7 @@ export function buildEnvelope({
     const iso = deviceIso(envelopeAt);
     const references: string[] = [];
     const groups = new Map<RecordNode, string[]>();
+    const families = new Map<RecordNode, Set<DeviceFamily>>();
 
     // Only cards are numbered and only cards get a reference: a grid row is a
     // child of the card its `parentReference` names, so it neither carries one
@@ -601,14 +670,19 @@ export function buildEnvelope({
         const rowsForNode = groups.get(record.node) ?? [];
         rowsForNode.push(buildRow(record, reference, at));
         groups.set(record.node, rowsForNode);
+        families.set(record.node, (families.get(record.node) ?? new Set<DeviceFamily>()).add(record.deviceFamily ?? 'android'));
     }
 
     const sections = [...groups.entries()]
         .map(([node, rows]) => {
             const recordsTag = `${DEVICE_SCHEMA.nodes[node]}${DEVICE_SCHEMA.recordsSuffix}`;
+            const sectionFamilies = families.get(node)!;
+            if (sectionFamilies.size > 1) throw new Error(`${recordsTag} mixes device families — one file comes from one device`);
+            const lookupContents =
+                node === 'PieceOut' && sectionFamilies.has('iphone') ? IPHONE_PIECE_OUT_LOOKUP_CONTENTS : RECORD_LOOKUP_CONTENTS;
             const lookup = NO_LOOKUP_CONTENTS.has(node)
                 ? ''
-                : ` ${DEVICE_SCHEMA.attributes.lookupContents}="${RECORD_LOOKUP_CONTENTS}"`;
+                : ` ${DEVICE_SCHEMA.attributes.lookupContents}="${lookupContents}"`;
             return `<${recordsTag}${lookup}>` + rows.join('') + `</${recordsTag}>`;
         })
         .join('');

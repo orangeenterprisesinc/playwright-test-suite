@@ -133,6 +133,26 @@
             "enabled": true
         },
         {
+            "id": "B6b",
+            "category": "workflow",
+            "testName": "iphonePieceOut",
+            "testTitle": "iPhone piece-out import",
+            "testDescription": "Deliver the piece-out export iOS PET produces (one bare DateTime tag per row, PET-12946) with a Time In and Time Out, import it on Connectivity > Import > Internet, and verify the file imports with zero failed records and every card shows the sent time on Transfer to Job Cards.",
+            "segments": [
+                "grower",
+                "perennial-grower"
+            ],
+            "modules": [
+                "Piece Payment"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12946",
+            "status": "automated",
+            "enabled": true
+        },
+        {
             "id": "B7",
             "workflow": "B7",
             "journey": "B",

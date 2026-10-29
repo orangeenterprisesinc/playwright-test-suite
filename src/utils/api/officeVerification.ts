@@ -24,6 +24,7 @@ import {
     type OfficeTimeCard,
 } from './timeCardsApi';
 import { createCrewTimeIn, punchTime } from './crewTimeInApi';
+import { DEVICE_SCHEMA } from '../relay/exportEnvelope';
 
 /**
  * The office half of a Journey B run, the way Amy's recording shows it: the
@@ -200,6 +201,8 @@ interface TransportResult {
     transport: OfficeVerificationResult['transport'];
     references: string[];
     thisAttemptFailures: ImportFileResult[];
+    /** This attempt's file ended `partial` with a card section rejected (a card the office never made). */
+    thisAttemptPartials?: ImportFileResult[];
     /**
      * True when no pull ever returned a run carrying this attempt's file — a peer
      * importer drained it into its own run. The rows still land, but only once
@@ -277,7 +280,7 @@ function collectFailures(
     isOurLineage: (f: ImportFileResult) => boolean,
     isThisAttempt: (f: ImportFileResult) => boolean,
     testInfo: TestInfo,
-): ImportFileResult[] {
+): { failures: ImportFileResult[]; cardPartials: ImportFileResult[] } {
     const fileNameOf = (f: ImportFileResult) => String((f as { filename?: string }).filename ?? f.fileName ?? '');
     const failedFiles = run.files.filter((f) => String(f.status) === 'failed');
     const stale = failedFiles.filter((f) => !isOurLineage(f));
@@ -299,7 +302,23 @@ function collectFailures(
                 `so not asserted): ${siblingAttempt.map((f) => `${fileNameOf(f)}: ${String(f.message ?? '').slice(0, 160)}`).join(' | ')}`,
         });
     }
-    return ourLineageFailures.filter(isThisAttempt);
+    // A partial file is a failure only when a CARD section was rejected ("PieceOut_Records record 2 (...)").
+    // B4/B5 also send the Employee_Records grid through here, and a non-card partial (e.g. PayPeriod 515 on dev) must not fail them.
+    const cardNodes = new Set<string>(Object.keys(DEVICE_SCHEMA.nodes));
+    const cardPartials: ImportFileResult[] = [];
+    for (const f of run.files.filter((file) => String(file.status) === 'partial' && isThisAttempt(file))) {
+        const message = String(f.message ?? '');
+        const namesCard = [...message.matchAll(/(\w+)_Records record \d+ \((\w+)\)/g)].some((m) => cardNodes.has(m[1]) || cardNodes.has(m[2]));
+        if (namesCard) {
+            cardPartials.push(f);
+        } else {
+            testInfo.annotations.push({
+                type: 'this-attempt-file-partial-non-card',
+                description: `This attempt's file imported partially, but no card section was rejected: ${fileNameOf(f)}: ${message.slice(0, 200)}`,
+            });
+        }
+    }
+    return { failures: ourLineageFailures.filter(isThisAttempt), cardPartials };
 }
 
 /**
@@ -388,6 +407,7 @@ async function importViaInternetUi(
     ).toBe(true);
 
     let thisAttemptFailures: ImportFileResult[] = [];
+    let thisAttemptPartials: ImportFileResult[] = [];
     // Cleared as soon as any pull returns a run carrying this attempt's file.
     let ourFileNeverPulled = true;
 
@@ -421,7 +441,7 @@ async function importViaInternetUi(
         });
         if (run.oursPresent) {
             ourFileNeverPulled = false;
-            thisAttemptFailures = collectFailures(run, isOurLineage, isThisAttempt, testInfo);
+            ({ failures: thisAttemptFailures, cardPartials: thisAttemptPartials } = collectFailures(run, isOurLineage, isThisAttempt, testInfo));
             break;
         }
         if (attempt === 0) {
@@ -443,7 +463,7 @@ async function importViaInternetUi(
         }
     }
 
-    return { transport: 'device-import', references, thisAttemptFailures, peerDrained: ourFileNeverPulled };
+    return { transport: 'device-import', references, thisAttemptFailures, thisAttemptPartials, peerDrained: ourFileNeverPulled };
 }
 
 /**
@@ -520,7 +540,7 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
 
     // The scenario's own transport wins; without one IMPORT_TRANSPORT decides, as before.
     const via = input.via ?? (process.env.IMPORT_TRANSPORT === 'single-folder' ? 'single-folder-ui' : 'internet');
-    const { transport, references, thisAttemptFailures, peerDrained } =
+    const { transport, references, thisAttemptFailures, thisAttemptPartials = [], peerDrained } =
         via === 'single-folder-ui' ? await importViaSingleFolderUi(input, deadline) : await importViaInternetUi(input, deadline);
 
     expect(references, `one reference per punch (${transport})`).toHaveLength(expected.length);
@@ -562,6 +582,13 @@ export async function deliverAndVerifyCards(input: DeliverInput): Promise<Office
             ).toHaveLength(0);
         }
     }
+
+    // A partial import is not a green one: the rejected card sections never became cards. Unconditional (unlike the
+    // failed-file tolerance above), and after the card read so the importer's own message is what fails.
+    expect(
+        thisAttemptPartials,
+        `this attempt's file imported partially: ${thisAttemptPartials.map((f) => `${String(f.fileName ?? '')}: ${String(f.message ?? '')}`).join(' | ')}`,
+    ).toHaveLength(0);
 
     // The sync assertion only. The fields, the employee links and the absentees are read off the
     // Transfer grid by the caller (journeyBFlow.assertImportedRows), never proved from this API read.
