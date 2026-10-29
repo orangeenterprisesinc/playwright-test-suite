@@ -52,7 +52,8 @@ name: E2E
 # declared trigger always starts a run entry before any job-level gate can stop
 # it — `vars` is not readable in `on:` — and even a 9-second skipped entry per
 # merge was unwanted (run #967). To bring merge runs back, uncomment the two
-# push lines AND set the CI_AUTO_TRIGGERS repo variable to `yes`.
+# push lines AND set the CI_AUTO_TRIGGERS repo variable to `yes`. The same rule
+# parks the 15-minute cron grid: one cron line is declared, so one entry a day.
 #
 # `repository_dispatch` (run-playwright, from web-pet) and `workflow_call` stay
 # declared but gated: the `route` job refuses them unless CI_AUTO_TRIGGERS is
@@ -65,33 +66,31 @@ name: E2E
 # job below, so they execute at 4:45 PM only; a PR is not checked.
 on:
   schedule:
-    # The daily dry run. WHICH slot runs is the E2E_RUN_TIME_IST repo variable
-    # (default 16:45); every other slot below is a ~10 s skipped entry. GitHub
-    # evaluates `on:` before any `vars` context exists, so the time cannot be put
-    # in the cron line itself — this grid plus the `route` gate is the only way to
-    # change the time from Settings instead of a PR.
+    # The daily dry run: ONE active line, 16:45 IST. To move it, edit that line
+    # (cron is UTC: IST − 5:30, then two minutes early, off :00/:30 — the most
+    # contended minutes on GitHub's scheduler; a run asked for at 4:00 once landed
+    # at 4:21). Scheduled runs are best-effort; expect some slip.
     #
-    # One entry per 15-minute slot, 3:00–6:00 PM IST (IST is UTC+5:30; cron is
-    # always UTC). Each fires two minutes early and deliberately off :00 and :30 —
-    # those are the most contended minutes on GitHub's scheduler, and a run asked
-    # for at exactly 4:00 once landed at 4:21. Scheduled runs are best-effort;
-    # expect some slip. `route` maps `github.event.schedule` (the cron string that
-    # fired) back to its IST label, so slip cannot land a tick in the wrong slot.
+    # PARKED: the 15-minute grid (#111) let the E2E_RUN_TIME_IST repo variable pick
+    # the slot from Settings, but every declared cron starts a run entry, so the 12
+    # unused slots left 12 skipped ~6 s entries a day that buried the real run. To
+    # bring it back, uncomment the grid AND set SLOT_GRID to 'on' in the `route`
+    # job — never one without the other.
     #
     # On this event the matrix below runs BOTH suites, one after the other.
-    - cron: '28 9 * * *'   # 15:00 IST
-    - cron: '43 9 * * *'   # 15:15
-    - cron: '58 9 * * *'   # 15:30
-    - cron: '13 10 * * *'  # 15:45
-    - cron: '28 10 * * *'  # 16:00
-    - cron: '43 10 * * *'  # 16:15
-    - cron: '58 10 * * *'  # 16:30
-    - cron: '13 11 * * *'  # 16:45 (default)
-    - cron: '28 11 * * *'  # 17:00
-    - cron: '43 11 * * *'  # 17:15
-    - cron: '58 11 * * *'  # 17:30
-    - cron: '13 12 * * *'  # 17:45
-    - cron: '28 12 * * *'  # 18:00
+    # - cron: '28 9 * * *'   # 15:00 IST
+    # - cron: '43 9 * * *'   # 15:15
+    # - cron: '58 9 * * *'   # 15:30
+    # - cron: '13 10 * * *'  # 15:45
+    # - cron: '28 10 * * *'  # 16:00
+    # - cron: '43 10 * * *'  # 16:15
+    # - cron: '58 10 * * *'  # 16:30
+    - cron: '13 11 * * *'    # 16:45 IST — the daily run
+    # - cron: '28 11 * * *'  # 17:00
+    # - cron: '43 11 * * *'  # 17:15
+    # - cron: '58 11 * * *'  # 17:30
+    # - cron: '13 12 * * *'  # 17:45
+    # - cron: '28 12 * * *'  # 18:00
   # OFF — see the header: even route-gated, a push left one skipped run entry
   # per merge, and the ask is zero. To re-enable merge runs, uncomment these two
   # lines and set CI_AUTO_TRIGGERS=yes. `inputs` is null on push (and on
@@ -213,8 +212,15 @@ jobs:
           # (15:00–18:00). Unset, or off the grid, means 16:45.
           RUN_TIME_IST: ${{ vars.E2E_RUN_TIME_IST }}
           SCHEDULE: ${{ github.event.schedule }}
+          # 'on' only while the cron grid is uncommented. Off, the one cron line that
+          # fires always runs: a variable naming another slot would otherwise skip
+          # the daily run every day, silently.
+          SLOT_GRID: 'off'
         run: |
-          if [[ "$EVENT" == "schedule" ]]; then
+          if [[ "$EVENT" == "schedule" && "$SLOT_GRID" != "on" && -n "$RUN_TIME_IST" ]]; then
+            echo "::warning::E2E_RUN_TIME_IST='$RUN_TIME_IST' is ignored while the cron grid is parked — the time is the one cron line in e2e.yml."
+          fi
+          if [[ "$EVENT" == "schedule" && "$SLOT_GRID" == "on" ]]; then
             # '13 11 * * *' -> 11:13 UTC -> +2 min early offset, +5:30 -> 16:45 IST.
             read -r m h _ <<< "$SCHEDULE"
             total=$(( (10#$h * 60 + 10#$m + 2 + 330) % 1440 ))
