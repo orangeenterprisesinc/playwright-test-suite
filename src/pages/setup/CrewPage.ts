@@ -77,8 +77,9 @@ export interface CrewForm {
 export interface BreakAutomation {
     includeInTransfer: boolean;
     timeEmployeesIncluded: boolean;
-    exerciseJob: string;
-    exerciseJobLengthMinutes: number;
+    /** `undefined` leaves the field as it is; `null` requires it empty and clears it. */
+    exerciseJob?: string | null;
+    exerciseJobLengthMinutes?: number;
     createBreakCardFromTimeIn: string;
     autoPaidBreakType: string;
     autoReturnFromBreak: string;
@@ -96,6 +97,7 @@ export class CrewPage extends SetupScreenPage {
     readonly timeEmployeesIncludedSwitch: Locator;
     readonly exerciseJobCombobox: Locator;
     readonly exerciseJobLengthInput: Locator;
+    readonly exerciseJobClearButton: Locator;
     readonly createBreakCardSelect: Locator;
     readonly autoPaidBreakTypeSelect: Locator;
     readonly autoReturnFromBreakSelect: Locator;
@@ -132,6 +134,7 @@ export class CrewPage extends SetupScreenPage {
         this.timeEmployeesIncludedSwitch = page.getByRole('switch', { name: 'Time Employees Included' });
         this.exerciseJobCombobox = page.locator('input#exerciseJobCounter');
         this.exerciseJobLengthInput = page.locator('input#exerciseJobLengthMinutes');
+        this.exerciseJobClearButton = this.exerciseJobCombobox.locator('xpath=ancestor::div[.//button][1]').getByRole('button', { name: /clear/i });
         this.createBreakCardSelect = page.locator('button#createBreakCardFromTimeIn');
         this.autoPaidBreakTypeSelect = page.locator('button#autoPaidBreakType');
         this.autoReturnFromBreakSelect = page.locator('button#autoReturnFromBreak');
@@ -320,11 +323,16 @@ export class CrewPage extends SetupScreenPage {
         if ((await this.timeEmployeesIncludedSwitch.isChecked()) !== rule.timeEmployeesIncluded) {
             changes.push(() => this.timeEmployeesIncludedSwitch.click());
         }
-        if (!PickerComponent.labelPattern(rule.exerciseJob).test(await this.exerciseJobCombobox.inputValue())) {
-            changes.push(() => this.pickers.pickCombobox(this.exerciseJobCombobox, rule.exerciseJob));
+        const exerciseJob = rule.exerciseJob;
+        if (typeof exerciseJob === 'string' && !PickerComponent.labelPattern(exerciseJob).test(await this.exerciseJobCombobox.inputValue())) {
+            changes.push(() => this.pickers.pickCombobox(this.exerciseJobCombobox, exerciseJob));
         }
-        if (Number(await this.exerciseJobLengthInput.inputValue()) !== rule.exerciseJobLengthMinutes) {
-            changes.push(() => this.exerciseJobLengthInput.fill(String(rule.exerciseJobLengthMinutes)));
+        if (exerciseJob === null && (await this.exerciseJobCombobox.inputValue()) !== '') {
+            changes.push(() => this.exerciseJobClearButton.click());
+        }
+        const exerciseLength = rule.exerciseJobLengthMinutes;
+        if (exerciseLength !== undefined && Number(await this.exerciseJobLengthInput.inputValue()) !== exerciseLength) {
+            changes.push(() => this.exerciseJobLengthInput.fill(String(exerciseLength)));
         }
         if ((await label(this.createBreakCardSelect)) !== rule.createBreakCardFromTimeIn) {
             changes.push(() => this.pickers.pickSelect(this.createBreakCardSelect, rule.createBreakCardFromTimeIn));

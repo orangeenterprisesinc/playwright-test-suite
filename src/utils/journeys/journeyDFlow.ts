@@ -11,13 +11,14 @@ import { listTransferRuns, readExecuteJob, type TransferRunRecord } from '@utils
 import type { OfficeFixture } from '@utils/api/officeFixture';
 import { getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { deleteJobCard, getJobCard, listJobCards, listRecalcRuns, type JobCardRecord, type RecalcRun } from '@utils/api/jobCardsApi';
-import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
+import { getPreferences } from '@utils/api/preferencesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { currentScope, register } from '@utils/cleanup/cleanupScope';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { substituteTokens } from '@utils/data/scenarioLoader';
-import { withPreferencesLock } from '@utils/sync/preferencesLock';
+import { designatePaidBreakJob as designateBreakJob, type PaidBreakDesignation } from '@utils/journeys/paidBreakJob';
+import { previewClock, type PreviewClock } from '@utils/journeys/transferPreview';
 import {
     ensureCrewOnScreen,
     ensureEmployeeOnScreen,
@@ -500,43 +501,9 @@ export async function assertTransferredOnScreen(
     }
 }
 
-export interface PreviewClock {
-    job: string;
-    /** `HH:MM`, 24 h. */
-    start: string;
-    end: string;
-    grossMinutes: number;
-    netMinutes: number;
-}
-
-type PreviewSegments = Awaited<ReturnType<PageObjects['transferToJobCards']['previewSegments']>>;
-
-/**
- * The Job Cards preview's segments as clock times and minutes, in chronological order. The Gross and Net
- * Time cells are decimal hours (minutes = hours x 60); an HH:MM cell throws by name.
- */
-export function previewClock(segments: PreviewSegments): PreviewClock[] {
-    const hhmm = (cell: string, what: string): string => {
-        const match = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)?/i.exec(cell);
-        if (!match) throw new Error(`Job Cards preview '${what}' reads "${cell}", which carries no clock time`);
-        const hour = match[3] ? (Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0) : Number(match[1]);
-        return `${String(hour).padStart(2, '0')}:${match[2]}`;
-    };
-    const minutes = (cell: string, what: string): number => {
-        const hours = Number(cell.replace(/,/g, '').trim());
-        if (!Number.isFinite(hours)) throw new Error(`Job Cards preview '${what}' reads "${cell}", which is not decimal hours`);
-        return Math.round(hours * 60);
-    };
-    return segments
-        .map((s) => ({
-            job: s.job,
-            start: hhmm(s.timeIn, 'Date Time In'),
-            end: hhmm(s.timeOut, 'Date Time Out'),
-            grossMinutes: minutes(s.grossTime, 'Gross Time'),
-            netMinutes: minutes(s.netTime, 'Net Time'),
-        }))
-        .sort((a, b) => a.start.localeCompare(b.start));
-}
+// Lives in transferPreview.ts so journeyBFlow can use it without importing this file.
+export { previewClock };
+export type { PreviewClock };
 
 // ── D9 — Group piece-out distribution ────────────────────────────────────────────────────────
 
@@ -745,8 +712,9 @@ export interface JourneyD10Run {
     day: string;
     /** Filled by {@link commitTransfer}; cleanup deletes these first, one at a time, by id. */
     jobCardIds: number[];
-    /** `paidBreakJob` is shared tenant state: cleanup restores it whenever this is set. */
-    preference: { designated: boolean };
+    testInfo: TestInfo;
+    /** `paidBreakJob` is shared tenant state: once designated, cleanup restores it first and frees the cross-worker lock. */
+    preference: { handle: PaidBreakDesignation | null };
     cleanup(): Promise<void>;
     readonly ctx: CleanupContext;
 }
@@ -799,24 +767,11 @@ export async function prepareJourneyD10(
     const ctx: CleanupContext = { phase: 'after', snapshots: new Map<string, unknown>(), cards: [], office };
     const day = isoDay(punchDay(substituted.dayOffset));
     const jobCardIds: number[] = [];
-    const preference = { designated: false };
+    const preference: JourneyD10Run['preference'] = { handle: null };
 
     const finishCleanup = async (api: APIRequestContext = sessionApi): Promise<void> => {
-        // First, because it is the only tenant-wide state this spec touches. 0 clears the FK back to
-        // null; null would be ignored by the partial PUT.
-        if (preference.designated) {
-            try {
-                await allowApiWrites('cleanup', 'D10 teardown: clear paidBreakJob', () => putPreferences(api, { paidBreakJob: 0 }));
-                const after = await getPreferences(api);
-                if (after.paidBreakJob !== null && after.paidBreakJob !== undefined) throw new Error(`paidBreakJob still reads ${String(after.paidBreakJob)}`);
-                preference.designated = false;
-            } catch (error) {
-                await testInfo.attach('cleanup-warning-paidBreakJob', {
-                    body: error instanceof Error ? error.message : String(error),
-                    contentType: 'text/plain',
-                });
-            }
-        }
+        // First, because it is the only tenant-wide state this spec touches; the restore also frees the lock B9 waits on.
+        await preference.handle?.restore(api);
         await allowApiWrites('cleanup', 'D10 teardown: own job cards by id', async () => {
             for (const id of jobCardIds) {
                 try {
@@ -893,7 +848,7 @@ export async function prepareJourneyD10(
         sweepOwnTimeCards(sessionApi, { day, crewCounter: crew.id }),
     );
 
-    return { scenario: substituted, ranch, field, crew, picker, jobs, day, jobCardIds, preference, cleanup, ctx };
+    return { scenario: substituted, ranch, field, crew, picker, jobs, day, jobCardIds, preference, testInfo, cleanup, ctx };
 }
 
 /**
@@ -934,31 +889,15 @@ export async function seedExerciseAndBreakDay(
 }
 
 /**
- * Designate the break job as the tenant's paid-break job on Preferences ▸ Job ▸ Job Assignments. It
- * is set as late as possible, and the flag is raised first so cleanup restores it even if the save
- * fails halfway. The select has no "None" option, so the restore stays an API cleanup.
+ * Designate the break job as the tenant's paid-break job (the screen steps and the lock live in
+ * paidBreakJob.ts, shared with B9). It is set as late as possible; the handle is kept on the run so
+ * cleanup restores it first, and paidBreakJob.ts also registers the restore with the cleanup scope.
  */
 export async function designatePaidBreakJob(
     run: JourneyD10Run,
     opts: { sessionApi: APIRequestContext; pages: PageObjects },
 ): Promise<void> {
-    const { sessionApi, pages } = opts;
-    const breakJob = run.jobs.breakJob;
-    run.preference.designated = true;
-    await withPreferencesLock(async () => {
-        const prefs = pages.preferences;
-        await prefs.gotoPreferences();
-        await prefs.gotoSection('Job');
-        if ((await prefs.displayedValue('paidBreakJob').catch(() => '')) !== breakJob.name) {
-            await prefs.choose('paidBreakJob', breakJob.name);
-            await prefs.saveIfDirty();
-        }
-        const stored = await getPreferences(sessionApi);
-        expect(
-            Number(stored.paidBreakJob),
-            `${run.scenario.label}: Preferences ▸ Job ▸ Paid Break Job must store ${breakJob.name} (id ${breakJob.id})`,
-        ).toBe(breakJob.id);
-    });
+    run.preference.handle = await designateBreakJob(run.jobs.breakJob, { ...opts, testInfo: run.testInfo, label: run.scenario.label });
 }
 
 // ── D3 — Add missing time-in and correct time card ───────────────────────────────────────────

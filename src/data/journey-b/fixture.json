@@ -78,6 +78,24 @@
       }
     ]
   },
+  "b9": {
+    "crew": {
+      "code": "5109",
+      "name": "B9 CREW"
+    },
+    "workJob": {
+      "code": "4206",
+      "name": "B9 WORK JOB",
+      "paymentType": "Time",
+      "hourlyRate": 1
+    },
+    "breakJob": {
+      "code": "4205",
+      "name": "B9 BREAK JOB",
+      "paymentType": "Time",
+      "hourlyRate": 1
+    }
+  },
   "b4": {
     "packHouseRoll": {
       "alternateCode": "B7999900006",

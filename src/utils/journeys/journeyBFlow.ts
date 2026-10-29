@@ -4,7 +4,7 @@ import type { ImportLogRow } from '@pages/connectivity/ImportLogPage';
 import type { TransferRowView } from '@pages/processing/TransferToJobCardsPage';
 import type { CodeHistoryRow } from '@pages/setup/EmployeePage';
 import { relayConfig, type RelayConfig } from '@config/relay.config';
-import { JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
+import { B9_PAID_BREAK, JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
 import { UNDEFINED_EMPLOYEE, type JourneyBScenario } from '@data/schemas/journeyBScenario';
 import {
     annotateIfImportCircuitOpen,
@@ -24,13 +24,14 @@ import {
 import { getPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
-import { ensureJobOnScreen } from '@utils/fixtureRows/ensureOnScreen';
+import { ensureCrewOnScreen, ensureJobOnScreen, type OnScreenDeps } from '@utils/fixtureRows/ensureOnScreen';
 import { findByReferences, isoDay, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import { withPreferencesLock } from '@utils/sync/preferencesLock';
+import { previewClock, type PreviewClock } from '@utils/journeys/transferPreview';
 import {
     buildCrewTimeInEnvelope,
     buildEnvelope,
@@ -51,6 +52,21 @@ import { ackRetrieved, drainMailbox, pullFromRelay, sendToRelay, type PulledMess
 // asserts and calls cleanup(). Nothing here belongs in a spec; specs reach the relay, the importer
 // and the office only through this module (ESLint enforces it). `pages` is optional: browserless
 // workflows (b07) import through relay-internet and never open the office UI.
+
+// B9 adds its own crew and jobs on screen and the lock wait, so its test budget is larger.
+const B9_EXTRA_TIMEOUT_MS = 300_000;
+const CREW_NAMES = new Map([
+    [F.crew.code, F.crew.name],
+    [B9_PAID_BREAK.crew.code, B9_PAID_BREAK.crew.name],
+]);
+
+function crewNameOf(code: string | undefined): string | null {
+    return code ? (CREW_NAMES.get(code) ?? F.crew.name) : null;
+}
+
+function crewIdOf(office: OfficeFixture, code: string | undefined): number {
+    return office.b9 && code === B9_PAID_BREAK.crew.code ? office.b9.crew.id : office.crew.id;
+}
 
 type ExpectedCardJson = JourneyBScenario['expected']['cards'][number];
 type GridExpectation = NonNullable<JourneyBScenario['expected']['grid']>;
@@ -362,6 +378,10 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
         [F.mealJob.code, { office: office.mealJob, name: F.mealJob.name }],
     ]);
     if (office.pieceJob) jobs.set(F.pieceJob.code, { office: office.pieceJob, name: F.pieceJob.name });
+    if (office.b9) {
+        jobs.set(B9_PAID_BREAK.workJob.code, { office: office.b9.workJob, name: B9_PAID_BREAK.workJob.name });
+        jobs.set(B9_PAID_BREAK.breakJob.code, { office: office.b9.breakJob, name: B9_PAID_BREAK.breakJob.name });
+    }
     const ranches = new Map([[F.ranch.code, { office: office.ranch, name: F.ranch.name }]]);
     const employeeNames = new Map([...F.present, F.absentee, ...F.sticker, ...(scenario.extraEmployees ?? [])].map((e) => [e.code, e.name]));
     const bound = <V>(kind: string, map: Map<string, V>, code: string): V => {
@@ -389,7 +409,7 @@ function resolveExpectedCards(scenario: JourneyBScenario, office: OfficeFixture,
             typeText: want.typeText,
             employeeName,
             // A record the device sends with no crew code (B7's device B) imports with no crew: its cell must be blank.
-            crewName: scenario.records[want.record]?.crewCode ? F.crew.name : null,
+            crewName: crewNameOf(scenario.records[want.record]?.crewCode),
             ranchName,
             fieldName: nameOf(want.fieldCode, field),
             jobName: nameOf(want.jobCode, job),
@@ -541,6 +561,66 @@ async function setStickerStartLocations(
     });
 }
 
+async function ensureB9RowsOnScreen(deps: OnScreenDeps): Promise<NonNullable<OfficeFixture['b9']>> {
+    const B = B9_PAID_BREAK;
+    const jobSpec = (j: typeof B.workJob) => ({ code: j.code, name: j.name, paymentType: j.paymentType, hourlyRate: j.hourlyRate });
+    // The crew first, then its two jobs.
+    const crew = await ensureCrewOnScreen(B.crew, deps);
+    return { crew, workJob: await ensureJobOnScreen(jobSpec(B.workJob), deps), breakJob: await ensureJobOnScreen(jobSpec(B.breakJob), deps) };
+}
+
+// The crew's break rule set on Setup ▸ Crew, reopened from the menu and read back; then the window and
+// auto-return gates, read and never written. Part A's gate (Create Break Card) is D10's measured config.
+async function arrangeB9CrewRule(
+    pages: PageObjects,
+    sessionApi: APIRequestContext,
+    scenario: JourneyBScenario,
+    b9: NonNullable<OfficeFixture['b9']>,
+    testInfo: TestInfo,
+): Promise<void> {
+    const rule = scenario.paidBreak!.crewRule;
+    await pages.crew.gotoEditById(b9.crew.id, b9.crew.name);
+    await pages.crew.setBreakAutomation({
+        includeInTransfer: rule.includeInTransfer,
+        timeEmployeesIncluded: rule.timeEmployeesIncluded,
+        exerciseJob: null,
+        createBreakCardFromTimeIn: rule.createBreakCardFromTimeIn,
+        autoPaidBreakType: rule.autoPaidBreakType,
+        autoReturnFromBreak: rule.autoReturnFromBreak,
+        breakLengths: String(rule.breakLengthMinutes),
+    });
+    await pages.crew.gotoEditById(b9.crew.id, b9.crew.name);
+    const form = await pages.crew.readCrewForm();
+    expect(
+        {
+            createBreakCardFromTimeIn: (await pages.crew.createBreakCardSelect.innerText()).trim(),
+            autoReturnFromBreak: form.autoReturnFromBreak,
+            autoPaidBreakType: form.autoPaidBreakType,
+            breakLengths: form.breakLengths,
+            exerciseJob: form.exerciseJob,
+        },
+        `${scenario.label}: Setup ▸ Crew ▸ Break & Automation must show the rule after the save`,
+    ).toEqual({
+        createBreakCardFromTimeIn: rule.createBreakCardFromTimeIn,
+        autoReturnFromBreak: rule.autoReturnFromBreak,
+        autoPaidBreakType: rule.autoPaidBreakType,
+        breakLengths: String(rule.breakLengthMinutes),
+        exerciseJob: '',
+    });
+
+    const preferences = await getPreferences(sessionApi);
+    if (!(Number(preferences.maximumDaysForTransferExport) >= Math.abs(scenario.dayOffset))) {
+        throw new Error(`${scenario.label}: maximumDaysForTransferExport=${String(preferences.maximumDaysForTransferExport)} is below the fixture day ${scenario.dayOffset}.`);
+    }
+    const autoReturn = preferences.requireReturnFromBreakTimeIn;
+    if (typeof autoReturn === 'string' && !/^FromPaidBreak/.test(autoReturn)) {
+        throw new Error(`${scenario.label}: requireReturnFromBreakTimeIn=${autoReturn} does not return a worker from a paid break.`);
+    }
+    for (const key of ['paidBreakJob', 'requireReturnFromBreakTimeIn', 'defaultPaidBreakLength']) {
+        testInfo.annotations.push({ type: 'preference-evidence', description: `${key}=${String(preferences[key])}` });
+    }
+}
+
 export interface JourneyBRunOptions {
     sessionApi: APIRequestContext;
     pages?: PageObjects;
@@ -605,7 +685,7 @@ export interface JourneyBRun extends MintedRun {
 export async function runJourneyBScenario(scenario: JourneyBScenario, opts: JourneyBRunOptions): Promise<JourneyBRun> {
     const { sessionApi, pages, testInfo } = opts;
     // The Internet pull drains the whole mailbox in one request — one import deadline beyond the project timeout.
-    testInfo.setTimeout(journeyBTestTimeoutMs(testInfo));
+    testInfo.setTimeout(journeyBTestTimeoutMs(testInfo) + (scenario.fixtureRowsOnScreen?.includes('b9') ? B9_EXTRA_TIMEOUT_MS : 0));
     if (scenario.transport === 'relay-echo') throw new Error(`${scenario.label}: transport 'relay-echo' runs through runRelayEcho`);
 
     // Minted and registered BEFORE anything is created. `mintRun` is pure over
@@ -631,6 +711,10 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         if (!pages) throw new Error(`${scenario.label}: fixtureRowsOnScreen drives the New Job form — destructure { pages } in the spec`);
         office.pieceJob = await ensureJobOnScreen({ ...F.pieceJob }, { api: sessionApi, pages, testInfo });
     }
+    if (scenario.fixtureRowsOnScreen?.includes('b9')) {
+        if (!pages) throw new Error(`${scenario.label}: fixtureRowsOnScreen drives the New Crew and New Job forms — destructure { pages } in the spec`);
+        office.b9 = await ensureB9RowsOnScreen({ api: sessionApi, pages, testInfo });
+    }
     const gates = opts.gates ?? (await journeyBPreconditions(scenario, { sessionApi, testInfo }));
     // The configured fallback owner joins the employee map under its own name, so a scenario names
     // it exactly like a barcode — expected cards and the cleanup sweep both resolve it.
@@ -654,6 +738,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         if (!pages) throw new Error(`${run.scenario.label}: the sticker start locations are set on Preferences — destructure { pages } in the spec`);
         await setStickerStartLocations(pages, run.scenario, gates, testInfo);
     }
+    if (office.b9 && pages && run.scenario.paidBreak) await arrangeB9CrewRule(pages, sessionApi, run.scenario, office.b9, testInfo);
 
     const built = buildScenarioEnvelopes(run);
     const recordReferences = run.scenario.records.map(() => '');
@@ -751,7 +836,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             fileName: built[0].envelope.fileName,
             lineagePrefixes: lineagePrefixesThroughAttempt(run.scenario, run.attempt),
             label: run.scenario.label,
-            crewId: office.crew.id,
+            crewId: crewIdOf(office, run.scenario.records[0]?.crewCode),
             ranchId: office.ranch.id,
             expected: expectedCards,
             absentEmployeeIds,
@@ -813,7 +898,7 @@ export async function assertImportedRows(pages: PageObjects, run: JourneyBRun): 
     // verification 'none' (B7) imports through the API relay pull and has no importRun: its polled cards are the delivery proof.
     if (!run.importRun && run.scenario.verification !== 'none') throw new Error(`${run.label}: nothing was imported — the relay answered: ${run.send.body}`);
     const transfer = pages.transferToJobCards;
-    await openCrewTransferCandidates(pages, run);
+    await openCrewTransferCandidates(pages, run, { scopeAnalyze: run.scenario.paidBreak !== undefined });
     for (const [i, bound] of run.expectedCards.entries()) {
         const want = run.scenario.expected.cards[i];
         const record = run.scenario.records[want.record];
@@ -1012,17 +1097,20 @@ export function memberName(run: JourneyBRun, code: string): string {
  * never an employee-level scope, which hides a crew piece-out row (WEBPET-2139). Throws, naming both
  * sets, unless the screen offers exactly this run's references. Never selects, never transfers.
  */
-export async function openCrewTransferCandidates(pages: PageObjects, run: JourneyBRun): Promise<string[]> {
+export async function openCrewTransferCandidates(pages: PageObjects, run: JourneyBRun, opts: { scopeAnalyze?: boolean } = {}): Promise<string[]> {
     const transfer = pages.transferToJobCards;
     const own = run.recordReferences.filter((r) => r !== '');
+    const crewName = crewNameOf(run.scenario.records.find((r) => r.crewCode)?.crewCode) ?? F.crew.name;
 
     await transfer.openFromMenu();
     await transfer.scopeToDay(run.day);
+    // Time Card Crew scopes the analyze itself; the Work Crew filter below only hides rows.
+    if (opts.scopeAnalyze) await transfer.scopeToTimeCardCrew(crewName);
     await transfer.analyzeCandidates({ expected: own.length });
     // Rows imported for the Undefined Employee carry no fixture crew (device B ships no crew code), so the Work Crew
     // chip hides them (B7 saw 1 of 3). Those runs scope by the day alone and require every one of their references.
     const crewless = run.scenario.expected.cards.some((c) => c.employeeCode === UNDEFINED_EMPLOYEE);
-    if (!crewless) await transfer.filterByCrew(F.crew.name);
+    if (!crewless) await transfer.filterByCrew(crewName);
     // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.
     await expect
         .poll(async () => [...(await transfer.candidateReferences())].sort(), { timeout: 30_000 })
@@ -1040,6 +1128,36 @@ export async function openCrewTransferCandidates(pages: PageObjects, run: Journe
         );
     }
     return crewless ? candidates.filter((r) => own.includes(r)) : candidates;
+}
+
+export interface PaidBreakPreview {
+    /** The crew-scoped candidate references, roster-guarded against this run's own. */
+    candidates: string[];
+    /** The Job Cards preview as clock times, chronological. */
+    segments: PreviewClock[];
+    /** Every Issues group's text, read before the tab switch. */
+    issueGroups: string[];
+}
+
+/**
+ * B9: Transfer to Job Cards opened from the menu, scoped to the day and the Time Card Crew, analyzed, narrowed and
+ * roster-guarded; nothing may block; then the Job Cards tab's pre-commit preview. Never selects, never transfers.
+ */
+export async function previewPaidBreakDay(pages: PageObjects, run: JourneyBRun): Promise<PaidBreakPreview> {
+    const want = run.scenario.paidBreak;
+    if (!want) throw new Error(`${run.label}: previewPaidBreakDay needs the scenario's paidBreak block`);
+    const transfer = pages.transferToJobCards;
+    const candidates = await openCrewTransferCandidates(pages, run, { scopeAnalyze: true });
+    await expect.poll(() => transfer.blockingCount(), { message: `${run.label}: nothing may block the day` }).toBe(0);
+    const issueGroups = await transfer.issueGroupTexts();
+    await transfer.openJobCardsTab();
+    await expect
+        .poll(async () => (await transfer.previewSegments()).length, {
+            message: `${run.label}: the preview must propose ${want.segments.length} job cards`,
+            timeout: 60_000,
+        })
+        .toBe(want.segments.length);
+    return { candidates, segments: previewClock(await transfer.previewSegments()), issueGroups };
 }
 
 export async function assertTransferGrid(pages: PageObjects, run: JourneyBRun, grid: GridExpectation): Promise<TransferGridResult> {

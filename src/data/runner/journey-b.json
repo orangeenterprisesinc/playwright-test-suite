@@ -181,7 +181,7 @@
             "id": "B9",
             "workflow": "B9",
             "journey": "B",
-            "category": "api",
+            "category": "workflow",
             "testName": "paidBreakRestAndRecovery",
             "testTitle": "Paid break (rest and recovery)",
             "testDescription": "Capture a paid rest break, which by law records that the break was given but needs no return punch. The program supplies the configured length and returns the worker to the prior job.",
@@ -195,8 +195,9 @@
             "tags": [
                 "regression"
             ],
-            "status": "draft",
-            "enabled": false
+            "jira": "PET-12647",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "B10",

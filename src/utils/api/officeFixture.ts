@@ -26,6 +26,8 @@ export interface OfficeFixture {
     mealJob: EnsuredRecord;
     /** B8's crew piece-out job — set by runJourneyBScenario when the scenario names it in fixtureRowsOnScreen. */
     pieceJob?: EnsuredRecord;
+    /** B9's own crew and jobs — set by runJourneyBScenario when the scenario names 'b9' in fixtureRowsOnScreen. */
+    b9?: { crew: EnsuredRecord; workJob: EnsuredRecord; breakJob: EnsuredRecord };
     crew: EnsuredRecord;
     /** Keyed by the barcode, e.g. `6001`. */
     employees: Map<string, EnsuredRecord>;
