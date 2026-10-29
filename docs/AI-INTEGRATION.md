@@ -13,7 +13,8 @@ It has three parts:
 2. **Playwright Agents** (`.claude/agents/`) — specialised subagents that drive a
    real browser to plan, generate, and heal tests.
 3. **MCP servers** (`.mcp.json`) — the tools those agents and skills call:
-   `playwright-test` (browser automation) and `jira` (story retrieval).
+   `playwright-test` (browser automation), `jira` (story retrieval) and
+   `datadog` (logs).
 
 ---
 
@@ -63,7 +64,35 @@ locators and waits reflect the actual DOM rather than guesses.
 | Server | Command | Provides |
 |--------|---------|----------|
 | **`playwright-test`** | `node node_modules/@playwright/test/cli.js run-test-mcp-server` | Real-browser tools the agents call: `browser_snapshot`, `browser_click`, `browser_type`, `browser_generate_locator`, `test_run`, `test_debug`, `generator_write_test`, and more. |
-| **`jira`** | `uvx mcp-atlassian` | Reads Jira stories for `jira-to-script`. Needs `JIRA_URL`, `JIRA_USERNAME`, `JIRA_API_TOKEN` (prompted as MCP inputs). |
+| **`jira`** | `mcp-atlassian` (uv tool, pinned 0.23.1) | Reads Jira stories for `jira-to-script`. Jira toolsets only (`TOOLSETS`); credentials come from env vars. |
+| **`datadog`** | HTTP, `mcp.us3.datadoghq.com/v1/mcp` | Datadog logs/traces. OAuth on first use via `/mcp`. |
+
+### One-time setup (per machine)
+
+```powershell
+uv tool install mcp-atlassian==0.23.1 --compile-bytecode
+[Environment]::SetEnvironmentVariable('JIRA_URL', 'https://<site>.atlassian.net', 'User')
+[Environment]::SetEnvironmentVariable('JIRA_USERNAME', '<your Atlassian email>', 'User')
+[Environment]::SetEnvironmentVariable('JIRA_API_TOKEN', '<classic API token>', 'User')
+```
+
+Then fully restart VS Code — MCP servers read their environment only when they
+are spawned. `/mcp` shows each server's status.
+
+Why the server is installed rather than run through `uvx mcp-atlassian`: `uvx`
+re-resolves dependencies on every launch and rebuilds its environment whenever
+any transitive package releases (on one machine, 27 rebuilds of the same
+version in three weeks). A rebuild plus Defender scanning takes minutes, and
+even a warm `uvx` start took 31–42 s, past Claude Code's 30 s connect limit
+(`CONNECT_TIMEOUT`). The installed tool starts in ~9 s. `.claude/settings.json`
+also raises `MCP_TIMEOUT` to 90 s for cold starts.
+
+`${JIRA_URL}`-style references are expanded by Claude Code. Do not switch them
+to VS Code's `${input:…}` or `${env:…}` forms — Claude Code leaves those
+literal, and every Jira call then fails or returns nothing.
+
+To upgrade: bump the version here and run
+`uv tool install mcp-atlassian==<new> --compile-bytecode --force`.
 
 ---
 
