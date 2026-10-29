@@ -24,6 +24,11 @@
         {
             "id": "F",
             "title": "Analysis and monitoring"
+        },
+        {
+            "id": "R",
+            "title": "Reports",
+            "source": "reports-passfail-2026-08-05.csv"
         }
     ],
     "modules": [
@@ -79,7 +84,8 @@
         "Windows",
         "Windows Scanning",
         "Work Order",
-        "Yard Load"
+        "Yard Load",
+        "Reports"
     ],
     "segments": [
         "grower",
@@ -1767,6 +1773,58 @@
             "demo": false,
             "jira": "",
             "status": "draft"
+        },
+        {
+            "id": "R1",
+            "journey": "R",
+            "journeyTitle": "Reports",
+            "surface": "ui",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Reports"
+            ],
+            "demo": false,
+            "status": "draft",
+            "source": "reports-passfail-2026-08-05.csv",
+            "title": "Reports hub: listing, filtering, and favorites",
+            "summary": "Find a report on the Reports hub by name and module, keep the ones used most as favorites, and see at a glance which reports cannot run yet.",
+            "steps": [
+                "Open Administration then Reports; the list loads with rows.",
+                "Filter by report name and by the module it is for; the two filters intersect.",
+                "Star reports; they sort to the top and stay starred after a reload, and an unstarred one drops back.",
+                "Sort by Report and by Last Run.",
+                "A report badged Not available offers neither Run nor Configure."
+            ],
+            "variations": "needs the reports.configure permission; the client the login resolves to decides the data behind every report.",
+            "jira": "PET-12681"
+        },
+        {
+            "id": "R2",
+            "journey": "R",
+            "journeyTitle": "Reports",
+            "surface": "ui",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Reports"
+            ],
+            "demo": false,
+            "status": "draft",
+            "source": "reports-passfail-2026-08-05.csv",
+            "title": "Run dialog and report parameters",
+            "summary": "Run a report from the hub through its Run dialog: readable parameter labels, a variant picker, date, entity, yes/no and choice parameters, then the PDF viewer.",
+            "steps": [
+                "From the hub, click Run on a report that takes parameters; a dialog titled Run and the report name opens.",
+                "Every parameter has a readable label; switching the Report variant updates the parameter set.",
+                "A date parameter holds its value; an entity picker searches and selects; Yes/No renders as a radio pair and a fixed choice as a dropdown.",
+                "Run shows Running... and then the PDF viewer.",
+                "Cancel closes the dialog without running anything."
+            ],
+            "variations": "the generic Run dialog outputs PDF only; Excel, CSV, Text and XML live in the per-entity report dialogs.",
+            "jira": "PET-12682"
         }
     ]
 }

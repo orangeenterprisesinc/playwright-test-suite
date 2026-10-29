@@ -7,6 +7,18 @@ const ordinal = (n: number): string => {
     return 'th';
 };
 
+/** One day's cell in an open single-date popover, paging back up to 12 months to reach it. The caller checks the field. */
+export async function pickDayInPopup(popup: Locator, day: string): Promise<void> {
+    const [y, m, d] = day.split('-').map(Number);
+    const monthName = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'long' });
+    // A cell reads "Tuesday, October 20th, 2026", today's with a "Today, " prefix.
+    const cell = popup.getByRole('button', { name: new RegExp(`${monthName} ${d}${ordinal(d)}, ${y}`) });
+    const previousMonth = popup.getByRole('button', { name: /go to the previous month/i });
+    for (let i = 0; i < 12 && (await cell.count()) === 0; i += 1) await previousMonth.click();
+    await cell.first().waitFor({ state: 'visible', timeout: 10_000 });
+    await cell.first().click();
+}
+
 /** `YYYY-MM-DD` → `MM/DD/YYYY`, the date chip's format. */
 export function usDate(day: string): string {
     const [year, month, date] = day.split('-');

@@ -1,0 +1,37 @@
+{
+  "_notes": [
+    "Two reports because no single report on su has variant-changing parameters + single date + entity + Yes/No + choice (surveyed 2026-10-28).",
+    "Read-only: a report run writes no records; Last Run is browser-local."
+  ],
+  "workflow": "R2",
+  "hub": { "menuPath": ["File", "Administration", "Reports"], "url": "/settings/reports" },
+  "dialog": { "titlePrefix": "Run ", "description": "Choose how this report should run. The options are the ones the legacy report dialog offered.", "rawLabelPattern": "[._]|[a-z][A-Z]" },
+  "variantReport": {
+    "module": "Job Card", "nameFilter": "Hourly Totals", "report": "Hourly Totals by Field",
+    "labels": ["Report", "Show Employee Name on each line", "Sort By"],
+    "descriptions": { "Sort By": "Defines the sorting of the employees in the report" },
+    "yesNo": { "label": "Show Employee Name on each line", "options": ["Yes", "No"], "default": "No", "pick": "Yes" },
+    "choice": { "label": "Sort By", "options": ["Export Identifier", "Name"], "pick": "Export Identifier" },
+    "variant": { "label": "Report", "options": ["Hourly Totals by Field", "Hourly Totals by Job"], "switchTo": "Hourly Totals by Job", "labelsAfter": ["Report", "Show Employee Name on each line"] }
+  },
+  "runReport": {
+    "module": "Job Card", "nameFilter": "Attendance", "report": "Attendance",
+    "labels": ["Crew", "Hire Date", "Sort Employee By", "First Work Date", "Last Work Date", "Qualified Attendance Percentage", "Number of Available Days Ignored", "Included Employees"],
+    "descriptions": { "Sort Employee By": "Defines the sorting of the employees in the report", "Included Employees": "Defines the included employees in the report" },
+    "dates": [ { "label": "First Work Date", "dayOffset": -8 }, { "label": "Last Work Date", "dayOffset": -1 } ],
+    "singleDatePrompt": "Pick a date",
+    "range": { "label": "Hire Date", "prompt": "Pick a date range" },
+    "entity": { "label": "Crew", "placeholder": "Search…", "searchText": "CREW", "pick": "B1 CREW" },
+    "choice": { "label": "Included Employees", "options": ["All", "Qualified", "Not Qualified"], "pick": "All" },
+    "runningText": "Running…",
+    "viewerHeadingPrefix": "Attendance — ",
+    "pdfMagic": "%PDF"
+  },
+  "lastRunPattern": "^\\d{1,2}/\\d{1,2}/\\d{4}, \\d{1,2}:\\d{2}:\\d{2}\\s?(AM|PM)$",
+  "neverRunText": "Never",
+  "noRunWindowMs": 3000,
+  "annotations": [
+    { "type": "not-asserted", "description": "Manual step 7 (clear a required parameter and Run) is a negative case — out of scope under one-happy-path." }
+  ],
+  "cleanup": []
+}

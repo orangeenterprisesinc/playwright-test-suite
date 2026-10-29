@@ -1,0 +1,26 @@
+{
+  "_notes": [
+    "Favorites and Last Run are browser-local (localStorage pt.userPreferences.v1); every test starts from .auth storageState with both empty — nothing server-side to clean.",
+    "Names repeat across modules (All Data, Barcodes, Equipment Summary by Field), so favorites are always addressed under a For filter.",
+    "Not available: Bar Codes has no For value (\"—\"), so it is found with the module filter cleared. The Equipment Summary reports the plan first named turned available on dev on 2026-10-28; the unavailable set that day was Bar Codes, Packaging Size Codes and Traceability ▸ All Data."
+  ],
+  "workflow": "R1",
+  "hub": { "menuPath": ["File", "Administration", "Reports"], "url": "/settings/reports", "heading": "Reports", "gridName": "Reports", "loadFailureText": "Failed to load reports. Please try again." },
+  "nameFilter": { "text": "Summary by" },
+  "moduleFilter": { "module": "Time In" },
+  "intersection": { "mustInclude": ["Daily Summary by Field", "Piece Summary by Employee Detailed"] },
+  "favorites": {
+    "module": "Job Card",
+    "nameFilter": "Summary by",
+    "star": ["Payroll Summary by Job", "Summary by Employee", "Summary by Pieces"],
+    "unstar": "Summary by Employee"
+  },
+  "sorting": { "neverRunText": "Never" },
+  "notAvailable": { "nameFilter": "Bar Codes", "report": "Bar Codes", "badge": "Not available" },
+  "observation": { "rawIdentifierPattern": "^[A-Za-z0-9]*[a-z0-9][A-Z][A-Za-z0-9]*$" },
+  "annotations": [
+    { "type": "not-asserted", "description": "Last Run sort order: Last Run is browser-local and every row reads Never in a fresh context; header state only (R2 proves Last Run updates)." },
+    { "type": "not-asserted", "description": "Whole-list blank-name scan: the grid virtualizes 489 rows; checked on every filtered view instead." }
+  ],
+  "cleanup": []
+}

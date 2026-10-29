@@ -12,7 +12,7 @@ import {normalizeRow} from './MultiFileDataReader';
 import {Logger} from '../../utils/logger';
 
 /** Matches a catalog id and captures its journey letter, e.g. `C6` -> `C`. */
-const JOURNEY_ID = /^([A-F])\d{1,2}$/;
+const JOURNEY_ID = /^([A-Z])\d{1,2}$/;
 
 type Row = Record<string, unknown> & { id?: string };
 

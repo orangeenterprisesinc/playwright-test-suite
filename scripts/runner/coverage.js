@@ -47,7 +47,7 @@ function plannedWorkflows() {
             const full = path.join(dir, entry.name);
             if (entry.isDirectory()) { walk(full); continue; }
             if (!entry.name.endsWith('.md') || entry.name.startsWith('_')) continue;
-            const match = /^([a-f])(\d{1,2})-/i.exec(entry.name);
+            const match = /^([a-z])(\d{1,2})-/i.exec(entry.name);
             if (match) planned.add(`${match[1].toUpperCase()}${Number(match[2])}`);
         }
     };

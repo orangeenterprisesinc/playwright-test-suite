@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { Locator, Page, expect } from '@playwright/test';
+import { PdfViewerDialog } from '../reports/PdfViewerDialog';
 
 export interface ReportOutput {
     format: 'excel' | 'pdf';
@@ -27,11 +28,13 @@ export class ReportDialog {
     readonly trigger: Locator;
     readonly dialog: Locator;
     readonly closeButton: Locator;
+    private readonly viewer: PdfViewerDialog;
 
     constructor(private readonly page: Page) {
         this.trigger = page.getByTestId('view-job-cards-print-report');
         this.dialog = page.getByRole('alertdialog', { name: /^Report: / });
         this.closeButton = page.getByTestId('report-close');
+        this.viewer = new PdfViewerDialog(page);
     }
 
     async open(): Promise<void> {
@@ -94,19 +97,13 @@ export class ReportDialog {
             return output;
         }
 
-        const viewer = this.page.getByRole('dialog').filter({ has: this.page.locator('iframe[src^="blob:"]') });
-        await expect(viewer, 'the PDF viewer must open').toBeVisible({ timeout: 30_000 });
-        output.viewerSrc = (await viewer.locator('iframe').getAttribute('src')) ?? '';
-        output.viewerTitle = (await viewer.locator('iframe').getAttribute('title')) ?? '';
-        const pdfDownload = this.page.waitForEvent('download', { timeout: 30_000 });
-        await viewer.getByRole('link', { name: 'Download' }).or(viewer.getByRole('button', { name: 'Download' })).first().click();
-        const download = await pdfDownload;
-        output.suggestedFilename = download.suggestedFilename();
-        await download.saveAs(saveTo);
-        output.savedBytes = (await fs.stat(saveTo)).size;
-        // The footer Close follows the header's in the DOM.
-        await viewer.getByRole('button', { name: 'Close', exact: true }).last().click();
-        await expect(viewer).toBeHidden({ timeout: 15_000 });
+        const opened = await this.viewer.waitOpen();
+        output.viewerSrc = opened.src;
+        output.viewerTitle = opened.title;
+        const saved = await this.viewer.download(saveTo);
+        output.suggestedFilename = saved.suggestedFilename;
+        output.savedBytes = saved.savedBytes;
+        await this.viewer.close();
         await this.closeIfOpen();
         return output;
     }

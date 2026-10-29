@@ -1,0 +1,46 @@
+{
+    "runnerManager": [
+        {
+            "id": "R1",
+            "workflow": "R1",
+            "journey": "R",
+            "category": "ui",
+            "testName": "reportsHubListingFilteringFavorites",
+            "testTitle": "Reports hub: listing, filtering, and favorites",
+            "testDescription": "Find a report on the Reports hub by name and module, keep the ones used most as favorites, and see at a glance which reports cannot run yet.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Reports"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12681",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "R2",
+            "workflow": "R2",
+            "journey": "R",
+            "category": "ui",
+            "testName": "runDialogAndReportParameters",
+            "testTitle": "Run dialog and report parameters",
+            "testDescription": "Run a report from the hub through its Run dialog: readable parameter labels, a variant picker, date, entity, yes/no and choice parameters, then the PDF viewer.",
+            "segments": [
+                "all"
+            ],
+            "modules": [
+                "Reports"
+            ],
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12682",
+            "status": "automated",
+            "enabled": true
+        }
+    ]
+}
