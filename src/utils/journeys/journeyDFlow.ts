@@ -29,7 +29,7 @@ import {
 import { relayConfig } from '@config/relay.config';
 import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 import { deliverAndVerifyCards } from '@utils/api/officeVerification';
-import { envelopeView, sendEnvelope } from '@utils/journeys/journeyBFlow';
+import { assertDelivery, envelopeView, sendEnvelope, type EnvelopeView } from '@utils/journeys/journeyBFlow';
 import { buildEnvelope, exportFileName, lineagePrefix, punchMoment, type DeviceRecord } from '@utils/relay/exportEnvelope';
 
 // Journey D's first workflow, and a real transfer: D6 cannot be arranged read-only, so this layer
@@ -985,6 +985,27 @@ export async function prepareJourneyD3(
     return { scenario: substituted, ranch, field, crew, picker, job, punchDate, day, jobCardIds: [], cleanup, ctx };
 }
 
+/** The D3 seed envelope — pure, no network; the unit test builds it too. */
+export function buildD3Envelope(
+    scenario: JourneyD3CorrectionCase,
+    who: { employeeCode: string; crewCode: string },
+    at: { prefix: string; punchDate: Date },
+): EnvelopeView {
+    const records: DeviceRecord[] = scenario.records.map((r) => {
+        const [hour, minute] = r.time.split(':').map(Number);
+        return {
+            node: r.node,
+            part: r.part,
+            employeeSource: r.employeeSource,
+            employeeCode: who.employeeCode,
+            crewCode: who.crewCode,
+            at: punchMoment(hour, minute, at.punchDate),
+        };
+    });
+    const built = buildEnvelope({ deviceAddress: relayConfig().from, prefix: at.prefix, at: records[0].at, records });
+    return envelopeView(built.xml, built.references, exportFileName(at.prefix), at.prefix);
+}
+
 /**
  * Pushes a device envelope holding a Time In with no Ranch, Field or Job plus its Time Out, and
  * imports it on screen. That the Time In arrived with none of them is asserted by the spec on the Transfer grid.
@@ -996,20 +1017,8 @@ export async function seedBlockingTimeInDay(
     const { sessionApi, testInfo, pages } = opts;
     const device = relayConfig();
     const prefix = lineagePrefix(run.scenario.workflow, testInfo.retry);
-    const records: DeviceRecord[] = run.scenario.records.map((r) => {
-        const [hour, minute] = r.time.split(':').map(Number);
-        return {
-            node: r.node,
-            part: r.part,
-            employeeSource: r.employeeSource,
-            employeeCode: run.picker.code,
-            crewCode: run.crew.code,
-            at: punchMoment(hour, minute, run.punchDate),
-        };
-    });
-    const built = buildEnvelope({ deviceAddress: device.from, prefix, at: records[0].at, records });
-    const fileName = exportFileName(prefix);
-    const envelope = envelopeView(built.xml, built.references, fileName, prefix);
+    const envelope = buildD3Envelope(run.scenario, { employeeCode: run.picker.code, crewCode: run.crew.code }, { prefix, punchDate: run.punchDate });
+    const fileName = envelope.fileName;
     const [timeInReference, timeOutReference] = envelope.references;
 
     const send = await allowApiWrites('device', 'D3: PET Pocket envelope with a context-less Time In', () =>
@@ -1041,6 +1050,7 @@ export async function seedBlockingTimeInDay(
     const timeIn = result.cards.find((c) => String(c.reference) === timeInReference);
     const timeOut = result.cards.find((c) => String(c.reference) === timeOutReference);
     if (!timeIn || !timeOut) throw new Error(`${run.scenario.label}: the import did not return both own time cards.`);
+    await assertDelivery(pages, { id: run.scenario.label, envelope, send, runId: null, file: null }, run.scenario.expected, run.scenario.label);
     return {
         timeCardCounters: [timeIn.timeCardCounter, timeOut.timeCardCounter],
         timeIn,

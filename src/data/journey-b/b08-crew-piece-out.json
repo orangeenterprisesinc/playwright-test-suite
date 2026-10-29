@@ -28,11 +28,17 @@
   "expected": {
     "envelope": {
       "sections": ["TimeCard", "PieceOut", "TimeOut"],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+        "PieceOut": ["PieceOut","Reference","PieceOutDate","PieceOutTime","Crew","Job","Ranch","Field","NumOfPieces","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo"],
+        "TimeOut": ["TimeOut","Reference","DateOut","Employee","Crew","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "referenceParts": ["CI", "CI", "PO", "CO", "CO"],
       "employeeSources": { "Crew": 4 },
       "pieceCounts": { "4": 1 },
       "absentInSection": { "PieceOut": ["Employee", "EmployeeSource"] }
     },
+    "importLog": { "status": "completed", "recordsImported": "5", "recordsFailed": "0" },
     "cards": [
       { "record": 0, "employeeCode": "6001", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "typeText": "Time In", "pieces": 0 },
       { "record": 1, "employeeCode": "6002", "fieldCode": "4101", "jobCode": "4204", "cardType": 1, "typeText": "Time In", "pieces": 0 },

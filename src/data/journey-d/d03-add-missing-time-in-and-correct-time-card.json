@@ -18,7 +18,12 @@
     "statusAfter": "Ready",
     "emptyCell": "—",
     "blockingIssuesFixed": 2,
-    "jobCards": 0
+    "jobCards": 0,
+    "importLog": { "status": "completed", "recordsImported": "2", "recordsFailed": "0" },
+    "envelope": { "sectionTags": {
+      "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+      "TimeOut": ["TimeOut","Reference","DateOut","Employee","Crew","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+    } }
   },
   "annotations": [
     {

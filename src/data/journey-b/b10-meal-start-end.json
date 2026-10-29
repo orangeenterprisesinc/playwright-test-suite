@@ -55,6 +55,9 @@
       "sections": [
         "TimeCard"
       ],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource","GpsReading"]
+      },
       "employeeSources": {
         "BarcodeBadge": 3
       },
@@ -73,6 +76,7 @@
       ],
       "gpsFixes": 1
     },
+    "importLog": { "status": "completed", "recordsImported": "3", "recordsFailed": "0" },
     "cards": [
       {
         "record": 0,

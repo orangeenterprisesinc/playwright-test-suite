@@ -97,6 +97,10 @@
         "TimeCard",
         "PieceOut"
       ],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+        "PieceOut": ["PieceOut","Reference","PieceOutDate","PieceOutTime","Employee","Crew","NumOfPieces","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "employeeSources": {
         "BarcodeBadge": 1,
         "AlternateCode": 3
@@ -144,6 +148,7 @@
         "pieces": 1
       }
     ],
+    "importLog": { "status": "completed", "recordsImported": "4", "recordsFailed": "0" },
     "grid": {
       "rowStatus": {
         "missingJobRequired": "Blocking",

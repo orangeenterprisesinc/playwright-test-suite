@@ -85,6 +85,10 @@
         "TimeCard",
         "TimeOut"
       ],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+        "TimeOut": ["TimeOut","Reference","DateOut","Employee","Crew","GpsReading","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "employeeSources": {
         "Crew": 5,
         "BarcodeBadge": 1
@@ -110,6 +114,7 @@
         ]
       }
     },
+    "importLog": { "status": "completed", "recordsImported": "6", "recordsFailed": "0" },
     "cards": [
       {
         "record": 0,

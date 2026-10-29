@@ -130,6 +130,10 @@
             "Employee",
             "EmployeeCodeHistory"
           ],
+          "sectionTags": {
+            "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+            "Employee": ["Employee","Code","EmployeeCodeHistory_Records","EmployeeCodeHistory","Author","DateIn","TimeIn","StartDateTime","ScannedCode","AlternateCode","FirstCode","Reference","UpdateTime"]
+          },
           "sectionLookups": {
             "TimeCard": "Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code",
             "Employee": "Employee:Code",
@@ -139,7 +143,8 @@
             "{code0}"
           ]
         },
-        "importStatus": "completed"
+        "importLog": { "status": "completed", "recordsImported": "1", "recordsFailed": "0" },
+        "softImportLog": true
       },
       {
         "device": "device-b",
@@ -147,6 +152,9 @@
           "sections": [
             "PieceOut"
           ],
+          "sectionTags": {
+            "PieceOut": ["PieceOut","Reference","PieceOutDate","PieceOutTime","Employee","NumOfPieces","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+          },
           "absentSections": [
             "Employee"
           ],
@@ -161,7 +169,7 @@
             "1": 2
           }
         },
-        "importStatus": "completed"
+        "importLog": { "status": "completed", "recordsImported": "2", "recordsFailed": "0" }
       }
     ],
     "cards": [

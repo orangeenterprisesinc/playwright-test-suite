@@ -143,8 +143,9 @@ human-reviewable.
 
 * Gate-skips masquerade as green — run the gate-skip check in
   `.claude/skills/pw-failure-triage/SKILL.md` (Step 1) before any triage.
-* Journey capture defaults are rich (trace on, 480p video on, screenshot on
-  failure) — a first failure always has a trace under `artifacts/results/`.
+* Journey capture is `retain-on-failure` for trace and 720p video, screenshot on
+  failure — a red test always has a trace under `artifacts/results/`; a green one
+  leaves nothing (trace-on cost 96–183 s per test at context close, 2026-10-29).
 * Never weaken an assertion tied to an expected outcome in the plan; if the app
   contradicts the plan, report a potential product bug instead of healing around it.
 

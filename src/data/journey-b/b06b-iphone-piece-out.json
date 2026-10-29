@@ -35,7 +35,9 @@
       "pieceCounts": { "1": 2 },
       "employeeSources": { "BarcodeBadge": 4 },
       "sectionTags": {
-        "PieceOut": ["PieceOut", "UpdateTime", "Reference", "NumOfPieces", "Variety", "WorkOrder", "TraceabilityCode", "Employee", "Ranch", "Job", "Crew", "DateTime", "Memo", "Field", "EmployeeSource", "AgRow", "GpsReading", "Load"]
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+        "PieceOut": ["PieceOut","UpdateTime","Reference","NumOfPieces","Variety","WorkOrder","TraceabilityCode","Employee","Ranch","Job","Crew","DateTime","Memo","Field","EmployeeSource","AgRow","GpsReading","Load"],
+        "TimeOut": ["TimeOut","Reference","DateOut","Employee","Crew","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
       },
       "absentInSection": {
         "PieceOut": ["PieceOutDate", "PieceOutTime", "PictureVerification", "Signature", "CardType"]

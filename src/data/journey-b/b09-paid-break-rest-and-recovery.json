@@ -76,6 +76,10 @@
         "TimeCard",
         "TimeOut"
       ],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"],
+        "TimeOut": ["TimeOut","Reference","DateOut","Employee","Crew","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "referenceParts": [
         "TI",
         "TI",
@@ -93,6 +97,7 @@
         "UnpaidBreakCard_Records"
       ]
     },
+    "importLog": { "status": "completed", "recordsImported": "3", "recordsFailed": "0" },
     "cards": [
       {
         "record": 0,

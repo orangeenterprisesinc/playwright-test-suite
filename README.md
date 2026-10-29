@@ -548,7 +548,7 @@ Managed by `src/fixtures/lifecycle/testLifecycleManager.ts` via `base.fixture.ts
 **afterEach:**
 1. Records pass/fail/skip and duration in `TestMetrics`
 2. Clears `CurrentTestTracker`
-3. Playwright's own config handles screenshot/video/trace capture (the config sets `screenshot`/`trace`/`video` to `'on'`, i.e. captured for every test)
+3. Playwright's own config handles screenshot/video/trace capture (journey project: `screenshot` `only-on-failure`, `trace` and `video` `retain-on-failure` — a red test keeps all three, a green test leaves none)
 
 ### 5. Data-Driven Testing
 
@@ -1086,7 +1086,7 @@ Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives 
 - 🎥 Video recording
 - 📋 Trace file
 
-> To trim artifact size/time, switch `trace`/`video` to `'retain-on-failure'` or `'on-first-retry'` in `playwright.config.ts`.
+> `trace` and `video` are `'retain-on-failure'` (since 2026-10-30): with `'on'`, every green journey test wrote a 30–164 MB trace at context close, 96–183 s per test, about 40 minutes of a 90-minute run.
 
 ---
 

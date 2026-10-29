@@ -5,7 +5,7 @@
 import { expect, test } from '@fixtures/base.fixture';
 import { JourneyBScenarioSchema } from '@data/schemas/journeyBScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
-import { assertImportedRows, cardOf, displayedStamp, importLogRowFor, recordStamp, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
+import { assertImportedRows, cardOf, displayedStamp, recordStamp, runJourneyBScenario } from '@utils/journeys/journeyBFlow';
 
 test.describe('B6b · iPhone piece-out', { tag: ['@JourneyB', '@B6b'] }, () => {
     test('Deliver an iPhone piece-out export and verify every row imports with the sent time', {
@@ -14,7 +14,7 @@ test.describe('B6b · iPhone piece-out', { tag: ['@JourneyB', '@B6b'] }, () => {
             { type: 'testCaseId', description: 'B6b' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // 1. Relay push, then the on-screen Internet import
+        // 1. Relay push, then the on-screen Internet import; the flow reads the Import Log row and checks every section's element names
         const scenario = await loadScenario(JourneyBScenarioSchema, testInfo);
         const run = await runJourneyBScenario(scenario, { sessionApi, pages, testInfo });
         const { records, expected } = scenario;
@@ -24,7 +24,6 @@ test.describe('B6b · iPhone piece-out', { tag: ['@JourneyB', '@B6b'] }, () => {
         // 2. The envelope is the iOS shape: one bare DateTime per PieceOut row, in the sample's order
         expect(run.envelope.sections).toEqual(want.sections);
         expect(run.envelope.referenceParts).toEqual(want.referenceParts);
-        expect(run.envelope.sectionTags['PieceOut']).toEqual(want.sectionTags!['PieceOut']);
         for (const tag of want.absentInSection!['PieceOut']) {
             expect(
                 run.envelope.sectionTags['PieceOut'],
@@ -45,13 +44,6 @@ test.describe('B6b · iPhone piece-out', { tag: ['@JourneyB', '@B6b'] }, () => {
             expect(displayedStamp(cardOf(run, index).row), `record ${index} Date/Time on the grid`).toBe(recordStamp(run, index).slice(0, 16));
         }
 
-        // 5. The Internet Import Log shows the file completed with no declined record
-        const log = await importLogRowFor(pages, run.deliveries[0]);
-        const wantLog = expected.importLog!;
-        expect(log.status.toLowerCase(), `Import Log row: ${JSON.stringify(log)}`).toBe(wantLog.status);
-        expect(log.recordsImported, `Import Log row: ${JSON.stringify(log)}`).toBe(wantLog.recordsImported);
-        expect(log.recordsFailed, `Import Log row: ${JSON.stringify(log)}`).toBe(wantLog.recordsFailed);
-
-        // 6. Teardown runs through the scenario cleanup step the flow registered
+        // 5. Teardown runs through the scenario cleanup step the flow registered
     });
 });

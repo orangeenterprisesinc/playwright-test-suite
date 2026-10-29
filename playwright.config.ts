@@ -287,15 +287,15 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Full artifact capture on every test. Traces and videos provide
-        // complete step-by-step debugging. To trim artifact size/time, switch
-        // trace/video to 'retain-on-failure' or 'on-first-retry'.
+        // Artifacts only for a red test. With `trace: 'on'` every green journey test wrote a
+        // 30-164 MB trace zip at context close, 96-183 s per test (measured 2026-10-29, E10/E13),
+        // about 40 minutes of a 90-minute run.
         screenshot: 'only-on-failure',
-        trace: 'on',
+        trace: 'retain-on-failure',
         // 720p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
         // but recording at that size shipped a 763 MB report from one red run.
         // The frame is scaled down to fit, never up. The webpet project sets its own.
-        video: { mode: 'on', size: VIDEO_SIZE },
+        video: { mode: 'retain-on-failure', size: VIDEO_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
