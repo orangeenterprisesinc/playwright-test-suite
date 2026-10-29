@@ -419,8 +419,8 @@ export type JourneyBScenario = z.infer<typeof JourneyBScenarioSchema>;
 // name prefixes and code offsets the flow mints from, the export section each entity lands in, cleanup.
 const ScopedEntityJsonSchema = z
     .object({
-        /** Must be a prefix the residue sweep reclaims for the entity (cleanupTargets.ts); the flow refuses any other. */
-        prefix: z.string().min(5),
+        /** Upper-case noun of the run-tagged name (`B15 NEW <NOUN> <stamp>`); must be one the residue sweep reclaims for the entity (cleanupTargets.ts), or the flow refuses it. */
+        noun: z.string().regex(/^[A-Z][A-Z ]*$/),
         /** Added to the run token so the entities of one run never share a barcode. */
         codeOffset: z.number().int().positive(),
         /** The `<X_Records>` block the office serializes this entity into. */
@@ -434,7 +434,7 @@ export const DeviceSyncScenarioSchema = z
         workflow: z.string().regex(/^B\d{1,2}$/),
         label: z.string().min(1),
         entities: z.object({ ranch: ScopedEntityJsonSchema, field: ScopedEntityJsonSchema, crew: ScopedEntityJsonSchema }).strict(),
-        device: z.object({ prefix: z.string().min(5) }).strict(),
+        device: z.object({ noun: z.string().regex(/^[A-Z][A-Z ]*$/) }).strict(),
         cleanup: z.array(CleanupStepSchema).default([]),
     })
     .strict()

@@ -13,7 +13,7 @@ import {
 import { deleteTimeCard, isoDay, listTimeCardsWithMeta, type OfficeTimeCard } from '../api/timeCardsApi';
 import { drainMailbox } from '../relay/relayClient';
 import { JOURNEY_B_FIXTURE, punchDay } from '../../data/journey-b/fixture';
-import { cleanupTarget, isProtectedName } from '../../data/static/shared/cleanupTargets';
+import { cleanupTarget, isProtectedName, matchesSweepPrefix } from '../../data/static/shared/cleanupTargets';
 import { readRecordedImportRuns } from './importRunRecorder';
 import { envNumber } from './residueSweep';
 import { decodeNameAge } from './runToken';
@@ -284,7 +284,7 @@ async function resolveFixtureEmployees(
     for (const row of rows) {
         const name = String((row as { name?: unknown }).name ?? '');
         if (!name || isProtectedName(name)) continue;
-        const hit = CREATED_EMPLOYEE_PREFIXES.find((prefix) => name.startsWith(prefix.prefix));
+        const hit = CREATED_EMPLOYEE_PREFIXES.find((prefix) => matchesSweepPrefix(name, prefix));
         if (!hit) continue;
         const age = decodeNameAge(name, hit.prefix, hit.token, now);
         if (age.decodable && (age.ageMs ?? 0) < minAgeMs) continue;

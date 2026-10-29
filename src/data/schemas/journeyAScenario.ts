@@ -267,7 +267,8 @@ export const BiometricEnrollmentCaseSchema = z
             .strict(),
         device: z
             .object({
-                prefix: z.string().min(1),
+                /** Upper-case noun of the run-tagged device name (`A6-NEW-<NOUN>-<stamp>`). */
+                noun: z.string().regex(/^[A-Z][A-Z ]*$/),
                 /** First char of the 3-char Reference Prefix; the last two come from the run token. */
                 referenceLead: z.string().length(1),
                 type: z.enum(['irisId']),

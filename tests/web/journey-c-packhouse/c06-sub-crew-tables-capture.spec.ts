@@ -14,7 +14,7 @@ import {
 
 test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }, () => {
 
-    test('[Capture by table] Clock a table of three in and roll the day up to the crew.', {
+    test('[Capture by table] Clock a table of three out against its table and roll the day up to the crew.', {
         tag: ['@Regression'],
         annotation: [
             { type: 'testCaseId', description: 'C6' },
@@ -25,15 +25,15 @@ test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }
         const run = await prepareJourneyC(scenario, { sessionApi, testInfo, pages });
 
         const want = scenario.expected!;
-        await captureByTable(run, { sessionApi, testInfo, pages });
+        const { timeOuts } = await captureByTable(run, { sessionApi, testInfo, pages });
 
-        // The four edit pages give the partition: Table, Crew and the ticked employees per punch.
-        const punches = await readCapturedPunchesOnScreen(run, pages);
+        // The Crew Time Out edit pages give the partition: Table and Crew per time-out, the employee from View > Time Cards.
+        const punches = await readCapturedPunchesOnScreen(run, pages, timeOuts);
         const onTable = punches.filter((p) => p.table !== '');
         const offTable = punches.filter((p) => p.table === '');
-        expect(onTable, 'punches saved with the table').toHaveLength(want.cardsOnTable);
+        expect(onTable, 'time-outs saved with the table').toHaveLength(want.cardsOnTable);
         for (const punch of onTable) expect(punch.table, `table on ${punch.reference}`).toBe(run.tableName);
-        expect(offTable, 'punches saved with no table').toHaveLength(want.cardsOffTable);
+        expect(offTable, 'time-outs saved with no table').toHaveLength(want.cardsOffTable);
         for (const punch of punches) expect(punch.crew, `crew on ${punch.reference}`).toBe(run.office.crew.name);
         expect(new Set(onTable.flatMap((p) => p.employees))).toEqual(new Set(run.workers.map((w) => w.name)));
         expect(new Set(offTable.flatMap((p) => p.employees))).toEqual(new Set(run.offTable.map((w) => w.name)));
@@ -41,8 +41,8 @@ test.describe('C6 · Sub-crew ("tables") capture', { tag: ['@JourneyC', '@C6'] }
         // View > Time Cards has no Table column, so the list proves only that the crew's day holds every punch.
         expect(
             await countCrewRowsOnScreen(run, pages),
-            'a table groups the crew day, it does not lose or duplicate cards',
-        ).toBe(want.cardsOnTable + want.cardsOffTable);
+            '4 time-ins + 4 time-outs; a table groups the crew day, it does not lose or duplicate cards',
+        ).toBe(want.crewDayRows);
 
         await run.cleanup();
     });

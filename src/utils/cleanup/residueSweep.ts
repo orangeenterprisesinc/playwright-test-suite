@@ -18,7 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
-import { CLEANUP_TARGETS, isProtectedName, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
+import { CLEANUP_TARGETS, isProtectedName, matchesSweepPrefix, type CleanupTarget } from '../../data/static/shared/cleanupTargets';
 import STRANDED_RESIDUE from '../../data/static/shared/strandedResidue.json';
 import { createLoginRequestContext } from '../api/apiLogin';
 import { Logger } from '../logger';
@@ -280,7 +280,7 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
                 const matched = rows
                     .map((row) => {
                         const name = nameOf(row, target);
-                        const hit = target.prefixes.find((p) => name.startsWith(p.prefix));
+                        const hit = target.prefixes.find((p) => matchesSweepPrefix(name, p));
                         return hit ? { row, name, prefix: hit } : null;
                     })
                     .filter((m): m is NonNullable<typeof m> => m !== null);

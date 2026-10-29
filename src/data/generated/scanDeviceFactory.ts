@@ -1,11 +1,15 @@
 import type { ScanDeviceGeneral } from '../../pages/setup/ScanDevicePage';
-import { RUN_TOKEN } from '../../utils/cleanup/runToken';
+import { RUN_TOKEN, readableName } from '../../utils/cleanup/runToken';
+import { isSweepable } from '../static/shared/cleanupTargets';
 
-// `<prefix><RUN_TOKEN>`: RUN_TOKEN is run- and worker-unique, and the residue sweep's `six` decoder
-// expects exactly six base36 digits after the prefix — an undecodable name is one the sweep can
-// never reclaim. ReferencePrefix is nvarchar(3).
-export function makeScanDevice(prefix: string, referenceLead = 'Z'): ScanDeviceGeneral {
-    const name = `${prefix}${RUN_TOKEN}`;
+const MAX_LENGTH = 30;
+
+// `<owner>-NEW-<NOUN>-<MMDD-HHmmss>-W<n>`: hyphens, never spaces, because the mailbox is name + `@silo`.
+// ReferencePrefix is nvarchar(3): a lead letter plus the last two RUN_TOKEN digits.
+export function makeScanDevice(owner: string, referenceLead = 'Z', noun = 'DEVICE'): ScanDeviceGeneral {
+    const name = readableName(owner, noun, '-');
+    if (!isSweepable('scanDevice', name)) throw new Error(`makeScanDevice: '${name}' is not a name the residue sweep reclaims (cleanupTargets.ts)`);
+    if (name.length > MAX_LENGTH) throw new Error(`makeScanDevice: '${name}' is ${name.length} chars, over the device limit of ${MAX_LENGTH}`);
     return { name, referencePrefix: `${referenceLead}${RUN_TOKEN.slice(-2)}`, webMailAddress: `${name}@silo` };
 }
 

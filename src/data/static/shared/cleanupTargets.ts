@@ -12,7 +12,7 @@
  * `B1 CREW`, `B5 STICKER SIX`, …), the reused `RestrictedTest` user and the seed rows
  * are guarded by {@link PROTECTED_NAME_PATTERNS}, asserted at module load.
  */
-import type { TokenStyle } from '../../../utils/cleanup/runToken';
+import { READABLE_RUN_NAME, readableNamePattern, type TokenStyle } from '../../../utils/cleanup/runToken';
 
 export interface SweepPrefix {
     prefix: string;
@@ -38,6 +38,8 @@ export interface CleanupTarget {
 const factory = (prefix: string): SweepPrefix => ({ prefix, token: 'factory' });
 const six = (prefix: string): SweepPrefix => ({ prefix, token: 'six' });
 const uid = (prefix: string): SweepPrefix => ({ prefix, token: 'uid' });
+/** `noun` is the stem after the workflow id, e.g. 'NEW CREW' matches `A4 NEW CREW 1029-153245-W1`. */
+const readable = (noun: string): SweepPrefix => ({ prefix: noun, token: 'readable' });
 
 /** Names that must never be swept, whatever prefix they might one day share. */
 export const PROTECTED_NAME_PATTERNS: readonly RegExp[] = [
@@ -57,16 +59,22 @@ const TARGETS: readonly CleanupTarget[] = [
         order: 10,
         // `Temporary Badge` cannot fit the token in a 20-char last name, so the
         // factory carries it in the first name — hence the `, Test_` in that prefix.
-        prefixes: [factory('E2EEmp_'), factory('E2EBadgeGuard_'), factory('E2EReconEmp_'), factory('Temporary Badge, Test_')],
+        prefixes: [
+            factory('E2EEmp_'),
+            factory('E2EBadgeGuard_'),
+            factory('E2EReconEmp_'),
+            factory('Temporary Badge, Test_'),
+            readable('NEW EMPLOYEE'),
+        ],
         note: 'soft-delete only (WEBPET-1798); 409 when job cards still reference the employee',
     },
-    { entity: 'field', listPath: 'fields', idKey: 'fieldCounter', order: 20, prefixes: [factory('E2EField_'), factory('E2EPickField_')] },
+    { entity: 'field', listPath: 'fields', idKey: 'fieldCounter', order: 20, prefixes: [factory('E2EField_'), factory('E2EPickField_'), readable('NEW FIELD')] },
     {
         entity: 'ranch',
         listPath: 'ranches',
         idKey: 'ranchCounter',
         order: 21,
-        prefixes: [factory('E2ERanch_'), factory('E2EPickRanch_'), factory('E2ETimeInRanch_')],
+        prefixes: [factory('E2ERanch_'), factory('E2EPickRanch_'), factory('E2ETimeInRanch_'), readable('NEW RANCH')],
     },
     {
         entity: 'variety',
@@ -84,7 +92,7 @@ const TARGETS: readonly CleanupTarget[] = [
     },
     // A table's FK points at its crew (and employees may point at the table), so it sits between them.
     { entity: 'crewTable', listPath: 'crew-tables', idKey: 'crewTableCounter', order: 38, prefixes: [factory('E2ECrewTable_')] },
-    { entity: 'crew', listPath: 'crews', idKey: 'crewCounter', order: 40, prefixes: [factory('E2ECrew_')] },
+    { entity: 'crew', listPath: 'crews', idKey: 'crewCounter', order: 40, prefixes: [factory('E2ECrew_'), readable('NEW CREW')] },
     {
         entity: 'department',
         listPath: 'departments',
@@ -112,7 +120,7 @@ const TARGETS: readonly CleanupTarget[] = [
     { entity: 'documentType', listPath: 'document-types', idKey: 'documentTypeCounter', order: 55, prefixes: [factory('E2EDocType_')] },
     { entity: 'board', listPath: 'boards', idKey: 'deviceCounter', order: 56, prefixes: [factory('E2EBoard_')], note: 'boards live in the Device table' },
     // A scoped device's crew/ranch/field assignments point at those rows, so it goes before them (B15).
-    { entity: 'scanDevice', listPath: 'scan-devices', idKey: 'deviceCounter', order: 15, prefixes: [six('ZZTEST_SD_'), six('ZZTEST_IR_')], note: 'Device table' },
+    { entity: 'scanDevice', listPath: 'scan-devices', idKey: 'deviceCounter', order: 15, prefixes: [six('ZZTEST_SD_'), six('ZZTEST_IR_'), readable('NEW DEVICE')], note: 'Device table' },
     {
         entity: 'validation',
         listPath: 'validations',
@@ -122,14 +130,15 @@ const TARGETS: readonly CleanupTarget[] = [
         note: 'soft-delete only (WEBPET-1798)',
     },
     { entity: 'notification', listPath: 'notifications', idKey: 'notificationCounter', order: 59, prefixes: [uid('ZZ NOTIF CHECK ')] },
-    { entity: 'user', listPath: 'users', idKey: 'usersCounter', order: 60, prefixes: [uid('QA User '), six('ZZTEST_USR_')] },
+    { entity: 'user', listPath: 'users', idKey: 'usersCounter', order: 60, prefixes: [uid('QA User '), six('ZZTEST_USR_'), readable('USER')] },
 ];
 
 export const CLEANUP_TARGETS: readonly CleanupTarget[] = [...TARGETS].sort((a, b) => a.order - b.order);
 
 for (const target of CLEANUP_TARGETS) {
-    for (const { prefix } of target.prefixes) {
-        if (prefix.trim().length < 5) {
+    for (const { prefix, token } of target.prefixes) {
+        // A readable stem only matches with its full anchored stamp, so its own length is no risk.
+        if (token !== 'readable' && prefix.trim().length < 5) {
             throw new Error(`cleanupTargets: prefix '${prefix}' on ${target.entity} is too short to be safe`);
         }
         if (PROTECTED_NAME_PATTERNS.some((pattern) => pattern.test(prefix))) {
@@ -148,6 +157,17 @@ export function cleanupTarget(entity: string): CleanupTarget {
     return target;
 }
 
+/** A run-minted readable name (`B15 NEW CREW …`) is never a fixture, even though `B15 ` is a fixture prefix. */
 export function isProtectedName(name: string): boolean {
+    if (READABLE_RUN_NAME.test(name)) return false;
     return PROTECTED_NAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+export function matchesSweepPrefix(name: string, p: SweepPrefix): boolean {
+    return p.token === 'readable' ? readableNamePattern(p.prefix).test(name) : name.startsWith(p.prefix);
+}
+
+/** True when the residue sweep would find (and date) `name` for this entity. */
+export function isSweepable(entity: string, name: string): boolean {
+    return cleanupTarget(entity).prefixes.some((p) => matchesSweepPrefix(name, p));
 }

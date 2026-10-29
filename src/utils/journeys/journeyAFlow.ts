@@ -9,6 +9,7 @@ import type {
     PieceOutConfigCase,
     UserSetupCase,
 } from '@data/schemas/journeyAScenario';
+import { isSweepable } from '@data/static/shared/cleanupTargets';
 import type { NewUserData } from '@pages/admin/UsersPage';
 import type { NewCrewData } from '@pages/setup/CrewPage';
 import type { NewEmployeeData } from '@pages/setup/EmployeePage';
@@ -19,7 +20,7 @@ import { getSessionModules } from '@utils/api/sessionApi';
 import { findActiveDeviceOfType } from '@utils/api/setupExportApi';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
-import { RUN_TOKEN } from '@utils/cleanup/runToken';
+import { RUN_TOKEN, readableName } from '@utils/cleanup/runToken';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import { employeeInExport } from '@utils/export/setupExportXml';
 import { randomTemplate, syntheticPortraitJpeg } from '@utils/relay/biometricPayload';
@@ -28,6 +29,13 @@ import { drainMailbox } from '@utils/relay/relayClient';
 
 // Journey A: the spec drives the setup screens itself; this layer mints what a case cannot hold
 // (a run-unique user) and binds the minted name into the case's cleanup steps.
+
+/** The workflow id the run-tagged names are minted under: the spec's `testCaseId` annotation. */
+function ownerOf(testInfo: TestInfo): string {
+    const id = testInfo.annotations.find((a) => a.type === 'testCaseId')?.description;
+    if (!id) throw new Error(`'${testInfo.title}' has no testCaseId annotation — run-tagged names are minted under the workflow id`);
+    return id;
+}
 
 export interface UserSetupRun {
     /** The case with `{userName}` substituted. */
@@ -39,7 +47,11 @@ export interface UserSetupRun {
 }
 
 export function mintUserSetup(scenario: UserSetupCase, _sessionApi: APIRequestContext, testInfo: TestInfo): UserSetupRun {
-    const user = makeUser(scenario.user);
+    // The user Name field holds 25 characters, so it is `A1 USER <stamp>` without the `NEW`.
+    const name = readableName(ownerOf(testInfo), 'USER', ' ', Date.now(), false);
+    if (!isSweepable('user', name)) throw new Error(`'${name}' is not a name the residue sweep reclaims for users (cleanupTargets.ts)`);
+    if (name.length > 25) throw new Error(`'${name}' is ${name.length} chars, over the user Name limit of 25`);
+    const user = makeUser({ ...scenario.user, name });
     const substituted = substituteTokens(scenario, { userName: user.name });
     const cleanup = register(testInfo, 'A1 user-setup cleanup', (api) =>
         runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
@@ -57,7 +69,7 @@ export interface CrewSetupRun {
 }
 
 export function mintCrewSetup(scenario: CrewSetupCase, _sessionApi: APIRequestContext, testInfo: TestInfo): CrewSetupRun {
-    const name = makeCrewName();
+    const name = makeCrewName(ownerOf(testInfo));
     const { codeOffset, ...picked } = scenario.crew;
     const crew: NewCrewData = { ...picked, name, code: runUniqueCode(codeOffset) };
     const substituted = substituteTokens(scenario, { crewName: name });
@@ -138,7 +150,7 @@ export interface EmployeeSetupRun {
 /** Mints the employee's name and codes and registers the after-phase cleanup. */
 export function prepareEmployeeSetup(scenario: EmployeeSetupCase, testInfo: TestInfo): EmployeeSetupRun {
     const spec = scenario.employee;
-    const name = makeEmployeeName();
+    const { name, lastName } = makeEmployeeName(ownerOf(testInfo));
     const substituted = substituteTokens(scenario, { employeeName: name });
     const cleanup = register(testInfo, 'A5 employee-setup cleanup', (api) =>
         runCleanup(substituted.cleanup, api, testInfo, { phase: 'after' }),
@@ -148,7 +160,7 @@ export function prepareEmployeeSetup(scenario: EmployeeSetupCase, testInfo: Test
         employee: {
             name,
             code: runUniqueCode(spec.codeOffset),
-            lastName: name,
+            lastName,
             exportIdentifier: runUniqueCode(spec.exportIdentifierOffset),
             nfcCode: runUniqueCode(spec.nfcCodeOffset),
             rfidCode: runUniqueCode(spec.rfidCodeOffset),
@@ -209,9 +221,10 @@ export async function prepareBiometricEnrollment(
     if ((await readPreferenceGate(sessionApi, gate.key)) !== gate.expected) throw new Error(gate.message);
 
     const spec = scenario.employee;
-    const name = makeEmployeeName();
+    const owner = ownerOf(testInfo);
+    const { name, lastName } = makeEmployeeName(owner);
     const exportIdentifier = runUniqueCode(spec.exportIdentifierOffset);
-    const device = makeScanDevice(scenario.device.prefix, scenario.device.referenceLead);
+    const device = makeScanDevice(owner, scenario.device.referenceLead, scenario.device.noun);
     const substituted = substituteTokens(scenario, { employeeName: name, deviceName: device.name });
     const relay = relayConfig();
     const cleanup = register(testInfo, 'A6 biometric-enrollment cleanup', async (api) => {
@@ -221,7 +234,7 @@ export async function prepareBiometricEnrollment(
     });
     return {
         scenario: substituted,
-        employee: { name, code: runUniqueCode(spec.codeOffset), lastName: name, exportIdentifier, crew: spec.crew },
+        employee: { name, code: runUniqueCode(spec.codeOffset), lastName, exportIdentifier, crew: spec.crew },
         rfidCode: runUniqueCode(spec.rfidCodeOffset),
         device,
         deviceType: DEVICE_TYPE[scenario.device.type],

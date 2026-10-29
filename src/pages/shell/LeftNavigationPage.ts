@@ -8,7 +8,7 @@
  * Driving the actual menu is what lets the recorded video capture the
  * navigation steps (see the journey specs under tests/web/).
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../BasePage';
 
 /**
@@ -82,7 +82,14 @@ export class LeftNavigationPage extends BasePage {
             const expanded = await groupButtons.first().getAttribute('aria-expanded');
             if (expanded === 'true' || expanded === 'false') {
                 if (expanded === 'false') await groupButtons.first().click();
-                await childItem.waitFor({ state: 'visible', timeout: 10_000 });
+                const shown = await childItem.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+                if (shown) return;
+                // The group opened but never rendered its children (B8, 2026-10-29, slow dev): fold it and open it once more.
+                await groupButtons.first().click();
+                await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'false', { timeout: 5_000 });
+                await groupButtons.first().click();
+                await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
+                await childItem.waitFor({ state: 'visible', timeout: 15_000 });
                 return;
             }
         }

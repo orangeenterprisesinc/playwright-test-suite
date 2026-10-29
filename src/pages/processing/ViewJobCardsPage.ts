@@ -92,7 +92,30 @@ export class ViewJobCardsPage extends BasePage {
 
     async openFromMenu(): Promise<void> {
         await this.leftNav.openScreen(['View', 'Job Cards'], this.pageUrl);
+        // Straight after a transfer the app is already on this URL, so openScreen reloads it (F5) while the
+        // landing's own requests are still in flight (E13, 2026-10-29): a reload that loses that race never
+        // renders the heading. Press F5 once more instead of waiting the same page out.
+        const rendered = await this.heading.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
+        if (rendered) return;
+        await this.page.reload({ waitUntil: 'domcontentloaded' });
         await this.heading.waitFor({ state: 'visible', timeout: 30_000 });
+    }
+
+    /**
+     * Opens the date-range calendar. The click can land before the screen has wired its handler (E11, 2026-10-29:
+     * page loaded, no dialog in 10 s on a slow dev), so wait for the heading and re-open once if no dialog shows.
+     */
+    private async openRangePopup(): Promise<Locator> {
+        await this.heading.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.expandFilter();
+        const button = this.dateRange.getByRole('button', { name: 'First Day Start – Last Day Start' });
+        const popup = this.page.getByRole('dialog');
+        for (let attempt = 1; ; attempt += 1) {
+            await button.click({ timeout: 15_000 });
+            const shown = await popup.waitFor({ state: 'visible', timeout: attempt === 1 ? 8_000 : 15_000 }).then(() => true, () => false);
+            if (shown) return popup;
+            if (attempt === 2) throw new Error('the date-range calendar dialog never opened after two clicks on the range button');
+        }
     }
 
     /**
@@ -103,10 +126,7 @@ export class ViewJobCardsPage extends BasePage {
     async scopeToDay(day: string): Promise<void> {
         const [year, month, date] = day.split('-');
         const target = new Date(Number(year), Number(month) - 1, Number(date));
-        await this.expandFilter();
-        await this.dateRange.getByRole('button', { name: 'First Day Start – Last Day Start' }).click({ timeout: 15_000 });
-        const popup = this.page.getByRole('dialog');
-        await popup.waitFor({ state: 'visible', timeout: 10_000 });
+        const popup = await this.openRangePopup();
 
         const monthName = target.toLocaleString('en-US', { month: 'long' });
         const dayCell = popup.getByRole('button', { name: new RegExp(`${monthName} ${target.getDate()}${ordinal(target.getDate())}, ${target.getFullYear()}`) });
@@ -128,10 +148,7 @@ export class ViewJobCardsPage extends BasePage {
 
     /** A multi-day scope: two day-cell clicks, read back before Apply, the chip asserted at both ends. Nothing loads until {@link applyFilter}. */
     async scopeToRange(from: string, to: string): Promise<void> {
-        await this.expandFilter();
-        await this.dateRange.getByRole('button', { name: 'First Day Start – Last Day Start' }).click({ timeout: 15_000 });
-        const popup = this.page.getByRole('dialog');
-        await popup.waitFor({ state: 'visible', timeout: 10_000 });
+        const popup = await this.openRangePopup();
         await pickRangeInPopup(popup, from, to);
         await popup.getByRole('button', { name: /^apply$/i }).click();
         await expect(this.dateRange, `the date scope must read ${usDate(from)} – ${usDate(to)}`).toContainText(

@@ -7,6 +7,7 @@ import { CleanupStepSchema } from './cleanupStep';
 // `{tableName}` tokens substituted by src/utils/journeys/journeyCFlow.ts.
 
 const Code = z.string().regex(/^[1-9]\d{3,}$/);
+const Clock = z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }).strict();
 
 export const CrewTableCaseSchema = z
     .object({
@@ -15,13 +16,15 @@ export const CrewTableCaseSchema = z
         label: z.string().min(1),
         /** The fixture day; must not collide with any Journey B offset (they own 0 … -9). */
         dayOffset: z.number().int().max(0),
-        /** Punch moment on the fixture day — deterministic, never `now`. */
-        punch: z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }).strict(),
+        /** Crew Time In moment on the fixture day — deterministic, never `now`. */
+        timeIn: Clock,
+        /** Crew Time Out moment on the fixture day; must be later than `timeIn`. */
+        timeOut: Clock,
         table: z
             .object({
                 /**
                  * `minted`: a run-unique `{tableName}` the case creates itself, on screen.
-                 * `fixture`: the fixed `C6 TABLE A` row, ensured through the API and never deleted
+                 * `fixture`: the fixed `C6 TABLE A` row, ensured on screen when missing and never deleted
                  * — tables cannot be deleted on dev today, see crewTablesApi.ts.
                  */
                 source: z.enum(['minted', 'fixture']),
@@ -30,22 +33,24 @@ export const CrewTableCaseSchema = z
                 active: z.boolean().default(true),
             })
             .strict(),
-        /** Who is clocked in. */
+        /** Who is clocked in (all together, no table) and then out. */
         capture: z
             .object({
-                /** Fixture workers clocked in WITH the table selected. */
+                /** Fixture workers clocked out WITH the table selected. */
                 workerCodes: z.array(Code).min(1),
-                /** Fixture members clocked in with NO table, so the roll-up has something to partition. */
+                /** Fixture members clocked out with NO table, so the roll-up has something to partition. */
                 offTableCodes: z.array(Code).default([]),
             })
             .strict()
             .optional(),
         expected: z
             .object({
-                /** Time In (1) — the card type the crew time-in creates. */
+                /** Time Out (0) — the card type the table is read back from. */
                 cardType: z.number().int(),
                 cardsOnTable: z.number().int().positive(),
                 cardsOffTable: z.number().int().nonnegative(),
+                /** Rows View > Time Cards shows for the crew's day: one Time In plus one Time Out per member. */
+                crewDayRows: z.number().int().positive(),
             })
             .strict()
             .optional(),
@@ -71,6 +76,19 @@ export const CrewTableCaseSchema = z
         }
         if (s.capture && s.expected && s.expected.cardsOffTable !== s.capture.offTableCodes.length) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['expected', 'cardsOffTable'], message: 'must equal capture.offTableCodes.length' });
+        }
+        if (s.expected && s.expected.crewDayRows !== 2 * (s.expected.cardsOnTable + s.expected.cardsOffTable)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['expected', 'crewDayRows'], message: 'must equal 2 * (cardsOnTable + cardsOffTable): one Time In and one Time Out per member' });
+        }
+        if (s.timeOut.hour * 60 + s.timeOut.minute <= s.timeIn.hour * 60 + s.timeIn.minute) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['timeOut'], message: 'the Time Out must be later than the Time In' });
+        }
+        if (s.capture && s.capture.workerCodes.some((code) => s.capture!.offTableCodes.includes(code))) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capture'], message: 'workerCodes and offTableCodes must be disjoint' });
+        }
+        const timeCardsStep = s.cleanup.find((step) => step.kind === 'timeCards');
+        if (s.capture && (!timeCardsStep?.cardTypes?.includes(0) || !timeCardsStep.cardTypes.includes(1))) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cleanup'], message: 'a timeCards cleanup step with cardTypes:[0,1] is required (the crew time-in and time-out)' });
         }
     });
 

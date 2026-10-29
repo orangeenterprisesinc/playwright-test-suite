@@ -1,6 +1,7 @@
 import { Locator, Page, expect, test } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
+import { ListDateRangeComponent } from '../../components/ListDateRangeComponent';
 
 /**
  * Shared base for the three office crew-punch forms under Input ▸ Batch
@@ -28,11 +29,14 @@ export abstract class CrewPunchPage extends BasePage {
     readonly memoInput: Locator;
     readonly saveButton: Locator;
     readonly employeesSection: Locator;
+    /** One button that flips between "Select All" and "Deselect All" with the roster's state. */
+    readonly selectAllToggle: Locator;
     /** Two "New" anchors exist on a list header; only this one carries the testid. */
     readonly newAction: Locator;
     readonly pageUrl: string;
     protected readonly leftNav: LeftNavigationPage;
     private wantedDateTime = '';
+    private readonly dateRange: ListDateRangeComponent;
 
     /** `menuPath` null = the screen has no sidebar entry, so the New form is opened by address. */
     protected constructor(
@@ -53,6 +57,8 @@ export abstract class CrewPunchPage extends BasePage {
         this.memoInput = page.locator('#memo');
         this.saveButton = page.getByRole('button', { name: 'Save' }).first();
         this.employeesSection = page.getByText('Employees', { exact: false }).first();
+        this.selectAllToggle = page.getByRole('button', { name: /^(De)?select All$/i });
+        this.dateRange = new ListDateRangeComponent(page);
     }
 
     async gotoNew(): Promise<void> {
@@ -181,6 +187,56 @@ export abstract class CrewPunchPage extends BasePage {
         if (!shown) return;
         await dialog.getByRole('button', { name: 'OK' }).click();
         await dialog.waitFor({ state: 'hidden' });
+    }
+
+    /** The crew currently chosen, as the picker displays it. */
+    async readCrew(): Promise<string> {
+        await expect(this.crewCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 15_000 });
+        return this.crewCombobox.inputValue();
+    }
+
+    /**
+     * A roster checkbox by employee name. Dev labels them "<code>: <name>" (seen 2026-10-12), and
+     * renders ": <name>" when the code is missing from the roster payload, so match the name as
+     * the label's tail, optionally behind a "<code>: " prefix.
+     */
+    employeeCheckbox(name: string): Locator {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return this.page.getByRole('checkbox', { name: new RegExp(`^(?:[^:]*:\\s*)?${escaped}$`) });
+    }
+
+    /** Punch the crew's whole roster, whichever state it arrives in. */
+    async selectAllEmployees(): Promise<void> {
+        await this.selectAllToggle.waitFor({ state: 'visible', timeout: 25_000 });
+        if (/^select all$/i.test((await this.selectAllToggle.innerText()).trim())) await this.selectAllToggle.click();
+        await expect(this.selectAllToggle).toHaveText(/^Deselect All$/i);
+    }
+
+    /**
+     * Narrow the punch to named employees: clear the roster, then tick back the ones asked for.
+     * The toggle reads "Deselect All" only while every member is checked, so clear through it
+     * when it says so — clicking "Select All" would do the opposite.
+     */
+    async selectOnlyEmployees(names: string[]): Promise<void> {
+        await this.selectAllToggle.waitFor({ state: 'visible', timeout: 25_000 });
+        if (/^deselect all$/i.test((await this.selectAllToggle.innerText()).trim())) await this.selectAllToggle.click();
+        for (const name of names) {
+            const box = this.employeeCheckbox(name);
+            await box.waitFor({ state: 'visible', timeout: 15_000 });
+            await box.check();
+            await expect(box, `'${name}' did not stay selected`).toBeChecked();
+        }
+    }
+
+    /** List → the day's range → "<linkPrefix>: <reference>" → the read-only edit page, Crew filled. */
+    protected async gotoEditFromList(linkPrefix: string, day: string, reference: string): Promise<void> {
+        if (!this.menuPath) throw new Error(`${this.listUrl}: no menu entry to open the list from`);
+        await this.leftNav.openScreen(this.menuPath, this.listUrl);
+        await this.dateRange.apply(day);
+        await this.page.getByRole('link', { name: `${linkPrefix}: ${reference}`, exact: true }).click();
+        await this.page.waitForURL((url) => new RegExp(`^${this.listUrl}/\\d+$`).test(url.pathname));
+        await this.crewCombobox.waitFor({ state: 'visible', timeout: 30_000 });
+        await expect(this.crewCombobox).not.toHaveValue('', { timeout: 30_000 });
     }
 
     /** Wait for the crew's employee list to populate — it loads after the crew is chosen. */

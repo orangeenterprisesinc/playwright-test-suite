@@ -943,8 +943,35 @@ export class TransferToJobCardsPage extends BasePage {
     async enterMultiUpdateMode(): Promise<void> {
         const toggle = this.page.getByTestId('v2-toolbar-multi-update');
         await toggle.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.clearGridObstructions();
         if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
         await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    }
+
+    /**
+     * Another worker's transfer on the same tenant raises "The underlying records changed elsewhere" with a
+     * Re-analyze button; the banner plus the filter panel can squeeze the grid body to 0 px so every tick is
+     * intercepted by the header (D10, 2026-10-29). Do what a user does: re-analyze, then fold the top section.
+     */
+    private async clearGridObstructions(): Promise<void> {
+        const banner = this.page.getByText(/The underlying records changed elsewhere/);
+        if (await banner.isVisible()) {
+            const reanalyze = this.page.getByRole('button', { name: 'Re-analyze', exact: true });
+            await reanalyze.click();
+            await expect(banner).toBeHidden({ timeout: 60_000 });
+            await this.gridCaption.waitFor({ state: 'visible', timeout: 90_000 });
+        }
+        const body = this.page.locator('[role="rowgroup"].overflow-auto').first();
+        const height = await body.evaluate((el) => el.clientHeight).catch(() => -1);
+        if (height === 0) {
+            const hide = this.page.getByRole('button', { name: 'Hide top section' });
+            if (await hide.isVisible()) await hide.click();
+            await expect
+                .poll(() => body.evaluate((el) => el.clientHeight).catch(() => 0), {
+                    message: 'the candidate grid body still has no height after hiding the top section',
+                })
+                .toBeGreaterThan(0);
+        }
     }
 
     /** "We never used select-all": holds when the header checkbox is absent (mode off) or unticked. */

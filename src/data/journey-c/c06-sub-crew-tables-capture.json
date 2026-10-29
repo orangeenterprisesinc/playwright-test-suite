@@ -2,26 +2,31 @@
   "_notes": [
     "C6 - Sub-crew ('tables') capture, office half (catalog C6, plan test-plans/journey-c/c06-sub-crew-tables-capture.md, runner row C6). dayOffset -10 is Journey C's own fixture day, distinct from Journey B's 0...-9 block, so the two suites never collide on the same day's cards.",
     "table.source 'fixture' targets the fixed 'C6 TABLE A' row from src/data/journey-c/fixture.json, ensured on screen (Setup > Table) when missing and never deleted: GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so DELETE has no rowversion to send and a run-unique table would leak one row per run.",
-    "The capture clocks the three fixture table workers (7002-7004) in against the table and the fixture supervisor (7005) in with no table, so the roll-up partitions a non-trivial 3 on-table + 1 off-table = 4, not a trivial 3 = 3 / 0 off."
+    "The capture clocks all four members (7002-7005) in on Crew Time In with no table, then clocks the three fixture table workers (7002-7004) out with the table selected and the fixture supervisor (7005) out with no table, so the roll-up partitions a non-trivial 3 on-table + 1 off-table = 4, not a trivial 3 = 3 / 0 off.",
+    "WEBPET-3734 (web-pet #1526, merged 2026-10-28) removed the Table picker from Crew Time In; the table is captured on Crew Time Out, and Table / Crew are read back from the Crew Time Out edit pages."
   ],
   "workflow": "C6",
   "dayOffset": -10,
-  "punch": {
+  "timeIn": {
     "hour": 7,
     "minute": 15
+  },
+  "timeOut": {
+    "hour": 11,
+    "minute": 30
   },
   "annotations": [
     {
       "type": "not-automatable",
-      "description": "Report by table / roll up to crew: reports are not on the web yet (PET-12682); the roll-up is asserted from the four Crew Time In edit pages (Table / Crew / employees) plus the crew's row count on View > Time Cards."
+      "description": "Report by table / roll up to crew: reports are not on the web yet (PET-12682); the roll-up is asserted from the four Crew Time Out edit pages (Table / Crew), the View > Time Cards employee per card, and the crew's row count on View > Time Cards."
     },
     {
       "type": "not-automatable",
-      "description": "Kiosk capture is device-only; the office receives the punches, entered here on Input > Batch > Crew Time In. The table is ensured on screen (Setup > Table) when missing; that is a precondition, not the workflow."
+      "description": "Kiosk capture is device-only; the office receives the punches, entered here on Input > Batch > Crew Time In (no table) and Crew Time Out (the table). The table is ensured on screen (Setup > Table) when missing; that is a precondition, not the workflow."
     },
     {
       "type": "deferred",
-      "description": "Pieces by table: the catalog's step 2 is 'capture time AND pieces by table' and only time is covered. The suite has no crew piece-out helper and the Crew Piece Out form has never been explored live."
+      "description": "Pieces by table: the catalog's step 2 is 'capture time AND pieces by table' and only time is covered. The suite has no crew piece-out table helper and the Crew Piece Out form has never been explored live."
     }
   ],
   "label": "c06-capture-by-table",
@@ -40,9 +45,10 @@
     ]
   },
   "expected": {
-    "cardType": 1,
+    "cardType": 0,
     "cardsOnTable": 3,
-    "cardsOffTable": 1
+    "cardsOffTable": 1,
+    "crewDayRows": 8
   },
   "cleanup": [
     {
@@ -55,6 +61,7 @@
       ],
       "dayOffset": -10,
       "cardTypes": [
+        0,
         1
       ]
     }
