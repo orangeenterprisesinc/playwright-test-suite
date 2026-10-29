@@ -1,0 +1,65 @@
+{
+  "_notes": [
+    "B6b — iPhone piece-out import (PET-12946), plan test-plans/journey-b/b06b-iphone-piece-out.md, runner row B6b (non-catalog: workflow and journey blank). One happy-path test.",
+    "Provenance: the PieceOut element order and the longer LookupContents are copied from the real iPhone files (Kishore's FromIphone-20261028092554981-O04.xml and web-pet docs/05-mobile-integration/samples/FromIphone-20240313142926-A02.xml:1118-1137). iOS PET writes one bare <DateTime>, never PieceOutDate/PieceOutTime. TimeCard and TimeOut rows use the tags the builder already emits.",
+    "owns (-22, crew 5001): B uses days 0..-10 and -17, D/E use -11..-21.",
+    "deviceFamily iphone changes only the PieceOut row, its section LookupContents and the file name (FromIphone-{yyyyMMddHHmmssSSS}-{prefix}.xml).",
+    "modules and extraEmployees mirror B6: Piece Payment is documented, never enforced; 6005 is ensured by the flow.",
+    "cleanup: the timeCards step sweeps 6005's day -22 (both card types, which also removes any WEBPET-1409 synthesized Time In) before the import and after the test.",
+    "If this goes red with 'no DateTime could be derived' or Import Log recordsFailed 2, this spec is the PET-12946 reproduction: set enabled=0 with jira=PET-12946 and do not heal."
+  ],
+  "workflow": "B6",
+  "label": "B6b",
+  "deviceFamily": "iphone",
+  "dayOffset": -22,
+  "envelope": "records",
+  "transport": "relay-ui",
+  "verification": "cards",
+  "cardType": null,
+  "modules": [
+    { "key": "PiecePayment", "label": "Piece Payment" }
+  ],
+  "extraEmployees": [
+    { "code": "6005", "name": "B5 STICKER FIVE" }
+  ],
+  "records": [
+    { "node": "TimeCard", "part": "TI", "employeeSource": "BarcodeBadge", "employeeCode": "6005", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "time": "07:00" },
+    { "node": "PieceOut", "part": "PO", "employeeSource": "BarcodeBadge", "employeeCode": "6005", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "pieces": 1, "time": "09:25" },
+    { "node": "PieceOut", "part": "PO", "employeeSource": "BarcodeBadge", "employeeCode": "6005", "crewCode": "5001", "ranchCode": "4001", "fieldCode": "4101", "jobCode": "4201", "pieces": 1, "time": "09:40" },
+    { "node": "TimeOut", "part": "TO", "employeeSource": "BarcodeBadge", "employeeCode": "6005", "crewCode": "5001", "time": "11:00" }
+  ],
+  "expected": {
+    "envelope": {
+      "sections": ["TimeCard", "PieceOut", "TimeOut"],
+      "referenceParts": ["TI", "PO", "PO", "TO"],
+      "pieceCounts": { "1": 2 },
+      "employeeSources": { "BarcodeBadge": 4 },
+      "sectionTags": {
+        "PieceOut": ["PieceOut", "UpdateTime", "Reference", "NumOfPieces", "Variety", "WorkOrder", "TraceabilityCode", "Employee", "Ranch", "Job", "Crew", "DateTime", "Memo", "Field", "EmployeeSource", "AgRow", "GpsReading", "Load"]
+      },
+      "absentInSection": {
+        "PieceOut": ["PieceOutDate", "PieceOutTime", "PictureVerification", "Signature", "CardType"]
+      },
+      "sectionLookups": {
+        "TimeCard": "Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code",
+        "PieceOut": "Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code|Variety:Code|AgRow:Code",
+        "TimeOut": "Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code"
+      }
+    },
+    "cards": [
+      { "record": 0, "employeeCode": "6005", "fieldCode": "4101", "jobCode": "4201", "cardType": 1, "typeText": "Time In" },
+      { "record": 1, "employeeCode": "6005", "fieldCode": "4101", "jobCode": "4201", "cardType": 0, "typeText": "Piece Out", "pieces": 1, "employeeSourceText": "Barcode Badge" },
+      { "record": 2, "employeeCode": "6005", "fieldCode": "4101", "jobCode": "4201", "cardType": 0, "typeText": "Piece Out", "pieces": 1, "employeeSourceText": "Barcode Badge" },
+      { "record": 3, "employeeCode": "6005", "cardType": 0, "typeText": "Time Out" }
+    ],
+    "importLog": { "status": "completed", "recordsImported": "4", "recordsFailed": "0" }
+  },
+  "cleanup": [
+    {
+      "kind": "timeCards",
+      "employeeCodes": ["6005"],
+      "dayOffset": -22,
+      "cardTypes": [0, 1]
+    }
+  ]
+}

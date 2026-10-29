@@ -84,6 +84,8 @@ export const ExpectedEnvelopeJsonSchema = z
         absentTags: z.array(z.string()).optional(),
         /** Section node → element names that must not appear inside it (a time-out row carries no work context). */
         absentInSection: z.record(z.string(), z.array(z.string().min(1))).optional(),
+        /** Section node → the exact ordered list of distinct element names inside it (the row node first). */
+        sectionTags: z.record(z.string(), z.array(z.string().min(1))).optional(),
         /** Sections that declare no LookupContents attribute (grid sections match on Reference and Name). */
         sectionsWithoutLookup: z.array(z.string().min(1)).optional(),
         gpsFixes: z.number().int().optional(),
@@ -171,6 +173,8 @@ export const JourneyBScenarioSchema = z
         _notes: z.array(z.string()).optional(),
         workflow: z.string().regex(/^B\d{1,2}$/),
         label: z.string().min(1),
+        /** Which device wrote the envelope — one envelope is one device. Absent means android; iphone changes only the PieceOut row, its LookupContents and the file name. */
+        deviceFamily: z.enum(['android', 'iphone']).optional(),
         // Days back from today — one fixture day per workflow (workers=2 collision guard).
         dayOffset: z.number().int().max(0),
         // Crew envelope: its single punch moment. Records envelope: header time only.
@@ -255,6 +259,8 @@ export const JourneyBScenarioSchema = z
                     )
                     .optional(),
                 cards: z.array(ExpectedCardJsonSchema).default([]),
+                /** The Internet Import Log row's cells for this file (ImportLogPage Status / Records imported / Records failed). */
+                importLog: z.object({ status: z.string().min(1), recordsImported: z.string().min(1), recordsFailed: z.string().min(1) }).strict().optional(),
                 /** A card type the fixture day must NOT hold for an expected employee (B6's WEBPET-1409 guard). */
                 absentCardType: z.number().int().optional(),
                 /** `{code<i>}` pairs: the prefix the office extracts, and the sticker it extracts it from. */
@@ -300,6 +306,14 @@ export const JourneyBScenarioSchema = z
         const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
         const isCard = (i: number) => i < s.records.length && s.records[i].parentRecord === undefined;
         if (s.envelope === 'crew' && !s.punchTime) issue(['punchTime'], 'a crew envelope needs its punch moment');
+        if (s.deviceFamily === 'iphone') {
+            if (s.envelope !== 'records') issue(['deviceFamily'], 'an iPhone scenario sends a records envelope');
+            s.records.forEach((r, i) => {
+                if (r.node === undefined || !(['TimeCard', 'TimeOut', 'PieceOut'] as string[]).includes(r.node)) {
+                    issue(['records', i, 'node'], `no iPhone sample for ${r.node ?? 'this row'} — never hand-invent XML`);
+                }
+            });
+        }
         s.records.forEach((r, i) => {
             const isGridRow = r.parentRecord !== undefined;
             if (s.envelope === 'records' && (!r.node || (!r.part && !isGridRow))) issue(['records', i], 'a records envelope needs node and part on every card row');

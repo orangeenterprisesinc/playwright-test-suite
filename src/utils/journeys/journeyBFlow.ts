@@ -206,7 +206,7 @@ export function mintRun(scenario: JourneyBScenario, testInfo?: TestInfo): Minted
         attempt,
         punchDate: punchDay(scenario.dayOffset),
         deviceAddress: relayConfig().from,
-        fileName: exportFileName(prefix),
+        fileName: exportFileName(prefix, undefined, scenario.deviceFamily),
     };
 }
 
@@ -264,6 +264,7 @@ function toDeviceRecords(scenario: JourneyBScenario, punchDate: Date, prefix: st
             pieces: r.pieces,
             traceabilityCode: r.traceabilityCode,
             signature: r.signature,
+            deviceFamily: scenario.deviceFamily,
             reference,
             parentReference: isGridRow ? recordReferences[r.parentRecord!] : undefined,
             question: r.question,
@@ -310,7 +311,7 @@ function buildRecordsEnvelope(run: MintedRun, prefix: string, recordIndexes: num
             at: hhmm(scenario.records[a.record].time ?? scenario.punchTime!, punchDate),
         }));
     const built = buildEnvelope({ deviceAddress, prefix, records, at, ...(codeHistory.length ? { codeHistory } : {}) });
-    return envelopeView(built.xml, built.references, exportFileName(prefix), prefix, recordReferences);
+    return envelopeView(built.xml, built.references, exportFileName(prefix, undefined, scenario.deviceFamily), prefix, recordReferences);
 }
 
 export function buildScenarioEnvelope(run: MintedRun): EnvelopeView {

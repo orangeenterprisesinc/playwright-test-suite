@@ -69,8 +69,8 @@ const TIER_TAG_SET = new Set(TIERS.map(([, tag]) => tag));
 /** Tags a `test()` may carry beyond the tier chain. */
 const EXTRA_TEST_TAGS = new Set(['@Demo']);
 
-/** Tags a `test.describe()` may carry: the journey, the workflow, or @System. */
-const SUITE_TAG = /^@(?:Journey[A-Z]|[A-Z]\d{1,2}|System)$/;
+/** Tags a `test.describe()` may carry: the journey, the workflow (an optional lowercase letter names a variant, e.g. @B6b), or @System. */
+const SUITE_TAG = /^@(?:Journey[A-Z]|[A-Z]\d{1,2}[a-z]?|System)$/;
 
 /**
  * The tier tags a row's `tags` column implies, narrowest first — the order the

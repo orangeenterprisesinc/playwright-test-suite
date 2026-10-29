@@ -102,8 +102,10 @@ does not repeat them.
   `PieceOut_Records`, `PartID = "PO"` (l.16), date/time columns `PieceOutDate`/`PieceOutTime`
   (l.18-19), then Crew, Employee, Job, Ranch, Field, `NumOfPieces`, Reference, UpdateTime, Variety,
   AgRow, TraceabilityCode, GpsReading, Load, EmployeeSource, WorkOrder. The iPhone sample
-  `docs/05-mobile-integration/samples/FromIphone-20240313142926-A02.xml:1118-1137` shows the same node
-  with `LookupContents="Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code|Variety:Code|AgRow:Code"`.
+  `docs/05-mobile-integration/samples/FromIphone-20240313142926-A02.xml:1118-1137` shows a DIFFERENT row
+  (one bare `<DateTime>` ISO tag, no PieceOutDate/PieceOutTime, the sample's element order, the longer
+  LookupContents). B6 covers Android only; the iPhone shape is B6b (PET-12946). Its section declares
+  `LookupContents="Employee:Code|Crew:Code|Job:Code|Ranch:Code|Field:Code|Variety:Code|AgRow:Code"`.
 * **Stored card type is 0 (TimeOut)** — `importmap/timecard.go:466-473`: a `PieceOutDate`+`PieceOutTime`
   pair, *or* the node name `PieceOut`, sets `cardTypeTimeOut`; an explicit `<CardType>PieceOut</CardType>`
   is coerced to TimeOut too (`:525-532`). This is why the office panel is titled `Time Out` while the

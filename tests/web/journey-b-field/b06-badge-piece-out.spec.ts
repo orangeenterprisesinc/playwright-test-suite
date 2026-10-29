@@ -29,7 +29,7 @@ test.describe('B6 · Badge piece-out', { tag: ['@JourneyB', '@B6'] }, () => {
         for (const tag of want.absentTags!) {
             expect(
                 run.envelope.tagNames,
-                'sample fidelity: PieceOut derives from PieceOutDate+PieceOutTime, no CardType tag',
+                'Android fidelity (AndroidPET PieceOutRecord.java): PieceOut carries PieceOutDate+PieceOutTime, no CardType; the iPhone <DateTime> shape is B6b',
             ).not.toContain(tag);
         }
         expect(run.envelope.references).toHaveLength(records.length);
