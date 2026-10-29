@@ -75,7 +75,7 @@ test.describe('B9 · Paid break (rest and recovery)', { tag: ['@JourneyB', '@B9'
 
         // 7. Nothing was committed: every own reference is still a candidate and reads untransferred.
         await transfer.openTimeCardsTab();
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all must stay untouched');
         await expect.poll(() => transfer.candidateReferences(), { message: 'own references are still candidates' }).toEqual(expect.arrayContaining(run.recordReferences));
         for (const reference of run.recordReferences) {
             expect(await transfer.rowTransferred(reference), `${reference} is untransferred`).toMatch(/^(No)?$/);
