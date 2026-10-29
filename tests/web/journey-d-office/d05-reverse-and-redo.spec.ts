@@ -85,8 +85,8 @@ test.describe('D5 · Reverse and redo', { tag: ['@JourneyD', '@D5'] }, () => {
         await transfer.saveTimeOutPanel();
         await expect(transfer.recordToast(expected.toasts.timeOutSaved), 'the Time Out edit must save').toBeVisible();
         await transfer.waitForReanalyze(transfer.timeOutPanel);
-        await expect(transfer.rowTime(seed.timeOutId), 'the correction lives on the time card').toHaveText(clockCell(correctedTimeOut));
-        await expect(transfer.rowTime(seed.timeInId), 'the Time In is unchanged').toHaveText(clockCell(timeIn));
+        await expect(await transfer.rowTime(seed.timeOutId), 'the correction lives on the time card').toHaveText(clockCell(correctedTimeOut));
+        await expect(await transfer.rowTime(seed.timeInId), 'the Time In is unchanged').toHaveText(clockCell(timeIn));
         // WEBPET-3823: the preview is requested before the save commits and never refreshed, so reopen the screen first.
         await reanalyzeOwnDay(run, { pages }, seed, expected.redo.workCards);
         await transfer.openJobCardsTab();

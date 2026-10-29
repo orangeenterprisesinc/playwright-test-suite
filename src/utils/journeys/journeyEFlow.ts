@@ -948,7 +948,7 @@ export async function confirmCrewDayClean(
     const { expected } = scenario;
 
     const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
-    await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+    await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
     for (const id of seed.timeCardCounters) {
         expect.soft(await transfer.rowStatusText(id), `${scenario.label}: time card ${id} must read ${expected.status} before the commit`).toBe(expected.status);
     }
@@ -1315,7 +1315,7 @@ export async function confirmSplitPreview(
     const label = scenario.label;
 
     const candidates = await openScopedCandidates(run, { pages: opts.pages, crew: run.crew.name }, seed);
-    await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+    await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
     for (const id of seed.timeCardCounters) {
         expect.soft(await transfer.rowStatusText(id), `${label}: time card ${id} must read ${expected.status} before the commit`).toBe(expected.status);
     }
@@ -2113,7 +2113,7 @@ export async function transferWeek(run: JourneyE3Run, opts: E3Deps, seed: SeedRe
         };
 
         const candidates = await openScopedCandidates(scope, { pages, crew: run.crew.name }, { timeCardCounters: ids });
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
         for (const id of ids) {
             expect.soft(await transfer.rowStatusText(id), `${label}: time card ${id} on ${day} must read ${expected.status} before the commit`).toBe(expected.status);
         }
@@ -2475,7 +2475,7 @@ export async function transferDays(run: JourneyE1Run, opts: E1Deps, seed: SeedRe
     };
 
     const candidates = await openScopedCandidates(scope, { pages, crew: run.crew.name }, seed);
-    await expect(transfer.selectAllRowsCheckbox, 'the header select-all-across-filter must never be used').not.toBeChecked();
+    await transfer.expectSelectAllUntouched('the header select-all-across-filter must never be used');
     for (const id of seed.timeCardCounters) {
         expect.soft(await transfer.rowStatusText(id), `${label}: time card ${id} must read ${READY_STATUS} before transfer ${index + 1}`).toBe(READY_STATUS);
     }

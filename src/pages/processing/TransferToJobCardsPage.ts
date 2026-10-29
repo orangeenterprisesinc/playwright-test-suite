@@ -513,7 +513,9 @@ export class TransferToJobCardsPage extends BasePage {
 
     /**
      * A cell by column index. This screen's grid is not the shared
-     * WebpetDataGridComponent, hence the local helper. Column map:
+     * WebpetDataGridComponent, hence the local helper. Prefer {@link cellByHeader}: the leading
+     * select column exists only in Multi Update mode, so these indexes are mode-dependent. Column map
+     * with the mode ON (subtract 1 when off):
      * 0 select · 1 add-record · 2 delete · 3 Crew · 4 Employee · 5 date · 6 time ·
      * 7 Field · 8 Job · 9 Pieces · 10 Traceability · 11 Ranch · 12 Reference ·
      * 13 Type · 14 Pay by Piece · 15 Transferred · 16 Export Identifier · 17 Run ·
@@ -590,13 +592,15 @@ export class TransferToJobCardsPage extends BasePage {
         return ((await (await this.cellByHeader(this.rowByReference(reference).first(), 'Transferred')).innerText()) ?? '').trim();
     }
 
-    rowTime(timeCardCounter: number): Locator {
-        return this.cellAt(this.rowCells(timeCardCounter), 6);
+    async rowTime(timeCardCounter: number): Promise<Locator> {
+        return this.cellByHeader(this.rowCells(timeCardCounter), 'time');
     }
 
     /** The open Time In panel, read field by field. `gps` is null when the module-gated field is not rendered. */
     async readTimeInPanel(): Promise<{ reference: string; dateTime: string; ranch: string; field: string; phase: string; employee: string; workCrew: string; gps: string | null }> {
         await this.timeInPanel.waitFor({ state: 'visible', timeout: 45_000 });
+        // The comboboxes fetch their options after the panel renders: '' with placeholder "Loading..." is not a value.
+        await expect(this.timeInPanel.locator('input[placeholder^="Loading"]'), 'the Time In panel must finish loading').toHaveCount(0, { timeout: 20_000 });
         const text = async (control: Locator) =>
             (await control.evaluate((el) => ('value' in el && el.tagName !== 'BUTTON' ? String((el as HTMLInputElement).value) : (el.textContent ?? '')).trim(), undefined, { timeout: 10_000 }));
         return {
@@ -634,12 +638,14 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     async selectRowByReference(reference: string): Promise<void> {
+        await this.enterMultiUpdateMode();
         const row = this.rowByReference(reference);
         await row.getByRole('checkbox').first().check();
     }
 
     /** Selects an already-located row (e.g. from {@link rows}) — no reference text or index needed. */
     async selectRow(row: Locator): Promise<void> {
+        await this.enterMultiUpdateMode();
         await row.getByRole('checkbox').first().check();
     }
 
@@ -695,7 +701,7 @@ export class TransferToJobCardsPage extends BasePage {
         // Click the date cell, not the Reference span: a truncated cell swaps
         // itself for a tooltip trigger on mouseenter, and the click that
         // follows the hover never reaches the row (dev build of 2026-10-14).
-        await this.cellAt(this.rowCells(timeCardCounter), 5).click();
+        await (await this.cellByHeader(this.rowCells(timeCardCounter), 'date')).click();
         // 45s, not 15s: the panel shell opens instantly but its body sits on
         // "Loading…" until the Time In detail fetch returns, and that fetch has
         // been observed taking >15s on dev staging (2026-08-21). The locator
@@ -912,6 +918,7 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** Tick one candidate row by its Reference — never the header select-all. */
     async selectCandidate(reference: string): Promise<void> {
+        await this.enterMultiUpdateMode();
         const checkbox = this.page.getByRole('checkbox', { name: `Select ${reference}` });
         await checkbox.waitFor({ state: 'visible', timeout: 30_000 });
         await checkbox.check();
@@ -919,10 +926,31 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** Every candidate Reference the analyze loaded, so a caller can prove the scope is its own. */
     async candidateReferences(): Promise<string[]> {
-        const names = await this.page.getByRole('checkbox').evaluateAll((nodes) =>
-            nodes.map((n) => n.getAttribute('aria-label') ?? '').filter((n) => n.startsWith('Select ') && n !== 'Select all rows'),
+        // Read the Reference cells, not the row checkboxes: those exist only while Multi Update mode is on.
+        const names = await this.page.locator('[data-testid^="v2-grid-row-"]').evaluateAll((nodes) =>
+            nodes
+                .filter((n) => /^v2-grid-row-\d+$/.test(n.getAttribute('data-testid') ?? ''))
+                .map((n) => (n.textContent ?? '').trim())
+                .filter((n) => n !== ''),
         );
-        return names.map((n) => n.replace(/^Select /, ''));
+        return [...new Set(names)];
+    }
+
+    /**
+     * Row checkboxes (and select-all) render only while the page-level Multi Update toggle is on;
+     * toggling it off clears the selection, so only ever click when it is not already pressed.
+     */
+    async enterMultiUpdateMode(): Promise<void> {
+        const toggle = this.page.getByTestId('v2-toolbar-multi-update');
+        await toggle.waitFor({ state: 'visible', timeout: 30_000 });
+        if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    }
+
+    /** "We never used select-all": holds when the header checkbox is absent (mode off) or unticked. */
+    async expectSelectAllUntouched(message: string): Promise<void> {
+        const box = this.selectAllRowsCheckbox;
+        if ((await box.count()) > 0) await expect(box, message).not.toBeChecked();
     }
 
     /**
@@ -983,20 +1011,20 @@ export class TransferToJobCardsPage extends BasePage {
         return this.pageRoot.getByText(new RegExp(`^${count} blocking issues? to resolve before transfer$`));
     }
 
-    rowManuallyEdited(timeCardCounter: number): Locator {
-        return this.cellAt(this.rowCells(timeCardCounter), 19).getByText('Manually edited', { exact: true });
+    async rowManuallyEdited(timeCardCounter: number): Promise<Locator> {
+        return (await this.cellByHeader(this.rowCells(timeCardCounter), 'Status')).getByText('Manually edited', { exact: true });
     }
 
-    rowField(timeCardCounter: number): Locator {
-        return this.cellAt(this.rowCells(timeCardCounter), 7);
+    async rowField(timeCardCounter: number): Promise<Locator> {
+        return this.cellByHeader(this.rowCells(timeCardCounter), 'Field');
     }
 
-    rowJob(timeCardCounter: number): Locator {
-        return this.cellAt(this.rowCells(timeCardCounter), 8);
+    async rowJob(timeCardCounter: number): Promise<Locator> {
+        return this.cellByHeader(this.rowCells(timeCardCounter), 'Job');
     }
 
-    rowRanch(timeCardCounter: number): Locator {
-        return this.cellAt(this.rowCells(timeCardCounter), 11);
+    async rowRanch(timeCardCounter: number): Promise<Locator> {
+        return this.cellByHeader(this.rowCells(timeCardCounter), 'Ranch');
     }
 
     get panelSaveButton(): Locator {
@@ -1148,27 +1176,27 @@ export class TransferToJobCardsPage extends BasePage {
         return Number((/Pieces([\d.,]+)/.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
     }
 
-    rowPieces(reference: string): Locator {
-        return this.cellAt(this.rowByReference(reference), 9);
+    async rowPieces(reference: string): Promise<Locator> {
+        return this.cellByHeader(this.rowByReference(reference), 'Pieces');
     }
 
-    rowEmployee(reference: string): Locator {
-        return this.cellAt(this.rowByReference(reference), 4);
+    async rowEmployee(reference: string): Promise<Locator> {
+        return this.cellByHeader(this.rowByReference(reference), 'Employee');
     }
 
-    rowType(reference: string): Locator {
-        return this.cellAt(this.rowByReference(reference), 13);
+    async rowType(reference: string): Promise<Locator> {
+        return this.cellByHeader(this.rowByReference(reference), 'Type');
     }
 
-    rowPayByPiece(reference: string): Locator {
-        return this.cellAt(this.rowByReference(reference), 14);
+    async rowPayByPiece(reference: string): Promise<Locator> {
+        return this.cellByHeader(this.rowByReference(reference), 'Pay by Piece');
     }
 
     /** References whose Employee cell is `—` — a crew piece-out carries no employee by design. */
     async crewPieceOutRows(): Promise<string[]> {
         const out: string[] = [];
         for (const reference of await this.candidateReferences()) {
-            const text = ((await this.rowEmployee(reference).textContent()) ?? '').trim();
+            const text = ((await (await this.rowEmployee(reference)).textContent()) ?? '').trim();
             if (text === '—') out.push(reference);
         }
         return out;

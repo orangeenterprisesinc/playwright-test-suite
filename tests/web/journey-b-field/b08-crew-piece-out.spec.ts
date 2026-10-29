@@ -69,12 +69,12 @@ test.describe('B8 · Crew piece-out', { tag: ['@JourneyB', '@B8'] }, () => {
         expect(candidates, 'the crew-scoped grid offers exactly the run\'s own time cards').toHaveLength(run.cards.length);
         const reference = run.recordReferences[piece.index];
         expect(await transfer.crewPieceOutRows(), 'the only row with no employee must be the crew piece-out').toEqual([reference]);
-        await expect(transfer.rowEmployee(reference), 'a crew piece-out carries no employee').toHaveText(split.crewEmployeeCell);
-        await expect(transfer.rowPieces(reference), 'the row carries the whole crew total').toHaveText(String(split.piecesTotal));
-        await expect(transfer.rowType(reference), 'the row is typed as a piece-out').toHaveText(split.pieceOutType);
-        await expect(transfer.rowPayByPiece(reference), 'the piece-out is pay-by-piece').toHaveText(split.payByPiece);
+        await expect(await transfer.rowEmployee(reference), 'a crew piece-out carries no employee').toHaveText(split.crewEmployeeCell);
+        await expect(await transfer.rowPieces(reference), 'the row carries the whole crew total').toHaveText(String(split.piecesTotal));
+        await expect(await transfer.rowType(reference), 'the row is typed as a piece-out').toHaveText(split.pieceOutType);
+        await expect(await transfer.rowPayByPiece(reference), 'the piece-out is pay-by-piece').toHaveText(split.payByPiece);
         await expect.poll(() => transfer.piecesTotal(), { message: 'the totals strip must read the crew total before anything commits' }).toBe(split.piecesTotal);
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all stays untouched').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all stays untouched');
 
         // 6. Step 3: the per-person split is only proposed; the Transfer button is never clicked.
         // Piece-bearing rows only: the crew's Exercise Job (B1 CREW: 10 min of 4000-General) carves a

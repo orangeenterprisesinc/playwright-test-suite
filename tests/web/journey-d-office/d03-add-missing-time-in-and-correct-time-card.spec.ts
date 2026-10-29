@@ -39,9 +39,9 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
         const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
         expect(candidates, 'the crew-scoped grid must offer exactly the run\'s own time cards').toHaveLength(expected.timeCards);
         await expect(transfer.rowStatus(seed.timeInId), 'the imported Time In must analyse as Blocking').toHaveText(expected.statusBefore);
-        await expect(transfer.rowField(seed.timeInId), 'the Time In carries no Field').toHaveText(expected.emptyCell);
-        await expect(transfer.rowJob(seed.timeInId), 'the Time In carries no Job').toHaveText(expected.emptyCell);
-        await expect(transfer.rowRanch(seed.timeInId), 'the Time In carries no Ranch').toHaveText(expected.emptyCell);
+        await expect(await transfer.rowField(seed.timeInId), 'the Time In carries no Field').toHaveText(expected.emptyCell);
+        await expect(await transfer.rowJob(seed.timeInId), 'the Time In carries no Job').toHaveText(expected.emptyCell);
+        await expect(await transfer.rowRanch(seed.timeInId), 'the Time In carries no Ranch').toHaveText(expected.emptyCell);
         await expect.poll(() => transfer.blockingCount(), { message: 'the Blocking pill must count the Time In\'s issues' }).toBeGreaterThanOrEqual(expected.blockingIssuesFixed);
         const blockingBefore = await transfer.blockingCount();
         const readyBefore = await transfer.readyCount();
@@ -66,10 +66,10 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
         // Catalog step 4: the grid re-analyses by itself and the exception clears.
         await transfer.waitForReanalyze();
         await expect.poll(() => transfer.rowStatusText(seed.timeInId), { message: 'the corrected Time In must re-analyse to Ready' }).toBe(expected.statusAfter);
-        await expect(transfer.rowManuallyEdited(seed.timeInId), 'the corrected Time In must be marked Manually edited').toBeVisible();
-        await expect(transfer.rowField(seed.timeInId), 'the Field cell').toHaveText(run.field.name);
-        await expect(transfer.rowJob(seed.timeInId), 'the Job cell').toHaveText(run.job.name);
-        await expect(transfer.rowRanch(seed.timeInId), 'the Ranch cell').toHaveText(run.ranch.name);
+        await expect(await transfer.rowManuallyEdited(seed.timeInId), 'the corrected Time In must be marked Manually edited').toBeVisible();
+        await expect(await transfer.rowField(seed.timeInId), 'the Field cell').toHaveText(run.field.name);
+        await expect(await transfer.rowJob(seed.timeInId), 'the Job cell').toHaveText(run.job.name);
+        await expect(await transfer.rowRanch(seed.timeInId), 'the Ranch cell').toHaveText(run.ranch.name);
         const blockingAfter = blockingBefore - expected.blockingIssuesFixed;
         await expect.poll(() => transfer.blockingCount(), { message: 'the Blocking pill must drop by exactly the fixed issues' }).toBe(blockingAfter);
         const after = await captureOwnRows(run, deps, seed, 'after');
@@ -83,7 +83,7 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
         }
 
         // Still on Transfer: the header select-all was never used (View ▸ Job Cards has no such control).
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all must stay untouched');
 
         // The correction lives on the time card, read back from its panel; no job card was written.
         const written = await readCorrectionOnScreen(pages, seed);

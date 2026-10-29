@@ -45,12 +45,12 @@ test.describe('D9 · Group piece-out distribution', { tag: ['@JourneyD', '@D9'] 
 
         // 5. The crew piece-out reads as one row with no employee, and the strip already carries the total.
         expect(await transfer.crewPieceOutRows(), 'the only row with no employee must be the crew piece-out').toEqual([seed.pieceOutReference]);
-        await expect(transfer.rowEmployee(seed.pieceOutReference), 'a crew piece-out carries no employee').toHaveText(expected.crewEmployeeCell);
-        await expect(transfer.rowPieces(seed.pieceOutReference), 'the piece-out row must carry the whole crew total').toHaveText(String(capture.numOfPieces));
-        await expect(transfer.rowType(seed.pieceOutReference), 'the row must be typed as a piece-out').toHaveText(expected.pieceOutType);
-        await expect(transfer.rowPayByPiece(seed.pieceOutReference), 'the piece-out must be pay-by-piece').toHaveText(expected.payByPiece);
+        await expect(await transfer.rowEmployee(seed.pieceOutReference), 'a crew piece-out carries no employee').toHaveText(expected.crewEmployeeCell);
+        await expect(await transfer.rowPieces(seed.pieceOutReference), 'the piece-out row must carry the whole crew total').toHaveText(String(capture.numOfPieces));
+        await expect(await transfer.rowType(seed.pieceOutReference), 'the row must be typed as a piece-out').toHaveText(expected.pieceOutType);
+        await expect(await transfer.rowPayByPiece(seed.pieceOutReference), 'the piece-out must be pay-by-piece').toHaveText(expected.payByPiece);
         await expect.poll(() => transfer.piecesTotal(), { message: 'the totals strip must read the crew piece-out total before anything commits' }).toBe(capture.numOfPieces);
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all must stay untouched');
 
         // 6. The pre-commit preview: one card per participant, none for the absent member.
         await transfer.openJobCardsTab();

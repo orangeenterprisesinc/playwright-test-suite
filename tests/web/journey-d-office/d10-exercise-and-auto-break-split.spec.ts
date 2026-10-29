@@ -51,7 +51,7 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
         // 4-5. Scope the day, analyze, narrow to the crew, guard the roster — nothing has committed.
         const candidates = await openScopedCandidates(run, { pages, crew: run.crew.name }, seed);
         expect(candidates, 'the crew-scoped grid must offer exactly the run\'s own time cards').toHaveLength(expected.timeCards);
-        await expect(transfer.selectAllRowsCheckbox, 'the header select-all must stay untouched').not.toBeChecked();
+        await transfer.expectSelectAllUntouched('the header select-all must stay untouched');
         for (const id of seed.timeCardCounters) {
             expect(await transfer.rowStatusText(id), `time card ${id} must read ${READY_STATUS} before the commit`).toBe(READY_STATUS);
         }
