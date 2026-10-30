@@ -1,22 +1,4 @@
 {
-  "inputs": [
-    {
-      "id": "jira-url",
-      "type": "promptString",
-      "description": "Jira base URL (e.g. https://yourcompany.atlassian.net)"
-    },
-    {
-      "id": "jira-username",
-      "type": "promptString",
-      "description": "Jira username/email"
-    },
-    {
-      "id": "jira-api-token",
-      "type": "promptString",
-      "description": "Jira API token",
-      "password": true
-    }
-  ],
   "mcpServers": {
     "playwright-test": {
       "command": "node",
@@ -26,14 +8,13 @@
       ]
     },
     "jira": {
-      "command": "uvx",
-      "args": [
-        "mcp-atlassian"
-      ],
+      "command": "mcp-atlassian",
+      "args": [],
       "env": {
-        "JIRA_URL": "${input:jira-url}",
-        "JIRA_USERNAME": "${input:jira-username}",
-        "JIRA_API_TOKEN": "${input:jira-api-token}"
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_USERNAME": "${JIRA_USERNAME}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
+        "TOOLSETS": "jira_issues,jira_comments,jira_fields,jira_projects,jira_links,jira_transitions,jira_attachments,jira_users,jira_agile"
       }
     },
     "datadog": {

@@ -86,6 +86,11 @@ function createLeanAllureResults(sourceDir, destDir) {
     }
 }
 
+if (!fs.existsSync(resultsDir)) {
+    console.error(`No Allure results at ${resultsDir} — local runs only write them with ALLURE=1 (CI always does).`);
+    process.exit(1);
+}
+
 const leanResultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'allure-lean-'));
 createLeanAllureResults(resultsDir, leanResultsDir);
 

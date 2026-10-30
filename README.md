@@ -873,7 +873,7 @@ RETRY=2 npx playwright test
 # Open the Playwright HTML report
 npm run test:report
 
-# Generate and open the Allure report
+# Generate and open the Allure report (the run must have been made with ALLURE=1; CI always writes Allure results)
 npm run report:allure
 npm run report:allure:open
 ```
@@ -1081,12 +1081,13 @@ Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives 
 > was fired from, and `BRANCH_OVERRIDE` stays empty so the branch name comes from
 > `GITHUB_REF_NAME` — which is already correct in that case.
 
-**Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
-- 📸 Screenshot capture
+**Automatic artifacts** — screenshots on failure, plus trace and video:
+- 📸 Screenshot capture (failures)
 - 🎥 Video recording
 - 📋 Trace file
 
-> To trim artifact size/time, switch `trace`/`video` to `'retain-on-failure'` or `'on-first-retry'` in `playwright.config.ts`.
+> Trace and video are kept for **every** test in CI and for **failed** tests locally (`CAPTURE`, default
+> `all` / `failures`). Run with `CAPTURE=all` when you need the recording of a green test, e.g. as Jira evidence.
 
 ---
 
