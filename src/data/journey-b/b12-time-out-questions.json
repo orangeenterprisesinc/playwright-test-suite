@@ -221,7 +221,7 @@
         "{signaturePng}"
       ]
     },
-    "importLog": { "status": "completed", "recordsImported": "6", "recordsFailed": "0" },
+    "importLog": { "status": "completed", "recordsImported": "15", "recordsFailed": "0" },
     "cards": [
       {
         "record": 0,

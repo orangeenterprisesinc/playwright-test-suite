@@ -143,7 +143,7 @@
             "{code0}"
           ]
         },
-        "importLog": { "status": "completed", "recordsImported": "1", "recordsFailed": "0" },
+        "importLog": { "status": "completed", "recordsImported": "2", "recordsFailed": "0" },
         "softImportLog": true
       },
       {
