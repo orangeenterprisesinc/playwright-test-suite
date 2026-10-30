@@ -10,11 +10,7 @@
     { "entity": "crewTable", "code": "invalid_version", "reason": "GET /crew-tables/{id} answers 500 on dev (mssql: Invalid object name 'ct.TimeStamp'), so the rowversion DELETE needs is unobtainable and every delete answers 400 invalid_version; C6-001 leaves one E2ECrewTable_ row per run", "ticket": "PET-12656", "since": "2026-09-25" }
   ],
   "rows": [
-    { "entity": "employee", "name": "E2EEmp_0T7HR2_1, Test", "code": "fk_in_use", "reason": "357 job cards, one a day on job 1031-BED PREP from su session 030 (reference *-JC-030-Su) — a bulk seed, not suite residue; a cleanup must not mass-delete it (2026-02-01..07-29)", "ticket": "WEBPET-1798" },
-    { "entity": "employee", "name": "E2EReconEmp_7IMSU4_1, Test", "code": "fk_in_use", "reason": "364 job cards, one a day on job 1031-BED PREP from su session 030 (reference *-JC-030-Su) — a bulk seed, not suite residue; a cleanup must not mass-delete it (2026-02-01..08-30)", "ticket": "WEBPET-1798" },
-    { "entity": "ranch", "name": "E2ERanch_RTZQW7_1", "code": "fk_in_use", "reason": "1 related record; still refused after the job-card + time-card passes (2026-10-30)", "ticket": "WEBPET-1798" },
-    { "entity": "crop", "name": "E2EVarCrop_2HKQJ2_1", "code": "fk_in_use", "reason": "1 related record; still refused after the job-card + time-card passes (2026-10-30)", "ticket": "WEBPET-1798" },
-    { "entity": "department", "name": "E2EDept_034AE2_18", "code": "fk_in_use", "reason": "3 related records; still refused after the job-card + time-card passes (2026-10-30)", "ticket": "WEBPET-1798" },
-    { "entity": "documentType", "name": "E2EDocType_2HV2S1_2", "code": "fk_in_use", "reason": "8 related records; still refused after the job-card + time-card passes (2026-10-30)", "ticket": "WEBPET-1798" }
+    { "entity": "department", "name": "E2EDept_034AE2_18", "code": "fk_in_use", "reason": "used by manual QA setup: crews 953 qamanualqa, 982 TEST HARVEST, 976 TEST HARVEST1, ranches 1031 B1 Test Ranch, 1002 QAManualRanch, plus 1 employee; left in place on purpose (2026-10-30)", "ticket": "WEBPET-1798" },
+    { "entity": "documentType", "name": "E2EDocType_2HV2S1_2", "code": "fk_in_use", "reason": "261 EmployeeDocument rows use it; not cleared until their owners are known (2026-10-30)", "ticket": "WEBPET-1798" }
   ]
 }
