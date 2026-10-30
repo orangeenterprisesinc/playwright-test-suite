@@ -31,7 +31,7 @@
  * sending one costs a single row and reaches Allure identically.
  */
 import type { TestInfo } from '@playwright/test';
-import { LabelName, Severity, type Label, type Parameter } from 'allure-js-commons';
+import { LabelName, LinkType, Severity, type Label, type Link, type Parameter } from 'allure-js-commons';
 import { getGlobalTestRuntimeWithAutoconfig } from 'allure-js-commons/sdk/runtime';
 import path from 'node:path';
 
@@ -40,10 +40,13 @@ interface MetadataMessage {
     data: {
         labels?: Label[];
         parameters?: Parameter[];
+        links?: Link[];
         description?: string;
         testCaseId?: string;
     };
 }
+
+const JIRA_BROWSE = 'https://orangeenterprises.atlassian.net/browse/';
 
 /**
  * The runtime's own transport. The public `TestRuntime` type does not declare
@@ -136,10 +139,14 @@ export async function applyAllureLabels(testInfo: TestInfo, row: TestCaseData | 
     const { category, module } = deriveAllureParts(testInfo.file);
     const specName = stripSpecSuffix(path.basename(testInfo.file));
 
+    // tests/web/client-feedback/<area>/x.spec.ts: epic "Client Feedback", feature = area, story = ticket key.
+    const segs = path.relative(path.join(process.cwd(), 'tests'), testInfo.file).split(path.sep);
+    const cfArea = segs[1] === 'client-feedback' && segs.length >= 4 ? segs[2] : null;
+
     const labels: Label[] = [
-        { name: LabelName.EPIC, value: category },
-        { name: LabelName.FEATURE, value: module },
-        { name: LabelName.STORY, value: deriveStory(testInfo, module) },
+        { name: LabelName.EPIC, value: cfArea ? 'Client Feedback' : category },
+        { name: LabelName.FEATURE, value: cfArea ?? module },
+        { name: LabelName.STORY, value: cfArea ? (row?.id ?? resolveCaseId(testInfo, '')) : deriveStory(testInfo, module) },
         { name: LabelName.SUITE, value: module },
         { name: LabelName.SEVERITY, value: severityFromTags(testInfo.tags) },
         { name: LabelName.OWNER, value: getConfigValue(ConfigProperties.ALLURE_OWNER, 'QA') },
@@ -162,9 +169,14 @@ export async function applyAllureLabels(testInfo: TestInfo, row: TestCaseData | 
         if (row.modules?.length) parameters.push({ name: 'Modules', value: row.modules.join(', ') });
     }
 
+    const links: Link[] = cfArea && row?.jira
+        ? row.jira.split('|').map((k) => k.trim()).filter(Boolean).map((k) => ({ name: k, url: JIRA_BROWSE + k, type: LinkType.ISSUE }))
+        : [];
+
     const data: MetadataMessage['data'] = {
         labels,
         ...(parameters.length ? { parameters } : {}),
+        ...(links.length ? { links } : {}),
         ...(row ? { testCaseId: row.id } : {}),
         ...(row?.testDescription ? { description: row.testDescription } : {}),
     };
@@ -181,6 +193,7 @@ export async function applyAllureLabels(testInfo: TestInfo, row: TestCaseData | 
     // one, but never silently unlabelled results.
     await runtime.labels(...labels);
     for (const p of parameters) await runtime.parameter(p.name, p.value);
+    if (links.length) await runtime.links(...links);
     if (data.testCaseId) await runtime.testCaseId(data.testCaseId);
     if (data.description) await runtime.description(data.description);
 }

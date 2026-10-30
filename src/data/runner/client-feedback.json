@@ -1,0 +1,17 @@
+{
+    "runnerManager": [
+        {
+            "id": "WEBPET-3311",
+            "category": "ui",
+            "testName": "tjcPiecesColumnInShowColumns",
+            "testTitle": "Transfer to Job Cards lists Pieces in Show columns",
+            "testDescription": "Client feedback (Anthony): the Pieces column was missing from the Transfer to Job Cards Show columns options; fixed by web-pet #1105. Open Transfer to Job Cards from the menu, open Columns, verify Pieces is listed and ticked and the Time Cards grid shows the Pieces column.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3311",
+            "status": "automated",
+            "enabled": true
+        }
+    ]
+}

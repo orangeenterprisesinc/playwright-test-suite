@@ -69,8 +69,8 @@ const TIER_TAG_SET = new Set(TIERS.map(([, tag]) => tag));
 /** Tags a `test()` may carry beyond the tier chain. */
 const EXTRA_TEST_TAGS = new Set(['@Demo', '@CrossBrowser']);
 
-/** Tags a `test.describe()` may carry: the journey, the workflow (an optional lowercase letter names a variant, e.g. @B6b), or @System. */
-const SUITE_TAG = /^@(?:Journey[A-Z]|[A-Z]\d{1,2}[a-z]?|System)$/;
+/** Tags a `test.describe()` may carry: the journey, the workflow (an optional lowercase letter names a variant, e.g. @B6b), @System, or @ClientFeedback + @<TICKET>. */
+const SUITE_TAG = /^@(?:Journey[A-Z]|[A-Z]\d{1,2}[a-z]?|System|ClientFeedback|(?:WEBPET|PET)-\d+)$/;
 
 /**
  * The tier tags a row's `tags` column implies, narrowest first — the order the
@@ -215,7 +215,7 @@ function main() {
             suiteTagsChecked.add(specTest.file);
             for (const tag of specTest.suiteTags) {
                 if (!SUITE_TAG.test(tag)) {
-                    fail(`${specTest.file}: describe tag '${tag}' — a describe carries @Journey<X>, @<WF> or @System`);
+                    fail(`${specTest.file}: describe tag '${tag}' — a describe carries @Journey<X>, @<WF>, @System, or @ClientFeedback + @<TICKET>`);
                 }
             }
         }

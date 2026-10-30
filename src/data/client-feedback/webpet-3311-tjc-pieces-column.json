@@ -1,0 +1,15 @@
+{
+  "_notes": [
+    "Bucket A: no data. The picker and headers render on the empty Time Cards grid; no date range or Analyze.",
+    "Picker entry id column-picker-numOfPieces is labelled 'Pieces' on the Time Cards tab; 'Number of Pieces' is the Job Cards tab header (no picker there).",
+    "Column visibility is saved per user (user/grid-layouts/transferToJobCards.gridLayout.v4): only tick, never untick."
+  ],
+  "ticket": "WEBPET-3311",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "expected": { "pickerEntry": "Pieces", "columnHeader": "Pieces" },
+  "annotations": [
+    { "type": "not-asserted", "description": "Job Cards tab 'Number of Pieces' header: that grid has no Columns picker and needs a preview (time-card rows) to be meaningful." }
+  ],
+  "cleanup": []
+}

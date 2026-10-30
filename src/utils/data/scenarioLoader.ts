@@ -7,6 +7,7 @@ import { JsonDataReader } from '../../data/readers/JsonDataReader';
 // One JSON scenario file per spec file, same basename:
 //   tests/web/journey-b-field/b03-x.spec.ts → src/data/journey-b/b03-x.json
 //   tests/web/system/login-module.spec.ts   → src/data/system/login-module.json
+//   tests/web/client-feedback/transfer-to-job-cards/webpet-3311-x.spec.ts → src/data/client-feedback/webpet-3311-x.json
 // SCENARIO_DATA_DIR overrides the root, as RUNNER_DATA_DIR does for runner rows.
 // A file is either one scenario object, or `{ shared?, cases: { '<testCaseId>': … } }`.
 // Do not use a root `data` array key — JsonDataReader unwraps it.
@@ -17,9 +18,11 @@ const FIXTURE_FILE = 'fixture.json';
 type MultiCaseFile = { shared?: Record<string, unknown>; cases: Record<string, Record<string, unknown>> };
 
 export function scenarioFileFor(specFile: string): string {
-    const folder = path.basename(path.dirname(specFile));
-    const journey = folder === 'system' ? 'system' : /^(journey-[a-z])(?:-|$)/.exec(folder)?.[1];
-    if (!journey) throw new Error(`scenarioLoader: '${folder}' is not a journey-<x>-<area> or system folder (${specFile})`);
+    const dir = path.dirname(specFile);
+    const folder = path.basename(dir);
+    const journey = path.basename(path.dirname(dir)) === 'client-feedback' ? 'client-feedback'
+        : folder === 'system' ? 'system' : /^(journey-[a-z])(?:-|$)/.exec(folder)?.[1];
+    if (!journey) throw new Error(`scenarioLoader: '${folder}' is not a journey-<x>-<area>, system or client-feedback/<area> folder (${specFile})`);
     return path.join(DATA_ROOT, journey, `${path.basename(specFile).replace(/\.spec\.ts$/, '')}.json`);
 }
 

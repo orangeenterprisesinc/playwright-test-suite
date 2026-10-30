@@ -125,6 +125,10 @@ export class TransferToJobCardsPage extends BasePage {
     /** The Issues breakdown panel below the grid. */
     readonly issuesRegion: Locator;
 
+    /** Grid header "Columns" button and the "Show columns" picker it opens. */
+    readonly columnsButton: Locator;
+    readonly columnPicker: Locator;
+
     // ── Multi-Edit (top-level "Multi Update" toolbar button) ──────────────────────
     /**
      * Role-based, not a testid. Relocated from a "More actions ▸ Multi-Edit" menu
@@ -203,6 +207,8 @@ export class TransferToJobCardsPage extends BasePage {
         this.dateRangeFilter = this.pageRoot.getByRole('button', { name: 'Dates', exact: true });
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
+        this.columnsButton = this.gridHeader.getByRole('button', { name: 'Columns', exact: true });
+        this.columnPicker = page.getByRole('dialog', { name: 'Show columns' });
 
         this.multiUpdateButton = page.getByRole('button', { name: /^Multi Update$/i });
         this.multiEdit = new WebpetMultiEditDialogComponent(page);
@@ -271,6 +277,35 @@ export class TransferToJobCardsPage extends BasePage {
             throw error;
         }
         this.page.on('framenavigated', onNavigate);
+    }
+
+    async openColumnPicker(): Promise<void> {
+        await this.columnsButton.click();
+        await this.columnPicker.waitFor({ state: 'visible', timeout: 10_000 });
+    }
+
+    /** Each entry also renders an unnamed hidden input checkbox; the name filter excludes it. */
+    columnPickerEntry(label: string): Locator {
+        return this.columnPicker.getByRole('checkbox', { name: label, exact: true });
+    }
+
+    /** Ticks the entry if it is not already; true when it had to. The layout is saved per user, so callers only tick. */
+    async showColumn(label: string): Promise<boolean> {
+        const entry = this.columnPickerEntry(label);
+        if (await entry.isChecked()) return false;
+        await entry.click();
+        await expect(entry).toBeChecked();
+        return true;
+    }
+
+    async closeColumnPicker(): Promise<void> {
+        await this.columnPicker.getByRole('button', { name: 'Close', exact: true }).click();
+        await this.columnPicker.waitFor({ state: 'hidden', timeout: 10_000 });
+    }
+
+    /** Exact, so "Pay by Piece" cannot match "Pieces". */
+    gridColumnHeader(header: string): Locator {
+        return this.grid.getByRole('columnheader', { name: `Reorder column ${header}`, exact: true });
     }
 
     /**
