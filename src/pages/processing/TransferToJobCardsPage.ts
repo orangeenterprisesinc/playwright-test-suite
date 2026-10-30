@@ -1,4 +1,5 @@
-import { expect, test, Locator, Page, Response } from '@playwright/test';
+import { expect, test, Frame, Locator, Page, Response } from '@playwright/test';
+import { acquireTransferScreenLock } from '../../utils/sync/preferencesLock';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
@@ -170,6 +171,7 @@ export class TransferToJobCardsPage extends BasePage {
     private analyzeResponseHandler?: (response: Response) => void;
     /** How many times {@link tryWaitForCandidates} clicked "Try again" this call. */
     private analyzeRetries = 0;
+    private releaseScreenLock?: () => void;
 
     private readonly leftNav: LeftNavigationPage;
 
@@ -227,13 +229,33 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** By address — the webpet suite's entry. Journeys use {@link openFromMenu}. */
     async goto(): Promise<void> {
+        await this.holdScreenLock();
         await this.page.goto(this.pageUrl);
         await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
     }
 
     async openFromMenu(): Promise<void> {
+        await this.holdScreenLock();
         await this.leftNav.openScreen(['Transfer to Job Cards'], this.pageUrl);
         await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+    }
+
+    /** Held from arrival until the page leaves the screen or closes; see {@link acquireTransferScreenLock}. */
+    private async holdScreenLock(): Promise<void> {
+        if (this.releaseScreenLock) return;
+        const release = await acquireTransferScreenLock();
+        const done = (): void => {
+            this.page.off('framenavigated', onNavigate);
+            this.page.off('close', done);
+            this.releaseScreenLock = undefined;
+            release();
+        };
+        const onNavigate = (frame: Frame): void => {
+            if (frame === this.page.mainFrame() && !new URL(frame.url()).pathname.startsWith(this.pageUrl)) done();
+        };
+        this.page.on('framenavigated', onNavigate);
+        this.page.on('close', done);
+        this.releaseScreenLock = done;
     }
 
     /**

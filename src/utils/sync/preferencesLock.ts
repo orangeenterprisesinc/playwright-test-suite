@@ -31,6 +31,13 @@ export function acquirePaidBreakJobLock(): Promise<() => void> {
     return acquireFileLock('paid-break-job', 600_000);
 }
 
+// The Transfer screen keeps one analyze job per user: every new analyze (Analyze, Try again, Re-analyze, the Job
+// Cards preview) supersedes the user's previous job, which then answers 404 (tigerden "transfer: load job
+// superseded"). Two workers on one login kill each other's jobs, so a worker holds this while it is on the screen.
+export function acquireTransferScreenLock(): Promise<() => void> {
+    return acquireFileLock('transfer-screen', 600_000);
+}
+
 /** Waits for the lock and returns its release. Prefer {@link withFileLock}; this is for a hold that spans several calls. */
 export async function acquireFileLock(name: string, staleMs = STALE_MS): Promise<() => void> {
     const dir = lockDir(name);
