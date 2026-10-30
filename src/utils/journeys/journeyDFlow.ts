@@ -263,16 +263,20 @@ export async function seedFixtureDay(
     // time-in is actually readable. Saving the form is not the same instant as the row being
     // visible, and without this the form intermittently reports "No employees with open time in
     // found for this crew" and the day is seeded one punch short.
+    // A card already transferred on this day is never this run's (ours are seconds old) and can be
+    // undeletable: 2026-10-30 a prior run's job cards went but their four punches stayed
+    // transferred:true, which DELETE refuses (record.transferred_delete) and no transfer run reverses.
+    const ownUntransferred = (c: OfficeTimeCard): boolean => Number(c.crewCounter) === run.crew.id && c.transferred !== true;
     await expect(async () => {
         const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
-        const timeIns = cards.filter((c) => Number(c.crewCounter) === run.crew.id && Number(c.cardType) === CARD_TYPE.timeIn);
+        const timeIns = cards.filter((c) => ownUntransferred(c) && Number(c.cardType) === CARD_TYPE.timeIn);
         expect(timeIns).toHaveLength(run.scenario.expected.jobCards);
     }).toPass({ timeout: 60_000 });
 
     await pages.crewTimeOut.punchOut({ day: run.day, hour: timeOut.hour, minute: timeOut.minute, crew: F.crew.name });
 
     const cards = await listTimeCards(sessionApi, { from: run.day, to: run.day });
-    const own = cards.filter((c) => Number(c.crewCounter) === run.crew.id);
+    const own = cards.filter(ownUntransferred);
     // Hands runCleanup the exact card ids this run created, rather than relying on an employee filter
     // that would never see the crew piece-out (employeeCounter: null).
     run.ctx.cards = own as OfficeTimeCard[];
