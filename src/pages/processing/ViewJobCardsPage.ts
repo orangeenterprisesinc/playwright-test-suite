@@ -86,7 +86,7 @@ export class ViewJobCardsPage extends BasePage {
         this.crewChips = page.getByTestId('view-job-cards-filter-crews-chips');
         this.employeeChips = page.getByTestId('view-job-cards-filter-employees-chips');
         this.totalsBar = page.getByTestId('view-job-cards-shift-totals');
-        this.report = new ReportDialog(page);
+        this.report = new ReportDialog(page, page.getByTestId('view-job-cards-print-report'));
         this.testFile = new TestFileSheet(page);
     }
 

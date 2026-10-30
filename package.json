@@ -83,6 +83,7 @@
     "eslint-plugin-prettier": "^5.5.5",
     "nodemailer": "^10.1.4",
     "papaparse": "^5.5.3",
+    "pdfjs-dist": "5.4.296",
     "playwright": "1.58.2",
     "playwright-core": "1.58.2",
     "prettier": "^3.8.1",
