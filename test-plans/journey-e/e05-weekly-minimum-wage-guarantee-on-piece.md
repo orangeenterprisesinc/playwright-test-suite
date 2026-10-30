@@ -276,12 +276,20 @@ test.describe('E5 · Weekly minimum-wage guarantee on piece', { tag: ['@JourneyE
 - [x] **2. Department form:** section `Job Card ▸ Meal & Minimum Wage`; `#minimumWageCounter` (input combobox, label "Minimum Wage", options = the active records by name) and `#minimumWageMethod` (button combobox, label **"Piece Minimum Wage & Averaging Period"**); the option text is exactly **"Each Week"**.
 - [x] **7. Fixture codes** 8026 (crew), 8027 (employee) and 4620 (job) are free on su in the live rows and in `/jobs/deleted`, `/crews/deleted`, `/employees/deleted` (probed 2026-10-27); no `E5 *` name exists anywhere, including `/minimum-wages/deleted`.
 
+**Decided by Gukan, 2026-10-28.** Generate E5 now, although WEBPET-2061 is Ready for Dev. If dev does not pay the weekly top-up, park the row with `enabled 0` and draft a bug. Questions 3, 5, 6 and 8 take the orchestrator's position:
+- 3: the department is set on both the employee and the crew.
+- 5: the Transfer row status is recorded, not asserted.
+- 6: E5 shares the E1/E3 week, with its own crew.
+- 8: the short week (24.00 top-up) is the happy path.
+
+Question 4 stays a first-run calibration.
+
 **Orchestrator's position on the rest (Gukan decides):** 3 — set employee and crew, as E1 (the engine honoured it there). 5 — recording the row status is acceptable; D6 proved the "No hourly rate available" warning non-blocking for piece jobs. 6 — sharing the E1/E3 week with an own crew is the established pattern; keep the crew-scoped sweeps and the poison scan. 8 — the short week (make-up 24.00) is the happy path, because it is the only shape whose Each Week value differs from both Never and Each Day. 4 stays a first-run calibration.
 
 **Calibrated on the first run** (the spec names each outcome; the tester decides):
 
 - [ ] **3. Which record's department does the minimum-wage engine read: employee, crew or field?** E5 sets employee + crew, as E1 proved for the weekly OT method. 280.00 or 312.00 on the first run names "not the department we set" or "the method not honoured".
-- [ ] **4. Where does the 24.00 make-up land?**
+- [x] **4. Where does the 24.00 make-up land?** **Answered by the first green run (2026-10-28):** it folds into Monday's own card (Amount 120 + 24 = **144.00**). Tuesday reads 160.00, and there is no separate underpayment card (2 cards). `expected.perDay[].amount` now pins 144 / 160. The original question:
   - Folded into Monday's or Tuesday's card Amount?
   - Spread across the cards?
   - Or a separate underpayment card (earning code `09`), which would make `expected.jobCards` / `toast.jobCards` 3?

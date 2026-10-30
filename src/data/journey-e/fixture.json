@@ -15,6 +15,13 @@
       "low": { "code": "4619", "name": "E1 JOB LOW", "paymentType": "Time", "hourlyRate": 20 }
     }
   },
+  "e5": {
+    "minimumWage": { "name": "E5 MINIMUM WAGE", "rate": 19 },
+    "department": { "name": "E5 DEPARTMENT" },
+    "crew": { "code": "8026", "name": "E5 CREW" },
+    "picker": { "code": "8027", "name": "E5 PICKER ONE" },
+    "job": { "code": "4620", "name": "E5 JOB", "paymentType": "Piece", "pieceRate": 40 }
+  },
   "e3": {
     "crew": { "code": "8022", "name": "E3 CREW" },
     "picker": { "code": "8023", "name": "E3 PICKER ONE" },

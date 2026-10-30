@@ -58,6 +58,18 @@ const E1Block = z
     })
     .strict();
 
+// E5 owns a minimum-wage record, a department, its own crew and picker, and one piece job (no hourly rate: a Piece job has none).
+const E5Job = Entity.extend({ paymentType: z.literal('Piece'), pieceRate: z.number().positive() }).strict();
+const E5Block = z
+    .object({
+        minimumWage: z.object({ name: z.string().min(1), rate: z.number().positive() }).strict(),
+        department: z.object({ name: z.string().min(1) }).strict(),
+        crew: Entity,
+        picker: Entity,
+        job: E5Job,
+    })
+    .strict();
+
 const E3Block = E2Block.extend({
     rule: E13Rule.extend({ weeklyRegularHours: z.number().positive(), weeklyStartDay: z.number().int().positive() }).strict(),
 }).strict();
@@ -74,12 +86,14 @@ export const JourneyEFixtureSchema = z
         // E3 has the same shape as E2: its own crew, picker and job.
         e3: E3Block.optional(),
         e1: E1Block.optional(),
+        e5: E5Block.optional(),
     })
     .strict();
 
 export type JourneyEFixture = z.infer<typeof JourneyEFixtureSchema>;
 export type JourneyE2Fixture = z.infer<typeof E2Block>;
 export type JourneyE1Fixture = z.infer<typeof E1Block>;
+export type JourneyE5Fixture = z.infer<typeof E5Block>;
 export type JourneyE11Fixture = z.infer<typeof E11Block>;
 export type JourneyE9Fixture = z.infer<typeof E9Block>;
 export type JourneyE10Fixture = z.infer<typeof E10Block>;

@@ -13,6 +13,10 @@ import { PickerComponent } from '../../components/PickerComponent';
 export class DepartmentPage extends SetupScreenPage {
     readonly nameInput: Locator;
     readonly weeklyOvertimeMethod: Locator;
+    /** `#minimumWageCounter`: an input combobox labelled "Minimum Wage"; options are the active Minimum Wage records by name. */
+    readonly minimumWageCombobox: Locator;
+    /** `#minimumWageMethod`: a shadcn select labelled "Piece Minimum Wage & Averaging Period" (not "Minimum Wage Method"). */
+    readonly minimumWageMethodSelect: Locator;
     private readonly pickers: PickerComponent;
 
     constructor(page: Page) {
@@ -25,6 +29,8 @@ export class DepartmentPage extends SetupScreenPage {
         });
         this.nameInput = page.getByRole('textbox', { name: 'Name *' });
         this.weeklyOvertimeMethod = page.getByRole('combobox', { name: /^Weekly Overtime Method/ });
+        this.minimumWageCombobox = page.locator('input#minimumWageCounter');
+        this.minimumWageMethodSelect = page.locator('#minimumWageMethod');
         this.pickers = new PickerComponent(page);
     }
 
@@ -55,6 +61,43 @@ export class DepartmentPage extends SetupScreenPage {
         return this.createOnScreen(async () => {
             await this.nameInput.fill(data.name);
         });
+    }
+
+    /** Job Card ▸ Meal & Minimum Wage, right after Overtime & Rounding (measured 2026-10-27). */
+    async gotoMinimumWageSection(): Promise<void> {
+        const heading = this.page.getByRole('heading', { name: 'Meal & Minimum Wage', exact: true }).first();
+        if (await heading.isVisible().catch(() => false)) await heading.scrollIntoViewIfNeeded();
+        await this.minimumWageMethodSelect.scrollIntoViewIfNeeded({ timeout: 15_000 });
+    }
+
+    /** The wage as the picker shows it (the "<identifier> : " prefix dropped) and the method's text; "—" is none. */
+    async readMinimumWage(): Promise<{ wage: string; method: string }> {
+        await expect(this.nameInput).not.toHaveValue('', { timeout: 30_000 });
+        // The wage list loads after the form; an early read is "" and would re-pick an already-correct department.
+        await expect(this.minimumWageCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        await this.gotoMinimumWageSection();
+        const wage = (await this.minimumWageCombobox.inputValue()).replace(/^[^:]*: /, '').trim();
+        const method = (await this.minimumWageMethodSelect.innerText()).trim();
+        return { wage, method };
+    }
+
+    /** Read-first no-op; otherwise pick what differs, one save, and a fresh-load read-back of both. */
+    async setMinimumWage(want: { wage: string; method: string }): Promise<{ wage: string; method: string }> {
+        // Both values hydrate after the form: give an already-correct department a moment before it reads as different.
+        await expect
+            .poll(async () => JSON.stringify(await this.readMinimumWage()), { timeout: 5_000 })
+            .toBe(JSON.stringify(want))
+            .catch(() => undefined);
+        const current = await this.readMinimumWage();
+        if (current.wage === want.wage && current.method === want.method) return current;
+
+        if (current.wage !== want.wage) await this.pickers.pickCombobox(this.minimumWageCombobox, want.wage);
+        if (current.method !== want.method) {
+            await this.gotoMinimumWageSection();
+            await this.pickers.pickSelect(this.minimumWageMethodSelect, want.method);
+        }
+        await this.saveEdit();
+        return this.readMinimumWage();
     }
 
     private async gotoOvertimeSection(): Promise<void> {

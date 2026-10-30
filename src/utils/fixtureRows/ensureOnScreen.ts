@@ -415,6 +415,54 @@ export async function ensureOvertimeRuleOnScreen(
     return { id, name: spec.name, source: 'existing', repaired };
 }
 
+export interface MinimumWageSpec {
+    name: string;
+    rate: number;
+}
+
+/**
+ * Minimum Wage records carry no code, so they are keyed by name like rules and departments. The list read only decides
+ * create-or-open; an existing record's Current Rate is read back on its form and repaired there. No arrange write and
+ * no restore: a binned record keeps its name (WEBPET-2368), so a rejected create with no live row fails by name.
+ */
+export async function ensureMinimumWageOnScreen(
+    spec: MinimumWageSpec,
+    deps: OnScreenDeps,
+): Promise<{ id: number; name: string; source: 'existing' | 'created'; repaired: boolean }> {
+    const exists = async (): Promise<boolean> => {
+        const res = await deps.api.get('minimum-wages');
+        if (!res.ok()) throw new Error(`GET minimum-wages failed with ${String(res.status())}`);
+        const body = (await res.json()) as Record<string, unknown>[] | { items?: Record<string, unknown>[] };
+        const rows = Array.isArray(body) ? body : (body.items ?? []);
+        return rows.some((r) => String(r.name ?? '').trim() === spec.name.trim() && r.active !== false);
+    };
+    const { minimumWage } = deps.pages;
+
+    if (!(await exists())) {
+        if ((await minimumWage.createMinimumWage(spec)) === 'created') {
+            annotate(deps, 'fixture-created-on-screen', `Minimum Wage '${spec.name}' (${String(spec.rate)})`);
+            return { id: minimumWage.savedIdFromUrl(), name: spec.name, source: 'created', repaired: false };
+        }
+        if (!(await exists())) {
+            throw new Error(
+                `The New Minimum Wage form rejected '${spec.name}' and no such record exists afterwards, so it was not a ` +
+                    'lost race — a recycle-bin record may still own the name. Check Deleted Records (WEBPET-2368).',
+            );
+        }
+    }
+
+    await minimumWage.openByName(spec.name);
+    const id = minimumWage.savedIdFromUrl();
+    const before = await minimumWage.readRate();
+    const after = await minimumWage.setRate(spec.rate);
+    if (after !== spec.rate) {
+        throw new Error(`Minimum Wage '${spec.name}': repaired on screen but the form reads ${String(after)}, wanted ${String(spec.rate)}.`);
+    }
+    const repaired = before !== after;
+    if (repaired) annotate(deps, 'fixture-repaired-on-screen', `Minimum Wage '${spec.name}': rate ${String(before)} -> ${String(after)}`);
+    return { id, name: spec.name, source: 'existing', repaired };
+}
+
 export interface DepartmentSpec {
     name: string;
 }
