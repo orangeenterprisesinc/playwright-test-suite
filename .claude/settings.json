@@ -1,4 +1,7 @@
 {
+  "env": {
+    "MCP_TIMEOUT": "90000"
+  },
   "permissions": {
     "allow": [
       "Bash(npm test:*)",

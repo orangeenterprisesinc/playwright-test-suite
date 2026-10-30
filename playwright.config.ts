@@ -108,6 +108,19 @@ const VIDEO_SIZE = videoSize(Number(process.env.VIDEO_HEIGHT ?? 720));
 /** The web-pet suite records at 480p in framework mode; VIDEO_HEIGHT does not apply to it. */
 const WEBPET_VIDEO_SIZE = videoSize(480);
 /**
+ * What a run keeps. `all` records trace + video for every test — CI, and local runs that need
+ * Jira evidence; `failures` keeps them for red tests only. Every reporter copies every attachment
+ * (html → html/data, allure → allure/results), so an all-green 720p journey run cost ~7 GB on disk.
+ */
+const CAPTURE = process.env.CAPTURE ?? (IS_CI ? 'all' : 'failures');
+if (CAPTURE !== 'all' && CAPTURE !== 'failures') throw new Error(`CAPTURE must be "all" or "failures", got "${CAPTURE}"`);
+const CAPTURE_MODE = CAPTURE === 'all' ? ('on' as const) : ('retain-on-failure' as const);
+/**
+ * Allure results feed CI (uploaded report, Slack lean report) and `npm run report:allure`; nothing
+ * reads them in a plain local run, so they are written only on request.
+ */
+const ALLURE_ENABLED = IS_CI || process.env.ALLURE === '1';
+/**
  * Spread AFTER `...devices['Desktop Chrome']` in every journey project. The device preset carries
  * `deviceScaleFactor: 1`, and Playwright refuses that alongside `viewport: null` — the run dies in
  * browser.newContext before a single test starts. Clearing it here is what makes the two coexist.
@@ -245,11 +258,12 @@ export default defineConfig({
     globalTimeout: Number(process.env.PW_GLOBAL_TIMEOUT_MS) || 0,
 
     // Reporters: `list` for the console, `html`/`json`/`github` for inspection
-    // and CI, and `allure-playwright` for the rich Allure report. The three
-    // custom reporters are self-gating — each does nothing unless its `SEND_*`
-    // env flag is set — and must stay last: the email reporter generates the
-    // Allure HTML from allure-results/, so every earlier reporter's output must
-    // already be flushed to disk.
+    // and CI, and `allure-playwright` for the rich Allure report (CI or
+    // ALLURE=1, see ALLURE_ENABLED). The three custom reporters are self-gating
+    // — each does nothing unless its `SEND_*` env flag is set — and must stay
+    // last: the email and Slack reporters generate the Allure HTML from
+    // allure-results/, so every earlier reporter's output must already be
+    // flushed to disk. Both only fire in CI, where Allure is always on.
     reporter: [
         ['list'],
         ['html', { outputFolder: 'artifacts/html', open: 'never' }],
@@ -262,7 +276,9 @@ export default defineConfig({
         // `outputFolder: 'allure-results'` only ever "worked" by coincidence and
         // would have kept writing to the repo root once that default no longer
         // matched. Playwright types reporter options as `any`, so nothing warns.
-        ['allure-playwright', { resultsDir: 'artifacts/allure/results', detail: true, suiteTitle: false }],
+        ...(ALLURE_ENABLED
+            ? [['allure-playwright', { resultsDir: 'artifacts/allure/results', detail: true, suiteTitle: false }] as const]
+            : []),
         ['./src/reporting/deliver/emailReporter.ts'], // DEPRECATED; gated by SEND_EMAIL + SMTP_*
         // The primary channel. Gated by SEND_SLACK + a route, and additionally by
         // src/reporting/deliver/slack/gate.ts: CI events only (SLACK_NOTIFY_EVENTS),
@@ -287,15 +303,14 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Artifacts only for a red test. With `trace: 'on'` every green journey test wrote a
-        // 30-164 MB trace zip at context close, 96-183 s per test (measured 2026-10-29, E10/E13),
-        // about 40 minutes of a 90-minute run.
+        // Trace + video on every test in CI, failures only locally (CAPTURE=all
+        // records everything, e.g. for Jira evidence).
         screenshot: 'only-on-failure',
-        trace: 'retain-on-failure',
+        trace: CAPTURE_MODE,
         // 720p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
         // but recording at that size shipped a 763 MB report from one red run.
         // The frame is scaled down to fit, never up. The webpet project sets its own.
-        video: { mode: 'retain-on-failure', size: VIDEO_SIZE },
+        video: { mode: CAPTURE_MODE, size: VIDEO_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
@@ -435,7 +450,7 @@ export default defineConfig({
                                     video: 'off' as const,
                                     screenshot: 'off' as const,
                                 }
-                              : { video: { mode: 'on' as const, size: WEBPET_VIDEO_SIZE } }),
+                              : { video: { mode: CAPTURE_MODE, size: WEBPET_VIDEO_SIZE } }),
                           // NO storageState: src/fixtures/webpet.fixture.ts seeds its
                           // own contexts from tests/webpet/.auth, and notifications.spec.ts's
                           // clean-context tests must start unauthenticated (matching

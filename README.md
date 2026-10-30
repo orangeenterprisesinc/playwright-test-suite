@@ -548,7 +548,7 @@ Managed by `src/fixtures/lifecycle/testLifecycleManager.ts` via `base.fixture.ts
 **afterEach:**
 1. Records pass/fail/skip and duration in `TestMetrics`
 2. Clears `CurrentTestTracker`
-3. Playwright's own config handles screenshot/video/trace capture (journey project: `screenshot` `only-on-failure`, `trace` and `video` `retain-on-failure` — a red test keeps all three, a green test leaves none)
+3. Playwright's own config handles screenshot/video/trace capture (the config sets `screenshot`/`trace`/`video` to `'on'`, i.e. captured for every test)
 
 ### 5. Data-Driven Testing
 
@@ -873,7 +873,7 @@ RETRY=2 npx playwright test
 # Open the Playwright HTML report
 npm run test:report
 
-# Generate and open the Allure report
+# Generate and open the Allure report (the run must have been made with ALLURE=1; CI always writes Allure results)
 npm run report:allure
 npm run report:allure:open
 ```
@@ -1081,12 +1081,13 @@ Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives 
 > was fired from, and `BRANCH_OVERRIDE` stays empty so the branch name comes from
 > `GITHUB_REF_NAME` — which is already correct in that case.
 
-**Automatic artifacts** — the config captures all three on **every** test (`screenshot`/`trace`/`video: 'on'`):
-- 📸 Screenshot capture
+**Automatic artifacts** — screenshots on failure, plus trace and video:
+- 📸 Screenshot capture (failures)
 - 🎥 Video recording
 - 📋 Trace file
 
-> `trace` and `video` are `'retain-on-failure'` (since 2026-10-30): with `'on'`, every green journey test wrote a 30–164 MB trace at context close, 96–183 s per test, about 40 minutes of a 90-minute run.
+> Trace and video are kept for **every** test in CI and for **failed** tests locally (`CAPTURE`, default
+> `all` / `failures`). Run with `CAPTURE=all` when you need the recording of a green test, e.g. as Jira evidence.
 
 ---
 
