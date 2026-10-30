@@ -229,20 +229,29 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** By address — the webpet suite's entry. Journeys use {@link openFromMenu}. */
     async goto(): Promise<void> {
-        await this.holdScreenLock();
-        await this.page.goto(this.pageUrl);
-        await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.holdScreenLock(async () => {
+            await this.page.goto(this.pageUrl);
+            await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+        });
     }
 
     async openFromMenu(): Promise<void> {
-        await this.holdScreenLock();
-        await this.leftNav.openScreen(['Transfer to Job Cards'], this.pageUrl);
-        await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.holdScreenLock(async () => {
+            await this.leftNav.openScreen(['Transfer to Job Cards'], this.pageUrl);
+            await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+        });
     }
 
-    /** Held from arrival until the page leaves the screen or closes; see {@link acquireTransferScreenLock}. */
-    private async holdScreenLock(): Promise<void> {
-        if (this.releaseScreenLock) return;
+    /**
+     * Take the lock, run `arrive`, then hold until the page leaves the screen or closes; see
+     * {@link acquireTransferScreenLock}. The leave-watch is armed only after arrival: openScreen's
+     * openApp() passes through '/' first, which would otherwise release the lock on the way in.
+     */
+    private async holdScreenLock(arrive: () => Promise<void>): Promise<void> {
+        if (this.releaseScreenLock) {
+            await arrive();
+            return;
+        }
         const release = await acquireTransferScreenLock();
         const done = (): void => {
             this.page.off('framenavigated', onNavigate);
@@ -253,9 +262,15 @@ export class TransferToJobCardsPage extends BasePage {
         const onNavigate = (frame: Frame): void => {
             if (frame === this.page.mainFrame() && !new URL(frame.url()).pathname.startsWith(this.pageUrl)) done();
         };
-        this.page.on('framenavigated', onNavigate);
         this.page.on('close', done);
         this.releaseScreenLock = done;
+        try {
+            await arrive();
+        } catch (error) {
+            done();
+            throw error;
+        }
+        this.page.on('framenavigated', onNavigate);
     }
 
     /**
