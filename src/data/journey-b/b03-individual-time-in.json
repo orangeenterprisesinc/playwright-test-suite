@@ -43,6 +43,9 @@
       "sections": [
         "TimeCard"
       ],
+      "sectionTags": {
+        "TimeCard": ["TimeCard","Reference","DateIn","TimeIn","Employee","Crew","Job","Ranch","Field","GpsReading","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "employeeSources": {
         "BarcodeBadge": 2
       },
@@ -72,6 +75,7 @@
         "jobCode": "4202"
       }
     ],
+    "importLog": { "status": "completed", "recordsImported": "2", "recordsFailed": "0" },
     "grid": {
       "status": "Warning",
       "issueGroup": "Time-In has no closing punch"

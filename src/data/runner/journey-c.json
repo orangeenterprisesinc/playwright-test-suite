@@ -114,7 +114,7 @@
             "category": "workflow",
             "testName": "captureByTableRollUp",
             "testTitle": "Sub-crew (\"tables\") capture - capture and roll-up",
-            "testDescription": "Clock a table of three in against the table, verify each Time In card carries the table and the crew, the day rolls up from table to crew, and the office Crew Time In form shows the Table.",
+            "testDescription": "Clock the crew in on Crew Time In, then a table of three out against the table and the supervisor out with none; verify each Crew Time Out card carries the table and the crew, and the day rolls up from table to crew.",
             "segments": [
                 "pack-house"
             ],

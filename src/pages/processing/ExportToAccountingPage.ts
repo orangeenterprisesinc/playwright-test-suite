@@ -297,6 +297,7 @@ export class ExportToAccountingPage extends BasePage {
         const nothing = this.page.getByText(/^Nothing to export/);
         const dialog = this.page.getByRole('alertdialog').or(this.page.getByRole('dialog'));
         let sawNothing = false;
+        const seenToasts: string[] = [];
         let confirmText = '';
         const saveDialog = this.page.getByRole('alertdialog', { name: /Save export file/i });
         const savedToast = this.page.getByText(/Export complete — the JobCards are now marked exported/);
@@ -335,6 +336,11 @@ export class ExportToAccountingPage extends BasePage {
                     savedToast.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'saved' as const),
                     saveFailed.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'failed' as const),
                 ]).catch(() => 'none' as const);
+                // The toast is short-lived: read it now, while it is known to be on screen, not 10 s later (E10, 2026-10-29).
+                if (outcomeToast === 'saved') {
+                    const text = ((await savedToast.first().innerText({ timeout: 2_000 }).catch(() => '')) ?? '').trim();
+                    seenToasts.push(text || 'Export complete — the JobCards are now marked exported.');
+                }
                 if (outcomeToast === 'failed') throw new Error('The file could not be saved — the Save export file dialog answered failure; nothing is marked exported.');
                 if (outcomeToast === 'none') throw new Error('Save was clicked but neither "Export complete — the JobCards are now marked exported." nor a save failure appeared within 30s.');
                 if (!file) throw new Error('Save completed but the browser raised no download event for the export file.');
@@ -345,7 +351,8 @@ export class ExportToAccountingPage extends BasePage {
             }
             const toast = this.page.locator('[data-sonner-toast]').or(this.page.getByRole('status'));
             await toast.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
-            const toasts = (await toast.allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+            const live = (await toast.allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+            const toasts = [...seenToasts.filter((t) => !live.includes(t)), ...live];
             if (blocked.length) throw new Error(`Refused an export request for a run that is not ours: ${blocked.join(', ')}`);
             return {
                 requests,

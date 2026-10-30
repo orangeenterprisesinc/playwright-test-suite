@@ -3,13 +3,13 @@ import type { PageObjects } from '@fixtures/pages.fixture';
 import { relayConfig, type RelayConfig } from '@config/relay.config';
 import { makeScanDevice, runUniqueCode } from '@data/generated';
 import type { DeviceSyncScenario } from '@data/schemas/journeyBScenario';
-import { cleanupTarget } from '@data/static/shared/cleanupTargets';
+import { isSweepable } from '@data/static/shared/cleanupTargets';
 import type { ScanDeviceGeneral } from '@pages/setup/ScanDevicePage';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { ensureCrewOnScreen, ensureFieldOnScreen, ensureRanchOnScreen } from '@utils/fixtureRows/ensureOnScreen';
 import { runCleanup } from '@utils/cleanup/runCleanup';
 import { register } from '@utils/cleanup/cleanupScope';
-import { uniqueName } from '@utils/cleanup/runToken';
+import { readableName } from '@utils/cleanup/runToken';
 import { substituteTokens } from '@utils/data/scenarioLoader';
 import { setupExportView, type SetupExportView } from '@utils/export/setupExportXml';
 import { ackRetrieved, drainMailbox, pullFromRelay, type PulledMessage } from '@utils/relay/relayClient';
@@ -53,20 +53,20 @@ export interface DeviceSync {
 }
 
 function assertSweepable(entity: string, name: string): void {
-    if (!cleanupTarget(entity).prefixes.some((p) => name.startsWith(p.prefix))) {
+    if (!isSweepable(entity, name)) {
         throw new Error(`'${name}' carries no prefix the residue sweep reclaims for ${entity} (cleanupTargets.ts)`);
     }
 }
 
-/** Run-unique names and codes from the scenario's prefixes and offsets; every name must be one the residue sweep can reclaim. */
+/** Run-tagged names (`B15 NEW CREW <stamp>`) and codes from the scenario's nouns and offsets; every name must be one the residue sweep can reclaim. */
 export function mintDeviceScope(scenario: DeviceSyncScenario): MintedDeviceScope {
-    const device = makeScanDevice(scenario.device.prefix);
-    assertSweepable('scanDevice', device.name);
+    // makeScanDevice refuses a name the sweep could not reclaim.
+    const device = makeScanDevice(scenario.workflow, 'Z', scenario.device.noun);
     const minted = {} as Record<EntityKey, Minted>;
     const tokens: Record<string, string> = { deviceName: device.name, deviceMailbox: device.webMailAddress };
     for (const key of ENTITY_KEYS) {
-        const { prefix, codeOffset } = scenario.entities[key];
-        minted[key] = { code: runUniqueCode(codeOffset), name: uniqueName(prefix) };
+        const { noun, codeOffset } = scenario.entities[key];
+        minted[key] = { code: runUniqueCode(codeOffset), name: readableName(scenario.workflow, noun) };
         assertSweepable(key, minted[key].name);
         tokens[`${key}Name`] = minted[key].name;
         tokens[`${key}Code`] = minted[key].code;
@@ -115,7 +115,13 @@ export async function pushAndPull(run: DeviceScopeRun, pages: PageObjects, testI
     // Anything already queued for this mailbox would be pulled instead of ours.
     await drainMailbox(url, run.mailbox.address);
     const { destination } = await pages.scanDevice.pushToDevice();
-    const pulled = await pullFromRelay(url, run.mailbox.address);
+    // The push panel reports success before the relay has the message (CI 2026-10-28: one pull right
+    // after it read nothing, the retry read the file), so pull like a device would, for a bounded while.
+    let pulled: PulledMessage | null = null;
+    const deadline = Date.now() + 60_000;
+    while (!(pulled = await pullFromRelay(url, run.mailbox.address)) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
     run.mailbox.pulled = pulled;
     if (pulled) await testInfo.attach('scan-device-export.xml', { body: pulled.attachment, contentType: 'application/xml' });
     return { destination, pulled, export: pulled ? setupExportView(pulled.attachment) : null };

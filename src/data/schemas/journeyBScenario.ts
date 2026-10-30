@@ -168,6 +168,10 @@ const PaidBreakJsonSchema = z
     })
     .strict();
 
+/** One Connectivity ▸ Import Log row, as the screen shows it (status is compared case-insensitively). */
+export const ImportLogJsonSchema = z.object({ status: z.string().min(1), recordsImported: z.string().min(1), recordsFailed: z.string().min(1) }).strict();
+export type ImportLogJson = z.infer<typeof ImportLogJsonSchema>;
+
 export const JourneyBScenarioSchema = z
     .object({
         _notes: z.array(z.string()).optional(),
@@ -252,15 +256,17 @@ export const JourneyBScenarioSchema = z
                             .object({
                                 device: z.string().min(1),
                                 envelope: ExpectedEnvelopeJsonSchema,
-                                /** The terminal status this device's import file must reach. */
-                                importStatus: z.string().min(1).optional(),
+                                /** This device's file in the Internet Import Log. */
+                                importLog: ImportLogJsonSchema,
+                                /** Report a mismatch without stopping the test (B7 device A: a known product defect). */
+                                softImportLog: z.boolean().optional(),
                             })
                             .strict(),
                     )
                     .optional(),
                 cards: z.array(ExpectedCardJsonSchema).default([]),
                 /** The Internet Import Log row's cells for this file (ImportLogPage Status / Records imported / Records failed). */
-                importLog: z.object({ status: z.string().min(1), recordsImported: z.string().min(1), recordsFailed: z.string().min(1) }).strict().optional(),
+                importLog: ImportLogJsonSchema.optional(),
                 /** A card type the fixture day must NOT hold for an expected employee (B6's WEBPET-1409 guard). */
                 absentCardType: z.number().int().optional(),
                 /** `{code<i>}` pairs: the prefix the office extracts, and the sticker it extracts it from. */
@@ -349,6 +355,22 @@ export const JourneyBScenarioSchema = z
         } else if (!s.expected.envelope) {
             issue(['expected', 'envelope'], 'a single-envelope scenario expects an envelope block');
         }
+        if (s.transport !== 'relay-echo') {
+            // A nested grid section (B7's code-history grid inside Employee_Records) has no list of its own, so keys must be a subset of `sections`, not equal to it; the unit test guards completeness.
+            const needTags = (env: { sections?: string[]; sectionTags?: Record<string, string[]> } | undefined, path: (string | number)[]) => {
+                const tags = env?.sectionTags;
+                if (!tags || Object.keys(tags).length === 0) issue([...path, 'sectionTags'], 'a records envelope lists its element names per <X_Records> section');
+                for (const node of Object.keys(tags ?? {})) {
+                    if (!env?.sections?.includes(node)) issue([...path, 'sectionTags', node], `'${node}' is not in sections`);
+                }
+            };
+            if (s.devices) {
+                if (s.envelope === 'records') (s.expected.devices ?? []).forEach((d, i) => needTags(d.envelope, ['expected', 'devices', i, 'envelope']));
+            } else {
+                if (!s.expected.importLog) issue(['expected', 'importLog'], 'the delivered file owes its Import Log row: status, recordsImported, recordsFailed');
+                if (s.envelope === 'records') needTags(s.expected.envelope, ['expected', 'envelope']);
+            }
+        }
         (s.codeHistory ?? []).forEach((a, i) => {
             if (!isCard(a.record)) issue(['codeHistory', i, 'record'], 'a roll assignment shares a card record’s moment');
             if (s.devices && (!a.device || !deviceIds.has(a.device))) issue(['codeHistory', i, 'device'], 'a multi-device scenario names the sending device on every roll assignment');
@@ -419,8 +441,8 @@ export type JourneyBScenario = z.infer<typeof JourneyBScenarioSchema>;
 // name prefixes and code offsets the flow mints from, the export section each entity lands in, cleanup.
 const ScopedEntityJsonSchema = z
     .object({
-        /** Must be a prefix the residue sweep reclaims for the entity (cleanupTargets.ts); the flow refuses any other. */
-        prefix: z.string().min(5),
+        /** Upper-case noun of the run-tagged name (`B15 NEW <NOUN> <stamp>`); must be one the residue sweep reclaims for the entity (cleanupTargets.ts), or the flow refuses it. */
+        noun: z.string().regex(/^[A-Z][A-Z ]*$/),
         /** Added to the run token so the entities of one run never share a barcode. */
         codeOffset: z.number().int().positive(),
         /** The `<X_Records>` block the office serializes this entity into. */
@@ -434,7 +456,7 @@ export const DeviceSyncScenarioSchema = z
         workflow: z.string().regex(/^B\d{1,2}$/),
         label: z.string().min(1),
         entities: z.object({ ranch: ScopedEntityJsonSchema, field: ScopedEntityJsonSchema, crew: ScopedEntityJsonSchema }).strict(),
-        device: z.object({ prefix: z.string().min(5) }).strict(),
+        device: z.object({ noun: z.string().regex(/^[A-Z][A-Z ]*$/) }).strict(),
         cleanup: z.array(CleanupStepSchema).default([]),
     })
     .strict()

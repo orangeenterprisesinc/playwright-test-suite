@@ -50,7 +50,9 @@ export class PickerComponent {
                     `${offered.map((t) => t.trim()).join(' · ') || '(nothing — the listbox is empty)'}`,
             );
         }
-        await option.click({ timeout: OPTION_TIMEOUT });
+        // noWaitAfter: choosing an option can start a client-side route change (R2 Report Type, 2026-10-29) that
+        // Playwright's "wait for scheduled navigations" then holds for the whole click timeout; callers assert the next state.
+        await option.click({ timeout: OPTION_TIMEOUT, noWaitAfter: true });
     }
 
     /**

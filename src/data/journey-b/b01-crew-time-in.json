@@ -74,6 +74,7 @@
         "jobCode": "4201"
       }
     ],
+    "importLog": { "status": "completed", "recordsImported": "3", "recordsFailed": "0" },
     "grid": {
       "status": "Warning",
       "issueGroup": "Time-In has no closing punch"

@@ -1,11 +1,18 @@
 # `C6` · Sub-crew ("tables") capture
 
-> **Office half only.** Kiosk capture is device-only. `C6` enters the punches on Input ▸ Batch ▸
-> Crew Time In (table selected, then none). It then verifies the cards by id, the table→crew
-> roll-up at data level, and the Table on the Crew Time In edit form. Reports are not on the web
-> yet (PET-12682).
+> **Office half only.** Kiosk capture is device-only. `C6` clocks the crew in on Input ▸ Batch ▸
+> Crew Time In, then clocks it out on Input ▸ Batch ▸ Crew Time Out: the table of three with the
+> table selected, then the supervisor with none. It verifies the Table, Crew and employee of each
+> time-out on the Crew Time Out edit page and View ▸ Time Cards. Reports are not on the web yet (PET-12682).
 
-Source: no recording; office surface confirmed live 2026-09-25 (app.ptdev.xyz, `su`).
+> **Changed 2026-10-29.** web-pet #1526 (WEBPET-3734, merged 2026-10-28, confirmed by product)
+> removed the Table picker from Crew Time In. Legacy Crew In has none either. Crew Time Out, Crew
+> Piece Out and Multi New Cards keep it, and the API is unchanged (`crewTableCounter` is optional on
+> crew time-in). C6 used to pick the table on Crew Time In and failed every run after the merge. The
+> table is now captured on **Crew Time Out**. Crew Time In clocks all four members in with no table.
+
+Source: no recording. Crew Time In surface confirmed live 2026-09-25 (app.ptdev.xyz, `su`); Crew Time
+Out Table block read from web-pet source `CrewTimeOutFormPage.tsx` (WEBPET-1085), live check pending (O9-O13).
 Manual source WEBPET-2035 (passed QA 2026-09-03).
 
 | Artifact | Path |
@@ -36,125 +43,96 @@ Manual source WEBPET-2035 (passed QA 2026-09-03).
 
 ## Catalog steps
 
-| # | Catalog step | Office surface (live 2026-09-25) | Automatable? |
+| # | Catalog step | Office surface | Automatable? |
 |---|---|---|---|
-| 1 | Assign workers to a table under a supervisor | Setup ▸ Table `/setup/crew-tables`: grid **"Tables"** (Name / Crew / Supervisor / Active). New form: `Name *`, `Crew *` (required combobox), `Supervisor` (combobox of **active employees**, `GET employees/lookup?limit=101&search=`, not crew-scoped), Active switch in the header. Save enables once Name + Crew are set. | precondition — ensured on Setup ▸ Table when missing |
-| 2 | Capture time and pieces by table | Input ▸ Crew Time In (Batch group) `/input/crew-time-in/new`: `Table` combobox under `Crew *`. With no crew it lists **all** tables; with a crew it lists only that crew's; changing crew clears it. After a crew is picked an `Employees *` checklist appears. Crew Time In edit form `/input/crew-time-in/{timeCardCounter}` shows `Table`. **Time In New/Edit forms have no Table field.** | time: **yes** — entered on the Crew Time In form. Pieces: — deferred, no crew piece-out helper. Kiosk capture: — not automatable: device capture; office receives the punches |
-| 3 | Report by table or roll up to the crew | No web surface | — not automatable: reports not migrated to web (PET-12682); roll-up asserted at data level |
+| 1 | Assign workers to a table under a supervisor | Setup ▸ Table `/setup/crew-tables`: grid **"Tables"** (Name / Crew / Supervisor / Active). New form: `Name *`, `Crew *`, `Supervisor` (active employees, not crew-scoped), Active switch. | precondition — the fixed `C6 TABLE A` is ensured on Setup ▸ Table when missing |
+| 2 | Capture time and pieces by table | **Crew Time In** `/input/crew-time-in/new` has **no Table field** since WEBPET-3734 / web-pet #1526. **Crew Time Out** `/input/crew-time-out/new`: `Date / Time *`, `Crew *`, `Table` (after Crew; lists only the chosen crew's active tables; changing Crew clears it), `Number of Pieces`, `Phase`, `Memo`, then the `Employees` grid (crew members with an open Crew Time In within 24 h, all ticked by default). Blank Pieces = one time-out per ticked employee, each carrying the table. Edit form `/input/crew-time-out/{timeCardCounter}` is read-only and shows `Table` and `Crew`. | time: **yes** — the table is entered on the Crew Time Out form. Pieces: — deferred (Crew Piece Out also carries Table; not explored). Kiosk capture: — not automatable: device capture |
+| 3 | Report by table or roll up to the crew | No web surface | — not automatable: reports not migrated to web (PET-12682); roll-up asserted on screen (edit pages + View ▸ Time Cards crew count) |
 
 ## Expected outcomes
 
-- When a table is saved on Setup ▸ Table with a name, crew and supervisor, PET Tiger shall list it under that crew and return it from `GET /crew-tables`. _not asserted: table setup is this workflow's precondition, ensured on Setup ▸ Table when missing_
-- When workers of a crew are clocked in on the Crew Time In form with a table selected, PET Tiger shall create one Time In card per worker, each carrying the table's `crewTableCounter` (and `crewTableName`) and the crew's `crewCounter`, readable from `GET time-cards/crew-time-in?from&to`.
-- When the crew's day is grouped by `crewTableCounter`, the groups shall partition the crew's Time In total exactly (table count + no-table count = crew count), and the Crew Time In edit form shall show the table in `Table`.
-- Where a report parameter selects "by table" or "roll up to crew", PET Tiger shall report output per table or for the whole crew. _not automatable: reports not migrated to web (PET-12682)_
-- When a worker punches at the kiosk with a table selected, PET Pocket/kiosk shall capture the punch against that table. _not automatable: device capture; office receives the punches_
-- When a saved table's edit link is opened, PET Tiger shall show the record in the Edit Table form. _not automatable: `GET /crew-tables/{id}` answers 500 on dev (`Invalid object name 'ct.TimeStamp'`), so the Edit page cannot be exercised — product defect_
-- Save stays disabled until Name and Crew are set; leaving a dirty form asks "Save changes before leaving?" (Don't Save / Cancel / Save). _(POM) — page object behaviour, not asserted_
+- When the crew's four members are clocked in on Crew Time In (no table), and the three table workers are then clocked out on Crew Time Out with `C6 TABLE A` selected, PET Tiger saves one Time Out card per worker. The Crew Time Out edit page of each card shows `Table` = `C6 TABLE A` and `Crew` = `C6 CREW`.
+- When the supervisor is clocked out on Crew Time Out with no table, the edit page of that card shows an empty `Table` and `Crew` = `C6 CREW`.
+- The employees on the on-table time-outs, read from the View ▸ Time Cards record sheet, are exactly C6 TABLE ONE/TWO/THREE. The employee on the off-table time-out is exactly C6 SUPERVISOR.
+- The table partitions the crew's time-outs without loss or duplication: 3 on-table + 1 off-table = 4 time-outs, one per clocked-in member. View ▸ Time Cards for day −10 filtered to `C6 CREW` shows 8 rows (4 Time In + 4 Time Out).
+- Where a report parameter selects "by table" or "roll up to crew", PET Tiger reports output per table or for the whole crew. _not automatable: reports not migrated to web (PET-12682)_
+- When a worker punches at the kiosk with a table selected, the kiosk captures the punch against that table. _not automatable: device capture; the office receives the punches_
+- Crew Time In shows no Table picker (WEBPET-3734). _not asserted: product change, not this workflow's outcome_
+- Pieces by table (Crew Piece Out's Table). _deferred: no Crew Piece Out table helper; form not explored live_
+- When a saved table's edit link is opened, PET Tiger shows the Edit Table form. _not automatable: `GET /crew-tables/{id}` answers 500 on dev (`Invalid object name 'ct.TimeStamp'`) — product defect_
+- Crew Time Out Save stays disabled until a crew and at least one employee are set. Changing Crew clears Table. _(POM) — page object behaviour, not asserted_
 
 ## Screens and page objects
 
 | Screen | Menu path | Page object | Status |
 |---|---|---|---|
 | Sidebar | — | `src/pages/shell/LeftNavigationPage.ts` | exists |
-| Setup ▸ Table | `Setup ▸ Table` (between Ranch and Variety) | `src/pages/setup/CrewTablePage.ts` extends `SetupScreenPage` — `listUrl '/setup/crew-tables'`, `gridName 'Tables'`, `entity 'Table'` (buttons "New Table", links "Edit Table: <name>") | **new** |
-| Input ▸ Crew Time In (edit) | `Input ▸ Crew Time In` → row | read-only check of the `Table` combobox; direct URL `/input/crew-time-in/{timeCardCounter}` | none — two locators inline in the flow, or a small POM (Generator's call) |
-
-Picker labels: supervisor options read `"<exportIdentifier> : <name>"` when the employee has an
-export identifier, otherwise the bare name. The grid renders the supervisor surname-first
-("Annavarapu Chandra"), so assert the supervisor by counter on the API, not by grid text.
+| Setup ▸ Table | `Setup ▸ Table` | `src/pages/setup/CrewTablePage.ts` (via `ensureCrewTableOnScreen`) | exists |
+| Input ▸ Crew Time In (new) | `Input ▸ Crew Time In` → New | `src/pages/input/CrewTimeInPage.ts` | exists — Table support **removed** |
+| Input ▸ Crew Time Out (new + edit) | `Input ▸ Crew Time Out` → New / list row | `src/pages/input/CrewTimeOutPage.ts` | exists — **extend**: Table picker, roster narrowing, edit read-back |
+| View ▸ Time Cards | `View ▸ Time Cards` | `src/pages/processing/ViewTimeCardsPage.ts` | exists (sheet title matches `Edit Time (In\|Out)`) |
 
 ## Data
 
-- Journey C fixture (exists): crew `7001` "C6 CREW", table workers `7002`/`7003`/`7004`
-  "C6 TABLE ONE/TWO/THREE" (a table of three), supervisor `7005` "C6 SUPERVISOR" —
-  `src/data/journey-c/fixture.json`. Ensured by `journeyCFlow.prepareJourneyC`, never deleted,
-  guarded by `/^C\d{1,2} /`. Ranch `4001` / field `4101` / job `4201` reused read-only from Journey B.
-- Table name: `makeCrewTableName()` (prefix `E2ECrewTable_`), substituted as `{tableName}`.
-- Punch day: `dayOffset -10` (distinct from Journey B's 0…-9); fixed `punch` time, never `now`.
-- Scenario: `src/data/journey-c/c06-sub-crew-tables-capture.json` (`{ shared, cases }`), validated
-  by `CrewTableCaseSchema`. C6 has no `capture`; C6 has `capture.workerCodes`
-  `["7002","7003","7004"]` and `expected { cardType: 1, cardsOnTable: 3, cardsOffTable: 0 }`.
-- Specs import only `@utils/journeys/journeyCFlow` (no `@utils/api/*`). The fixture table is
-  ensured on screen by `ensureCrewTableOnScreen` (Setup ▸ Table) when missing.
+- Journey C fixture (exists, `src/data/journey-c/fixture.json`): crew `7001` "C6 CREW" (counter 2075 on dev), table workers `7002`/`7003`/`7004` "C6 TABLE ONE/TWO/THREE", supervisor `7005` "C6 SUPERVISOR", table **`C6 TABLE A`** (crew C6 CREW, supervisor 7005). The crew also owns `C6 TABLE B` and 11 undeletable `E2ECrewTable_*` leftovers. Fixture rows are ensured by `prepareJourneyC`, never deleted, and protected by `/^C\d{1,2} /`. Ranch `4001` / field `4101` / job `4201` are reused read-only from Journey B (the Crew Time In context).
+- Day: `dayOffset -10`, Journey C's own day (Journey B owns 0…−9). Fixed times, never `now`: time-in **07:15**, time-out **11:30**.
+- Scenario `src/data/journey-c/c06-sub-crew-tables-capture.json`, validated by `CrewTableCaseSchema`: `table { source: 'fixture', withSupervisor: true }`, `capture.workerCodes ["7002","7003","7004"]` (clocked out with the table), `capture.offTableCodes ["7005"]` (clocked out with no table), `expected { cardType: 0, cardsOnTable: 3, cardsOffTable: 1, crewDayRows: 8 }`.
+- The spec imports only `@utils/journeys/journeyCFlow`.
 
 ## Preconditions
 
-- [ ] `prepareJourneyC` ensures the fixture on screen (ranch, field, job, crew, the four employees with the C6 crew as home crew, the table) and runs the before-phase sweep for 7002–7005 on day −10.
-- [ ] Session API authenticated (`sessionApi`); CSRF double-submit as in `apiLogin.ts`.
-- [ ] GET `/crew-tables/{id}` answering 200 on dev (O1) — without it no table can be cleaned up.
+- [ ] `prepareJourneyC` ensures on screen: ranch, field, job, crew, the four employees (home crew C6 CREW, active) and `C6 TABLE A`. It then runs the before-phase sweep for 7002–7005 on day −10, card types 0 and 1. A leftover open time-in would otherwise show on the Crew Time Out roster.
+- [ ] The dev bundle includes web-pet #1526 and Crew Time Out still renders `Table` (O9).
+- [ ] Session API authenticated (`sessionApi`).
 
 ## API allowances
 
-Every call this spec makes outside the browser. **A step a user performs on screen has no row here**
-— the fixture rows' New/Edit forms and the Crew Time In punches are UI.
+Every call outside the browser. The Crew Time In and both Crew Time Out saves are UI and have no row here.
 
 | Step / call | Endpoint | Allowance | Why |
 |---|---|---|---|
-| fixture-row existence lookup | `GET crews` · `GET employees` · `GET jobs` · `GET ranches` · `GET fields` · `GET crew-tables` (+ `GET <entity>/{id}` for the repair check) | read | `ensureOnScreen`: existence is a GET, the create and the repair are UI |
-| binned fixture row restore | `POST <entity>/{id}/restore` | cleanup | undoes someone else's deletion; wrapped in `allowApiWrites('cleanup', ...)` inside `ensureOnScreen`. Not available for tables (`GET crew-tables/deleted` answers 500) |
-| card ids | `GET time-cards?from&to` | plumbing read | scoped to day −10 + the C6 crew + the four fixture employees, untransferred; polls until the saves land and records the ids for cleanup before any assertion; the screens (Crew Time In edit pages, View > Time Cards) prove the capture |
-| card sweep before/after | `DELETE time-cards/{id}` | cleanup | the `timeCards` cleanup step, by the ids recorded above |
+| fixture-row existence lookup | `GET crews` · `GET employees` · `GET jobs` · `GET ranches` · `GET fields` · `GET crew-tables` (+ `GET <entity>/{id}` repair check) | read | `ensureOnScreen`: existence is a GET; create and repair are UI |
+| binned fixture row restore | `POST <entity>/{id}/restore` | cleanup | inside `ensureOnScreen`; not available for tables (`GET crew-tables/deleted` 500) |
+| time-in card ids | `GET time-cards?from&to` | plumbing read | after the Crew Time In save: day −10, the 4 fixture employees, card type 1, untransferred. Polls to 4 and records the ids into the cleanup context **before** the time-outs, so a failed time-out still cleans the time-ins |
+| time-out card ids | `GET time-cards?from&to` | plumbing read | after both Crew Time Out saves: same scope, card type 0. Polls to 4 and appends the ids. The screens prove Table / Crew / employee |
+| card sweep before/after | `DELETE time-cards/{id}` | cleanup | `timeCards` step, card types [0, 1] |
 
-No write to a setup record outside a screen.
+No write to a setup record outside a screen. No `api-only-evidence`.
 
 ## Cleanup
 
-- Table: `{ kind: 'delete', entity: 'crewTable', name: '{tableName}' }`. The `crewTable` target
-  already exists in `cleanupTargets.ts` (listPath `crew-tables`, idKey `crewTableCounter`, order 38,
-  prefix `E2ECrewTable_`). DELETE `/crew-tables/{id}` needs `{ rowversion }`, and list rows carry
-  **no** `version`, so `deleteCrewTable` re-reads the detail — which 500s today (O1).
-- Cards: `{ kind: 'timeCards', employeeCodes: ['7002','7003','7004'], dayOffset: -10, cardTypes: [1] }`,
-  before and after. Delete cards **before** the table so no card references a deleted table.
-- No SQL, no UI delete (the Table screen has no list-level delete; More actions = Edit Widgets only).
+- Cards: `{ kind: 'timeCards', employeeCodes: ['7002','7003','7004','7005'], dayOffset: -10, cardTypes: [0, 1] }`, before (sweep by employee/day/type) and after (by the recorded ids: 4 time-ins + 4 time-outs).
+- The table is the fixed fixture row and is never deleted. No `crewTable` step.
+- No SQL, no UI delete.
 
 ## Test case
 
 | id | Title | Tags | Category | enabled |
 |---|---|---|---|---|
-| `C6` | Clock a table of three in and roll the day up to the crew | `regression` | workflow | 1 |
+| `C6` | Clock a table of three out against its table and roll the day up to the crew | `regression` | workflow | 1 |
 
 **Steps:**
-1. `prepareJourneyC` — ensure the crew, its members and the fixture table on screen, and sweep the fixture day.
-2. `captureByTable` — Crew Time In with the table selected (three workers), then with no table (the supervisor). Expect 3 on-table punches and 1 off-table.
-3. Read `GET time-cards/crew-time-in?from=day&to=day`, filtered to the returned references. Expect:
-   - 3 rows;
-   - each row's `crewTableCounter` = the table id and `crewTableName` = the table name;
-   - `crewCounter` = the C6 crew id;
-   - `employeeCounter` = the seeded worker ids.
-4. Roll-up over the same endpoint, filtered to the C6 crew: 3 on-table, 1 off-table, and
-   on + off = the crew's total for the day — a table groups the day, it never loses or duplicates.
-5. Open `/input/crew-time-in/{timeCardCounter}` for one card. Expect `Table` = the table name
-   and `Crew *` = "C6 CREW".
-6. Cleanup.
+1. `prepareJourneyC`: ensure the crew, its four members and `C6 TABLE A` on screen; sweep time-in and time-out cards for 7002–7005 on day −10.
+2. Input ▸ Crew Time In ▸ New: Date/Time = day −10 07:15, tick Use Employee Crew, Crew = C6 CREW, Ranch/Field/Phase = Journey B's 4001/4101/4201, roster narrowed to the four fixture members, Save, OK on the status dialog. Plumbing poll: 4 time-in cards; ids recorded for cleanup.
+3. Input ▸ Crew Time Out ▸ New: Date/Time = day −10 11:30, Crew = C6 CREW, **then** Table = C6 TABLE A. Narrow the roster to C6 TABLE ONE/TWO/THREE. No Pieces, no Phase. Save, then OK.
+4. Input ▸ Crew Time Out ▸ New: Date/Time = day −10 11:30, Crew = C6 CREW, Table left empty, roster narrowed to C6 SUPERVISOR (the only member still open), Save, OK. Plumbing poll: 4 time-out cards; ids appended for cleanup.
+5. For each time-out card: Input ▸ Crew Time Out list → day −10 → "Edit Crew Time Out: <reference>". Read `Table` and `Crew`. Then on View ▸ Time Cards (day −10, Apply), open each reference's record sheet and read Employee. Expect:
+ - 3 cards with Table = `C6 TABLE A`, whose employees are exactly {C6 TABLE ONE, TWO, THREE};
+ - 1 card with an empty Table, whose employee is C6 SUPERVISOR;
+ - Crew = `C6 CREW` on all 4.
+6. View ▸ Time Cards, day −10, Reference filter cleared, Work Crew = C6 CREW. Expect Total = 8 (4 Time In + 4 Time Out): the table groups the day, it never loses or duplicates.
+7. Cleanup: delete the 8 recorded cards.
 
-Green on dev staging 2026-09-28 (17.7 s).
+## Resolution history
 
-## Resolution (orchestrator, 2026-09-25 — API probe + dev API logs)
+- 2026-09-25: O1 `GET /crew-tables/{id}` / `GET /crew-tables/deleted` 500 (`Invalid object name 'ct.TimeStamp'`): tables cannot be deleted, so C6 uses the fixed `C6 TABLE A`. O2 `POST /crew-tables` returns only the counter; list rows carry no `version`. O5 uniqueness is per crew (409 "A table with this name already exists for this crew."). O6 pieces deferred. O7 off-table member, so the partition is 3 + 1. O8 employee rows untouched; table membership is the punch's Table selection.
+- 2026-09-28: green on dev (Crew Time In variant, 17.7 s).
+- 2026-10-29: WEBPET-3734 / web-pet #1526 removed Table from Crew Time In. Capture moved to Crew Time Out (this revision). Open: O9–O13 below.
 
-- **O1 confirmed, root cause found.** `GET /crew-tables/{id}` and `GET /crew-tables/deleted` fail
-  in the API with `mssql: Invalid object name 'ct.TimeStamp'` (Datadog, service tigerden env dev,
-  "crew-tables: get failed"). The query selects a rowversion column the CrewTable table lacks.
-  Product defect to file against web-pet; until fixed no table is deletable.
-- **O2: no.** `POST /crew-tables` answers `201 {"crewTableCounter": n}` only. List rows carry no
-  `version`. So the suite must not create disposable tables per run.
-- **O3: yes.** `GET time-cards/crew-time-in?from&to` lists the crew time-in punches with
-  `crewTableCounter`, `crewTableName`, `crewCounter`, `employeeCounter`, `reference`, `version`.
-  `journeyCFlow` reads that endpoint (`listCrewTimeIns`); the generic `time-cards` list is used
-  only to find the cards for cleanup.
-- **O4:** the Crew Time In edit form (`/input/crew-time-in/{timeCardCounter}`) is the UI check.
-- **O5:** uniqueness is **per crew**, server-side: 409 `A table with this name already exists for
-  this crew.` The page object's `rejectionMessage` matches that text or the generic toast.
-- **Design consequence of O1/O2:** C6 captures against a **fixed fixture table**
-  `C6 TABLE A` under crew 7001 (ensured through the API, protected name, never deleted). C6
-  still creates a run-unique table on screen — that is the workflow step — and declares it
-  `unremovable` (one leaked row per run until the defect is fixed; then switch the step to
-  `delete`). The "reopen the saved table" assertion (`C6`) is isolated in **C6**, kept
-  `enabled=0` with the defect in its runner description so the package stays green without hiding it.
-- **O6:** pieces-by-table deferred; the suite has no crew piece-out helper (candidate C6).
-- **O7:** yes — the supervisor 7005 is clocked in with no table (`capture.offTableCodes`), so the
-  roll-up partitions 3 on-table + 1 off-table = 4.
-- **O8:** no — employee rows stay untouched (fixture hygiene); table membership is expressed by the
-  time-in's Table selection, as the catalog's step 2 does.
-- Rows left on dev by the exploration: `E2ECrewTable_PLAN_0937` (id 2, Planner) and
-  `E2ECrewTable_PROBE_…` (id 3, orchestrator probe); undeletable until the fix. Remove by hand then.
+## Open questions (live check before generating)
+
+- O9 Does app.ptdev.xyz serve a bundle with #1526? On it, Crew Time In must show no Table and Crew Time Out must show `Table` (`#crewTableCounter`, a fillable input) listing `C6 TABLE A` once C6 CREW is picked.
+- O10 Does the Crew Time Out roster use the same `Select All`/`Deselect All` toggle and checkbox labels (`<code>: <name>` or `: <name>`) as Crew Time In, all ticked by default?
+- O11 Does each fanned-out time-out persist `crewTableCounter` and `crewCounter`? Does `/input/crew-time-out/{id}` show Table (no placeholder text as its value when empty) and Crew?
+- O12 Does the Crew Time Out list use the same date-range control as Crew Time In? Is its row link named `Edit Crew Time Out: <reference>`, with each fanned-out card having its own reference?
+- O13 Do time-out rows show under the C6 CREW Work Crew chip on View ▸ Time Cards (so the total is 8), and does the Edit Time Out sheet fill `#employeeCounter`?

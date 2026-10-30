@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CleanupStepSchema } from './cleanupStep';
+import { ImportLogJsonSchema } from './journeyBScenario';
 
 // Journey D (office processing engine). D6 is the office-side "recalculate after setup change"
 // workflow: seed a crew day, run a real transfer, raise the job's piece rate, then recalculate
@@ -280,6 +281,10 @@ export const JourneyD3CorrectionCaseSchema = z
                 emptyCell: z.string().min(1),
                 blockingIssuesFixed: z.number().int().positive(),
                 jobCards: z.number().int().min(0),
+                /** The seed file's Import Log row. */
+                importLog: ImportLogJsonSchema,
+                /** The seed envelope's element names per section (checked offline in tests/tools/envelope-section-tags.unit.spec.ts). */
+                envelope: z.object({ sectionTags: z.record(z.string(), z.array(z.string().min(1))) }).strict(),
             })
             .strict(),
         annotations: z.array(z.object({ type: z.string().min(1), description: z.string().min(1) }).strict()).default([]),
@@ -291,6 +296,9 @@ export const JourneyD3CorrectionCaseSchema = z
             ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
         // Journey B owns 0..-9, C -10, D6 -11, D9 -12, D10 -13, E2 -14.
         if (s.dayOffset !== -15) issue(['dayOffset'], 'D3 owns fixture day -15');
+        for (const node of ['TimeCard', 'TimeOut']) {
+            if (!s.expected.envelope.sectionTags[node]) issue(['expected', 'envelope', 'sectionTags', node], `the seed envelope carries a <${node}_Records> section`);
+        }
         if (s.expected.jobCards !== 0) issue(['expected', 'jobCards'], 'D3 commits nothing, so no job card is expected');
         const timeIn = s.records.filter((r) => r.part === 'TI');
         const timeOut = s.records.filter((r) => r.part === 'TO');

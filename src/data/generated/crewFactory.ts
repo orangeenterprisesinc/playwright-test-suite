@@ -1,10 +1,14 @@
-import { cleanupTarget } from '../static/shared/cleanupTargets';
-import { uniqueName } from '../../utils/cleanup/runToken';
+import { cleanupTarget, isSweepable } from '../static/shared/cleanupTargets';
+import { readableName } from '../../utils/cleanup/runToken';
 
-// The sweep's own `factory` prefix for crews, so whatever this mints the sweep can date and reclaim.
-const PREFIX = cleanupTarget('crew').prefixes.find((p) => p.token === 'factory')!.prefix.replace(/_$/, '');
+// The sweep's own `readable` row for crews, so whatever this mints the sweep can date and reclaim.
+const NOUN = cleanupTarget('crew').prefixes.find((p) => p.token === 'readable')!.prefix.replace(/^NEW /, '');
+const MAX_LENGTH = 30;
 
-/** A run-unique crew name: `E2ECrew_<RUN_TOKEN>_<seq>`. */
-export function makeCrewName(): string {
-    return uniqueName(PREFIX);
+/** A run-tagged crew name: `<owner> NEW CREW <MMDD-HHmmss UTC>-W<worker>`, e.g. `A4 NEW CREW 1029-153245-W1`. */
+export function makeCrewName(owner: string): string {
+    const name = readableName(owner, NOUN);
+    if (!isSweepable('crew', name)) throw new Error(`makeCrewName: '${name}' is not a name the residue sweep reclaims (cleanupTargets.ts)`);
+    if (name.length > MAX_LENGTH) throw new Error(`makeCrewName: '${name}' is ${name.length} chars, over the crew limit of ${MAX_LENGTH}`);
+    return name;
 }

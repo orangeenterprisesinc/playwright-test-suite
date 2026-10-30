@@ -47,6 +47,9 @@
       "sections": [
         "PieceOut"
       ],
+      "sectionTags": {
+        "PieceOut": ["PieceOut","Reference","PieceOutDate","PieceOutTime","Employee","Crew","Job","NumOfPieces","GpsReading","TraceabilityCode","UpdateTime","PictureVerification","Signature","Memo","EmployeeSource"]
+      },
       "referenceParts": [
         "PO"
       ],
@@ -73,6 +76,7 @@
         "pieces": 1
       }
     ],
+    "importLog": { "status": "completed", "recordsImported": "1", "recordsFailed": "0" },
     "absentCardType": 1,
     "grid": {
       "texts": [

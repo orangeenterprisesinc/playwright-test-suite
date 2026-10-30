@@ -24,7 +24,8 @@ import {
 
 // Journey C: the kiosk is the real capture surface and has no office-side automation. This layer
 // owns the office half: the crew and its workers, the table (minted name or fixed fixture row), the
-// punches entered on Input > Batch > Crew Time In, and the day's punches grouped by table.
+// crew clocked in on Input > Batch > Crew Time In (no table since WEBPET-3734), clocked out on Crew
+// Time Out (the table), and the day's punches grouped by table.
 
 export interface JourneyCRun {
     /** The case with `{tableName}` substituted. */
@@ -38,7 +39,7 @@ export interface JourneyCRun {
     supervisor: EnsuredRecord;
     /** Fixture workers in `capture.workerCodes` order (empty for a setup-only case). */
     workers: EnsuredRecord[];
-    /** Fixture members clocked in with no table, in `capture.offTableCodes` order. */
+    /** Fixture members clocked out with no table, in `capture.offTableCodes` order. */
     offTable: EnsuredRecord[];
     punchDate: Date;
     /** `YYYY-MM-DD` of the fixture day. */
@@ -122,14 +123,17 @@ export async function prepareJourneyC(
 }
 
 export interface CaptureResult {
-    /** References in the order the server created them: on-table workers first, then off-table. */
-    references: string[];
+    /** The crew's Time In cards (card type 1), one per member. */
+    timeIns: OfficeTimeCard[];
+    /** The Time Out cards (card type 0): on-table workers first, then off-table. */
+    timeOuts: OfficeTimeCard[];
 }
 
 /**
- * Clock the run's workers in against the table on Input > Batch > Crew Time In, then the off-table
- * members with no table. The card ids are recorded (plumbing poll) before the caller asserts
- * anything, so cleanup knows them even when an assertion fails; the screens prove the capture.
+ * Clock the whole crew in on Input > Batch > Crew Time In (no table), then the table's workers out
+ * on Crew Time Out with the table and the off-table members out with none. The card ids are
+ * recorded (plumbing poll) before the caller asserts anything, so cleanup knows them even when a
+ * later step fails; the screens prove the capture.
  */
 export async function captureByTable(
     run: JourneyCRun,
@@ -137,62 +141,76 @@ export async function captureByTable(
 ): Promise<CaptureResult> {
     const { sessionApi, pages } = opts;
     if (!run.table) throw new Error(`${run.scenario.label}: no table record to capture against`);
-    if (!run.workers.length) throw new Error(`${run.scenario.label}: no capture.workerCodes, nothing to clock in`);
-    const { hour, minute } = run.scenario.punch;
-    const context = {
+    if (!run.workers.length) throw new Error(`${run.scenario.label}: no capture.workerCodes, nothing to clock out`);
+    const { timeIn, timeOut } = run.scenario;
+    const crew = run.office.crew.name;
+    const members = [...run.workers, ...run.offTable];
+    const employeeIds = new Set(members.map((w) => w.id));
+
+    // The crew is left out of the poll's filter so the screens, not the poll, prove the card's crew.
+    const pollCards = async (cardType: number): Promise<OfficeTimeCard[]> => {
+        let cards: OfficeTimeCard[] = [];
+        await expect(async () => {
+            cards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter(
+                (c) => Number(c.cardType) === cardType && c.transferred !== true && employeeIds.has(Number(c.employeeCounter)),
+            );
+            expect(cards).toHaveLength(members.length);
+        }).toPass({ timeout: 60_000 });
+        return cards;
+    };
+
+    await pages.crewTimeIn.punchIn({
         day: run.day,
-        hour,
-        minute,
-        crew: run.office.crew.name,
+        ...timeIn,
+        crew,
         ranch: run.office.ranch.name,
         field: run.office.field.name,
         job: run.office.job.name,
-    };
+        employees: members.map((w) => w.name),
+    });
+    const timeIns = await pollCards(CARD_TYPE.timeIn);
+    run.ctx.cards = timeIns;
 
-    await pages.crewTimeIn.punchIn({ ...context, table: run.tableName, employees: run.workers.map((w) => w.name) });
+    await pages.crewTimeOut.punchOut({
+        day: run.day,
+        ...timeOut,
+        crew,
+        table: run.tableName,
+        employees: run.workers.map((w) => w.name),
+    });
     if (run.offTable.length) {
-        await pages.crewTimeIn.punchIn({ ...context, employees: run.offTable.map((w) => w.name) });
+        await pages.crewTimeOut.punchOut({ day: run.day, ...timeOut, crew, employees: run.offTable.map((w) => w.name) });
     }
+    const timeOuts = await pollCards(CARD_TYPE.timeOut);
+    run.ctx.cards = [...timeIns, ...timeOuts];
 
-    const crewId = run.office.crew.id;
-    const employeeIds = new Set([...run.workers, ...run.offTable].map((w) => w.id));
-    const expectedCount = run.workers.length + run.offTable.length;
-    let cards: OfficeTimeCard[] = [];
-    await expect(async () => {
-        cards = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter(
-            (c) =>
-                Number(c.crewCounter) === crewId &&
-                Number(c.cardType) === CARD_TYPE.timeIn &&
-                c.transferred !== true &&
-                employeeIds.has(Number(c.employeeCounter)),
-        );
-        expect(cards).toHaveLength(expectedCount);
-    }).toPass({ timeout: 60_000 });
-    run.ctx.cards = cards;
-
-    return { references: cards.map((c) => String(c.reference ?? '')) };
+    return { timeIns, timeOuts };
 }
 
 export interface CapturedPunch {
     reference: string;
-    /** The Table picker's value on the saved punch; '' when none was chosen. */
+    /** The Table picker's value on the saved time-out; '' when none was chosen. */
     table: string;
     crew: string;
     /** Run employee the saved punch belongs to, by name (one time card = one employee); [] if none matched. */
     employees: string[];
 }
 
-/** Reopens each captured punch on Crew Time In for Table and Crew, then reads its employee from View > Time Cards. */
-export async function readCapturedPunchesOnScreen(run: JourneyCRun, pages: PageObjects): Promise<CapturedPunch[]> {
+/** Reopens each Time Out on Crew Time Out for Table and Crew, then reads its employee from View > Time Cards. */
+export async function readCapturedPunchesOnScreen(
+    run: JourneyCRun,
+    pages: PageObjects,
+    timeOuts: OfficeTimeCard[],
+): Promise<CapturedPunch[]> {
     const names = [...run.workers, ...run.offTable].map((w) => w.name);
-    const page = pages.crewTimeIn;
+    const page = pages.crewTimeOut;
     const punches: CapturedPunch[] = [];
-    // `run.ctx.cards` was recorded by captureByTable's poll (plumbing), before anything is asserted.
-    for (const card of run.ctx.cards ?? []) {
+    // `timeOuts` was recorded by captureByTable's poll (plumbing), before anything is asserted.
+    for (const card of timeOuts) {
         const reference = String(card.reference ?? '');
         await page.gotoEdit({ day: run.day, reference });
         // The pickers fill after the form renders; Crew is always set, so it marks the Table picker as readable too.
-        await expect.poll(() => page.readCrew(), { timeout: 15_000, message: `${reference}: the Crew Time In form never filled its Crew` }).not.toBe('');
+        await expect.poll(() => page.readCrew(), { timeout: 15_000, message: `${reference}: the Crew Time Out form never filled its Crew` }).not.toBe('');
         punches.push({ reference, table: await page.readTable(), crew: await page.readCrew(), employees: [] });
     }
 

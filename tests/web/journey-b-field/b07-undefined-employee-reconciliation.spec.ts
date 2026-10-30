@@ -10,7 +10,6 @@ import {
     assertImportedRows,
     cardOf,
     codeHistoryOf,
-    importLogRowFor,
     journeyBPreconditions,
     memoOnScreen,
     referencePart,
@@ -66,16 +65,8 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         // NOT padded to get past it (see the JSON's _notes and the product-defect annotation).
         // Soft, so one run still exercises and reports the Undefined-Employee half
         // of the workflow, which does not depend on the assignment. The test still fails; it
-        // just stops hiding everything behind the first error. Status and run are read off the
-        // Internet Import Log, the screen the office uses.
-        if (deviceA.file) {
-            const log = await importLogRowFor(pages, deviceA);
-            expect.soft(
-                log.status.toLowerCase(),
-                `Import Log status of ${deviceA.envelope.fileName} (run ${deviceA.runId}): ${JSON.stringify(log)}`,
-            ).toBe(wantA.importStatus);
-            expect.soft(log.run, `Import Log run of ${deviceA.envelope.fileName}`).toBe(String(deviceA.runId));
-        }
+        // just stops hiding everything behind the first error. The flow reads device A's Import Log
+        // row softly (softImportLog in the JSON), on the Internet Import Log screen.
 
         expect(deviceB.envelope.sections).toEqual(wantB.envelope.sections);
         for (const absent of wantB.envelope.absentSections!) {
@@ -85,14 +76,6 @@ test.describe('B7 · Undefined-employee reconciliation', { tag: ['@JourneyB', '@
         expect(deviceB.envelope.employeeSources, 'exactly two AlternateCode-sourced piece-outs').toEqual(wantB.envelope.employeeSources);
         expect(deviceB.envelope.pieceCounts, 'exactly two single-piece piece-outs').toEqual(wantB.envelope.pieceCounts);
         expect(deviceB.envelope.references, 'device B sends two cards').toHaveLength(recordsOf(wantB.device).length);
-        if (deviceB.file) {
-            const log = await importLogRowFor(pages, deviceB);
-            expect(
-                log.status.toLowerCase(),
-                `Import Log status of ${deviceB.envelope.fileName} (run ${deviceB.runId}): ${JSON.stringify(log)}`,
-            ).toBe(wantB.importStatus);
-            expect(log.run, `Import Log run of ${deviceB.envelope.fileName}`).toBe(String(deviceB.runId));
-        }
 
         // Employee, crew, ranch, field, job, source, traceability and pieces of all three cards are compared
         // on the Transfer rows here.

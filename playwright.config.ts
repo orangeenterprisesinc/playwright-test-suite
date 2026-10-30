@@ -238,6 +238,9 @@ export default defineConfig({
     // See resolveRetries() above.
     retries: resolveRetries(),
 
+    // Journey specs run for minutes by design; the "Slow test file" list was noise.
+    reportSlowTests: null,
+
     // 2 everywhere, CI and local. Set WORKERS to change the default without
     // editing this file — that is the env the workflows' `workers` dispatch
     // input already arrives as. The CLI `--workers` still wins over both.

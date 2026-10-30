@@ -5,7 +5,7 @@ import type { TransferRowView } from '@pages/processing/TransferToJobCardsPage';
 import type { CodeHistoryRow } from '@pages/setup/EmployeePage';
 import { relayConfig, type RelayConfig } from '@config/relay.config';
 import { B9_PAID_BREAK, JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b/fixture';
-import { UNDEFINED_EMPLOYEE, type JourneyBScenario } from '@data/schemas/journeyBScenario';
+import { UNDEFINED_EMPLOYEE, type ImportLogJson, type JourneyBScenario } from '@data/schemas/journeyBScenario';
 import {
     annotateIfImportCircuitOpen,
     journeyBTestTimeoutMs,
@@ -819,6 +819,11 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             testInfo,
         });
         await testInfo.attach(`time-cards-${run.scenario.label}.json`, { body: JSON.stringify(cards, null, 2), contentType: 'application/json' });
+        // A peer-drained file (no `file`) keeps today's skip: its Import Log row sits in the peer's run.
+        for (const delivery of deliveries) {
+            const want = run.scenario.expected.devices?.find((d) => d.device === delivery.id);
+            if (want && delivery.file) await assertDelivery(pages, delivery, want, run.scenario.label, { softImportLog: want.softImportLog });
+        }
     } else {
         const send = await sendEnvelope(run, built[0].envelope, relayConfig().office, testInfo);
         deliveries = [{ id: built[0].id, envelope: built[0].envelope, send, runId: null, file: null }];
@@ -849,6 +854,8 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
         });
         cards = ctx.cards = importRun.cards;
         after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistorySnapshot() : null;
+        if (!pages) throw new Error(`${run.scenario.label}: the Import Log is read on screen — destructure { pages } in the spec`);
+        await assertDelivery(pages, deliveries[0], run.scenario.expected, run.scenario.label);
     }
 
     const codeHistory = before && after ? { employeeIds: hookEmployeeIds, before, after } : null;
@@ -1045,6 +1052,40 @@ export async function importLogRowFor(pages: PageObjects, delivery: DeviceDelive
     await log.filterBySource('Webmail');
     await log.filterByFile(delivery.envelope.fileName);
     return log.readRow(delivery.envelope.fileName);
+}
+
+interface DeliveryWant {
+    importLog?: ImportLogJson;
+    envelope?: { sectionTags?: Record<string, string[]> };
+}
+
+/**
+ * What every delivered file owes: the element names inside each of its sections (offline, from the
+ * envelope) and its Import Log row (on screen). A partial import shows there as a non-completed
+ * status or a failed count, whatever the transport.
+ */
+export async function assertDelivery(
+    pages: PageObjects,
+    delivery: DeviceDelivery,
+    want: DeliveryWant,
+    label: string,
+    opts: { softImportLog?: boolean } = {},
+): Promise<void> {
+    const file = delivery.envelope.fileName;
+    for (const [node, tags] of Object.entries(want.envelope?.sectionTags ?? {})) {
+        expect(delivery.envelope.sectionTags[node], `${label}: element names inside <${node}_Records> of ${file}`).toEqual(tags);
+    }
+    if (!want.importLog) return;
+    const row = await importLogRowFor(pages, delivery);
+    const check = (actual: string, expected: string, what: string): void => {
+        const message = `${label}: Import Log ${what} of ${file}${delivery.runId != null ? ` (run ${delivery.runId})` : ''}: ${JSON.stringify(row)}`;
+        if (opts.softImportLog) expect.soft(actual, message).toBe(expected);
+        else expect(actual, message).toBe(expected);
+    };
+    check(row.status.toLowerCase(), want.importLog.status.toLowerCase(), 'status');
+    check(row.recordsImported, want.importLog.recordsImported, 'records imported');
+    check(row.recordsFailed, want.importLog.recordsFailed, 'records failed');
+    if (delivery.runId != null) check(row.run, String(delivery.runId), 'run');
 }
 
 /**
