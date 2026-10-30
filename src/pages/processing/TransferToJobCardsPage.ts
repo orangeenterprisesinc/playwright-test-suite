@@ -651,7 +651,12 @@ export class TransferToJobCardsPage extends BasePage {
 
     /** Opens Multi-Edit on the currently selected rows via the "Multi Update" toolbar button. */
     async openMultiEdit(): Promise<void> {
-        await this.multiUpdateButton.click();
+        // Since web-pet #1522 the header "Multi Update" is the mode toggle (clicking it again clears the
+        // selection); the dialog opens from the selection bar's "More actions" menu.
+        await this.enterMultiUpdateMode();
+        const bar = this.page.getByRole('region', { name: 'Selected rows actions' });
+        await bar.getByRole('button', { name: 'More actions' }).click();
+        await this.page.getByRole('menuitem', { name: /^Multi Update$/i }).click();
         await this.multiEdit.waitForOpen();
     }
 

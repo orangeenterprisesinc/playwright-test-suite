@@ -115,7 +115,13 @@ export async function pushAndPull(run: DeviceScopeRun, pages: PageObjects, testI
     // Anything already queued for this mailbox would be pulled instead of ours.
     await drainMailbox(url, run.mailbox.address);
     const { destination } = await pages.scanDevice.pushToDevice();
-    const pulled = await pullFromRelay(url, run.mailbox.address);
+    // The push panel reports success before the relay has the message (CI 2026-10-28: one pull right
+    // after it read nothing, the retry read the file), so pull like a device would, for a bounded while.
+    let pulled: PulledMessage | null = null;
+    const deadline = Date.now() + 60_000;
+    while (!(pulled = await pullFromRelay(url, run.mailbox.address)) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
     run.mailbox.pulled = pulled;
     if (pulled) await testInfo.attach('scan-device-export.xml', { body: pulled.attachment, contentType: 'application/xml' });
     return { destination, pulled, export: pulled ? setupExportView(pulled.attachment) : null };
