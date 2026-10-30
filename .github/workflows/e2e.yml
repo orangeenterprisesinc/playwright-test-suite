@@ -36,7 +36,7 @@ on:
         type: choice
         required: false
         default: journey
-        options: [journey, webpet, both]
+        options: [journey, client-feedback, webpet, both]
       grep:
         description: 'Only run tests matching this tag/pattern (journey: @JourneyA, @A1, @Smoke — webpet: employee, "Billing Center"). Blank = whole suite.'
         required: false
@@ -67,7 +67,7 @@ on:
   workflow_call:
     inputs:
       suite:
-        description: 'journey (default) or webpet.'
+        description: 'journey (default), client-feedback or webpet.'
         type: string
         required: false
         default: journey
@@ -162,7 +162,7 @@ jobs:
           fi
 
   e2e:
-    name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || 'Playwright E2E' }}
+    name: ${{ matrix.suite == 'webpet' && 'WebPet Playwright E2E (dev staging)' || matrix.suite == 'client-feedback' && 'Client Feedback Playwright E2E' || 'Playwright E2E' }}
     needs: route
     if: needs.route.outputs.skip != 'true'
     # Pinned: Playwright 1.58.2 has no Chromium build for ubuntu-latest (26.04 since 2026-10-30).
@@ -173,7 +173,8 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON((github.event_name == 'schedule' || inputs.suite == 'both') && '["journey","webpet"]' || format('["{0}"]', inputs.suite || 'journey')) }}
+        # The client-feedback leg joins the cron only while the CF_SUITE_ENABLED repo variable is 'yes' (off by default).
+        suite: ${{ fromJSON((github.event_name == 'schedule' || inputs.suite == 'both') && (vars.CF_SUITE_ENABLED == 'yes' && '["journey","client-feedback","webpet"]' || '["journey","webpet"]') || format('["{0}"]', inputs.suite || 'journey')) }}
     # A Journey B spec may legitimately wait out the 20-min import ceiling; every lower cap
     # (15/30/45/60) cancelled a red run before it could report. PW_GLOBAL_TIMEOUT_MS sits 5 min under.
     timeout-minutes: 90
@@ -208,7 +209,7 @@ jobs:
       IMPORT_POLL_TIMEOUT_MS: '1200000'
       IMPORT_STALL_MS: '480000'
       # Journey only: stop once a dev-wide outage has failed 6 tests instead of riding out all 44.
-      MAX_FAILURES: ${{ matrix.suite == 'journey' && '6' || '' }}
+      MAX_FAILURES: ${{ matrix.suite == 'journey' && '6' || matrix.suite == 'client-feedback' && '15' || '' }}
       # OFFICE_TRANSPORT_SUBSTITUTE stays unset: it would turn a broken import green.
       # Email reporting is off (Slack is primary), but SMTP_* / EMAIL_* also feed UI-005
       # (tests/web/system/notification-email.spec.ts), so the secrets stay.
@@ -227,7 +228,7 @@ jobs:
       SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
       SLACK_ATTACH_ALLURE: ${{ vars.SLACK_ATTACH_ALLURE }}
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
-      SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || 'User Journey') }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || matrix.suite == 'client-feedback' && 'Client Feedback' || 'User Journey') }}
       # SLACK_EXECUTION_LABEL is exported by a step below; a job-level entry would shadow it.
       # src/utils/cleanup/residueSweep.ts: 0 disables, dry reports only. The age gate protects runs in progress.
       RESIDUE_SWEEP: ${{ vars.RESIDUE_SWEEP || '' }}
@@ -375,6 +376,8 @@ jobs:
             ARGS+=(--project=webpet --workers="$W")
           else
             # playwright.config.ts reads WORKERS; empty (cron, push) means its default of 2.
+            # The journey leg leaves tests/web/client-feedback to its own leg, so its runtime and MAX_FAILURES stay its own.
+            if [ "$SUITE" = "client-feedback" ]; then ARGS+=(tests/web/client-feedback); else ARGS+=(--grep-invert @ClientFeedback); fi
             echo "Workers: ${WORKERS:-2 (default)}"
           fi
           if [ -n "$FILTER" ]; then
@@ -418,14 +421,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-playwright-report' || 'playwright-report' }}
+          name: ${{ matrix.suite == 'webpet' && 'webpet-playwright-report' || matrix.suite == 'client-feedback' && 'cf-playwright-report' || 'playwright-report' }}
           path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || 'allure-report' }}
+          name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || matrix.suite == 'client-feedback' && 'cf-allure-report' || 'allure-report' }}
           path: artifacts/allure/report
 
       # Fails when the sweeps found residue and deleted none (run 35589360814 went green on that).
@@ -435,14 +438,14 @@ jobs:
 
       # The UI-first burn-down list; warn mode until the journey conversion is done.
       - name: Audit UI-first API writes
-        if: always() && matrix.suite == 'journey'
+        if: always() && matrix.suite != 'webpet'
         run: npm run ui-first:audit
 
       - name: Upload residue-sweep summaries
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-residue-sweep' || 'residue-sweep' }}
+          name: ${{ matrix.suite == 'webpet' && 'webpet-residue-sweep' || matrix.suite == 'client-feedback' && 'cf-residue-sweep' || 'residue-sweep' }}
           path: |
             artifacts/results/residue-sweep-*.json
             artifacts/results/fixture-reconcile-*.json

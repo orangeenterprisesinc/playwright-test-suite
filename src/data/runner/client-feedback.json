@@ -25,6 +25,1098 @@
             "jira": "WEBPET-3064",
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "WEBPET-3184",
+            "category": "ui",
+            "testName": "cf3184ClickingTransferToJobCardsCompletesThe",
+            "testTitle": "Clicking Transfer to Job Cards completes the transfer without the Transfer result expired error",
+            "testDescription": "Client feedback: Clicking Transfer to Job Cards completes the transfer without the Transfer result expired error. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3184",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3301",
+            "category": "ui",
+            "testName": "cf3301ACrewTimeInForPhase0",
+            "testTitle": "A Crew Time In for Phase 0 - Lunch on Transfer to Job Cards saves without the Something went wrong error",
+            "testDescription": "Client feedback: A Crew Time In for Phase 0 - Lunch on Transfer to Job Cards saves without the Something went wrong error. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3301|WEBPET-3282",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3461",
+            "category": "ui",
+            "testName": "cf3461AJobCardReportRunsFromView",
+            "testTitle": "a job card report runs from View > Job Cards without the 'more than 8750 lines' error",
+            "testDescription": "Client feedback: Smoke: a job card report runs from View > Job Cards without the 'more than 8750 lines' error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs a full week with thousands of report lines; dev's small data never reaches 8,750 lines.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3461",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3492",
+            "category": "ui",
+            "testName": "cf3492TheExportButtonCountEqualsTheNumber",
+            "testTitle": "The Export button count equals the number of job cards matched without scrolling through the grid",
+            "testDescription": "Client feedback: The Export button count equals the number of job cards matched without scrolling through the grid. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3492",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-2906",
+            "category": "ui",
+            "testName": "cf2906DeletingJobCardsMakesTheTransferredPiece",
+            "testTitle": "Deleting job cards makes the transferred Piece Out time cards available again on Transfer to Job Cards",
+            "testDescription": "Client feedback: Deleting job cards makes the transferred Piece Out time cards available again on Transfer to Job Cards. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-2906",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-2954",
+            "category": "ui",
+            "testName": "cf2954AfterATransferTheJobCardsView",
+            "testTitle": "After a transfer, the Job Cards view has a Reverse button; clicking it returns to Transfer to Job Cards with the time ca",
+            "testDescription": "Client feedback: After a transfer, the Job Cards view has a Reverse button; clicking it returns to Transfer to Job Cards with the time cards already loaded. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-2954",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3135",
+            "category": "ui",
+            "testName": "cf3135ViewJobCardsLoadsJobCardsFor",
+            "testTitle": "View > Job Cards loads job cards for one crew without the Failed to load job cards error",
+            "testDescription": "Client feedback: Smoke: View > Job Cards loads job cards for one crew without the Failed to load job cards error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: The failure was a timeout on a very large client; dev data is small.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3135",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3180",
+            "category": "ui",
+            "testName": "cf3180TheMultiUpdateEmployeeListShowsExport",
+            "testTitle": "The Multi Update employee list shows 'Export ID : Name' for each employee",
+            "testDescription": "Client feedback: The Multi Update employee list shows 'Export ID : Name' for each employee. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3180|WEBPET-3254",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3181",
+            "category": "ui",
+            "testName": "cf3181InViewTimeCardsMultiUpdateTyping",
+            "testTitle": "In View > Time Cards Multi Update, typing in the Employee value box shows the typed text and finds matching employees",
+            "testDescription": "Client feedback: In View > Time Cards Multi Update, typing in the Employee value box shows the typed text and finds matching employees. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3181",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3183",
+            "category": "ui",
+            "testName": "cf3183TheDateRangePickerSitsTopLeft",
+            "testTitle": "The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column",
+            "testDescription": "Client feedback: The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3183",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3314",
+            "category": "ui",
+            "testName": "cf3314IndividualAndCrewPieceOutsAcrossTwo",
+            "testTitle": "Individual and crew piece-outs across two days all pair and show no unpaired warnings",
+            "testDescription": "Client feedback: Individual and crew piece-outs across two days all pair and show no unpaired warnings. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3314",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3462",
+            "category": "ui",
+            "testName": "cf3462ReportsInputJobCardOpensTheJob",
+            "testTitle": "Reports > Input > Job Card opens the Job Card Report Selection screen with a working selection and Execute",
+            "testDescription": "Client feedback: Reports > Input > Job Card opens the Job Card Report Selection screen with a working selection and Execute. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3462",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3574",
+            "category": "ui",
+            "testName": "cf3574AMultiEditOnViewTimeCards",
+            "testTitle": "A Multi Edit on View > Time Cards can be reversed with Undo and the old value returns",
+            "testDescription": "Client feedback: A Multi Edit on View > Time Cards can be reversed with Undo and the old value returns. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3574",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3689",
+            "category": "ui",
+            "testName": "cf3689ExportToAccountingShowsTheJobCards",
+            "testTitle": "Export to Accounting shows the job cards as Ready and none as Needs re-export when nothing changed after export",
+            "testDescription": "Client feedback: Smoke: Export to Accounting shows the job cards as Ready and none as Needs re-export when nothing changed after export. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs about 2,494 job cards reset by Multi Edit; dev has a few cards.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3689",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3889",
+            "category": "ui",
+            "testName": "cf3889SeveralCheckedTimeCardsCanBeDeleted",
+            "testTitle": "Several checked time cards can be deleted together on View > Time Cards",
+            "testDescription": "Client feedback: Several checked time cards can be deleted together on View > Time Cards. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3889",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3781",
+            "category": "ui",
+            "testName": "cf3781EveryReportsInputScreenEGTime",
+            "testTitle": "Every Reports > Input screen (e.g. Time In) opens a legacy-style selection screen with Execute, Load and Save",
+            "testDescription": "Client feedback: Every Reports > Input screen (e.g. Time In) opens a legacy-style selection screen with Execute, Load and Save. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3781",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3819",
+            "category": "ui",
+            "testName": "cf3819ReportsCanBeRunOnViewTime",
+            "testTitle": "Reports can be run on View > Time Cards when a Time Card Crew filter is applied",
+            "testDescription": "Client feedback: Reports can be run on View > Time Cards when a Time Card Crew filter is applied. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3819",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3829",
+            "category": "ui",
+            "testName": "cf3829ClickingReportOnTransferToJobCards",
+            "testTitle": "Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away",
+            "testDescription": "Client feedback: Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3829",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-2982",
+            "category": "ui",
+            "testName": "cf2982HidePieceOutsHidesThePieceOut",
+            "testTitle": "Hide piece-outs hides the piece-out rows but the Pieces total stays the same",
+            "testDescription": "Client feedback: Hide piece-outs hides the piece-out rows but the Pieces total stays the same. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-2982",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-2986",
+            "category": "ui",
+            "testName": "cf2986TheSingleSelectSwitchLetsTheWork",
+            "testTitle": "The Single select switch lets the Work Crew and Employee filters step through values with the arrow keys",
+            "testDescription": "Client feedback: The Single select switch lets the Work Crew and Employee filters step through values with the arrow keys. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-2986",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3133",
+            "category": "ui",
+            "testName": "cf3133AnEmployeeSPunchesOnViewTime",
+            "testTitle": "An employee's punches on View > Time Cards read oldest first (Time In first, Time Out last) when sorted by Employee",
+            "testDescription": "Client feedback: An employee's punches on View > Time Cards read oldest first (Time In first, Time Out last) when sorted by Employee. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3133",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3138",
+            "category": "ui",
+            "testName": "cf3138OnViewTimeCardsTheScreenKeeps",
+            "testTitle": "On View > Time Cards the screen keeps the earlier filter when you come back, waits for Apply Filter, and the top section",
+            "testDescription": "Client feedback: On View > Time Cards the screen keeps the earlier filter when you come back, waits for Apply Filter, and the top section can be hidden. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3138",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3283",
+            "category": "ui",
+            "testName": "cf3283TheCrewInEmployeeListShowsExport",
+            "testTitle": "The Crew In employee list shows Export ID : Name",
+            "testDescription": "Client feedback: The Crew In employee list shows Export ID : Name. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3283",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3423",
+            "category": "ui",
+            "testName": "cf3423RecalculateOnAJobCardWorksWithout",
+            "testTitle": "Recalculate on a job card works without error and keeps its hourly rate",
+            "testDescription": "Client feedback: Smoke: Recalculate on a job card works without error and keeps its hourly rate. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs override-rate job cards and shift-minimum setup that dev does not have.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3423",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3424",
+            "category": "ui",
+            "testName": "cf3424SetupRanchReportPrintsOnlyTheRows",
+            "testTitle": "Setup > Ranch Report prints only the rows matching the grid filter",
+            "testDescription": "Client feedback: Setup > Ranch Report prints only the rows matching the grid filter. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3424",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3425",
+            "category": "ui",
+            "testName": "cf3425TheAddFieldsPickerOnSetupEmployee",
+            "testTitle": "The Add fields picker on Setup > Employee shows a real caption 'Rate' instead of a raw key",
+            "testDescription": "Client feedback: The Add fields picker on Setup > Employee shows a real caption 'Rate' instead of a raw key. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3425",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3426",
+            "category": "ui",
+            "testName": "cf3426OnTransferToJobCardsJobCards",
+            "testTitle": "On Transfer to Job Cards > Job Cards, the warnings banner is collapsed to a count line and the grid still shows about 10",
+            "testDescription": "Client feedback: On Transfer to Job Cards > Job Cards, the warnings banner is collapsed to a count line and the grid still shows about 10 rows. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3426",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3431",
+            "category": "ui",
+            "testName": "cf3431TransferToJobCardsOpensWithThe",
+            "testTitle": "Transfer to Job Cards opens with the full-day time window, Begin 12:00 AM and End 11:59 PM",
+            "testDescription": "Client feedback: Transfer to Job Cards opens with the full-day time window, Begin 12:00 AM and End 11:59 PM. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3431",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3432",
+            "category": "ui",
+            "testName": "cf3432ViewTimeCardsLoadsANormalDay",
+            "testTitle": "View > Time Cards loads a normal day of time cards without error",
+            "testDescription": "Client feedback: Smoke: View > Time Cards loads a normal day of time cards without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: The 25,000-row cap is only reached on very large date ranges.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3432",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3433",
+            "category": "ui",
+            "testName": "cf3433TypingInAGridColumnFilterNarrows",
+            "testTitle": "Typing in a grid column filter narrows the loaded time cards and clearing it brings them all back",
+            "testDescription": "Client feedback: Typing in a grid column filter narrows the loaded time cards and clearing it brings them all back. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3433",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3434",
+            "category": "ui",
+            "testName": "cf3434RecalculateOnViewJobCardsWorksAnd",
+            "testTitle": "Recalculate on View > Job Cards works and a '0 - Lunch' card stays unpaid",
+            "testDescription": "Client feedback: Smoke: Recalculate on View > Job Cards works and a '0 - Lunch' card stays unpaid. Steps and expected result: Client Feedback Happy Path tab. Smoke only: The overtime-threshold shift shows over a full week of cards.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3434",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3463",
+            "category": "ui",
+            "testName": "cf3463TheExportSaveStepNamesThePayroll",
+            "testTitle": "the export save step names the Payroll Export File Folder from preferences",
+            "testDescription": "Client feedback: Smoke: the export save step names the Payroll Export File Folder from preferences. Steps and expected result: Client Feedback Happy Path tab. Smoke only: The real file location is on the server/PC, which a browser test cannot see.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3463",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3464",
+            "category": "ui",
+            "testName": "cf3464AfterExportOnExportToAccountingThe",
+            "testTitle": "After Export on Export to Accounting the user can rename the export file before saving it",
+            "testDescription": "Client feedback: After Export on Export to Accounting the user can rename the export file before saving it. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3464",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3484",
+            "category": "ui",
+            "testName": "cf3484ExportedToPayrollIsOfferedInMulti",
+            "testTitle": "Exported to Payroll is offered in Multi Edit on View > Job Cards",
+            "testDescription": "Client feedback: Exported to Payroll is offered in Multi Edit on View > Job Cards. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3484|WEBPET-3570",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3503",
+            "category": "ui",
+            "testName": "cf3503TheReportsHubForFilterShowsOnly",
+            "testTitle": "The Reports hub 'For' filter shows only reports for exactly the chosen module",
+            "testDescription": "Client feedback: The Reports hub 'For' filter shows only reports for exactly the chosen module. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3503",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3573",
+            "category": "ui",
+            "testName": "cf3573ViewTimeCardsSortsByCrewThen",
+            "testTitle": "View > Time Cards sorts by Crew then Employee, shows a + button on each row, and a double-click opens the record",
+            "testDescription": "Client feedback: View > Time Cards sorts by Crew then Employee, shows a + button on each row, and a double-click opens the record. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3573",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3575",
+            "category": "ui",
+            "testName": "cf3575CrewInSavesWithRanchFieldAnd",
+            "testTitle": "Crew In saves with Ranch, Field and Phase left empty and gives each employee their own last Job, Ranch and Field",
+            "testDescription": "Client feedback: Crew In saves with Ranch, Field and Phase left empty and gives each employee their own last Job, Ranch and Field. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3575",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3577",
+            "category": "ui",
+            "testName": "cf3577PressingTabInADropdownAfterTyping",
+            "testTitle": "Pressing Tab in a dropdown after typing a single match selects that value",
+            "testDescription": "Client feedback: Pressing Tab in a dropdown after typing a single match selects that value. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3577",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3701",
+            "category": "ui",
+            "testName": "cf3701PrintBadgesPrintsABadgeForAn",
+            "testTitle": "Print Badges prints a badge for an inactive record that the grid shows",
+            "testDescription": "Client feedback: Print Badges prints a badge for an inactive record that the grid shows. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3701",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3703",
+            "category": "ui",
+            "testName": "cf3703AnEmployeeReportRunWithACrew",
+            "testTitle": "An Employee report run with a Crew filter returns a PDF instead of a 'could not be bound' error",
+            "testDescription": "Client feedback: An Employee report run with a Crew filter returns a PDF instead of a 'could not be bound' error. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3703",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3705",
+            "category": "ui",
+            "testName": "cf3705ANormalTransferStillCreatesJobCards",
+            "testTitle": "a normal transfer still creates job cards without error after the zero-pay rate change",
+            "testDescription": "Client feedback: Smoke: a normal transfer still creates job cards without error after the zero-pay rate change. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs a job set up for zero pay (ZeroTime preference).",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3705",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3706",
+            "category": "ui",
+            "testName": "cf3706UndoAfterASetupMultiDeleteRestores",
+            "testTitle": "Undo after a Setup multi-delete restores the records and shows success with no error",
+            "testDescription": "Client feedback: Undo after a Setup multi-delete restores the records and shows success with no error. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3706",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3707",
+            "category": "ui",
+            "testName": "cf3707ATimePieceTransferStillCreatesJob",
+            "testTitle": "a Time & Piece transfer still creates job cards without error",
+            "testDescription": "Client feedback: Smoke: a Time & Piece transfer still creates job cards without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs a job with both the hourly and piece rate set to 0.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3707",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3712",
+            "category": "ui",
+            "testName": "cf3712ExportToAccountingShowsNoTotalLine",
+            "testTitle": "Export to Accounting shows no total line under the Candidates rows",
+            "testDescription": "Client feedback: Export to Accounting shows no total line under the Candidates rows. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3712",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3713",
+            "category": "ui",
+            "testName": "cf3713OnExportToAccountingTheRowCheckboxes",
+            "testTitle": "On Export to Accounting the row checkboxes are disabled until Multi Edit is switched on",
+            "testDescription": "Client feedback: On Export to Accounting the row checkboxes are disabled until Multi Edit is switched on. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3713",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3714",
+            "category": "ui",
+            "testName": "cf3714ClickingARowOnExportToAccounting",
+            "testTitle": "Clicking a row on Export to Accounting opens the job card in a right-side drawer",
+            "testDescription": "Client feedback: Clicking a row on Export to Accounting opens the job card in a right-side drawer. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3714",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3715",
+            "category": "ui",
+            "testName": "cf3715ExportToAccountingNoLongerHasThe",
+            "testTitle": "Export to Accounting no longer has the Scope Adjustments panel or the Include re-export candidates toggle",
+            "testDescription": "Client feedback: Export to Accounting no longer has the Scope Adjustments panel or the Include re-export candidates toggle. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3715",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3716",
+            "category": "ui",
+            "testName": "cf3716TheJobCardCountOnExportTo",
+            "testTitle": "The job card count on Export to Accounting equals the number on the Export button",
+            "testDescription": "Client feedback: The job card count on Export to Accounting equals the number on the Export button. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3716",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3890",
+            "category": "ui",
+            "testName": "cf3890EachRowOnViewTimeCardsHas",
+            "testTitle": "Each row on View > Time Cards has a trash bin icon that deletes that one time card",
+            "testDescription": "Client feedback: Each row on View > Time Cards has a trash bin icon that deletes that one time card. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3890",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3893",
+            "category": "ui",
+            "testName": "cf3893CrewInWithCrewAllEmployeesLists",
+            "testTitle": "Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves",
+            "testDescription": "Client feedback: Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3893",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3895",
+            "category": "ui",
+            "testName": "cf3895TheMultiUpdateFieldListOnView",
+            "testTitle": "The Multi Update field list on View > Time Cards includes the fields Windows PET offers",
+            "testDescription": "Client feedback: The Multi Update field list on View > Time Cards includes the fields Windows PET offers. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3895",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3927",
+            "category": "ui",
+            "testName": "cf3927EmployeeAddQuickHasNameMiddleExport",
+            "testTitle": "Employee Add > Quick has Name, Middle, Export Identifier and Time Card Defaults, and saves them",
+            "testDescription": "Client feedback: Employee Add > Quick has Name, Middle, Export Identifier and Time Card Defaults, and saves them. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3927",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3929",
+            "category": "ui",
+            "testName": "cf3929AfterSavingAQuickAddEmployeeThe",
+            "testTitle": "After saving a Quick Add employee, the banner has a Print badge link",
+            "testDescription": "Client feedback: After saving a Quick Add employee, the banner has a Print badge link. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3929",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3930",
+            "category": "ui",
+            "testName": "cf3930TheTotalsOnExportToAccountingSit",
+            "testTitle": "The totals on Export to Accounting sit above the Candidates grid",
+            "testDescription": "Client feedback: The totals on Export to Accounting sit above the Candidates grid. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3930",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3931",
+            "category": "ui",
+            "testName": "cf3931TheDefaultExportFileNameOnExport",
+            "testTitle": "The default export file name on Export to Accounting follows the legacy format PET + date and time",
+            "testDescription": "Client feedback: The default export file name on Export to Accounting follows the legacy format PET + date and time. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3931",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3858",
+            "category": "ui",
+            "testName": "cf3858ChoosingInRangeOnAReportsDate",
+            "testTitle": "Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM",
+            "testDescription": "Client feedback: Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3858",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3864",
+            "category": "ui",
+            "testName": "cf3864TheEditFilterScriptScreenMatchesLegacy",
+            "testTitle": "The Edit Filter Script screen matches Legacy: Screen label, script type name, read-only fields, user assignment",
+            "testDescription": "Client feedback: The Edit Filter Script screen matches Legacy: Screen label, script type name, read-only fields, user assignment. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3864",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3805",
+            "category": "ui",
+            "testName": "cf3805ReportsInputJobCardHasLoadAnd",
+            "testTitle": "Reports > Input > Job Card has Load and Save for report scripts",
+            "testDescription": "Client feedback: Reports > Input > Job Card has Load and Save for report scripts. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3805",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3831",
+            "category": "ui",
+            "testName": "cf3831ClickingAnExceptionInTheIssuesPanel",
+            "testTitle": "Clicking an exception in the Issues panel selects and scrolls to the affected time card in the grid",
+            "testDescription": "Client feedback: Clicking an exception in the Issues panel selects and scrolls to the affected time card in the grid. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3831",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3856",
+            "category": "ui",
+            "testName": "cf3856TimeInConsecutiveMissingWorkDaysRuns",
+            "testTitle": "Time In: Consecutive Missing Work Days runs and prints a titled page",
+            "testDescription": "Client feedback: Smoke: Time In: Consecutive Missing Work Days runs and prints a titled page. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3856",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3830",
+            "category": "ui",
+            "testName": "cf3830TheIssuesExceptionsPanelIsOnThe",
+            "testTitle": "The Issues (exceptions) panel is on the right side of Transfer to Job Cards, not under the grid",
+            "testDescription": "Client feedback: The Issues (exceptions) panel is on the right side of Transfer to Job Cards, not under the grid. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3830",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3834",
+            "category": "ui",
+            "testName": "cf3834ClickingTheReadyStatusCountFiltersThe",
+            "testTitle": "Clicking the Ready status count filters the Transfer to Job Cards grid to ready records",
+            "testDescription": "Client feedback: Clicking the Ready status count filters the Transfer to Job Cards grid to ready records. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3834",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3835",
+            "category": "ui",
+            "testName": "cf3835AReportSelectionDialogIsClosedWith",
+            "testTitle": "A report selection dialog is closed with an X in the top-right corner instead of a Cancel button",
+            "testDescription": "Client feedback: A report selection dialog is closed with an X in the top-right corner instead of a Cancel button. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3835",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3243",
+            "category": "ui",
+            "testName": "cf3243AnalyzeOnTransferToJobCardsCompletes",
+            "testTitle": "Analyze on Transfer to Job Cards completes for one crew and shows the totals",
+            "testDescription": "Client feedback: Smoke: Analyze on Transfer to Job Cards completes for one crew and shows the totals. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Performance fix (one Analyze ran the plan 3 times); only measurable on large data.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3243",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3261",
+            "category": "ui",
+            "testName": "cf3261TheCrewFilterOnTheJobCards",
+            "testTitle": "the Crew filter on the Job Cards tab narrows rows and the totals are not all zeros",
+            "testDescription": "Client feedback: Smoke: the Crew filter on the Job Cards tab narrows rows and the totals are not all zeros. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Needs a crew with no name (a deleted crew); one can't be created on screen.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3261",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3610",
+            "category": "ui",
+            "testName": "cf3610TheEmployeeGenderSelectSavesMaleAnd",
+            "testTitle": "The Employee Gender select saves Male and shows Male again after reopening",
+            "testDescription": "Client feedback: The Employee Gender select saves Male and shows Male again after reopening. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3610",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3164",
+            "category": "ui",
+            "testName": "cf3164ATimeInReportLaunchedFromThe",
+            "testTitle": "a Time-In report launched from the View > Time Cards grid runs without an unbindable-column error",
+            "testDescription": "Client feedback: Smoke: a Time-In report launched from the View > Time Cards grid runs without an unbindable-column error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: The full fix (8 reports from the View grid) is proven by its datasource tickets; this runs one of them.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3164",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3270",
+            "category": "ui",
+            "testName": "cf3270TheEmployeeListLoadsAndFindsAn",
+            "testTitle": "the Employee list loads and finds an employee by name",
+            "testDescription": "Client feedback: Smoke: the Employee list loads and finds an employee by name. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Performance fix for a 26k-employee list; dev has a few employees.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3270",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3305",
+            "category": "ui",
+            "testName": "cf3305TheTimeInReportPieceProductivityBy",
+            "testTitle": "the Time In report Piece Productivity by Field runs and renders without error",
+            "testDescription": "Client feedback: Smoke: the Time In report Piece Productivity by Field runs and renders without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3305|WEBPET-3165",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3307",
+            "category": "ui",
+            "testName": "cf3307TheTimeInReportDailySummaryBy",
+            "testTitle": "the Time In report Daily Summary by Field runs and renders without error",
+            "testDescription": "Client feedback: Smoke: the Time In report Daily Summary by Field runs and renders without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3307",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3308",
+            "category": "ui",
+            "testName": "cf3308APackageSizeTimeInReportE",
+            "testTitle": "a package-size Time In report (e.g. Piece Productivity) runs and renders without error",
+            "testDescription": "Client feedback: Smoke: a package-size Time In report (e.g. Piece Productivity) runs and renders without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3308",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3309",
+            "category": "ui",
+            "testName": "cf3309TheTimeInReportPieceProductivityBy",
+            "testTitle": "the Time In report Piece Productivity by Field Summary runs and renders without error",
+            "testDescription": "Client feedback: Smoke: the Time In report Piece Productivity by Field Summary runs and renders without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3309",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3310",
+            "category": "ui",
+            "testName": "cf3310TheTimeInReportEmployeeInOut",
+            "testTitle": "the Time In report Employee In Out Summary runs and renders without error",
+            "testDescription": "Client feedback: Smoke: the Time In report Employee In Out Summary runs and renders without error. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3310",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3788",
+            "category": "ui",
+            "testName": "cf3788AUserWhoIsNeitherSuperUser",
+            "testTitle": "A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Adminis",
+            "testDescription": "Client feedback: A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Administration > Setup. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3788",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3789",
+            "category": "ui",
+            "testName": "cf3789OnTheReportsHubAForLink",
+            "testTitle": "On the Reports hub a For link to a screen the user cannot open shows as plain text, not a link",
+            "testDescription": "Client feedback: On the Reports hub a For link to a screen the user cannot open shows as plain text, not a link. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3789",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3888",
+            "category": "ui",
+            "testName": "cf3888TheUserRecordHasWorkingShortcutAnd",
+            "testTitle": "The User record has working Shortcut and Alias Set fields, and double-clicking Alias Set creates a new Alias Set",
+            "testDescription": "Client feedback: The User record has working Shortcut and Alias Set fields, and double-clicking Alias Set creates a new Alias Set. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3888",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3932",
+            "category": "ui",
+            "testName": "cf3932TheTimeInDateFilterAcceptsA",
+            "testTitle": "The Time In date filter accepts a date range with start and end times",
+            "testDescription": "Client feedback: The Time In date filter accepts a date range with start and end times. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3932",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3937",
+            "category": "ui",
+            "testName": "cf3937TheTwoReverseExportMenuItemsUse",
+            "testTitle": "The two reverse export menu items use the legacy captions",
+            "testDescription": "Client feedback: The two reverse export menu items use the legacy captions. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3937",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3940",
+            "category": "ui",
+            "testName": "cf3940DeletingAllCheckedTimeCardsAtOnce",
+            "testTitle": "Deleting all checked time cards at once finishes quickly, removes every selected card and reports the right count",
+            "testDescription": "Client feedback: Deleting all checked time cards at once finishes quickly, removes every selected card and reports the right count. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3940",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3872",
+            "category": "ui",
+            "testName": "cf3872TimeInDailyPieceSummaryExtendedRuns",
+            "testTitle": "Time In: Daily Piece Summary Extended runs from Reports > Input > Time In and shows rows",
+            "testDescription": "Client feedback: Smoke: Time In: Daily Piece Summary Extended runs from Reports > Input > Time In and shows rows. Steps and expected result: Client Feedback Happy Path tab. Smoke only: Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3872",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3817",
+            "category": "ui",
+            "testName": "cf3817ASavedReportScriptRunsFromReports",
+            "testTitle": "A saved report script runs from Reports > Report Scripts with its relative dates and Execute Report setting",
+            "testDescription": "Client feedback: A saved report script runs from Reports > Report Scripts with its relative dates and Execute Report setting. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3817",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3833",
+            "category": "ui",
+            "testName": "cf3833TheMissingTimeOutAtEndOf",
+            "testTitle": "The Missing Time-Out at end of the day issue names the affected time card",
+            "testDescription": "Client feedback: The Missing Time-Out at end of the day issue names the affected time card. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3833",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3938",
+            "category": "ui",
+            "testName": "cf3938ACopyButtonNextToTheExport",
+            "testTitle": "A copy button next to the export file name copies the name and shows 'Copied.'",
+            "testDescription": "Client feedback: A copy button next to the export file name copies the name and shows 'Copied.'. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3938",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "PET-12942",
+            "category": "ui",
+            "testName": "cf12942EditingTheTimeOfAnExistingTime",
+            "testTitle": "Editing the time of an existing Time In on Transfer to Job Cards saves",
+            "testDescription": "Client feedback: Editing the time of an existing Time In on Transfer to Job Cards saves. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12942",
+            "status": "draft",
+            "enabled": false
         }
     ]
 }
