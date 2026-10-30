@@ -1,0 +1,26 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -10 in this suite. Analyze only; nothing committed.",
+    "Dates button #transfer-date-scope sits in transfer-v2-top-strip left of Search by (transfer-search-by-trigger); the grid's date filter cell is empty, Field's holds a Filter… textbox (bundle index-CfOPnFmW.js, 2026-10-30).",
+    "An unseeded day analyzes 0 cards, so the picked-day check needs the 2 seeded cards (Time In 07:00 + Time Out 11:00 on CF JOB)."
+  ],
+  "ticket": "WEBPET-3183",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -10,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "dateColumn": "date",
+    "filteredColumn": "Field"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "View > Time Cards / Job Cards placement parity: other screens; the fix is on Transfer." }
+  ],
+  "cleanup": []
+}

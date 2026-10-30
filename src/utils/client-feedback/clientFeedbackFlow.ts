@@ -4,7 +4,7 @@ import { createPageObjects, type PageObjects } from '@fixtures/pages.fixture';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
 import { CF_FIXTURE, cfCrew } from '@data/client-feedback/fixture';
 import type { CfCrewKey } from '@data/schemas/clientFeedbackFixture';
-import type { CfSeedSpec } from '@data/schemas/clientFeedbackScenario';
+import type { CfSeedInput } from '@data/schemas/clientFeedbackScenario';
 import { punchDay } from '@data/journey-b/fixture';
 import { deleteJobCard, getJobCard, listJobCards } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
@@ -47,13 +47,24 @@ export interface CfRun {
     jobCardIds: number[];
     exportRunIds: number[];
     ctx: CleanupContext;
+    /** Further crew-days the scenario owns (extraCrews), in JSON order. */
+    extra: CfCrewDay[];
+    /** Cumulative over every seed step, so each poll waits for the running total. */
+    seeded: { timeIns: number; cards: number };
     cleanup(): Promise<void>;
+}
+
+export interface CfCrewDay {
+    crew: EnsuredRecord;
+    employees: EnsuredRecord[];
+    day: string;
 }
 
 interface CfScenario {
     ticket: string;
     fixtureCrew: CfCrewKey;
     dayOffset: number;
+    extraCrews?: Array<{ fixtureCrew: CfCrewKey; dayOffset: number }>;
 }
 
 const WHICH = { one: 0, two: 1 } as const;
@@ -73,10 +84,11 @@ export async function ensureCfFixtures(deps: CfDeps, crewKey: CfCrewKey) {
     return { ranch, field, crew, employees: [one, two], jobs: { hourly, piece } };
 }
 
-const sweepScope = (run: CfRun) => ({ employeeIds: run.employees.map((e) => e.id), day: run.day, crewIds: [run.crew.id] });
+const crewDays = (run: CfRun): CfCrewDay[] => [{ crew: run.crew, employees: run.employees, day: run.day }, ...run.extra];
+const sweepScope = (cd: CfCrewDay) => ({ employeeIds: cd.employees.map((e) => e.id), day: cd.day, crewIds: [cd.crew.id] });
 
-async function deleteCrewJobCards(api: APIRequestContext, run: CfRun): Promise<void> {
-    const cards = (await listJobCards(api, { from: run.day, to: run.day })).filter((c) => Number(c.crewCounter) === run.crew.id);
+async function deleteCrewJobCards(api: APIRequestContext, cd: CfCrewDay): Promise<void> {
+    const cards = (await listJobCards(api, { from: cd.day, to: cd.day })).filter((c) => Number(c.crewCounter) === cd.crew.id);
     for (const card of cards) await deleteJobCard(api, card.jobCardCounter, card.version);
 }
 
@@ -106,7 +118,9 @@ function registerCfCleanup(run: CfRun, deps: CfDeps): () => Promise<void> {
                 }
             }
         });
-        await allowApiWrites('cleanup', `${run.label} teardown: crew-day sweep`, () => sweepFixtureCards(api, sweepScope(run))).catch(() => undefined);
+        for (const cd of crewDays(run)) {
+            await allowApiWrites('cleanup', `${run.label} teardown: ${cd.crew.name} day sweep`, () => sweepFixtureCards(api, sweepScope(cd))).catch(() => undefined);
+        }
     });
 }
 
@@ -115,6 +129,11 @@ export async function prepareCfRun(scenario: CfScenario, deps: CfDeps): Promise<
     const { sessionApi } = deps;
     const f = await ensureCfFixtures(deps, scenario.fixtureCrew);
     const day = isoDay(punchDay(scenario.dayOffset));
+    const extra: CfCrewDay[] = [];
+    for (const x of scenario.extraCrews ?? []) {
+        const fx = await ensureCfFixtures(deps, x.fixtureCrew);
+        extra.push({ crew: fx.crew, employees: fx.employees, day: isoDay(punchDay(x.dayOffset)) });
+    }
     const run: CfRun = {
         label: scenario.ticket,
         crew: f.crew,
@@ -129,59 +148,80 @@ export async function prepareCfRun(scenario: CfScenario, deps: CfDeps): Promise<
         jobCardIds: [],
         exportRunIds: [],
         ctx: { phase: 'after', cards: [] },
+        extra,
+        seeded: { timeIns: 0, cards: 0 },
         cleanup: async () => undefined,
     };
 
     // Read, never written: a moved window must fail loudly rather than skip.
     const preferences = await getPreferences(sessionApi);
-    if (!(Number(preferences.maximumDaysForTransferExport) >= Math.abs(scenario.dayOffset))) {
-        throw new Error(`${run.label}: maximumDaysForTransferExport=${String(preferences.maximumDaysForTransferExport)} is below the fixture day ${scenario.dayOffset}.`);
+    const deepest = Math.max(...[scenario.dayOffset, ...(scenario.extraCrews ?? []).map((x) => x.dayOffset)].map(Math.abs));
+    if (!(Number(preferences.maximumDaysForTransferExport) >= deepest)) {
+        throw new Error(`${run.label}: maximumDaysForTransferExport=${String(preferences.maximumDaysForTransferExport)} is below the fixture day offset -${deepest}.`);
     }
 
     run.cleanup = registerCfCleanup(run, deps);
 
     // Export residue first, then job cards (a transferred time card cannot be deleted), then time cards.
-    await healExportResidue(sessionApi, { crewId: run.crew.id, day, label: run.label });
-    await allowApiWrites('cleanup', `${run.label} before-phase: crew job cards and time cards`, async () => {
-        await deleteCrewJobCards(sessionApi, run);
-        await sweepFixtureCards(sessionApi, sweepScope(run));
-    });
+    for (const cd of crewDays(run)) {
+        await healExportResidue(sessionApi, { crewId: cd.crew.id, day: cd.day, label: run.label });
+        await allowApiWrites('cleanup', `${run.label} before-phase: ${cd.crew.name} job cards and time cards`, async () => {
+            await deleteCrewJobCards(sessionApi, cd);
+            await sweepFixtureCards(sessionApi, sweepScope(cd));
+        });
+    }
     return run;
 }
 
-/** Time In (and optionally crew Piece Out and Time Out) on screen; own card ids are recorded on every poll, before anything is asserted. */
-export async function seedCrewDay(run: CfRun, deps: CfDeps, seed: CfSeedSpec): Promise<SeedResult> {
+/** One step or several, on the main crew-day or `target`; own card ids are recorded on every poll, before anything is asserted. */
+export async function seedCrewDay(run: CfRun, deps: CfDeps, seed: CfSeedInput, target: CfCrewDay = crewDays(run)[0]): Promise<SeedResult> {
     const { sessionApi, pages } = deps;
-    const names = seed.employees.map((k) => run.employees[WHICH[k]].name);
-    const job = run.jobs[seed.job].name;
-    const where = { day: run.day, crew: run.crew.name, ranch: run.ranch.name, field: run.field.name, job };
+    const crewIds = new Set(crewDays(run).map((cd) => cd.crew.id));
+    const employeeIds = new Set(crewDays(run).flatMap((cd) => cd.employees.map((e) => e.id)));
 
     const recordOwn = async (): Promise<OfficeTimeCard[]> => {
-        const ids = run.employees.map((e) => e.id);
-        const own = (await listTimeCards(sessionApi, { from: run.day, to: run.day })).filter(
-            (c) => Number(c.crewCounter) === run.crew.id || ids.includes(Number(c.employeeCounter)),
-        );
+        const own: OfficeTimeCard[] = [];
+        for (const day of new Set(crewDays(run).map((cd) => cd.day))) {
+            own.push(
+                ...(await listTimeCards(sessionApi, { from: day, to: day })).filter(
+                    (c) => crewIds.has(Number(c.crewCounter)) || employeeIds.has(Number(c.employeeCounter)),
+                ),
+            );
+        }
         run.ctx.cards = own;
         for (const card of own) if (!run.timeCardIds.includes(card.timeCardCounter)) run.timeCardIds.push(card.timeCardCounter);
         return own;
     };
 
-    await pages.crewTimeIn.punchIn({ ...where, ...seed.timeIn, employees: names });
-    if (seed.pieceOut) await pages.crewPieceOut.pieceOut({ ...where, ...seed.pieceOut.at, pieces: seed.pieceOut.pieces });
+    for (const step of Array.isArray(seed) ? seed : [seed]) {
+        const names = step.employees.map((k) => target.employees[WHICH[k]].name);
+        const where = { day: target.day, crew: target.crew.name, ranch: run.ranch.name, field: run.field.name, job: run.jobs[step.job].name };
 
-    // The time-out form only offers employees with an open time-in, so wait until it is readable.
-    await expect(async () => {
-        const own = await recordOwn();
-        expect(own.filter((c) => Number(c.cardType) === CARD_TYPE.timeIn)).toHaveLength(names.length);
-    }).toPass({ timeout: 60_000 });
+        await pages.crewTimeIn.punchIn({ ...where, ...step.timeIn, employees: names });
+        if (step.pieceOut) await pages.crewPieceOut.pieceOut({ ...where, ...step.pieceOut.at, pieces: step.pieceOut.pieces });
+        run.seeded.timeIns += names.length;
 
-    if (seed.timeOut) await pages.crewTimeOut.punchOut({ day: run.day, crew: run.crew.name, employees: names, ...seed.timeOut });
+        // The time-out form only offers employees with an open time-in, so wait until it is readable.
+        await expect(async () => {
+            expect((await recordOwn()).filter((c) => Number(c.cardType) === CARD_TYPE.timeIn)).toHaveLength(run.seeded.timeIns);
+        }).toPass({ timeout: 60_000 });
 
-    const expectedCards = names.length * (seed.timeOut ? 2 : 1) + (seed.pieceOut ? 1 : 0);
-    await expect(async () => {
-        expect(await recordOwn()).toHaveLength(expectedCards);
-    }).toPass({ timeout: 60_000 });
+        if (step.timeOut) await pages.crewTimeOut.punchOut({ day: target.day, crew: target.crew.name, employees: names, ...step.timeOut });
+
+        run.seeded.cards += names.length * (step.timeOut ? 2 : 1) + (step.pieceOut ? 1 : 0);
+        await expect(async () => {
+            expect(await recordOwn()).toHaveLength(run.seeded.cards);
+        }).toPass({ timeout: 60_000 });
+    }
     return { timeCardCounters: run.timeCardIds.slice() };
+}
+
+/** One seeded card of the run, by employee and kind — read from the ids recorded while seeding. */
+export function ownCard(run: CfRun, who: 'one' | 'two', kind: 'timeIn' | 'timeOut'): { id: number; reference: string } {
+    const employee = run.employees[WHICH[who]];
+    const card = (run.ctx.cards ?? []).find((c) => Number(c.employeeCounter) === employee.id && Number(c.cardType) === CARD_TYPE[kind]);
+    if (!card) throw new Error(`${run.label}: no seeded ${kind} card for ${employee.name}`);
+    return { id: card.timeCardCounter, reference: String(card.reference) };
 }
 
 /** The slice of a run the shared transfer helpers read; jobCardIds is the run's own array, so recorded ids reach teardown. */

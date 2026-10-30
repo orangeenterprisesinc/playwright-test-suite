@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "No data: Report opens on an empty, unanalyzed screen. X (report-close, aria-label Close) is 12px in from the dialog's right and top edges.",
+    "Button row on dev: Edit in Report Editor, Edit in Layout Designer, Excel, Export, Load, Save, PDF. No visible Cancel; only the hidden report-cancel-run 'Cancel run' exists. The spec asserts containment, not equality (2026-10-30)."
+  ],
+  "ticket": "WEBPET-3835",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "expected": {
+    "titlePrefix": "Report: ",
+    "buttonRowIncludes": ["Edit in Report Editor", "Excel", "Export", "Load", "Save", "PDF"],
+    "absentButton": "Cancel",
+    "cornerTolerancePx": 48
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Save, Load, PDF and Excel stay unclicked: Save writes a shared report layout and the others run a report." }
+  ],
+  "cleanup": []
+}

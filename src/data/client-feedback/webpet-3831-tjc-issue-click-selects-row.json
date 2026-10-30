@@ -1,0 +1,26 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -6 in this suite. Analyze only; nothing committed.",
+    "3 rows so 'only the affected row' means something: CF A ONE Time In + Time Out, CF A TWO Time In with no Time Out (warn.incomplete_time_in). The selected cue is text-decoration underline; there is no aria-selected (2026-10-30).",
+    "Issue detail rows are read only: a mouse click is intercepted by the panel header and a keyboard activation opens the Fix sheet."
+  ],
+  "ticket": "WEBPET-3831",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -6,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } },
+    { "employees": ["two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } }
+  ],
+  "expected": {
+    "issueCode": "warn.incomplete_time_in",
+    "issueLabel": "Time-In has no closing punch",
+    "affected": 1,
+    "decoration": "underline",
+    "affectedCard": { "employee": "two", "kind": "timeIn" }
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Scrolling to the affected row: three rows never scroll; needs a grid taller than the viewport." }
+  ],
+  "cleanup": []
+}

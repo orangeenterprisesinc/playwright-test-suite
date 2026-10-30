@@ -1,0 +1,24 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -8 in this suite. Analyze only; nothing committed.",
+    "One Time In 07:00 with no Time Out raises 'Time-In has no closing punch' (1 Warning). Panel v2-issues-panel sits right of the grid v2-demoted-grid, totals line timecards-totals-strip-issues directly under the grid (1522x744 and 1907 px, 2026-10-30)."
+  ],
+  "ticket": "WEBPET-3830",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -8,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 }
+  },
+  "expected": {
+    "issueGroup": "Time-In has no closing punch",
+    "affected": 1,
+    "tolerancePx": 4
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Layout at other window sizes: checked by hand at 1522 and 1907 px; the spec runs at the project viewport." }
+  ],
+  "cleanup": []
+}

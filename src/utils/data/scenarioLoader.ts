@@ -115,7 +115,9 @@ function assertDistinctCrewDays(dir: string): Promise<void> {
             const raw = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as Record<string, unknown> & Partial<MultiCaseFile>;
             const pairs = new Set<string>();
             const collect = (o: Record<string, unknown> | undefined) => {
-                if (typeof o?.fixtureCrew !== 'string' || typeof o.dayOffset !== 'number') return;
+                if (!o) return;
+                if (Array.isArray(o.extraCrews)) for (const x of o.extraCrews) collect(x as Record<string, unknown>);
+                if (typeof o.fixtureCrew !== 'string' || typeof o.dayOffset !== 'number') return;
                 if (Math.abs(o.dayOffset) > CF_MAX_DAY_OFFSET) {
                     throw new Error(`client-feedback ${name}: dayOffset ${o.dayOffset} is outside the ±${CF_MAX_DAY_OFFSET} day export window`);
                 }

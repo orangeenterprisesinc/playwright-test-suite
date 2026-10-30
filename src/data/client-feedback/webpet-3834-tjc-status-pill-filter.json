@@ -1,0 +1,24 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -4 in this suite. Analyze only; nothing committed.",
+    "3 cards: CF A ONE Time In 07:00 + Time Out 11:00 (2 Ready), CF A TWO Time In 07:00 with no Time Out (1 Warning). The pill is a toggle with aria-pressed; counts stay in v2-progress-pill-* (2026-10-30)."
+  ],
+  "ticket": "WEBPET-3834",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -4,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } },
+    { "employees": ["two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } }
+  ],
+  "expected": {
+    "pill": "ready",
+    "status": "Ready",
+    "pillCount": 2,
+    "analyzedCaption": "Includes 3 Time Cards of 3 initial selection",
+    "filteredCaption": "Includes 2 Time Cards of 2 initial selection",
+    "otherStatus": "Warning"
+  },
+  "annotations": [],
+  "cleanup": []
+}

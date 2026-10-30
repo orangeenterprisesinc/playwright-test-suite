@@ -148,13 +148,13 @@
             "category": "ui",
             "testName": "cf3183TheDateRangePickerSitsTopLeft",
             "testTitle": "The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column",
-            "testDescription": "Client feedback: The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column. Steps and expected result: Client Feedback Happy Path tab.",
+            "testDescription": "Client feedback (Anthony): the date range picker moved from the Date column to the top-left filter row (web-pet #1052). Seed CF CREW A day -10, open Transfer to Job Cards from the menu, check Dates sits left of Search by and the date column has no filter, pick the day, Analyze, every row is on that day.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3183",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3314",
@@ -252,13 +252,13 @@
             "category": "ui",
             "testName": "cf3829ClickingReportOnTransferToJobCards",
             "testTitle": "Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away",
-            "testDescription": "Client feedback: Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away. Steps and expected result: Client Feedback Happy Path tab.",
+            "testDescription": "Client feedback: Report on Transfer to Job Cards opens the report selection dialog instead of running a report (web-pet #1435). Seed CF CREW A day -9, scope and Analyze, Report shows 'Report: …' with a report dropdown and options, no PDF; Display Report sits beside it. (Cancel removed later by WEBPET-3835.)",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3829",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-2982",
@@ -283,8 +283,8 @@
                 "regression"
             ],
             "jira": "WEBPET-2986",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3133",
@@ -382,13 +382,13 @@
             "category": "ui",
             "testName": "cf3431TransferToJobCardsOpensWithThe",
             "testTitle": "Transfer to Job Cards opens with the full-day time window, Begin 12:00 AM and End 11:59 PM",
-            "testDescription": "Client feedback: Transfer to Job Cards opens with the full-day time window, Begin 12:00 AM and End 11:59 PM. Steps and expected result: Client Feedback Happy Path tab.",
+            "testDescription": "Client feedback (Anthony): the time window opens 12:00 AM–11:59 PM and a picked End time is remembered across a reload (web-pet #1232). Open from the menu, read Begin/End, set End 5:00 PM, F5, End still 5:00 PM; teardown restores 11:59 PM.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3431",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3432",
@@ -413,8 +413,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3433",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3434",
@@ -790,8 +790,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3831",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3856",
@@ -811,13 +811,13 @@
             "category": "ui",
             "testName": "cf3830TheIssuesExceptionsPanelIsOnThe",
             "testTitle": "The Issues (exceptions) panel is on the right side of Transfer to Job Cards, not under the grid",
-            "testDescription": "Client feedback: The Issues (exceptions) panel is on the right side of Transfer to Job Cards, not under the grid. Steps and expected result: Client Feedback Happy Path tab.",
+            "testDescription": "Client feedback: the Issues panel moved to the right of the grid (web-pet #1450). Seed a Time In with no Time Out for CF CREW A day -8, Analyze, the panel is right of the grid with the issue listed and the totals line under the grid.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3830",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3834",
@@ -829,21 +829,21 @@
                 "regression"
             ],
             "jira": "WEBPET-3834",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3835",
             "category": "ui",
             "testName": "cf3835AReportSelectionDialogIsClosedWith",
             "testTitle": "A report selection dialog is closed with an X in the top-right corner instead of a Cancel button",
-            "testDescription": "Client feedback: A report selection dialog is closed with an X in the top-right corner instead of a Cancel button. Steps and expected result: Client Feedback Happy Path tab.",
+            "testDescription": "Client feedback: the report selection dialog closes with an X top-right and has no Cancel (web-pet #1450). Open from the menu, Report, X top-right, button row without Cancel, X closes.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3835",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3243",
