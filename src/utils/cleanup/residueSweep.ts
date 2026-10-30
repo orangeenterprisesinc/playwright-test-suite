@@ -81,6 +81,15 @@ export interface SweepSummary {
     totals: { matched: number; candidates: number; deleted: number; conflict: number; other: number; notFound: number; skippedYoung: number; carriedOver: number; stranded: number };
     /** The refusal bodies. Previously only logged (and capped at 5), so they never reached the artifact. */
     conflictSamples: Array<{ entity: string; name: string; id: number; status: number; body: string }>;
+    /** Every candidate the sweep could not remove — the list a human clears by hand in the app. */
+    leftovers: ResidueLeftover[];
+}
+
+export interface ResidueLeftover {
+    entity: string;
+    id: number;
+    name: string;
+    reason: string;
 }
 
 export type DeleteOutcome =
@@ -117,6 +126,37 @@ const STRANDED_ENTITIES: ReadonlySet<string> = new Set(
 
 function isKnownStranded(entity: string, name: string): boolean {
     return STRANDED_ENTITIES.has(entity) || STRANDED_ROWS.has(`${entity}::${name.trim()}`);
+}
+
+type StrandedEntry = { entity: string; name?: string; code: string; reason: string; ticket?: string };
+
+function knownStrandedReason(entity: string, name: string): string {
+    const entries = [
+        ...((STRANDED_RESIDUE as { entities?: StrandedEntry[] }).entities ?? []),
+        ...(STRANDED_RESIDUE.rows as StrandedEntry[]),
+    ];
+    const hit = entries.find((e) => e.entity === entity && (e.name === undefined || e.name === name.trim()));
+    // First clause only — the full evidence stays in strandedResidue.json.
+    return hit ? `${hit.code}: ${hit.reason.split(/[;,]/)[0]}${hit.ticket ? ` (${hit.ticket})` : ''}` : 'listed in strandedResidue.json';
+}
+
+/** The API's own message from a refusal body, e.g. "Cannot delete: 1 related record(s) still reference this." */
+function refusalReason(status: number, body: string): string {
+    const message = /"(?:error|message)":"([^"]+)"/.exec(body)?.[1] ?? body;
+    return `${String(status)} ${message}`;
+}
+
+/**
+ * The end-of-run "delete these by hand" block. Start, end and standalone summaries are
+ * merged by entity + id, so a row both phases refused is listed once.
+ */
+export function formatManualCleanup(leftovers: readonly ResidueLeftover[]): string {
+    const unique = [...new Map(leftovers.map((l) => [`${l.entity}#${String(l.id)}`, l])).values()];
+    if (!unique.length) return 'manual cleanup: nothing left behind';
+    const lines = unique
+        .sort((a, b) => a.entity.localeCompare(b.entity) || a.name.localeCompare(b.name))
+        .map((l) => `  ${l.entity.padEnd(14)} #${String(l.id).padEnd(7)} ${l.name.padEnd(36)} ${l.reason}`);
+    return [`manual cleanup: ${String(unique.length)} row(s) the API could not delete — remove them (and what links to them) in the app`, ...lines].join('\n');
 }
 
 export function envNumber(name: string, fallback: number): number {
@@ -222,6 +262,7 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
         entities: targets.map((t) => emptySummary(t.entity)),
         totals: { matched: 0, candidates: 0, deleted: 0, conflict: 0, other: 0, notFound: 0, skippedYoung: 0, carriedOver: 0, stranded: 0 },
         conflictSamples: [],
+        leftovers: [],
     };
     const finish = (): SweepSummary => {
         summary.durationMs = Date.now() - startedAt.getTime();
@@ -321,8 +362,17 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
                         summary.budgetExhausted = true;
                         break;
                     }
-                    if (blocked.has(candidate.id) || isKnownStranded(target.entity, candidate.name)) {
+                    const leftover = (reason: string): void => {
+                        summary.leftovers.push({ entity: target.entity, id: candidate.id, name: candidate.name, reason });
+                    };
+                    if (blocked.has(candidate.id)) {
                         entry.stranded += 1;
+                        leftover('held by a transferred time card');
+                        continue;
+                    }
+                    if (isKnownStranded(target.entity, candidate.name)) {
+                        entry.stranded += 1;
+                        leftover(knownStrandedReason(target.entity, candidate.name));
                         continue;
                     }
                     const result = await deleteById(context, target, candidate.id);
@@ -330,8 +380,10 @@ export async function runResidueSweep(opts: SweepOptions): Promise<SweepSummary>
                     else if (result.outcome === 'notFound') entry.notFound += 1;
                     else if (result.outcome === 'conflict' && isStranded(result.body)) {
                         entry.stranded += 1;
+                        leftover(refusalReason(result.status, result.body));
                     } else {
                         entry[result.outcome] += 1;
+                        leftover(refusalReason(result.status, result.body));
                         if (summary.conflictSamples.length < 20) {
                             summary.conflictSamples.push({
                                 entity: target.entity,
