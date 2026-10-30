@@ -7,7 +7,7 @@
 import { expect, test } from '@playwright/test';
 import { isProtectedName, isSweepable } from '@data/static/shared/cleanupTargets';
 import { makeEmployeeName } from '@data/generated';
-import { WORKER_INDEX, decodeNameAge, readableName, sixCharRunToken, uniqueName } from '@utils/cleanup/runToken';
+import { WORKER_INDEX, decodeNameAge, ownerForTicket, readableName, sixCharRunToken, uniqueName } from '@utils/cleanup/runToken';
 
 const MINTED = Date.UTC(2026, 9, 29, 15, 32, 45); // 2026-10-29 15:32:45 UTC
 const W = `W${WORKER_INDEX}`;
@@ -90,5 +90,23 @@ test.describe('Run-tagged readable names', () => {
         expect(isProtectedName('B15 CREW')).toBe(true);
         expect(isSweepable('crew', 'A4 NEW CREW')).toBe(false);
         expect(isSweepable('crew', 'A4 NEW CREW 1029-1532-W1')).toBe(false);
+    });
+
+    test('a ticket owner mints, sweeps and decodes like a workflow id', () => {
+        expect(ownerForTicket('WEBPET-3889')).toBe('W3889');
+        expect(ownerForTicket('PET-12942')).toBe('P2942');
+        const name = readableName(ownerForTicket('WEBPET-3889'), 'CREW', ' ', MINTED);
+        expect(name).toBe(`W3889 NEW CREW 1029-153245-${W}`);
+        expect(name.length).toBeLessThanOrEqual(30);
+        expect(isSweepable('crew', name)).toBe(true);
+        expect(isProtectedName(name)).toBe(false);
+        expect(decodeNameAge(name, 'NEW CREW', 'readable', MINTED + 1000).ageMs).toBe(1000);
+        expect(() => readableName('W12345', 'CREW')).toThrow();
+        expect(() => ownerForTicket('JIRA-1')).toThrow();
+    });
+
+    test('client-feedback fixture names stay protected', () => {
+        expect(isProtectedName('CF CREW A')).toBe(true);
+        expect(isProtectedName('CF A ONE')).toBe(true);
     });
 });

@@ -46,7 +46,7 @@ export function sixCharRunToken(now = Date.now()): string {
 const READABLE_TAIL = String.raw`(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-W\d{1,3}(?:-\d+)?`;
 
 function readableRegex(middle: string): RegExp {
-    return new RegExp(String.raw`^[A-Z]\d{1,2}([ -])${middle}\1${READABLE_TAIL}$`);
+    return new RegExp(String.raw`^[A-Z]\d{1,4}([ -])${middle}\1${READABLE_TAIL}$`);
 }
 
 /** Any readable run name, whatever its noun; `NEW` is optional for fields too short to hold it (users, 25). */
@@ -68,7 +68,7 @@ const pad2 = (n: number): string => String(n).padStart(2, '0');
  * dispatch that start in one minute apart. `withNew` false drops `NEW` for a field that cannot fit it.
  */
 export function readableName(owner: string, noun: string, sep: ' ' | '-' = ' ', now = Date.now(), withNew = true): string {
-    if (!/^[A-Z]\d{1,2}$/.test(owner)) throw new Error(`readableName: owner '${owner}' is not a workflow id like 'A4'`);
+    if (!/^[A-Z]\d{1,4}$/.test(owner)) throw new Error(`readableName: owner '${owner}' is not a workflow id like 'A4' or a ticket owner like 'W3889'`);
     if (!/^[A-Z]+( [A-Z]+)*$/.test(noun)) throw new Error(`readableName: noun '${noun}' must be upper-case words`);
     const d = new Date(now);
     const stamp = `${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}-${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}`;
@@ -76,6 +76,16 @@ export function readableName(owner: string, noun: string, sep: ' ' | '-' = ' ', 
     const count = (readableSeen.get(base) ?? 0) + 1;
     readableSeen.set(base, count);
     return count > 1 ? `${base}-${count}` : base;
+}
+
+/**
+ * `WEBPET-3889` → `W3889`, `PET-12942` → `P2942`: first letter + last 4 digits, so a CF name still fits a 30-char crew / 20-char last name.
+ * `W3889 NEW CREW 1029-153245-W1` is 29 chars; the employee short last name `W3889 1029-153245-W1` is exactly 20, so it fits only while the worker index is one digit.
+ */
+export function ownerForTicket(key: string): string {
+    const m = /^(WEBPET|PET)-(\d+)$/.exec(key);
+    if (!m) throw new Error(`ownerForTicket: '${key}' is not a WEBPET-/PET- key`);
+    return `${m[1][0]}${m[2].slice(-4)}`;
 }
 
 export interface NameAge {

@@ -1,0 +1,2972 @@
+[
+ {
+  "ticket": "WEBPET-3064",
+  "group": "A",
+  "scenario": "The totals line under the Transfer to Job Cards grid loads and shows values instead of Totals couldn't be loaded.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, set Search by to Time Card Crew and choose CF CREW.",
+   "Click Analyze Transfer Candidates and wait for the grid.",
+   "Look at the totals line under the grid."
+  ],
+  "expected": [
+   "The totals line shows Includes N Time Cards of N initial selection with Gross, Net, Meals, Pieces and Employees numbers.",
+   "No Totals couldn't be loaded error and the totals row does not disappear."
+  ],
+  "testData": "CF CREW, CF EMPLOYEE ONE/TWO with time cards on a past date",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-24, PASSED QA - Dev Server Sycamore1 (after several FAILED QA)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260924-195542.png",
+     "shows": "Totals line: 55 Time Cards, Gross 8.5, Net 8.0, Meals 0.5, Pieces 50, Employees 1"
+    }
+   ],
+   "pr": "#1048 merged 2026-09-21 (plus WEBPET-3243 work)",
+   "notes": "Original problem was 3+ min delay at large scale; small data checks only that totals show."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3184",
+  "group": "A",
+  "scenario": "Clicking Transfer to Job Cards completes the transfer without the Transfer result expired error.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Click Transfer to Job Cards (green button, bottom right) and confirm.",
+   "Wait for the Job Cards screen to open."
+  ],
+  "expected": [
+   "No Transfer result expired. Please try again. error appears.",
+   "The Job Cards screen opens and lists the new job cards for CF CREW (for example Total 198 rows in QA's run).",
+   "A Reverse button is shown on that screen."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO time cards ready on a past date; create: job cards, undo with Reverse afterwards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-22, PASSED QA (Transfer successful on Prod; also passed on dev 09-21)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260922-170117.png",
+     "shows": "View Job Cards for crew 207, 9/15/2026, Total 198 rows after transfer"
+    }
+   ],
+   "pr": "#1046 merged 2026-09-21",
+   "notes": "Related blockers WEBPET-3241 and 3246."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3301",
+  "group": "A",
+  "scenario": "A Crew Time In for Phase 0 - Lunch on Transfer to Job Cards saves without the Something went wrong error.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Click New record, then Crew In.",
+   "Set Date/Time to a past date at 12:00 PM, Crew to CF CREW and Phase to 0 - Lunch.",
+   "In Employees, keep CF EMPLOYEE ONE and CF EMPLOYEE TWO ticked.",
+   "Click Save."
+  ],
+  "expected": [
+   "A Crew-In status message appears, for example Created 2 Time-In records., with an OK button.",
+   "No Something went wrong on our end. Please try again. error appears.",
+   "After OK, the two new Time In rows with Phase 0 - Lunch show in the grid."
+  ],
+  "testData": "create: 2 Time In lunch records for CF EMPLOYEE ONE/TWO on a past date; delete them afterwards (trash icon in the grid)",
+  "trace": {
+   "signoff": "Gukan, 2026-09-23, tested on prod, saved normally (201); Venkatesh confirmed fix on dev. No separate QA verdict",
+   "evidenceViewed": [
+    {
+     "file": "screen-capture (16).webm frame 01",
+     "shows": "Transfer grid with one test crew Time In row dated 7/2/2025"
+    }
+   ],
+   "pr": "#1097 merged 2026-09-23 (plus 24f84fc68 under WEBPET-3282)",
+   "notes": "Real failure only reproduces on prod (8-digit ids); dev run proves it still saves."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3311",
+  "group": "A",
+  "scenario": "The Pieces column can be turned on in Transfer to Job Cards and shows in the grid.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date that has time cards for CF CREW in the Dates box and click Analyze Transfer Candidates.",
+   "Click Columns (top right of the grid).",
+   "Check that Pieces is in the list and tick it (if it is not already ticked).",
+   "Look at the grid header."
+  ],
+  "expected": [
+   "The Columns list contains a Pieces entry.",
+   "The grid shows a Pieces column between Job and Traceability, with the piece count per row (for example 1 on piece-out rows)."
+  ],
+  "testData": "CF CREW, a past date with piece-out time cards (any date with pieces; footer Pieces total above 0)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-23, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20260923-175207.png",
+     "shows": "Transfer grid with Pieces column between Job and Traceability, values 1"
+    }
+   ],
+   "pr": "#1105 merged 2026-09-23",
+   "notes": "Already automated; row written for the list."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3461",
+  "group": "C",
+  "scenario": "Smoke: a job card report runs from View > Job Cards without the 'more than 8750 lines' error.",
+  "steps": [
+   "Open View > Job Cards.",
+   "Set a past date range, filter to CF CREW, and click Apply Filter.",
+   "Click Report and choose 'Job Card: Cost by Crew (Pieces)'.",
+   "Choose PDF."
+  ],
+  "expected": [
+   "The report viewer opens titled 'Job Card - Cost by Crew (Pieces)' with the crew rows, hours and Total Labor Cost.",
+   "The Report button is available and no 'more than 8750 lines' error appears."
+  ],
+  "testData": "CF CREW job cards on a past date; none created",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA on Sycamore1 (after failing 2026-09-30 because Report was not available on View > Job Cards)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261005-162132.png",
+     "shows": "Report viewer 'Job Card - Cost by Crew (Pieces)', 1304 records, 5 pages"
+    }
+   ],
+   "pr": "#1279 and #1252 merged 2026-10-01/09-30",
+   "notes": "Smoke: fix only proven at scale/with special rates (a full-week crew with thousands of lines)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs a full week with thousands of report lines; dev's small data never reaches 8,750 lines."
+ },
+ {
+  "ticket": "WEBPET-3492",
+  "group": "A",
+  "scenario": "The Export button count equals the number of job cards matched without scrolling through the grid.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range and filter Job Card Crew contains CF.",
+   "Wait for the grid to load, do not scroll.",
+   "Compare '3798 matched'-style count, 'Job-cards N of N' and the bottom-right Export button label."
+  ],
+  "expected": [
+   "The Export button reads 'Export N JobCards' with N equal to the matched count (for example 3798 matched, Export 3798 JobCards), even though only a few rows are loaded.",
+   "The count does not change when you scroll the grid."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-08, PASSED QA after two FAILED QA rounds on 2026-10-05",
+   "evidenceViewed": [
+    {
+     "file": "image-20261008-190312.png",
+     "shows": "3798 matched, Job-cards 3798 of 3798, Export 3798 JobCards"
+    }
+   ],
+   "pr": "#1278 merged 2026-10-01",
+   "notes": "The Export confirmation dialog counts were not re-checked on screen after the fix."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-2906",
+  "group": "A",
+  "scenario": "Deleting job cards makes the transferred Piece Out time cards available again on Transfer to Job Cards.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu, pick a past date, filter to CF CREW, click Analyze Transfer Candidates and note the piece-out rows.",
+   "Click Transfer to Job Cards (bottom right) and confirm; the Job Cards screen opens.",
+   "On Job Cards, select the job cards just created and click Delete.",
+   "Open Transfer to Job Cards again with the same date and CF CREW and click Analyze Transfer Candidates."
+  ],
+  "expected": [
+   "The piece-out rows (with Pieces values such as 20 and 35) show again in the Transfer grid as not transferred.",
+   "The Pieces total is not 0."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO who have piece-outs on a past date; create: job cards, removed by the Delete step",
+  "trace": {
+   "signoff": "Hilario Chavez Lopez, 2026-09-25, Passed QA (earlier FAILED QA by Amy 09-23)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260925-141908.png",
+     "shows": "Transfer grid again lists crew and individual piece-out rows with Pieces 20/35"
+    }
+   ],
+   "pr": "#1124 merged 2026-09-24; #1134 merged 2026-09-25",
+   "notes": ""
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-2954",
+  "group": "A",
+  "scenario": "After a transfer, the Job Cards view has a Reverse button; clicking it returns to Transfer to Job Cards with the time cards already loaded.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW, wait for the grid, then click Transfer to Job Cards (green button, bottom right) and confirm.",
+   "On the Job Cards screen that opens, look at the top bar and click Reverse, then confirm."
+  ],
+  "expected": [
+   "The Job Cards screen shows the new job cards and a Reverse button.",
+   "After Reverse you are back on Transfer to Job Cards and the time card rows show in the grid without clicking Analyze Transfer Candidates."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO time cards ready on a past date; the Reverse step undoes the transfer, nothing left to remove",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-23, PASSED QA (earlier FAILED QA 09-22 for no auto-load after Reverse)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260923-164940.png",
+     "shows": "Transfer to Job Cards after Reverse, 4 Ready rows already loaded in grid"
+    }
+   ],
+   "pr": "#1059 merged 2026-09-22; #1082 merged 2026-09-23 (auto Analyze after Reverse)",
+   "notes": "Reverse button shown only right after the transfer redirect."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3135",
+  "group": "C",
+  "scenario": "Smoke: View > Job Cards loads job cards for one crew without the Failed to load job cards error.",
+  "steps": [
+   "Open View > Job Cards.",
+   "Filter to a past date and Crew = CF CREW.",
+   "Apply the filter."
+  ],
+  "expected": [
+   "The job card rows for CF CREW load in the grid.",
+   "No Failed to load job cards message appears."
+  ],
+  "testData": "CF CREW job cards on a past date",
+  "trace": {
+   "signoff": "Venkatesh 2026-09-21: closed on prod telemetry (zero 'rows error' since the cap deployed); no QA sign-off",
+   "evidenceViewed": [],
+   "pr": "#1029 merged 2026-09-21 (message fix); root fix is the WEBPET-3012 row cap",
+   "notes": "Smoke: filtered to one crew/employee so the data stays small; the fix itself is only proven at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "The failure was a timeout on a very large client; dev data is small."
+ },
+ {
+  "ticket": "WEBPET-3180",
+  "group": "A",
+  "scenario": "The Multi Update employee list shows 'Export ID : Name' for each employee.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick two rows and click Multi Update.",
+   "Set Field to Employee.",
+   "Click the Value box to open the list."
+  ],
+  "expected": [
+   "Each employee in the list reads '<Export ID> : <Name>', for example '12991 : A Perez,Carmen A', not the name alone."
+  ],
+  "testData": "CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-24, PASSED QA (Veronica Perez 2026-09-22: Transfer, View > Time Cards, View > Job Cards passed; Export to Accounting failed for missing Multi Edit)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260924-214719.png (WEBPET-3181 evidence)",
+     "shows": "Employee list '29573 : A Andrade,Maria Lourdes' style"
+    },
+    {
+     "file": "image-20260922-164404.png",
+     "shows": "Export to Accounting header, no Multi Edit (the failed part)"
+    }
+   ],
+   "pr": "#1057 and #1062 merged 2026-09-22",
+   "notes": "Separator is a visible ' : ' since #1062; the ticket wording is 'Export ID: Name'."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3181",
+  "group": "A",
+  "scenario": "In View > Time Cards Multi Update, typing in the Employee value box shows the typed text and finds matching employees.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick two rows and click Multi Update.",
+   "Set Field to Employee.",
+   "Click the Value box and type CF EMPLOYEE."
+  ],
+  "expected": [
+   "The typed text is visible in the Value box (it was an empty cursor before).",
+   "The list shows matching employees such as '<Export ID> : CF EMPLOYEE TWO', not 'No Employees Found'.",
+   "Do not click Update Records."
+  ],
+  "testData": "CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-24, PASSED QA - All Screens (after Veronica Perez failed 2026-09-22 for 'No Employees Found')",
+   "evidenceViewed": [
+    {
+     "file": "image-20260924-214719.png",
+     "shows": "Employee Value box 'Select an employee...' with a list of 'ID : Name' options"
+    }
+   ],
+   "pr": "#1058 merged 2026-09-22 (also #1137, #1374 search fixes)",
+   "notes": "Evidence shows list opening on click; typed search result not in the screenshot."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3183",
+  "group": "A",
+  "scenario": "The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Look at the filter area at the top of the page, left of Search by.",
+   "Click the Dates box and pick a past single day, then close the picker.",
+   "Look at the grid header row and the Date column."
+  ],
+  "expected": [
+   "A Dates box with a calendar icon and the range (for example 09/15/2026 - 09/15/2026) shows at the top left, next to Search by / Match / Employees.",
+   "The grid's date column header has no date range filter box under it.",
+   "The grid loads rows for the picked day."
+  ],
+  "testData": "none (any past date that has time cards)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-22, PASSED QA (image only)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260922-170541.png",
+     "shows": "Dates box top-left beside Search by; date column has no range filter"
+    }
+   ],
+   "pr": "#1052 merged 2026-09-22",
+   "notes": "Same layout as View > Time Cards / Job Cards."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3282",
+  "group": "dup",
+  "scenario": "Same as WEBPET-3301: a lunch Crew Time In saves without error.",
+  "steps": [
+   "Covered by WEBPET-3301"
+  ],
+  "expected": [
+   "Crew-In status shows Created 2 Time-In records. and no Something went wrong on our end. Please try again. error (as proven in WEBPET-3301)."
+  ],
+  "testData": "as WEBPET-3301",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-23, PASSED QA - Tested in PROD",
+   "evidenceViewed": [
+    {
+     "file": "IMG_5207-20260922-232246.jpeg",
+     "shows": "Not opened (7 MB phone photo of original error)"
+    }
+   ],
+   "pr": "#1097 merged 2026-09-23 (root cause fixed under WEBPET-3301; also 24f84fc68)",
+   "notes": "Verified in 3282 text: Venkatesh says root cause is WEBPET-3301, same two fixes; 3301 'blocks' 3282."
+  },
+  "doubt": null,
+  "feasibility": "Covered by WEBPET-3301",
+  "reason": "Same root cause and the same fix PR as WEBPET-3301."
+ },
+ {
+  "ticket": "WEBPET-3314",
+  "group": "A",
+  "scenario": "Individual and crew piece-outs across two days all pair and show no unpaired warnings.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a two-day past range, set Search by to Time Card Crew and choose CF CREW.",
+   "Click Analyze Transfer Candidates.",
+   "Look at the status counts and the footer message at the bottom."
+  ],
+  "expected": [
+   "The counts show all records Ready with 0 Blocking and 0 Warnings (for example 11 Ready).",
+   "The footer says all eligible records transfer, with none that cannot be paired into a Job Card."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE having individual and crew-level (no employee) piece-outs on two consecutive past days",
+  "trace": {
+   "signoff": "Hilario Chavez Lopez, 2026-09-29, QA passed (after two Failed QA)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260929-170620.png",
+     "shows": "Crew 101, 8/31-9/3: 11 Ready, 0 Blocking, 0 Warnings, individual and crew piece-outs"
+    }
+   ],
+   "pr": "#1128 merged 2026-09-24 (plus #1127, #1136)",
+   "notes": "Needs piece-out fixture across two days."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3329",
+  "group": "D",
+  "scenario": "The transfer engine now records internally whether a job card ends on a piece-out; nothing changes on screen.",
+  "steps": [
+   "Not testable on UI: It is an internal in-memory field of the transfer engine; the ticket itself says there is nothing to check on screen."
+  ],
+  "expected": [
+   "Transfer results are exactly the same as before the change."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "Rahul Jha 2026-10-05: NOT-VERIFIABLE on screen; read-only preview showed no regression",
+   "evidenceViewed": [],
+   "pr": "#1127 merged 2026-09-24",
+   "notes": "Behaviour-neutral by design; corpus counts unchanged (142 FAIL / 1790 PASS / 133 SKIP)."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It is an internal in-memory field of the transfer engine; the ticket itself says there is nothing to check on screen."
+ },
+ {
+  "ticket": "WEBPET-3462",
+  "group": "A",
+  "scenario": "Reports > Input > Job Card opens the Job Card Report Selection screen with a working selection and Execute.",
+  "steps": [
+   "Open Reports > Input > Job Card.",
+   "Check the Job Card Report Selection screen shows the date range, Start time and End time.",
+   "In Search by pick Job Card Crew, set Match to Contains and type a crew code (e.g. 164).",
+   "Read the Filter description at the bottom.",
+   "Click Execute."
+  ],
+  "expected": [
+   "Screen title is Job Card Report Selection and the Execute button is visible.",
+   "Filter description shows 'Date In is between <start 12:00 AM> and <end 11:59 PM>' and 'Job Card Crew contains \"164\"'.",
+   "Execute opens the report dialog for the selected job cards."
+  ],
+  "testData": "A past date range; a crew code that exists on the su tenant (e.g. from CF CREW). No records created.",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-30, PASSED QA (screenshot only)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260930-162209.png",
+     "shows": "Job Card Report Selection with Crew contains 164 filter and filter description"
+    }
+   ],
+   "pr": "#1255 merged 2026-09-30",
+   "notes": "Legacy Save/Load/Refresh Frequency were deferred in PR; later added by 3805/3781."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3574",
+  "group": "A",
+  "scenario": "A Multi Edit on View > Time Cards can be reversed with Undo and the old value returns.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick two CF EMPLOYEE ONE rows, click Multi Update, set Field to Memo, type CF UNDO TEST in Value, and click Update Records (2).",
+   "Open File > Administration > Restore or Reverse > Reverse Multi Edit.",
+   "On the newest row (Record type TimeCard, field memo), click Undo."
+  ],
+  "expected": [
+   "The Reverse Multi Edit - Bulk Update History page lists the new edit with Status Active and an enabled Undo button.",
+   "After Undo the row Status changes to Undone.",
+   "Back on View > Time Cards, the two rows show their old Memo value again."
+  ],
+  "testData": "CF EMPLOYEE ONE time cards on a past date; the edit is undone by the test",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA in Dev (screenshot); Gukan tested earlier the same day, Passed with video",
+   "evidenceViewed": [
+    {
+     "file": "image-20261006-001428.png",
+     "shows": "Reverse Multi Edit history with Undo buttons on Active rows"
+    },
+    {
+     "file": "image-20261003-002045.png (via ticket text)",
+     "shows": "Original bug: Undo missing for role User"
+    }
+   ],
+   "pr": "#1313 merged 2026-10-04",
+   "notes": "Memo chosen as a simple field; QA used the Time field. Fix was for a user role with reverse rights, run here as su per instruction."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3689",
+  "group": "C",
+  "scenario": "Smoke: Export to Accounting shows the job cards as Ready and none as Needs re-export when nothing changed after export.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range and filter Job Card Crew contains CF.",
+   "Look at the Ready, Needs re-export and Warnings cards at the top."
+  ],
+  "expected": [
+   "Ready shows the job card count, 'Needs re-export' shows 0, and the Export button count equals Ready.",
+   "Test File lists no 'cannot be re-exported at this time' cards."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-08, 'PASSED QA after removing Scope Adjustments'",
+   "evidenceViewed": [
+    {
+     "file": "image-20261005-223318.png",
+     "shows": "Bug: 4 job cards flagged Needs re-export (not opened separately)"
+    },
+    {
+     "file": "image-20261013-175310.png (WEBPET-3713)",
+     "shows": "8826 Ready, 0 Needs re-export"
+    }
+   ],
+   "pr": "#1402 merged 2026-10-08",
+   "notes": "Smoke: fix only proven at scale/with special rates (2494 cards re-set to Not Exported by Multi-Edit)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs about 2,494 job cards reset by Multi Edit; dev has a few cards."
+ },
+ {
+  "ticket": "WEBPET-3889",
+  "group": "A",
+  "scenario": "Several checked time cards can be deleted together on View > Time Cards.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick the checkboxes of two CF EMPLOYEE ONE time cards.",
+   "Check the Delete button, then click it.",
+   "In the confirmation, check the text and click Delete."
+  ],
+  "expected": [
+   "The Delete button is enabled when two or more rows are ticked (it was greyed out before).",
+   "A dialog asks: Delete \"2 Time Cards\"? with text about records the system refuses being skipped and reported.",
+   "After Delete, the two time cards disappear from the grid."
+  ],
+  "testData": "create: 2 throw-away time cards for CF EMPLOYEE ONE on a past date (they are the ones deleted)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-26, PASSED QA (screenshot of the bulk delete confirmation); she raised WEBPET-3940 for speed/no reverse",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-195025.png",
+     "shows": "All rows ticked, Delete enabled, dialog Delete \"13863 Time Cards\"? Cancel/Delete"
+    }
+   ],
+   "pr": "#1496 merged 2026-10-23 (with #1495, #1497)",
+   "notes": "Rows are soft deleted."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3781",
+  "group": "A",
+  "scenario": "Every Reports > Input screen (e.g. Time In) opens a legacy-style selection screen with Execute, Load and Save.",
+  "steps": [
+   "Open Reports > Input and check the list of items.",
+   "Click Time In.",
+   "Check the selection screen: date range, Start time, End time and Search by.",
+   "Click Execute."
+  ],
+  "expected": [
+   "Input menu lists Batch, Case Load, Item Traceability, Job Card, Load, Meal or Break, Non Labor, Signature, Time In, Time Out, Traceability, Verification.",
+   "Time In opens a Report Selection screen with the date range, Start time 12:00 AM, End time 11:59 PM, Search by, and Execute / Load / Save buttons.",
+   "Filter description shows 'Date In is between ... 12:00 AM and ... 11:59 PM'; Execute runs the report."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-16, PASSED QA (after earlier FAILED QA 10-15 for missing selection; re-passed)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261015-171628.png",
+     "shows": "Job Card selection with Input menu list, Execute/Load/Save"
+    },
+    {
+     "file": "image-20261015-171609.png",
+     "shows": "Web Time In screen lacking selection (pre-fix failure)"
+    }
+   ],
+   "pr": "#1452 merged 2026-10-16",
+   "notes": "Setup/Administration/Per Crew/Per Employee items not walked in TC; only Input > Time In."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3819",
+  "group": "A",
+  "scenario": "Reports can be run on View > Time Cards when a Time Card Crew filter is applied.",
+  "steps": [
+   "Open View > Time Cards.",
+   "Set a past date range, add the filter Time Card Crew contains CF, and click Apply Filter.",
+   "Look at the Report and Display Report buttons.",
+   "Click Report."
+  ],
+  "expected": [
+   "Report and Display Report are enabled (not greyed out).",
+   "No message 'The report cannot apply the selection on these fields yet' appears when you hover over Report.",
+   "The report dialog opens."
+  ],
+  "testData": "CF CREW time cards on a past date; none created",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-21, PASSED QA (no screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261014-191645.png / image-20261020-222007.png (original bug)",
+     "shows": "not opened; bug screenshots only"
+    }
+   ],
+   "pr": "#1482 merged 2026-10-21",
+   "notes": "Ranch filter case in the ticket not repeated; one crew filter is enough."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3829",
+  "group": "A",
+  "scenario": "Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date with time cards, set Search by to Time Card Crew and choose CF CREW, then wait for the grid to load.",
+   "Click Report in the top bar."
+  ],
+  "expected": [
+   "A dialog titled Report: <report name> appears with a Report dropdown and report options (for example New Page for Each Crew, Show Employees) and buttons Cancel/Load/Save and Run.",
+   "No PDF opens until you click the run button in the dialog.",
+   "A separate Display Report button is next to Report for the direct run."
+  ],
+  "testData": "CF CREW, a past date with time cards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-15, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261015-152225.png",
+     "shows": "Report selection dialog with Report dropdown and options over a time card grid"
+    }
+   ],
+   "pr": "#1435 merged 2026-10-15",
+   "notes": "QA screenshot sidebar looks like View > Time Cards; expected taken from PR (Transfer's Report now opens same selection as View)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-2982",
+  "group": "A",
+  "scenario": "Hide piece-outs hides the piece-out rows but the Pieces total stays the same.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date that has piece-outs, filter to CF CREW and click Analyze Transfer Candidates; note the Pieces total.",
+   "Tick Hide piece-outs.",
+   "Look at the grid and the Pieces total, then untick Hide piece-outs."
+  ],
+  "expected": [
+   "With Hide piece-outs ticked, the piece-out rows are gone from the grid.",
+   "The Pieces total in the totals line is unchanged (for example 65), not 0.",
+   "Unticking brings the piece-out rows back with the same Pieces total."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO who have piece-outs on a past date",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-28, PASSED QA (earlier FAILED QA 09-24 and 09-25)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260928-212505.png",
+     "shows": "Hide piece-outs ticked, 5 rows, Pieces total 65 highlighted"
+    }
+   ],
+   "pr": "#1197 merged 2026-09-28; #984 merged 2026-09-15",
+   "notes": ""
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-2986",
+  "group": "B",
+  "scenario": "The Single select switch lets the Work Crew and Employee filters step through values with the arrow keys.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Turn on the Single select switch (left of the Work Crew filter).",
+   "Click the Work Crew filter, pick one crew, close the list, and press the Down arrow key while the filter is focused.",
+   "Repeat in the Employee filter."
+  ],
+  "expected": [
+   "One Single select switch sits at the start of the filter row and governs both Work Crew and Employee.",
+   "Each Down arrow press moves to the next crew (or employee) and the grid shows only that one's rows; Up arrow goes back.",
+   "Clearing the filter returns to All work crews / All employees."
+  ],
+  "testData": "CF CREW plus at least one other crew with time cards on a past date; CF EMPLOYEE ONE/TWO",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-18, FAILED QA (switch must also cover Employee filter); no re-test comment after PR #1035",
+   "evidenceViewed": [
+    {
+     "file": "image-20260918-223741.png",
+     "shows": "Failed-QA shot: Single select switch with Employee filter list open"
+    }
+   ],
+   "pr": "#1035 merged 2026-09-20 (extends switch to Employee)",
+   "notes": "TC written to the PR #1035 behaviour; not re-tested by QA."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3133",
+  "group": "A",
+  "scenario": "An employee's punches on View > Time Cards read oldest first (Time In first, Time Out last) when sorted by Employee.",
+  "steps": [
+   "Open View > Time Cards.",
+   "Set the date range to the past date that has CF EMPLOYEE ONE punches, and click Apply Filter.",
+   "Click the Employee column header to sort by Employee.",
+   "Look at the rows for CF EMPLOYEE ONE."
+  ],
+  "expected": [
+   "Rows for the employee run in time order: Time In 6:30 AM, then breaks and lunch, and the Time Out row (for example 3:00 PM) is last.",
+   "The Time Out is not listed first."
+  ],
+  "testData": "CF EMPLOYEE ONE with a Time In, lunch/break and Time Out on a past date (none created by the test)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-21, PASSED QA (screenshot only)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260921-192052.png",
+     "shows": "Employee sort asc; 6:30, 8:30, 10:30, 1:00 PM Time In rows then 3:00 PM Time Out"
+    }
+   ],
+   "pr": "#1027 merged 2026-09-21",
+   "notes": "Fix is a server order of DateTime then counter."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3138",
+  "group": "A",
+  "scenario": "On View > Time Cards the screen keeps the earlier filter when you come back, waits for Apply Filter, and the top section can be hidden.",
+  "steps": [
+   "Open View > Time Cards, set the date range to a past date, set Work Crew to CF CREW, and click Apply Filter.",
+   "Click 'Hide top section' (top right of the grid), then click 'Show top section'.",
+   "Open View > Job Cards from the left menu, then open View > Time Cards again.",
+   "Check the screen: the earlier date range and crew are still shown, but no rows are loaded yet.",
+   "Click Apply Filter, then click the Columns button."
+  ],
+  "expected": [
+   "The top section (record type options, crew and employee pickers, legend) hides and shows again.",
+   "After returning, the previous selection is shown and the grid stays empty until Apply Filter is clicked.",
+   "After Apply Filter the rows for CF CREW load and a scroll bar is visible on the grid.",
+   "The Columns button opens a list where columns can be added or removed."
+  ],
+  "testData": "CF CREW with time cards on a past date; none created",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-23, PASSED QA on all 6 items (carry-over, no auto-run, arrows, scroll bar, columns, hide top section)",
+   "evidenceViewed": [
+    {
+     "file": "image-20260921-151050.png (not opened; Jen's dropdown request)",
+     "shows": "not viewed"
+    },
+    {
+     "file": "image-20260921-192052.png (WEBPET-3133 evidence, same screen)",
+     "shows": "View > Time Cards with Hide top section button, Columns, scroll bar"
+    }
+   ],
+   "pr": "#1028 merged 2026-09-21 (follow-ups #1066, #1412)",
+   "notes": "Arrow-key stepping of Work Crew (Single select switch) left out to keep one short flow; Jen's request to turn Add Time In etc. into a header dropdown shows as 'New record' in the later screenshots."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3254",
+  "group": "dup",
+  "scenario": "Covered by WEBPET-3180: employee pickers show the Export ID, a colon, then the name.",
+  "steps": [
+   "Covered by WEBPET-3180"
+  ],
+  "expected": [
+   "Employee pickers read '<Export ID> : <Name>' with a visible colon, the same in the dropdown and in the grid."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [
+    {
+     "file": "none (no attachments)",
+     "shows": "n/a"
+    }
+   ],
+   "pr": "#1062 merged 2026-09-22",
+   "notes": "Not the same ticket: a confirm-with-reporter note about the colon on all ~29 pickers, shipped in #1062."
+  },
+  "doubt": null,
+  "feasibility": "Covered by WEBPET-3180",
+  "reason": "Confirmation task for the same Export ID : Name label fixed in WEBPET-3180."
+ },
+ {
+  "ticket": "WEBPET-3283",
+  "group": "A",
+  "scenario": "The Crew In employee list shows Export ID : Name.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Click New record, then Crew In.",
+   "Set a past Date/Time and pick CF CREW.",
+   "Look at the Employees list."
+  ],
+  "expected": [
+   "Each employee reads Export ID : Name, for example 13406 : Abel Redondo Nunez, not the name alone.",
+   "CF EMPLOYEE ONE and CF EMPLOYEE TWO show with their export ID before the colon."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO; nothing is saved (close the panel without saving)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-09-23, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20260923-163731.png",
+     "shows": "Crew In Employees list entries like 13406 : Abel Redondo Nunez"
+    }
+   ],
+   "pr": "#1096 merged 2026-09-23",
+   "notes": ""
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3423",
+  "group": "C",
+  "scenario": "Smoke: Recalculate on a job card works without error and keeps its hourly rate.",
+  "steps": [
+   "Open View > Job Cards.",
+   "Set a past date range, filter to CF CREW, and click Apply Filter.",
+   "Note the hourly rate of one CF JOB card, tick it and click Recalculate.",
+   "Check the card again."
+  ],
+  "expected": [
+   "Recalculate finishes with no error message.",
+   "The card keeps its hourly rate."
+  ],
+  "testData": "CF JOB card on a past date; none created (recalculating changes nothing if the rate is unchanged)",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [
+    {
+     "file": "none (no evidence)",
+     "shows": "n/a"
+    }
+   ],
+   "pr": "not found (candidates #1314, #1414 seen, not confirmed)",
+   "notes": "Smoke: fix only proven at scale/with special rates (override-rate cards, shift minimum columns)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs override-rate job cards and shift-minimum setup that dev does not have."
+ },
+ {
+  "ticket": "WEBPET-3424",
+  "group": "A",
+  "scenario": "Setup > Ranch Report prints only the rows matching the grid filter.",
+  "steps": [
+   "Open Setup > Ranch.",
+   "Filter the grid on Worker Comp Code (or Name contains CF) so only a few ranches remain.",
+   "Note the number of rows left.",
+   "Click Report and open the PDF."
+  ],
+  "expected": [
+   "PDF header shows 'Filters: <column caption> contains <value>' (e.g. Worker Comp Code contains 8291).",
+   "PDF has the same number of rows as the grid, not every ranch."
+  ],
+  "testData": "none; use an existing ranch value (CF RANCH name works). Nothing created.",
+  "trace": {
+   "signoff": "Rahul Jha (dev), 2026-10-10, QA verification PASS (build e72d62ef3); no tester sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1230 merged 2026-09-29",
+   "notes": "Department variant (Export Identifier filter) behaves the same; only Ranch in this TC."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3425",
+  "group": "A",
+  "scenario": "The Add fields picker on Setup > Employee shows a real caption 'Rate' instead of a raw key.",
+  "steps": [
+   "Open Setup > Employee.",
+   "Click Add fields on the grid.",
+   "Look through the field list for the rate entry."
+  ],
+  "expected": [
+   "The list contains 'Rate'.",
+   "No entry reads 'form.field.rate.label' or any other raw form.field... text."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Rahul Jha (dev), 2026-10-10, QA verification PASS (build e72d62ef3); no tester sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1228 merged 2026-09-29",
+   "notes": "Spanish ('Tarifa') not testable in UI; English only."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3426",
+  "group": "B",
+  "scenario": "On Transfer to Job Cards > Job Cards, the warnings banner is collapsed to a count line and the grid still shows about 10 rows.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date that produces job card warnings, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Click the Job Cards tab.",
+   "Click Show details on the warnings line, then Hide details."
+  ],
+  "expected": [
+   "A line like N warnings in this Job Cards preview shows with a Show details link, collapsed by default.",
+   "The Job Cards grid shows about 10 or more rows and scrolls.",
+   "Show details opens the warnings list (scrolls inside its own box) and Hide details closes it."
+  ],
+  "testData": "CF CREW, a past date with job card warnings",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-01, browser-verified on dev PASS (developer, not QA)",
+   "evidenceViewed": [],
+   "pr": "#1242 merged 2026-09-30",
+   "notes": "No attachments; expected from PR/implementation comments. Real 1366x768 screen not checked."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3431",
+  "group": "A",
+  "scenario": "Transfer to Job Cards opens with the full-day time window, Begin 12:00 AM and End 11:59 PM.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu (use a browser with no saved Transfer time window; a fresh browser or cleared site data works).",
+   "Look at the Time window Begin time and End time boxes.",
+   "Change End time to 5:00 PM, then reload the page and look again."
+  ],
+  "expected": [
+   "Begin time shows 12:00 AM and End time shows 11:59 PM on first load.",
+   "After the change and reload, End time still shows the 5:00 PM you picked (a time picked now is remembered)."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-10, QA verification on dev PASS (seeded old 11:59 value in browser storage, then reload)",
+   "evidenceViewed": [],
+   "pr": "#1232 merged 2026-09-29",
+   "notes": "No images attached; the old-value reset part needs browser dev tools, so the TC checks the default and the remembered pick only."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3432",
+  "group": "C",
+  "scenario": "Smoke: View > Time Cards loads a normal day of time cards without error.",
+  "steps": [
+   "Open View > Time Cards.",
+   "Set a past date range and filter Time Card Crew to CF CREW.",
+   "Click Apply Filter."
+  ],
+  "expected": [
+   "Rows for CF CREW load and the footer shows 'N records'.",
+   "No error message and no 'Showing the first 25,000 time cards' banner is shown."
+  ],
+  "testData": "CF CREW time cards on a past date; none created",
+  "trace": {
+   "signoff": "no QA sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none (no evidence for this ticket)",
+     "shows": "n/a"
+    }
+   ],
+   "pr": "#1236 merged 2026-09-29",
+   "notes": "Smoke: fix only proven at scale/with special rates (25,000 row cap is reached only on huge ranges)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "The 25,000-row cap is only reached on very large date ranges."
+ },
+ {
+  "ticket": "WEBPET-3433",
+  "group": "A",
+  "scenario": "Typing in a grid column filter narrows the loaded time cards and clearing it brings them all back.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Type part of a Job name in the Job column filter box (under the Job header).",
+   "Clear the filter box."
+  ],
+  "expected": [
+   "While typed, only rows whose Job contains that text stay in the grid (the grid is not emptied).",
+   "After clearing, all the loaded rows show again with no new Analyze needed."
+  ],
+  "testData": "CF CREW with time cards for CF EMPLOYEE ONE/TWO on a past date (CF JOB used on the rows)",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-10, QA verification on dev PASS (no QA-team verdict)",
+   "evidenceViewed": [],
+   "pr": "#1233 merged 2026-09-29",
+   "notes": "No attachments; evidence jpg named in comment not in the pre-fetched folder."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3434",
+  "group": "C",
+  "scenario": "Smoke: Recalculate on View > Job Cards works and a '0 - Lunch' card stays unpaid.",
+  "steps": [
+   "Open View > Job Cards.",
+   "Set a past date range, filter to CF CREW, and click Apply Filter.",
+   "Tick one '0 - Lunch' job card and click Recalculate.",
+   "Check the card again."
+  ],
+  "expected": [
+   "Recalculate finishes with no error.",
+   "The '0 - Lunch' card still shows Net Time 0 and hourly rate 0."
+  ],
+  "testData": "CF CREW job card for job '0 - Lunch' on a past date; none created",
+  "trace": {
+   "signoff": "no QA sign-off (no QA comment; comments are Rahul Jha's plan)",
+   "evidenceViewed": [
+    {
+     "file": "none (no evidence)",
+     "shows": "n/a"
+    }
+   ],
+   "pr": "#1239 merged 2026-09-30",
+   "notes": "Smoke: fix only proven at scale/with special rates (overtime threshold shift over a week)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "The overtime-threshold shift shows over a full week of cards."
+ },
+ {
+  "ticket": "WEBPET-3438",
+  "group": "D",
+  "scenario": "If delivering an export file or email fails, the job cards flagged by that run are put back so the user can just export again.",
+  "steps": [
+   "Not testable on UI: A delivery failure cannot be forced safely on shared dev: it needs a broken file path or email destination, or a real export that moves flags on real job cards."
+  ],
+  "expected": [
+   "After a failed delivery every job card in the run is back to its pre-export flags.",
+   "The Export page shows the real failure reason, not just 'Failed to run export.'",
+   "The run stays a draft so pressing Export again works, and Reverse Transfer still works."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "Rahul Jha 2026-10-01: Ready for Test, deliberately not verified on dev; 5 of 5 real-database tests pass; no QA sign-off",
+   "evidenceViewed": [],
+   "pr": "#1240 merged 2026-09-30",
+   "notes": "Async SMTP failures after sending are out of scope (next slice)."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "A delivery failure cannot be forced safely on shared dev: it needs a broken file path or email destination, or a real export that moves flags on real job cards."
+ },
+ {
+  "ticket": "WEBPET-3463",
+  "group": "C",
+  "scenario": "Smoke: the export save step names the Payroll Export File Folder from preferences.",
+  "steps": [
+   "Open Export to Accounting.",
+   "Pick a past date and CF CREW, load the candidates.",
+   "Click Export.",
+   "Read the Save export file dialog."
+  ],
+  "expected": [
+   "The dialog shows the line 'Payroll Export File Folder: <path>' with the folder set in preferences.",
+   "Cancel closes the dialog without exporting."
+  ],
+  "testData": "CF CREW job cards on a past date; nothing is exported",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA (3 screenshots)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261005-230658.png",
+     "shows": "Windows save window in C:\\Emptrack\\Test with a payroll txt file"
+    },
+    {
+     "file": "image-20261006-000409.png (WEBPET-3464)",
+     "shows": "Dialog line Payroll Export File Folder: D:\\EmpTrack\\Accounting"
+    }
+   ],
+   "pr": "#1284 merged 2026-10-05",
+   "notes": "Smoke: the real file location is on the server/OS and cannot be seen from the browser"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "The real file location is on the server/PC, which a browser test cannot see."
+ },
+ {
+  "ticket": "WEBPET-3464",
+  "group": "A",
+  "scenario": "After Export on Export to Accounting the user can rename the export file before saving it.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW with at least one Ready job card.",
+   "Click 'Export N JobCards'.",
+   "In the Save export file dialog, change the File name to CF CREW export.txt.",
+   "Click Save As... and then Cancel in the save window."
+  ],
+  "expected": [
+   "A Save export file dialog opens with an editable File name and the line 'Payroll Export File Folder: <path>'.",
+   "Save As... opens the save window with the changed name.",
+   "No file is downloaded automatically."
+  ],
+  "testData": "CF CREW job card in Ready state on a past date; Cancel keeps it unsaved",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA (asked to remove the dialog); 2026-10-08 closed, 'no new changes'",
+   "evidenceViewed": [
+    {
+     "file": "image-20261006-000409.png",
+     "shows": "Save export file dialog, file name box, Payroll Export File Folder D:\\EmpTrack\\Accounting, Discard / Save As..."
+    },
+    {
+     "file": "image-20261005-230658.png (WEBPET-3463)",
+     "shows": "Windows save window with name CREW164 famous-120-3-payroll..."
+    }
+   ],
+   "pr": "#1284 merged 2026-10-05; #1400 merged 2026-10-08",
+   "notes": "WEBPET-3938 (10-27) still describes a Save export file dialog."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3484",
+  "group": "A",
+  "scenario": "Exported to Payroll is offered in Multi Edit on View > Job Cards.",
+  "steps": [
+   "Open View > Job Cards.",
+   "Set a past date range, filter to CF CREW, and click Apply Filter.",
+   "Tick two CF JOB rows and click Multi Edit.",
+   "Open the Field dropdown and choose Exported to Payroll.",
+   "Set Value to Yes and click Update Records (2)."
+  ],
+  "expected": [
+   "'Exported to Payroll' is in the Field list.",
+   "Value is a Yes/No dropdown.",
+   "The update succeeds for the 2 ticked job cards."
+  ],
+  "testData": "CF JOB cards on a past date; change to Yes is set back to No afterwards with the same Multi Edit",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA: 'Export to Payroll is now an option'",
+   "evidenceViewed": [
+    {
+     "file": "image-20261006-222431.png (WEBPET-3570 evidence)",
+     "shows": "Multi Edit Field 'Exported to Payroll', Value Yes, Update Records (11)"
+    }
+   ],
+   "pr": "#1292 merged 2026-10-05",
+   "notes": "Multi Update failures were split into WEBPET-3668/3669/3670."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3503",
+  "group": "A",
+  "scenario": "The Reports hub 'For' filter shows only reports for exactly the chosen module.",
+  "steps": [
+   "Open File > Administration > Reports.",
+   "In the For column filter pick Employee.",
+   "Look at the For value of every row shown.",
+   "Change the For filter to Job and look at the rows."
+  ],
+  "expected": [
+   "With Employee, every row has For = Employee and no row says Employee Class.",
+   "With Job, no Job Card, Job Category, Job Group or Job Type row is shown."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "no QA sign-off (dev note by Raghu Nedumpurath 2026-10-01, not browser verified)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no evidence attached"
+    }
+   ],
+   "pr": "#1272 merged 2026-10-01",
+   "notes": "Hub is at /settings/reports; left-menu path not seen in evidence."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3570",
+  "group": "dup",
+  "scenario": "Same fix as WEBPET-3484: Exported to Payroll is a Multi Edit field on View > Job Cards.",
+  "steps": [
+   "Covered by WEBPET-3484"
+  ],
+  "expected": [
+   "In View > Job Cards Multi Edit, the Field list has 'Exported to Payroll' with a Yes/No Value."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-06, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261006-222431.png",
+     "shows": "Multi Edit Field Exported to Payroll, Value Yes, 11 selected"
+    }
+   ],
+   "pr": "#1292 merged 2026-10-05",
+   "notes": "Ticket text: PriyamSri confirmed it is the same defect, linked as duplicate."
+  },
+  "doubt": null,
+  "feasibility": "Covered by WEBPET-3484",
+  "reason": "Jira-linked duplicate of WEBPET-3484; same fix PR."
+ },
+ {
+  "ticket": "WEBPET-3573",
+  "group": "A",
+  "scenario": "View > Time Cards sorts by Crew then Employee, shows a + button on each row, and a double-click opens the record.",
+  "steps": [
+   "Open View > Time Cards.",
+   "Set the date range to a past date, filter Time Card Crew to CF CREW, and click Apply Filter.",
+   "Look at the order of the rows and at the left of each row.",
+   "Double-click a row."
+  ],
+  "expected": [
+   "Rows are grouped by Work Crew and then by Employee, the same order as Transfer to Job Cards.",
+   "A + button is shown at the left of every row.",
+   "Double-click opens that time card record (edit panel).",
+   "No '25,000 time cards' banner is shown for this small selection."
+  ],
+  "testData": "CF CREW and CF EMPLOYEE ONE/TWO time cards on a past date; none created",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-07, PASSED QA: 'Sorts by Crew, then Employee', '+ button is now on View > Time Cards', double-click, 25,000 limit",
+   "evidenceViewed": [
+    {
+     "file": "image-20261006-221747.png",
+     "shows": "Time Cards grid with + column, Work Crew first, first-25,000 banner (before fix)"
+    }
+   ],
+   "pr": "#1358 sort, #1350 + column, #1382 load all rows + double-click, all merged 2026-10-06/07",
+   "notes": "Row click is double-click on purpose (same as legacy)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3575",
+  "group": "A",
+  "scenario": "Crew In saves with Ranch, Field and Phase left empty and gives each employee their own last Job, Ranch and Field.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Click New record, then Crew In.",
+   "Set Date/Time to a past date at 7:30 AM and Crew to CF CREW. Open the Phase dropdown and check it lists job names (not job aliases).",
+   "Leave Ranch, Field and Phase empty, tick Based on Later Time-Cards, keep CF EMPLOYEE ONE/TWO ticked and click Save.",
+   "Click OK on the status message, then open View > Time Cards and filter to the same date and CF CREW."
+  ],
+  "expected": [
+   "The Phase dropdown shows Job names.",
+   "The Crew-In status message says Created N Time-In records. (N is more than 0), not Created 0.",
+   "The new 7:30 AM Time In rows in Time Cards show each employee's own Job, Ranch and Field from their earlier Time In."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO who already have an earlier Time In (with Job/Ranch/Field) on that past date; create: Time In records, delete them afterwards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-07, PASSED QA (after earlier FAILED QA 10-05 and 10-06)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261007-184206.png",
+     "shows": "View > Time Cards: new 10:30 AM Time In rows with Job Poles & String filled in"
+    },
+    {
+     "file": "image-20261006-195629.png (via QA text)",
+     "shows": "Pre-fix: Created 0 Time-in records, Field is Required"
+    }
+   ],
+   "pr": "#1328, #1353, #1377 merged 2026-10-05..07",
+   "notes": "Final fix ported legacy Crew In save flow and Use Employee Crew checkbox."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3577",
+  "group": "A",
+  "scenario": "Pressing Tab in a dropdown after typing a single match selects that value.",
+  "steps": [
+   "Open Setup > Employee and open the record CF EMPLOYEE ONE.",
+   "In Department, click the field and type the start of a department name that has only one match (e.g. Sycamore).",
+   "Press Tab.",
+   "Check the Department field."
+  ],
+  "expected": [
+   "Department shows the matching value (e.g. Sycamore ...), not blank.",
+   "The cursor moves to the next field with the value kept."
+  ],
+  "testData": "Employee CF EMPLOYEE ONE; do not save (or restore the original Department if saved).",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-05, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261003-002820.png",
+     "shows": "not opened (pre-fix bug image listed in ticket)"
+    }
+   ],
+   "pr": "#1328 merged 2026-10-05",
+   "notes": "Department value 'Sycamore' is from the ticket; on su tenant pick any department with a unique prefix."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3701",
+  "group": "A",
+  "scenario": "Print Badges prints a badge for an inactive record that the grid shows.",
+  "steps": [
+   "Open Setup > Field.",
+   "Filter the grid to an inactive field (turn off Active only / filter Active = No).",
+   "Click Print Badges.",
+   "Open the preview."
+  ],
+  "expected": [
+   "The preview shows one badge for the inactive field.",
+   "It is not an empty report."
+  ],
+  "testData": "An existing inactive field (not created).",
+  "trace": {
+   "signoff": "Rahul Jha (dev), 2026-10-10, QA verification PASS (build e72d62ef3); no tester sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1365 merged 2026-10-07 (also #1375, #1384)",
+   "notes": "Crew badge works the same; Field used here."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3703",
+  "group": "A",
+  "scenario": "An Employee report run with a Crew filter returns a PDF instead of a 'could not be bound' error.",
+  "steps": [
+   "Open Setup > Employee.",
+   "Filter the grid by Crew (e.g. CF CREW).",
+   "Click Report, pick Employee Contact and run it to PDF.",
+   "Read the PDF header."
+  ],
+  "expected": [
+   "A PDF opens with no 'multi-part identifier could not be bound' error.",
+   "Header shows 'Filters: Crew = <crew name>' and lists only the filtered employees."
+  ],
+  "testData": "Crew CF CREW (has CF EMPLOYEE ONE/TWO). Nothing created.",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-10, QA verification PASS (build e72d62ef3); no tester sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1385 merged 2026-10-07",
+   "notes": "Also #1367 merged 2026-10-07."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3705",
+  "group": "C",
+  "scenario": "Smoke: a normal transfer still creates job cards without error after the zero-pay rate change.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW, click Analyze Transfer Candidates.",
+   "Click Transfer to Job Cards and confirm.",
+   "On the Job Cards screen that opens, check the new rows."
+  ],
+  "expected": [
+   "The transfer completes with no error and the Job Cards screen lists the new job cards for CF CREW with Amount values.",
+   "Click Reverse to undo (the job cards go away)."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO time cards on a past date; create: job cards, undo with Reverse",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-07, dev PASS (developer, with a temporary zero-pay preference; no QA verdict)",
+   "evidenceViewed": [],
+   "pr": "#1366, #1386 merged 2026-10-07",
+   "notes": "Smoke: fix only proven at scale/with special rates (zero-pay needs a ZeroTime job preference)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs a job set up for zero pay (ZeroTime preference)."
+ },
+ {
+  "ticket": "WEBPET-3706",
+  "group": "A",
+  "scenario": "Undo after a Setup multi-delete restores the records and shows success with no error.",
+  "steps": [
+   "Open Setup > Time Sheet Validations.",
+   "Select two or more rows and delete them with Multi-Delete.",
+   "Click Undo.",
+   "Check the grid."
+  ],
+  "expected": [
+   "The deleted rows come back in the grid.",
+   "A success message shows and no error or failure message appears."
+  ],
+  "testData": "create: two throwaway validation rows; remove them afterwards.",
+  "trace": {
+   "signoff": "no QA sign-off",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "not found",
+   "notes": "Cause and fix not stated in ticket; 503 only visible in the network log."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3707",
+  "group": "C",
+  "scenario": "Smoke: a Time & Piece transfer still creates job cards without error.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW, click Analyze Transfer Candidates.",
+   "Click Transfer to Job Cards and confirm.",
+   "On the Job Cards screen that opens, check the new rows."
+  ],
+  "expected": [
+   "The transfer completes with no error and the Job Cards screen lists the new job cards for CF CREW with Amount values.",
+   "Click Reverse to undo (the job cards go away)."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO Time & Piece time cards on a past date; create: job cards, undo with Reverse",
+  "trace": {
+   "signoff": "Rahul Jha, 2026-10-07, dev PASS (developer, QA Admin S2; no QA verdict)",
+   "evidenceViewed": [],
+   "pr": "#1368, #1387 merged 2026-10-07",
+   "notes": "Smoke: fix only proven at scale/with special rates (job hourly and piece rates both 0)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs a job with both the hourly and piece rate set to 0."
+ },
+ {
+  "ticket": "WEBPET-3712",
+  "group": "A",
+  "scenario": "Export to Accounting shows no total line under the Candidates rows.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range that has job cards for CF CREW.",
+   "Wait for the Candidates grid to load.",
+   "Look under the last row of the grid."
+  ],
+  "expected": [
+   "No 'Total N rows' line is shown below the grid rows.",
+   "The counts at the top (Ready, Needs re-export, Warnings) are unchanged."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Gukan 2026-10-07 QA Passed; Amy Sandoval Gonzalez 2026-10-09 PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261007-140853.png",
+     "shows": "Candidates grid, summary strip below, no Total rows text"
+    },
+    {
+     "file": "image-20261026-194905.png (WEBPET-3930)",
+     "shows": "Current screen: no Total rows line"
+    }
+   ],
+   "pr": "#1378 merged 2026-10-07",
+   "notes": "The Job-cards/Totals strips remain on screen (moved to the top by WEBPET-3930)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3713",
+  "group": "A",
+  "scenario": "On Export to Accounting the row checkboxes are disabled until Multi Edit is switched on.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW and wait for rows to load.",
+   "Try to tick the checkbox of the first row.",
+   "Click Multi Edit, then tick the checkbox of the first row."
+  ],
+  "expected": [
+   "Before Multi Edit the row checkboxes are greyed out and cannot be ticked.",
+   "After clicking Multi Edit the checkboxes are enabled and the row can be ticked.",
+   "Do not run an update."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is changed",
+  "trace": {
+   "signoff": "Gukan 2026-10-07 happy path passed with two observations; Amy Sandoval Gonzalez 2026-10-13 PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261013-175310.png",
+     "shows": "Candidates grid with greyed-out row checkboxes, Multi Edit not active"
+    }
+   ],
+   "pr": "#1380 merged 2026-10-07",
+   "notes": "Gukan saw checkboxes enabled again after a Multi Edit until refresh; Amy passed it anyway."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3714",
+  "group": "A",
+  "scenario": "Clicking a row on Export to Accounting opens the job card in a right-side drawer.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW and wait for rows to load.",
+   "Click one row.",
+   "Click the X at the top right of the drawer."
+  ],
+  "expected": [
+   "A drawer titled 'Edit Job Card' opens on the right showing the job card (Reference, Date / Time In, Employee, Job, Ranch, Crew), with the Export to Accounting screen still behind it.",
+   "After closing, the screen is as before: same date range, filters and rows."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, do not click Save or Delete in the drawer",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-13, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261013-194903.png",
+     "shows": "Edit Job Card drawer on the right over Export to Accounting"
+    }
+   ],
+   "pr": "#1381 merged 2026-10-07",
+   "notes": "none"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3715",
+  "group": "A",
+  "scenario": "Export to Accounting no longer has the Scope Adjustments panel or the Include re-export candidates toggle.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW.",
+   "Look at the area above the Refine section."
+  ],
+  "expected": [
+   "There is no 'Scope Adjustments' panel and no 'Include re-export candidates' toggle.",
+   "Refine, Dates and Search by are the first items under the step bar."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Gukan 2026-10-07 QA Failed, re-test 2026-10-08 Pass; Amy Sandoval Gonzalez 2026-10-13 PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261013-181355.png",
+     "shows": "Export to Accounting, Refine directly under step bar, no Scope Adjustments"
+    },
+    {
+     "file": "image-20261007-140853.png (WEBPET-3712)",
+     "shows": "Scope Adjustments panel before the fix"
+    }
+   ],
+   "pr": "#1390 merged 2026-10-07",
+   "notes": "none"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3716",
+  "group": "A",
+  "scenario": "The job card count on Export to Accounting equals the number on the Export button.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range and filter Job Card Crew contains CF.",
+   "Wait for the rows to load and read the 'N matched' count and the 'Job-cards N of N' strip.",
+   "Read the label on the bottom-right Export button."
+  ],
+  "expected": [
+   "The Export button reads 'Export N JobCards' with the same N as 'N matched' and 'Job-cards N of N' (for example 3798 matched and Export 3798 JobCards).",
+   "The Ready count at the top is also N when nothing needs re-export."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Kishore Annavarapu, 2026-10-08, 'Tested on 10/08/2026 with Dev environment' (no explicit verdict)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261008-190312.png (WEBPET-3492 evidence)",
+     "shows": "3798 matched, Job-cards 3798 of 3798, Export 3798 JobCards"
+    }
+   ],
+   "pr": "#1389 merged 2026-10-07",
+   "notes": "Ticket has no attachments of its own."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3776",
+  "group": "D",
+  "scenario": "Creating a user in the admin console works even when the browser holds two pt_admin_csrf cookies.",
+  "steps": [
+   "Not testable on UI: It needs a browser holding a stale duplicate pt_admin_csrf cookie on the demo admin console, which cannot be set up in a normal test."
+  ],
+  "expected": [
+   "Create user succeeds (no csrf.invalid 403) for a browser with a stale CSRF cookie.",
+   "Login or logout clears stale cookies."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off (no comments); status Done",
+   "evidenceViewed": [],
+   "pr": "#1426 merged 2026-10-13",
+   "notes": "'Verified on demo after deploy' was an acceptance criterion; no record of it."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It needs a browser holding a stale duplicate pt_admin_csrf cookie on the demo admin console, which cannot be set up in a normal test."
+ },
+ {
+  "ticket": "WEBPET-3790",
+  "group": "D",
+  "scenario": "Preference export, Meta4 format list and export department filters now follow the Oracle Synchronization licence.",
+  "steps": [
+   "Not testable on UI: It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable."
+  ],
+  "expected": [
+   "A licensed client sees the Oracle versions; every other client sees no change."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "Jen Dwyer 2026-10-14: closed Done, 'Not QA-testable'; no client granted",
+   "evidenceViewed": [],
+   "pr": "#1433 merged 2026-10-14",
+   "notes": "Unit-verified only; Epic WEBPET-3792 must finish before any grant."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable."
+ },
+ {
+  "ticket": "WEBPET-3791",
+  "group": "D",
+  "scenario": "Transfer department filter and the minimum-wage rule now follow the Oracle Synchronization licence.",
+  "steps": [
+   "Not testable on UI: It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable."
+  ],
+  "expected": [
+   "A licensed client gets the Oracle transfer and minimum-wage behaviour; others are unchanged."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "Jen Dwyer 2026-10-14: closed Done, 'Not QA-testable'; no client granted",
+   "evidenceViewed": [],
+   "pr": "#1433 merged 2026-10-14",
+   "notes": "#1433 is the close-out merge named in the comment; later follow-ups #1463 and #1466 also mention it."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable."
+ },
+ {
+  "ticket": "WEBPET-3890",
+  "group": "A",
+  "scenario": "Each row on View > Time Cards has a trash bin icon that deletes that one time card.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Look at the left of a CF EMPLOYEE ONE row, next to the + button.",
+   "Click the trash bin icon on that row and confirm the delete."
+  ],
+  "expected": [
+   "A trash bin icon is shown on every row, between the checkbox/+ and the Employee column, as on Transfer to Job Cards.",
+   "After confirming, that one time card disappears from the grid."
+  ],
+  "testData": "create: 1 throw-away time card for CF EMPLOYEE ONE on a past date (it is the one deleted)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-26, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-194805.png",
+     "shows": "Time Cards grid with + and trash icon on each row"
+    }
+   ],
+   "pr": "#1495 merged 2026-10-23",
+   "notes": "Confirmation wording not visible in evidence."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3893",
+  "group": "A",
+  "scenario": "Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, set Search by to Time Card Crew, Match to Contains and type the CF CREW code, wait for the grid.",
+   "Click New record, then Crew In.",
+   "Set Date/Time to that date at 8:30 AM and Crew to ALL EMPLOYEES.",
+   "Look at the Employees list, then click Save."
+  ],
+  "expected": [
+   "The Employees list loads every employee, all ticked, with a Deselect All link (not No employees found for this crew).",
+   "Save works: a Crew-In status message shows Created N Time-In records. (N = employees ticked), with no employeeIds: Select at least 1 error."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO timed in on a past date; create: Time In records, delete them afterwards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-27, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261027-182252.png",
+     "shows": "Crew In panel, Employees all ticked except two"
+    },
+    {
+     "file": "image-20261027-182258.png",
+     "shows": "Crew-In status: Created 46 Time-In records."
+    }
+   ],
+   "pr": "#1506 merged 2026-10-23",
+   "notes": "PR title: ALL EMPLOYEES crew lists every timed-in employee, as legacy."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3895",
+  "group": "A",
+  "scenario": "The Multi Update field list on View > Time Cards includes the fields Windows PET offers.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick two rows.",
+   "Click Multi Update.",
+   "Open the Field dropdown."
+  ],
+  "expected": [
+   "The Field list includes 'Date, Time', 'Employee Selection', 'GPS Reading', 'Run' and 'Traceability' (along with Date, Employee, Job, Memo, Time, Type, Work Crew and others).",
+   "The 'Update Records (2)' button is shown next to the Value box."
+  ],
+  "testData": "CF CREW time cards on a past date; nothing is changed",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-26, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-232403.png",
+     "shows": "Field dropdown open listing Date, Time / Employee Selection / GPS Reading / Run / Traceability"
+    }
+   ],
+   "pr": "#1502 merged 2026-10-23",
+   "notes": "GPS Reading may be module-gated on some tenants; it was visible for QA."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3927",
+  "group": "A",
+  "scenario": "Employee Add > Quick has Name, Middle, Export Identifier and Time Card Defaults, and saves them.",
+  "steps": [
+   "Open Employee Add > Quick.",
+   "Enter First Name, Last Name, Middle, and an Export Identifier.",
+   "Under Time Card Defaults choose Default Ranch, Default Field and Default Job.",
+   "Click Save employee.",
+   "Click Open record and compare the values."
+  ],
+  "expected": [
+   "Quick form shows Name, First Name, Last Name, Middle, Export Identifier and a Time Card Defaults section (Default Ranch, Default Field, Default Job, Always Use Default Job).",
+   "Banner reads '<name> was added. Ready for the next employee.'",
+   "The opened employee shows the same Middle, Export Identifier and defaults."
+  ],
+  "testData": "create: one employee (e.g. CF QUICK ADD TEST) with CF RANCH defaults; delete it afterwards.",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-26, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-172440.png",
+     "shows": "Quick form with Name, Middle, Export Identifier, Time Card Defaults filled"
+    }
+   ],
+   "pr": "#1510 merged 2026-10-26",
+   "notes": "Name field fills as 'Last, First Middle' automatically."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3929",
+  "group": "A",
+  "scenario": "After saving a Quick Add employee, the banner has a Print badge link.",
+  "steps": [
+   "Open Employee Add > Quick.",
+   "Enter First Name and Last Name.",
+   "Click Save employee.",
+   "Read the banner at the top.",
+   "Click Print badge."
+  ],
+  "expected": [
+   "Banner reads '<name> was added. Ready for the next employee.' with 'Print badge' and 'Open record' links.",
+   "Print badge opens the employee's badge for printing without opening the record."
+  ],
+  "testData": "create: one employee (e.g. CF QUICK BADGE TEST); delete it afterwards.",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-26, PASSED QA (screenshots)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-172541.png",
+     "shows": "Banner with Print badge and Open record links after save"
+    }
+   ],
+   "pr": "not found",
+   "notes": "Second QA image (172557) not opened; likely the badge result."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3930",
+  "group": "A",
+  "scenario": "The totals on Export to Accounting sit above the Candidates grid.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW and wait for rows to load.",
+   "Look above the Candidates heading."
+  ],
+  "expected": [
+   "The strip 'Job-cards N of N / Employees N of N / Pieces ...' and the 'Totals Gross ... Net ... Amount ...' row are shown above the Candidates grid.",
+   "Nothing needs scrolling past the grid to see them."
+  ],
+  "testData": "CF CREW job cards on a past date; none created, nothing is exported",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-26, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-194905.png",
+     "shows": "Job-cards 2 of 2 and Totals row above Candidates, 2 matched"
+    }
+   ],
+   "pr": "#1504 merged 2026-10-23 (#1508 matched legacy placement 2026-10-24)",
+   "notes": "none"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3931",
+  "group": "A",
+  "scenario": "The default export file name on Export to Accounting follows the legacy format PET + date and time.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW with at least one Ready job card.",
+   "Click Test File.",
+   "Look at the 'Export file' line in the Test File panel."
+  ],
+  "expected": [
+   "The file name reads PET followed by 17 digits and .txt (for example PET20261027000847700.txt), not 'famous-120-3-payroll-<date>.txt'.",
+   "The panel shows the number of records written."
+  ],
+  "testData": "CF CREW job card in Ready state on a past date; Test File changes no data",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-26, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261027-001017.png",
+     "shows": "Test File panel: PET20261027000847700.txt, 32 records written"
+    }
+   ],
+   "pr": "#1504 merged 2026-10-23",
+   "notes": "The name can still be changed in the save dialog."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3858",
+  "group": "A",
+  "scenario": "Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Set Search by to Date In.",
+   "Set Match to In range.",
+   "Read the From and To fields and the Filter description."
+  ],
+  "expected": [
+   "From shows today's date with 12:00 AM and To shows the same date with 11:59 PM.",
+   "Filter description reads \"Date In is between '<date>, 12:00 AM' AND '<date>, 11:59 PM'\"."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-20, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261020-181754.png",
+     "shows": "Time In: In range From 12:00 AM, To 11:59 PM, description in legacy format"
+    }
+   ],
+   "pr": "#1464 merged 2026-10-19",
+   "notes": "Same default expected on every Reports date filter; only Time In walked."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3864",
+  "group": "A",
+  "scenario": "The Edit Filter Script screen matches Legacy: Screen label, script type name, read-only fields, user assignment.",
+  "steps": [
+   "Open File > Administration > Setup > Scripts.",
+   "Open a script (e.g. Employees Currently on the Job).",
+   "Read the Screen and Script Type fields.",
+   "Read Description, then scroll to Report Viewer Users."
+  ],
+  "expected": [
+   "The field is labeled Screen and shows the screen name (e.g. Time In), locked.",
+   "Script Type shows a name (e.g. Report), not a number, and is locked.",
+   "Description is read-only and an Execute Script button is available; no Table field is visible.",
+   "Report Viewer Users has Add Users (Select users...) and Empty."
+  ],
+  "testData": "An existing script; nothing is changed or saved.",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-21, PASSED QA (after Amy's round-1 pass and round-2 fail)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261020-181143.png",
+     "shows": "Edit Filter Script: Screen locked, Table field and editable Description flagged (round-2 issues)"
+    }
+   ],
+   "pr": "#1468 merged 2026-10-20; #1473 merged 2026-10-21",
+   "notes": "Legacy Copy button deliberately deferred."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3805",
+  "group": "A",
+  "scenario": "Reports > Input > Job Card has Load and Save for report scripts.",
+  "steps": [
+   "Open Reports > Input > Job Card.",
+   "Check the buttons under the Filter description.",
+   "Click Load."
+  ],
+  "expected": [
+   "Execute, Load and Save buttons are shown.",
+   "Load lists the saved Job Card report scripts."
+  ],
+  "testData": "At least one saved Job Card script (create it with Save first if none exists, then delete it).",
+  "trace": {
+   "signoff": "no QA sign-off (status Done, 0 comments)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261014-191333.png",
+     "shows": "Legacy Load dialog listing saved scripts for the filter"
+    }
+   ],
+   "pr": "#1439 merged 2026-10-15",
+   "notes": "Execute/Load/Save buttons also seen in 3781 evidence."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3831",
+  "group": "A",
+  "scenario": "Clicking an exception in the Issues panel selects and scrolls to the affected time card in the grid.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date with at least one issue, filter to CF CREW and click Analyze Transfer Candidates.",
+   "In the Issues panel on the right, click an issue (for example Unknown employee or Missing Time-Out at end of the day).",
+   "Look at the grid."
+  ],
+  "expected": [
+   "The grid scrolls to the affected time card and highlights/selects that row (shown underlined/selected).",
+   "The row's reference matches the one listed under the issue detail."
+  ],
+  "testData": "CF CREW with a past-date time card that has an issue (for example a Time In without a Time Out)",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-22, PASSED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261022-223823.png",
+     "shows": "Issues panel right; issue selected, grid shows highlighted row for that card"
+    }
+   ],
+   "pr": "#1494 merged 2026-10-22",
+   "notes": ""
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3856",
+  "group": "C",
+  "scenario": "Smoke: Time In: Consecutive Missing Work Days runs and prints a titled page.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Click Execute and choose 'Consecutive Missing Work Days'.",
+   "Enter a Last Work Date and Allowed Number of Missing Work Days (e.g. 2).",
+   "Click PDF."
+  ],
+  "expected": [
+   "PDF opens with the title 'Time In: Consecutive Missing Work Days' and a logo.",
+   "It shows an Allowed line, dated column headings and a crew attendance grid; no error."
+  ],
+  "testData": "A past Last Work Date with CF fixture employees (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Done; Raghu Nedumpurath 2026-10-16 note)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1453 merged 2026-10-16",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale; menu path inferred."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3830",
+  "group": "A",
+  "scenario": "The Issues (exceptions) panel is on the right side of Transfer to Job Cards, not under the grid.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date that has at least one issue (for example a date where a Time In has no Time Out) and click Analyze Transfer Candidates.",
+   "Look for the Issues panel."
+  ],
+  "expected": [
+   "The Issues panel (with Group by: Issue Type / Employee and the issue list) shows in a column on the right of the screen, next to the grid.",
+   "The time card grid uses the full height on the left, and the totals line (Gross, Net, Meals, Pieces, Employees) is under the grid."
+  ],
+  "testData": "CF CREW, a past date with at least one warning or blocking issue",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-16, PASSED QA (no image)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261014-234930.png",
+     "shows": "Original bug: Issues panel under the grid (before fix)"
+    }
+   ],
+   "pr": "#1450 merged 2026-10-16",
+   "notes": "Expected layout taken from PR text and later screenshots (WEBPET-3831 evidence shows the right-side panel)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3834",
+  "group": "A",
+  "scenario": "Clicking the Ready status count filters the Transfer to Job Cards grid to ready records.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Click the Ready count at the top (for example 764 Ready).",
+   "Click the Ready count again."
+  ],
+  "expected": [
+   "After the first click the grid lists only records whose Status is Ready.",
+   "After the second click all rows show again."
+  ],
+  "testData": "CF CREW with time cards on a past date, ideally with at least one warning so the filter visibly changes the grid",
+  "trace": {
+   "signoff": "Cesar Sandoval-Monteon, 2026-10-16, PASSED QA (no image)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261014-235550.png",
+     "shows": "Original suggestion: red box on the status counts (764 Ready, 0 Blocking, 1 Warnings)"
+    }
+   ],
+   "pr": "#1450 merged 2026-10-16",
+   "notes": "Behaviour from PR #1450: pill toggles; Deferred opens Held for Review."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3835",
+  "group": "A",
+  "scenario": "A report selection dialog is closed with an X in the top-right corner instead of a Cancel button.",
+  "steps": [
+   "Open Transfer to Job Cards.",
+   "Click Report in the top bar.",
+   "Check the top-right corner of the report dialog and the bottom button row.",
+   "Click the X."
+  ],
+  "expected": [
+   "Dialog title 'Report: ...' has an X at the top right.",
+   "Bottom row shows Edit in Report Editor, Excel, Export, Load, Save and PDF, with no Cancel button.",
+   "Clicking X closes the dialog."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-16, PASSED QA (screenshot)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261016-151233.png",
+     "shows": "Report dialog on Transfer to Job Cards with X, no Cancel"
+    }
+   ],
+   "pr": "#1450 merged 2026-10-16",
+   "notes": "Any screen's Report dialog should show the same."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3243",
+  "group": "C",
+  "scenario": "Smoke: Analyze on Transfer to Job Cards completes for one crew and shows the totals.",
+  "steps": [
+   "Open Transfer to Job Cards.",
+   "Pick a past date, Search by Time Card Crew = CF CREW.",
+   "Click Analyze Transfer Candidates."
+  ],
+  "expected": [
+   "Analyze finishes and the grid lists the CF CREW time cards.",
+   "The totals line shows Gross, Net, Meals, Pieces and Employees values."
+  ],
+  "testData": "CF CREW time cards on a past date",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [],
+   "pr": "#1055 merged 2026-09-22",
+   "notes": "Smoke: filtered to one crew/employee so the data stays small; the fix itself is only proven at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Performance fix (one Analyze ran the plan 3 times); only measurable on large data."
+ },
+ {
+  "ticket": "WEBPET-3260",
+  "group": "D",
+  "scenario": "The Problems request on Transfer no longer reads the large Memo column for every candidate, which cut about 18.5 s of a 41.8 s request.",
+  "steps": [
+   "Not testable on UI: It is a database speed fix measured on a 261,866-candidate scope; dev data is far too small to see any difference."
+  ],
+  "expected": [
+   "Problems list returns the same records as before, faster on very large scopes."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off; not re-measured on dev",
+   "evidenceViewed": [],
+   "pr": "#1064 merged 2026-09-22",
+   "notes": "Equivalent by construction; Memo is only read when Reference is empty."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It is a database speed fix measured on a 261,866-candidate scope; dev data is far too small to see any difference."
+ },
+ {
+  "ticket": "WEBPET-3261",
+  "group": "C",
+  "scenario": "Smoke: the Crew filter on the Job Cards tab narrows rows and the totals are not all zeros.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, filter to CF CREW and click Analyze Transfer Candidates.",
+   "Click the Job Cards tab and pick CF CREW in the Work Crew filter."
+  ],
+  "expected": [
+   "The Job Cards grid shows the CF CREW rows.",
+   "The totals bar shows real Gross, Net and Meals numbers, not 0.000."
+  ],
+  "testData": "CF CREW with CF EMPLOYEE ONE/TWO time cards on a past date",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test, no comments)",
+   "evidenceViewed": [],
+   "pr": "#1067 merged 2026-09-22",
+   "notes": "Smoke: fix only proven at scale/with special rates (needs a crew with no name, i.e. deleted crew)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Needs a crew with no name (a deleted crew); one can't be created on screen."
+ },
+ {
+  "ticket": "WEBPET-3610",
+  "group": "A",
+  "scenario": "The Employee Gender select saves Male and shows Male again after reopening.",
+  "steps": [
+   "Open Setup > Employee and open CF EMPLOYEE ONE.",
+   "Go to Additional Info and open the Gender select.",
+   "Choose Male and Save.",
+   "Close and reopen CF EMPLOYEE ONE and read Gender.",
+   "Set Gender back to its original value and Save."
+  ],
+  "expected": [
+   "The Gender list shows Unspecified, Male, Female and Non-Binary.",
+   "After reopening, Gender shows Male."
+  ],
+  "testData": "CF EMPLOYEE ONE; the original Gender value is restored at the end",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test; Jen Dwyer 2026-10-03 execution note)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1311 merged 2026-10-04 (fix commit 4c7589d68 on working branch)",
+   "notes": "UI cannot show the stored number (0/1/2); only the label is checked."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3796",
+  "group": "D",
+  "scenario": "Under Oracle Synchronization, job card and time card row scoping now uses the Oracle department-and-crew filter so a restricted user does not see more than legacy allows.",
+  "steps": [
+   "Not testable on UI: It is a latent security fix for the Oracle Synchronization licence, which no client has; the manual UI check was not done."
+  ],
+  "expected": [
+   "A restricted user on a licensed client sees no wider a set of cards than legacy allows."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off; Jen Dwyer 2026-10-14: unit tests plus dev-DB truth-table runs pass, manual UI check not done",
+   "evidenceViewed": [],
+   "pr": "#1462 merged 2026-10-19",
+   "notes": "Status is Ready for Test."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It is a latent security fix for the Oracle Synchronization licence, which no client has; the manual UI check was not done."
+ },
+ {
+  "ticket": "WEBPET-3164",
+  "group": "C",
+  "scenario": "Smoke: a Time-In report launched from the View > Time Cards grid runs without an unbindable-column error.",
+  "steps": [
+   "Open View > Time Cards.",
+   "Filter to a past date and Work Crew = CF CREW, then click Apply Filter.",
+   "Click Report and choose Crew Cost Analysis with Burden.",
+   "Run it as PDF."
+  ],
+  "expected": [
+   "The report opens with the CF CREW data.",
+   "No error about a column or filter that cannot be bound."
+  ],
+  "testData": "CF CREW time cards on a past date",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test; Jen Dwyer 2026-09-23 shipped doc/test changes only)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1112 merged 2026-09-24; #1156 merged 2026-09-26",
+   "notes": "Its real fix is the datasource port 3304 (3307-3310)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "The full fix (8 reports from the View grid) is proven by its datasource tickets; this runs one of them."
+ },
+ {
+  "ticket": "WEBPET-3165",
+  "group": "dup",
+  "scenario": "Covered by WEBPET-3305.",
+  "steps": [
+   "Covered by WEBPET-3305"
+  ],
+  "expected": [
+   "See WEBPET-3305."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Same 2 reports as 3305: Piece Productivity by Field and Piece Summary by Employee with Rank."
+  },
+  "doubt": null,
+  "feasibility": "Covered by WEBPET-3305",
+  "reason": "Same two Time-In reports as WEBPET-3305."
+ },
+ {
+  "ticket": "WEBPET-3244",
+  "group": "D",
+  "scenario": "A transfer load job now stays alive when its browser tab is in the background, so the user does not lose the result.",
+  "steps": [
+   "Not testable on UI: It needs a load running over 3 minutes plus a hidden tab, which dev data cannot reproduce on demand; the cause was a hypothesis, never reproduced."
+  ],
+  "expected": [
+   "Switching tabs during a long Analyze does not lose the job or restart the whole computation."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [],
+   "pr": "#1056 merged 2026-09-22",
+   "notes": "Timing-based; hidden-tab throttling cannot be set up repeatably."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It needs a load running over 3 minutes plus a hidden tab, which dev data cannot reproduce on demand; the cause was a hypothesis, never reproduced."
+ },
+ {
+  "ticket": "WEBPET-3253",
+  "group": "D",
+  "scenario": "Picking an employee in the Irrigation grid saves the new employee on the record.",
+  "steps": [
+   "Not testable on UI: dev has no irrigation records, and one can't be created (the New Irrigation form's Equipment list is empty)."
+  ],
+  "expected": [
+   "The Employee cell keeps the newly picked employee after reload."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off; Rahul Jha 2026-10-27 staging verification INCONCLUSIVE (no irrigation record on dev)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1457 merged 2026-10-17",
+   "notes": "Left-menu path to Irrigation not confirmed."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "dev has no irrigation records, and one can't be created (the New Irrigation form's Equipment list is empty)."
+ },
+ {
+  "ticket": "WEBPET-3270",
+  "group": "C",
+  "scenario": "Smoke: the Employee list loads and finds an employee by name.",
+  "steps": [
+   "Open Setup > Employee.",
+   "Type CF EMPLOYEE in the search/filter."
+  ],
+  "expected": [
+   "The Employee list loads without an error.",
+   "CF EMPLOYEE ONE and CF EMPLOYEE TWO are listed."
+  ],
+  "testData": "CF EMPLOYEE ONE/TWO",
+  "trace": {
+   "signoff": "Venkatesh 2026-09-24: diagnosed, not yet verified on dev; no QA sign-off",
+   "evidenceViewed": [],
+   "pr": "#1121 merged 2026-09-24",
+   "notes": "Smoke: filtered to one crew/employee so the data stays small; the fix itself is only proven at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Performance fix for a 26k-employee list; dev has a few employees."
+ },
+ {
+  "ticket": "WEBPET-3305",
+  "group": "C",
+  "scenario": "Smoke: the Time In report Piece Productivity by Field runs and renders without error.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Pick a past date range that has time cards and click Execute.",
+   "In the report dialog choose the report 'Piece Productivity by Field'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "A PDF opens with the report title and rows, no error message.",
+   "Report also opens for 'Piece Summary by Employee with Rank' the same way."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test; Jen Dwyer 2026-09-23 shipped to working branch)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3307",
+  "group": "C",
+  "scenario": "Smoke: the Time In report Daily Summary by Field runs and renders without error.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Pick a past date range with time cards and click Execute.",
+   "Choose the report 'Daily Summary by Field'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "A PDF opens with the title and rows for the selected dates.",
+   "No error message or empty failure page."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3308",
+  "group": "C",
+  "scenario": "Smoke: a package-size Time In report (e.g. Piece Productivity) runs and renders without error.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Pick a past date range with time cards and click Execute.",
+   "Choose a report such as 'Piece Productivity'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "A PDF opens with title and rows.",
+   "No error message."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3309",
+  "group": "C",
+  "scenario": "Smoke: the Time In report Piece Productivity by Field Summary runs and renders without error.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Pick a past date range with time cards and click Execute.",
+   "Choose the report 'Piece Productivity by Field Summary'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "A PDF opens with title and summary rows.",
+   "No error message."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3310",
+  "group": "C",
+  "scenario": "Smoke: the Time In report Employee In Out Summary runs and renders without error.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Pick a past date range with time cards and click Execute.",
+   "Choose the report 'Employee In Out Summary'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "A PDF opens with title and rows.",
+   "No error message."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1156 merged 2026-09-26",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale; the -1 variant has no menu entry, base report used."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3328",
+  "group": "D",
+  "scenario": "The computed job cards datasource now finishes within the 2-minute report budget on the largest client.",
+  "steps": [
+   "Not testable on UI: It is a backend speed fix proved only on the Anthony corpus (about 57 s versus over 15 min before), which is not on dev."
+  ],
+  "expected": [
+   "Time-In reports built on computed job cards finish within the budget with identical numbers."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "Jen Dwyer 2026-09-24: output byte-for-byte identical, unit-verified only; no QA sign-off",
+   "evidenceViewed": [],
+   "pr": "#1156 merged 2026-09-26 (datasource); per-card break query batched in #1261 merged 2026-09-30",
+   "notes": "Comment said not on main at that time; PR search suggests it shipped later."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It is a backend speed fix proved only on the Anthony corpus (about 57 s versus over 15 min before), which is not on dev."
+ },
+ {
+  "ticket": "WEBPET-3700",
+  "group": "D",
+  "scenario": "Scanning the back of a real driver licence in Mobile Quick Add now fills the form (ZIP as 5 digits, no 'NONE' middle name).",
+  "steps": [
+   "Not testable on UI: It needs a phone camera and a physical California or Tennessee driver licence."
+  ],
+  "expected": [
+   "Quick Add form fills from the scan with a 5-digit ZIP and an empty middle name when the card has none."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [],
+   "pr": "#1356 merged 2026-10-06",
+   "notes": "Parser fix is covered by unit tests using real legacy scans."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It needs a phone camera and a physical California or Tennessee driver licence."
+ },
+ {
+  "ticket": "WEBPET-3717",
+  "group": "D",
+  "scenario": "If a licence scan fails, Quick Add now shows a short code (PARSE, NO-DECODE or DECODER) the user can screenshot.",
+  "steps": [
+   "Not testable on UI: It needs a phone camera, and the NO-DECODE case needs a real phone's platform and camera resolution."
+  ],
+  "expected": [
+   "A failed scan shows a short reason code with metadata only.",
+   "A valid licence scan still fills the form."
+  ],
+  "testData": "—",
+  "trace": {
+   "signoff": "no QA sign-off (no comments)",
+   "evidenceViewed": [],
+   "pr": "#1383 merged 2026-10-07",
+   "notes": "Diagnostic aid only; a fix for the CA iPhone failure is still to follow."
+  },
+  "doubt": null,
+  "feasibility": "Not feasible",
+  "reason": "It needs a phone camera, and the NO-DECODE case needs a real phone's platform and camera resolution."
+ },
+ {
+  "ticket": "WEBPET-3788",
+  "group": "A",
+  "scenario": "A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Administration > Setup.",
+  "steps": [
+   "Log in as the non-admin user E2ENonSU.",
+   "Open File > Administration > Setup.",
+   "Look through the Setup list."
+  ],
+  "expected": [
+   "Alias Field and Mobile Phone Carrier are not in the list.",
+   "The other Setup entries the user is allowed to see are listed as normal."
+  ],
+  "testData": "Non-admin user E2ENonSU (password kept in the local .env, not here)",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test; Jen Dwyer 2026-10-14 asks Amy to test)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1433 merged 2026-10-14",
+   "notes": "The hidden-for-regular-user half needs a non-admin login; su happy path only."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3789",
+  "group": "A",
+  "scenario": "On the Reports hub a For link to a screen the user cannot open shows as plain text, not a link.",
+  "steps": [
+   "Log in as the non-admin user E2ENonSU.",
+   "Open File > Administration > Reports.",
+   "Find a report whose For value is Mobile Phone Carrier (a screen this user cannot open)."
+  ],
+  "expected": [
+   "The For value Mobile Phone Carrier is plain text, not a clickable link.",
+   "Clicking it does not bounce the user to the home page."
+  ],
+  "testData": "Non-admin user E2ENonSU (password kept in the local .env, not here)",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test; Jen Dwyer 2026-10-13 execution note)",
+   "evidenceViewed": [
+    {
+     "file": "none",
+     "shows": "no attachments on ticket"
+    }
+   ],
+   "pr": "#1433 merged 2026-10-14 (WEBPET-3007 batch)",
+   "notes": "Smoke: fix only proven for unlicensed users (needs non-admin / unlicensed login)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3888",
+  "group": "A",
+  "scenario": "The User record has working Shortcut and Alias Set fields, and double-clicking Alias Set creates a new Alias Set.",
+  "steps": [
+   "Open File > Administration > User and click New.",
+   "Pick a value in Shortcut.",
+   "Double-click the Alias Set field.",
+   "In the new Alias Set form enter a name and Save.",
+   "Cancel the user record without saving."
+  ],
+  "expected": [
+   "Shortcut and Alias Set are on the user record and accept a value.",
+   "Double-clicking Alias Set opens a new Alias Set form, and after Save the new set is selected in the field."
+  ],
+  "testData": "create: one Alias Set named CF3888 NEW ALIAS SET …; deleted afterwards. No user is saved",
+  "trace": {
+   "signoff": "Veronica Perez, 2026-10-28, Shortcut PASSED QA, Alias Set FAILED QA",
+   "evidenceViewed": [
+    {
+     "file": "image-20261028-175431.png",
+     "shows": "Login message: Shortcuts Only role cannot sign in to Web PET"
+    },
+    {
+     "file": "image-20261021-233058.png",
+     "shows": "Legacy user record with Shortcut and Alias Set fields highlighted"
+    }
+   ],
+   "pr": "#1489 merged 2026-10-22; #1498 merged 2026-10-26; #1528 merged 2026-10-29",
+   "notes": "#1528 (10-29) fixes Alias Set modal after the last QA fail; not yet re-tested."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3932",
+  "group": "A",
+  "scenario": "The Time In date filter accepts a date range with start and end times.",
+  "steps": [
+   "Open Input > Time In.",
+   "In the From and To filter set a date range of two past days.",
+   "Set a start time and an end time for the range.",
+   "Click Apply."
+  ],
+  "expected": [
+   "The calendar filter lets you pick a start date and time and an end date and time.",
+   "The grid shows only Time In records inside the chosen date and time range."
+  ],
+  "testData": "A past date range with CF fixture time-ins",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261022-215537.png",
+     "shows": "Web Time In with single From/To date and calendar (before fix)"
+    }
+   ],
+   "pr": "#1504 merged 2026-10-23",
+   "notes": "Same filter for Input > Time Out; only Time In in this TC."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3937",
+  "group": "A",
+  "scenario": "The two reverse export menu items use the legacy captions.",
+  "steps": [
+   "Reload the app so the newest build loads.",
+   "Open File > Restore or Reverse.",
+   "Find the two reverse export to accounting items.",
+   "Read their captions."
+  ],
+  "expected": [
+   "One item reads 'Reverse Export to Accounting (Cost Accounting)'.",
+   "The other reads 'Reverse Export to Accounting (Payroll)'.",
+   "Old captions 'Reverse Job Costing Export to Accounting' and 'Reverse Payroll Export to Accounting' are gone."
+  ],
+  "testData": "none",
+  "trace": {
+   "signoff": "no QA sign-off (status Ready for Test); dev verified PASS by Rahul Jha 2026-10-27",
+   "evidenceViewed": [
+    {
+     "file": "image-20261026-194135.png",
+     "shows": "Old Web captions in File > Restore or Reverse (before fix)"
+    }
+   ],
+   "pr": "#1514 merged 2026-10-27",
+   "notes": "Items gated by enableExportToAccounting; hover tooltip shows full caption."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3940",
+  "group": "A",
+  "scenario": "Deleting all checked time cards at once finishes quickly, removes every selected card and reports the right count.",
+  "steps": [
+   "Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.",
+   "Tick the select-all checkbox in the header.",
+   "Click Delete and confirm Delete \"N Time Cards\"? with Delete.",
+   "Open File > Administration > Restore or Reverse > Reverse Multi Delete."
+  ],
+  "expected": [
+   "The delete finishes in a few seconds and the success message says the same N as the dialog.",
+   "The grid shows no remaining rows for that selection.",
+   "Reverse Multi Delete (Bulk Delete History) lists the delete batch with Undo."
+  ],
+  "testData": "create: 3 throw-away CF EMPLOYEE ONE time cards on a past date (they are deleted; restore via Reverse Multi Delete)",
+  "trace": {
+   "signoff": "no QA sign-off (Ready for Test); bug reported by Amy Sandoval Gonzalez 2026-10-26",
+   "evidenceViewed": [
+    {
+     "file": "Mult-Delete Lag + No Reverse.mp4 frame 06",
+     "shows": "Delete 14978 Time Cards dialog stuck at Deleting..., timer 9:51"
+    }
+   ],
+   "pr": "#1514 merged 2026-10-27 (one bulk-delete request)",
+   "notes": "Only the speed was fixed in the PR text; the Reverse Multi Delete entry and 85 left-over rows are not mentioned."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3872",
+  "group": "C",
+  "scenario": "Smoke: Time In: Daily Piece Summary Extended runs from Reports > Input > Time In and shows rows.",
+  "steps": [
+   "Open Reports > Input > Time In.",
+   "Set Date In to one past date and click Execute.",
+   "Choose the report 'Daily Piece Summary Extended'.",
+   "Click PDF."
+  ],
+  "expected": [
+   "PDF titled 'Time In: Daily Piece Summary Extended' opens, not an empty page.",
+   "Per crew it lists Employee, Start time, End time, Gross Time and piece columns 1 to 10."
+  ],
+  "testData": "A past date with CF fixture time cards (small data).",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-29, PASSED QA (after several fail/pass rounds)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261029-220031.png",
+     "shows": "Extended PDF with logo, crew header, employee rows, piece columns"
+    }
+   ],
+   "pr": "#1513 merged 2026-10-27",
+   "notes": "Smoke: fix only proven against Legacy PDF / at scale"
+  },
+  "doubt": null,
+  "feasibility": "Feasible - smoke",
+  "reason": "Matching the layout to Legacy needs the Legacy PDF; this checks the report runs with a title and rows."
+ },
+ {
+  "ticket": "WEBPET-3817",
+  "group": "A",
+  "scenario": "A saved report script runs from Reports > Report Scripts with its relative dates and Execute Report setting.",
+  "steps": [
+   "Open Reports > Report Scripts.",
+   "Select the test script (Time In report, Date In = This week, Execute Report = Yes).",
+   "Click Execute."
+  ],
+  "expected": [
+   "The report runs straight away (Execute Report = Yes) without stopping on the selection screen.",
+   "The dates used are the current week (Monday to Sunday), not the dates the script was saved with."
+  ],
+  "testData": "create: a Time In report script with Date In = This week and Execute Report = Yes; deleted afterwards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-22, FAILED QA on 'This week' dates and Execute Report; Execute/Script screens passed",
+   "evidenceViewed": [
+    {
+     "file": "image-20261023-000834.png",
+     "shows": "Legacy: this-week range, Execute Script, Report Scripts list"
+    }
+   ],
+   "pr": "#1500 merged 2026-10-23",
+   "notes": "Run-automatically behaviour for Execute Report = Yes also fixed in #1500."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3833",
+  "group": "A",
+  "scenario": "The Missing Time-Out at end of the day issue names the affected time card.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick the past date where CF CREW A has a Time In with no Time Out, filter to CF CREW A and click Analyze Transfer Candidates.",
+   "In the Issues panel, open Missing Time-Out at end of the day."
+  ],
+  "expected": [
+   "The issue shows 1 affected.",
+   "The detail lists that exact time card (its reference, date and time)."
+  ],
+  "testData": "create: one Time In with no Time Out for CF A ONE on the spec day; deleted afterwards",
+  "trace": {
+   "signoff": "Amy Sandoval Gonzalez, 2026-10-22, unable to test (needs West Coast Berry data); status Ready for Test",
+   "evidenceViewed": [
+    {
+     "file": "image-20261014-235356.png",
+     "shows": "Original bug: warning says 1 affected with empty detail (pre-fix)"
+    }
+   ],
+   "pr": "#1491 merged 2026-10-22",
+   "notes": "Smoke: fix only proven at scale/with special rates (real case is a break-resume/auto Time In)."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "WEBPET-3938",
+  "group": "A",
+  "scenario": "A copy button next to the export file name copies the name and shows 'Copied.'.",
+  "steps": [
+   "Open Export to Accounting and stay on Payroll.",
+   "Set a past date range for CF CREW with at least one Ready job card.",
+   "Click 'Export N JobCards' (bottom right) to open the Save export file dialog.",
+   "Click the copy icon next to the file name.",
+   "Click Discard."
+  ],
+  "expected": [
+   "The dialog shows the file name (PET...txt) with an icon-only copy button beside it.",
+   "A 'Copied.' message appears after clicking the copy icon.",
+   "After Discard nothing is saved or marked as exported."
+  ],
+  "testData": "CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",
+  "trace": {
+   "signoff": "no QA sign-off (Ready for Test); Rahul Jha staging check 2026-10-27: 'Copied.' toast seen on two clicks",
+   "evidenceViewed": [
+    {
+     "file": "none (no attachments)",
+     "shows": "n/a"
+    }
+   ],
+   "pr": "#1514 merged 2026-10-27",
+   "notes": "Clipboard contents could not be read by the developer; paste into a text box to confirm."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ },
+ {
+  "ticket": "PET-12942",
+  "group": "A",
+  "scenario": "Editing the time of an existing Time In on Transfer to Job Cards saves.",
+  "steps": [
+   "Open Transfer to Job Cards from the left menu.",
+   "Pick a past date, set Search by to Time Card Crew and choose CF CREW, wait for the grid.",
+   "Open a Time In row of CF EMPLOYEE ONE (click the row).",
+   "Change the Date/Time by a few minutes (for example 10:57 AM to 10:55 AM).",
+   "Click Save."
+  ],
+  "expected": [
+   "Save succeeds with no Failed to save time in record: Crew should have a Department error.",
+   "The grid row shows the new time and the Unsaved changes label goes away."
+  ],
+  "testData": "CF CREW, CF EMPLOYEE ONE with a Time In on a past date; edit then set the time back after",
+  "trace": {
+   "signoff": "PriyamSri, 2026-10-29, not a bug: only fails with Oracle module on, now off (no QA verdict)",
+   "evidenceViewed": [
+    {
+     "file": "image-20261028-231132.png",
+     "shows": "Not opened (original bug screenshot, pre-fix report)"
+    }
+   ],
+   "pr": "not found",
+   "notes": "Status Ready for QA; happy path = edit a Time In and save, per orchestrator instruction."
+  },
+  "doubt": null,
+  "feasibility": "Feasible - full",
+  "reason": ""
+ }
+]

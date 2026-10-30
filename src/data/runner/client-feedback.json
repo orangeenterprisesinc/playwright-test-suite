@@ -12,6 +12,19 @@
             "jira": "WEBPET-3311",
             "status": "automated",
             "enabled": true
+        },
+        {
+            "id": "WEBPET-3064",
+            "category": "ui",
+            "testName": "tjcTotalsLineLoads",
+            "testTitle": "Transfer to Job Cards totals line loads for an analyzed crew day",
+            "testDescription": "Client feedback (Anthony): Transfer to Job Cards totals took 3+ minutes, then failed with Totals couldn't be loaded; fixed by web-pet #1048 (+WEBPET-3243). Seed CF CREW A on day -2, open Transfer to Job Cards from the menu, scope day and Time Card Crew, Analyze, verify the totals caption and Gross/Net/Meals/Pieces/Employees with no error.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3064",
+            "status": "automated",
+            "enabled": true
         }
     ]
 }

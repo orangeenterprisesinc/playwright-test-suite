@@ -1,0 +1,30 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -2 in this suite (loader rejects a second A@-2). Analyze only; nothing committed.",
+    "Totals strip testid timecards-totals-strip-issues; loading aria-busy=true; failed data-degraded=true + timecards-totals-unavailable (bundle index-YxOjfJx3.js, 2026-10-30).",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB (hourlyRate 1)."
+  ],
+  "ticket": "WEBPET-3064",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -2,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "caption": "Includes 4 Time Cards of 4 initial selection",
+    "loadWithinMs": 60000,
+    "labels": ["Gross", "Net", "Meals", "Pieces", "Employees"],
+    "exact": { "Pieces": "0", "Employees": "2" },
+    "positive": ["Gross", "Net"],
+    "unavailableText": "Totals couldn't be loaded."
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Load time at production scale (3+ min, thousands of cards): dev holds 4 cards; loadWithinMs bounds the small case only." }
+  ],
+  "cleanup": []
+}

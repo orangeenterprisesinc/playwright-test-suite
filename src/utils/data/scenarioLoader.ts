@@ -54,6 +54,7 @@ export async function loadScenario<S extends z.ZodTypeAny>(schema: S, testInfo: 
         throw new Error(`${rel(file)} failed validation — ${issues}`);
     }
     if (path.basename(path.dirname(file)) === 'journey-b') await assertDistinctDayOffsets(path.dirname(file));
+    if (path.basename(path.dirname(file)) === 'client-feedback') await assertDistinctCrewDays(path.dirname(file));
     return result.data as z.output<S>;
 }
 
@@ -98,6 +99,37 @@ function assertDistinctDayOffsets(dir: string): Promise<void> {
             throw new Error(
                 `Journey B dayOffset shared across scenario files (one fixture day per workflow, workers=2): ` +
                     clashes.map(([o, f]) => `${o} → ${f.join(', ')}`).join('; '),
+            );
+        }
+    })());
+}
+
+const CF_MAX_DAY_OFFSET = 21; // maximumDaysForTransferExport on dev (read 2026-10-30)
+
+// Client-feedback tickets share four fixture crews; one (crew, day) pair per scenario file keeps workers=2 from colliding.
+let crewDayCheck: Promise<void> | undefined;
+function assertDistinctCrewDays(dir: string): Promise<void> {
+    return (crewDayCheck ??= (async () => {
+        const byPair = new Map<string, string[]>();
+        for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== FIXTURE_FILE)) {
+            const raw = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as Record<string, unknown> & Partial<MultiCaseFile>;
+            const pairs = new Set<string>();
+            const collect = (o: Record<string, unknown> | undefined) => {
+                if (typeof o?.fixtureCrew !== 'string' || typeof o.dayOffset !== 'number') return;
+                if (Math.abs(o.dayOffset) > CF_MAX_DAY_OFFSET) {
+                    throw new Error(`client-feedback ${name}: dayOffset ${o.dayOffset} is outside the ±${CF_MAX_DAY_OFFSET} day export window`);
+                }
+                pairs.add(`${o.fixtureCrew}@${o.dayOffset}`);
+            };
+            collect(raw);
+            collect(raw.shared);
+            for (const c of Object.values(raw.cases ?? {})) collect(c);
+            for (const pair of pairs) byPair.set(pair, [...(byPair.get(pair) ?? []), name]);
+        }
+        const clashes = [...byPair].filter(([, files]) => files.length > 1);
+        if (clashes.length) {
+            throw new Error(
+                `client-feedback (fixtureCrew, dayOffset) shared across scenario files: ` + clashes.map(([p, f]) => `${p} → ${f.join(', ')}`).join('; '),
             );
         }
     })());

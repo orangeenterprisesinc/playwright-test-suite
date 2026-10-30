@@ -1,4 +1,4 @@
-import { expect, test, Frame, Locator, Page, Request, Response } from '@playwright/test';
+import { expect, test, Frame, Locator, Page, Request, Response, TestInfo } from '@playwright/test';
 import { acquireTransferScreenLock } from '../../utils/sync/preferencesLock';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
@@ -296,6 +296,11 @@ export class TransferToJobCardsPage extends BasePage {
         await entry.click();
         await expect(entry).toBeChecked();
         return true;
+    }
+
+    /** Ticks the entry when it is not; a tick is recorded as a `self-heal` annotation. */
+    async ensureColumnShown(label: string, testInfo: TestInfo): Promise<void> {
+        if (await this.showColumn(label)) testInfo.annotations.push({ type: 'self-heal', description: `'${label}' was unticked; ticked on screen` });
     }
 
     async closeColumnPicker(): Promise<void> {
@@ -1329,6 +1334,30 @@ export class TransferToJobCardsPage extends BasePage {
     async piecesTotal(): Promise<number> {
         const text = (await this.page.getByTestId('timecards-totals-strip-issues').textContent()) ?? '';
         return Number((/Pieces([\d.,]+)/.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
+    }
+
+    /** Totals line under the Time Cards grid. Loading: aria-busy="true"; failed: data-degraded="true". */
+    get totalsStrip(): Locator {
+        return this.page.getByTestId('timecards-totals-strip-issues');
+    }
+
+    get totalsCaption(): Locator {
+        return this.totalsStrip.getByText(/^Includes \d+ Time Cards? of \d+ initial selection$/);
+    }
+
+    /** "Totals couldn't be loaded." — rendered only when the totals query failed (WEBPET-3064). */
+    get totalsUnavailable(): Locator {
+        return this.page.getByTestId('timecards-totals-unavailable');
+    }
+
+    /** The value span after a label span (Gross/Net/Meals/Pieces/Employees). */
+    totalsValue(label: string): Locator {
+        return this.totalsStrip.getByText(label, { exact: true }).locator('xpath=following-sibling::span[1]');
+    }
+
+    /** NaN until rendered, so a poll keeps waiting. */
+    async totalsNumber(label: string): Promise<number> {
+        return Number(((await this.totalsValue(label).textContent()) ?? '').replace(/,/g, ''));
     }
 
     async rowPieces(reference: string): Promise<Locator> {

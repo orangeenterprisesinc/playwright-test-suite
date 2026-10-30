@@ -99,7 +99,7 @@
       }
     },
     {
-      "files": ["src/utils/journeys/**/*.ts"],
+      "files": ["src/utils/journeys/**/*.ts", "src/utils/client-feedback/**/*.ts"],
       "rules": {
         "no-restricted-syntax": ["error", {
           "selector": "CallExpression[callee.object.name=\"page\"][callee.property.name=\"goto\"]",
@@ -108,7 +108,7 @@
       }
     },
     {
-      "files": ["src/utils/journeys/**/*.ts", "src/pages/!(webpet)/**/*.ts", "src/utils/fixtureRows/**/*.ts"],
+      "files": ["src/utils/journeys/**/*.ts", "src/utils/client-feedback/**/*.ts", "src/pages/!(webpet)/**/*.ts", "src/utils/fixtureRows/**/*.ts"],
       "rules": {
         "no-restricted-imports": ["error", {
           "patterns": [

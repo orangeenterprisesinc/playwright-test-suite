@@ -25,10 +25,8 @@ test.describe('WEBPET-3311 · Transfer to Job Cards: Pieces in Show columns', { 
         const entry = tjc.columnPickerEntry(s.expected.pickerEntry);
         await expect(entry, `'${s.expected.pickerEntry}' is listed in Show columns`).toBeVisible();
 
-        // 4. If Pieces is unticked, tick it; it ends ticked.
-        if (await tjc.showColumn(s.expected.pickerEntry)) {
-            testInfo.annotations.push({ type: 'self-heal', description: `'${s.expected.pickerEntry}' was unticked; ticked on screen` });
-        }
+        // 4. Pieces ends ticked (the POM ticks it and annotates when it was not).
+        await tjc.ensureColumnShown(s.expected.pickerEntry, testInfo);
         await expect(entry, `'${s.expected.pickerEntry}' is ticked`).toBeChecked();
 
         // 5. Close the dialog; the grid shows the Pieces column header.
