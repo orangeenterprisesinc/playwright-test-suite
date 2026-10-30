@@ -10,6 +10,7 @@ import {
     type ImportFileResult,
     type ImportWaitVerdict,
 } from '../api/connectivityImportApi';
+import { deleteJobCard, listJobCards, type JobCardRecord } from '../api/jobCardsApi';
 import { deleteTimeCard, isoDay, listTimeCardsWithMeta, type OfficeTimeCard } from '../api/timeCardsApi';
 import { drainMailbox } from '../relay/relayClient';
 import { JOURNEY_B_FIXTURE, punchDay } from '../../data/journey-b/fixture';
@@ -102,6 +103,8 @@ export interface ReconcileSummary {
          * sweep skips them rather than burning a failed DELETE on each one every run.
          */
         blockedEmployees: number[];
+        /** Job cards of suite-created employees, deleted before the time-card pass. */
+        jobCards: { matched: number; deleted: number; exported: number; failed: number; error?: string };
         error?: string;
     };
     error?: string;
@@ -392,6 +395,47 @@ async function sweepWindow(
     }
 }
 
+// A transferred time card refuses DELETE, but deleting its job card flips the card back to
+// transferred:false — so job cards go first and the time-card pass after it can then clear
+// them. Only suite-created (age-gated) employees, never the fixture set, and only by explicit
+// id: a "delete all loaded" once wiped ~9.5k dev job cards. Exported cards are left alone.
+async function sweepCreatedJobCards(
+    request: APIRequestContext,
+    createdIds: ReadonlySet<number>,
+    budgetEndAt: number,
+    out: ReconcileSummary['sweep'],
+): Promise<void> {
+    if (!createdIds.size) return;
+    const fromOffset = -Math.abs(envNumber('RECONCILE_WINDOW_DAYS', 30));
+    for (let offset = fromOffset; offset <= WINDOW_TO_OFFSET; offset += 1) {
+        if (Date.now() > budgetEndAt) {
+            out.budgetExhausted = true;
+            return;
+        }
+        const day = isoDay(punchDay(offset));
+        let cards: JobCardRecord[];
+        try {
+            cards = await listJobCards(request, { from: day, to: day, includeExported: true });
+        } catch (error) {
+            out.jobCards.error = error instanceof Error ? error.message : String(error);
+            return;
+        }
+        for (const card of cards.filter((c) => createdIds.has(Number(c.employeeCounter)))) {
+            out.jobCards.matched += 1;
+            if (card.exported === true || card.locked === true) {
+                out.jobCards.exported += 1;
+                continue;
+            }
+            const { deleted, status } = await deleteJobCard(request, card.jobCardCounter, card.version).catch(() => ({ deleted: false, status: 0 }));
+            if (deleted) out.jobCards.deleted += 1;
+            else if (status !== 404) {
+                out.jobCards.failed += 1;
+                logger.warn(`fixture reconcile: job card ${String(card.reference ?? card.jobCardCounter)} delete -> ${String(status)}`);
+            }
+        }
+    }
+}
+
 export function formatReconcileSummary(s: ReconcileSummary): string {
     const header = `fixture reconcile [${s.phase}] auth=${s.auth} enabled=${String(s.enabled)} ${String(s.durationMs)}ms`;
     const probeLine = `  probe latest=${String(s.probe.latestRunId ?? 'n/a')} requests=${String(s.probe.requests)}${s.probe.error ? `  ERROR ${s.probe.error}` : ''}`;
@@ -407,13 +451,19 @@ export function formatReconcileSummary(s: ReconcileSummary): string {
         `${s.sweep.blockedEmployees.length ? ` blockedEmployees=${s.sweep.blockedEmployees.join(',')}` : ''}` +
         `${s.sweep.capSuspected ? '  CAP SUSPECTED' : ''}${s.sweep.budgetExhausted ? '  BUDGET EXHAUSTED' : ''}` +
         `${s.sweep.error ? `  ERROR ${s.sweep.error}` : ''}`;
+    const jc = s.sweep.jobCards;
+    const jobCardLine =
+        jc.matched || jc.error
+            ? `  jobCards matched=${String(jc.matched)} deleted=${String(jc.deleted)} exported=${String(jc.exported)} failed=${String(jc.failed)}` +
+              `${jc.error ? `  ERROR ${jc.error}` : ''}`
+            : null;
     // matched=0 is unexplainable from the artifact without a sample of what WAS returned.
     const listedLine =
         s.sweep.matched === 0 && s.sweep.listed > 0
             ? `  listed samples: ${s.sweep.listedSamples.map((r) => `${r.reference || '(no ref)'}#${String(r.employeeCounter ?? '?')}`).join(', ')}` +
               `${s.sweep.rawBodyKeys.length ? `  bodyKeys=${s.sweep.rawBodyKeys.join(',')}` : ''}`
             : null;
-    return [header, probeLine, quiesceLine, mailboxLine, sweepLine, listedLine].filter((l) => l !== null).join('\n');
+    return [header, probeLine, quiesceLine, mailboxLine, jobCardLine, sweepLine, listedLine].filter((l) => l !== null).join('\n');
 }
 
 export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<ReconcileSummary> {
@@ -452,6 +502,7 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
             listedSamples: [],
             rawBodyKeys: [],
             blockedEmployees: [],
+            jobCards: { matched: 0, deleted: 0, exported: 0, failed: 0 },
         },
     };
 
@@ -555,7 +606,9 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
             if (!fixtureIds.size) {
                 summary.sweep.error = 'no fixture employee resolved';
             } else {
-                await sweepWindow(context, ids, summary.sweep.undefinedEmployeeId, Date.now() + SWEEP_BUDGET_MS, summary.sweep);
+                const budgetEndAt = Date.now() + SWEEP_BUDGET_MS;
+                await sweepCreatedJobCards(context, new Set(Object.values(created)), budgetEndAt, summary.sweep);
+                await sweepWindow(context, ids, summary.sweep.undefinedEmployeeId, budgetEndAt, summary.sweep);
             }
         } catch (error) {
             summary.sweep.error = error instanceof Error ? error.message : String(error);

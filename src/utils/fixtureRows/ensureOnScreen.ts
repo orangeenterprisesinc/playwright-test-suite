@@ -35,7 +35,7 @@ export interface OnScreenDeps {
 }
 
 /** What a repair put right. Each maps to one form control. */
-export type Repair = 'active' | 'homeCrew' | 'exportIdentifier';
+export type Repair = 'active' | 'homeCrew' | 'exportIdentifier' | 'includeInTransfer';
 
 export interface EnsuredOnScreen extends EnsuredRecord {
     /** Where the row came from — `created` is the only one that drove a form. */
@@ -245,6 +245,15 @@ const CREW: EntitySpec<CrewSpec> = {
     async create({ pages }, spec) {
         const outcome = await pages.crew.createCrew(spec);
         return outcome === 'created' ? pages.crew.savedIdFromUrl() : null;
+    },
+    readDetail: ({ api }, id) => getDetail(api, 'crews', id),
+    // Since web-pet #1534 (2026-10-30) an employee whose HOME crew is excluded from transfer gets
+    // every time card marked Transferred with no job card, as legacy does. Older fixture crews on
+    // su (B1, C6, D6) still carried No, so D6's transfer locked its punches and wrote nothing.
+    needsRepair: (detail) => (detail.includeInTransfer === false ? ['includeInTransfer'] : []),
+    async repair({ pages }, id, name) {
+        await pages.crew.gotoEditById(id, name);
+        await pages.crew.setIncludeInTransfer(true);
     },
 };
 

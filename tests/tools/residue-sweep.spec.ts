@@ -7,12 +7,16 @@
  * row for what is a tool, not a test.
  */
 import { expect, test } from '@playwright/test';
+import { reconcileFixtureDays } from '@utils/cleanup/fixtureReconcile';
 import { runResidueSweep } from '@utils/cleanup/residueSweep';
 
 test('residue sweep', async ({}, testInfo) => {
-    test.setTimeout(Number(process.env.RESIDUE_SWEEP_BUDGET_MS ?? 900_000) + 60_000);
+    test.setTimeout(Number(process.env.RESIDUE_SWEEP_BUDGET_MS ?? 900_000) + Number(process.env.RECONCILE_BUDGET_MS ?? 480_000) + 60_000);
+    // Cards first, as global setup does: a row whose job/time cards survive 409s on DELETE.
+    const reconcile = await reconcileFixtureDays({ phase: 'start' });
     const summary = await runResidueSweep({
         phase: 'standalone',
+        blockedEmployeeIds: reconcile.sweep.blockedEmployees,
         budgetMs: Number(process.env.RESIDUE_SWEEP_BUDGET_MS ?? 900_000),
         capPerEntity: Number(process.env.RESIDUE_CAP_PER_ENTITY ?? 1_000),
     });

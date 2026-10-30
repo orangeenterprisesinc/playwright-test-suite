@@ -7,6 +7,7 @@ import { FullConfig } from '@playwright/test';
 import { Logger } from '../../utils/logger';
 import { ConfigProperties, getConfigValue } from '../../config/configProperties';
 import { sweepLeftovers } from '../../utils/cleanup/cleanupRegistry';
+import { formatManualCleanup, type ResidueLeftover } from '../../utils/cleanup/residueSweep';
 import { reconcileFixtureDays } from '../../utils/cleanup/fixtureReconcile';
 import fs from 'fs';
 import os from 'os';
@@ -36,6 +37,32 @@ function residueSweepLines(): [string, string][] {
         }
     }
     return lines;
+}
+
+/**
+ * Prints every row this run's sweeps could not delete, last thing in the log, and keeps a
+ * copy in `artifacts/results/manual-cleanup.txt` — a refusal mid-setup scrolls out of view.
+ */
+function reportManualCleanup(logger: Logger): void {
+    const leftovers: ResidueLeftover[] = [];
+    for (const phase of ['start', 'end', 'standalone'] as const) {
+        const file = path.join('artifacts', 'results', `residue-sweep-${phase}.json`);
+        if (!fs.existsSync(file)) continue;
+        try {
+            const s = JSON.parse(fs.readFileSync(file, 'utf-8')) as { leftovers?: ResidueLeftover[] };
+            leftovers.push(...(s.leftovers ?? []));
+        } catch {
+            /* a malformed summary is not worth failing teardown over */
+        }
+    }
+    const report = formatManualCleanup(leftovers);
+    if (leftovers.length) logger.warn(report);
+    else logger.info(report);
+    try {
+        fs.writeFileSync(path.join('artifacts', 'results', 'manual-cleanup.txt'), `${report}\n`);
+    } catch {
+        /* the log line above already carries it */
+    }
 }
 
 function fixtureReconcileLines(): [string, string][] {
@@ -171,6 +198,7 @@ async function globalTeardown(config: FullConfig): Promise<void> {
 
     writeAllureEnvironmentInfo(config);
     writeAllureExecutorInfo();
+    reportManualCleanup(logger);
 
     logger.info('Global teardown completed');
 }

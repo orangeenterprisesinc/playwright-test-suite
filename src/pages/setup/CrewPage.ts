@@ -300,6 +300,13 @@ export class CrewPage extends SetupScreenPage {
         await this.saveEdit();
     }
 
+    /** Tick or untick "Include in Transfer" on the open Edit form and save; a no-op when it already matches. */
+    async setIncludeInTransfer(include: boolean): Promise<void> {
+        if ((await this.includeInTransferCheckbox.isChecked()) === include) return;
+        await this.includeInTransferCheckbox.click();
+        await this.saveEdit();
+    }
+
     /**
      * Apply the exercise and automatic-break rule on the open Edit form. Every field is read
      * first and the call returns `false` without touching Save when all already match — on a
