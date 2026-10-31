@@ -33,7 +33,14 @@ export class PickerComponent {
     private readonly listbox: Locator;
 
     constructor(private readonly page: Page) {
-        this.listbox = page.getByRole('listbox');
+        // A previous listbox can still be closing while the next opens; only the visible one counts.
+        this.listbox = page.getByRole('listbox').filter({ visible: true });
+    }
+
+    /** The listbox this trigger owns (its aria-controls id, once open), else the visible one. */
+    async listboxOf(trigger: Locator): Promise<Locator> {
+        const id = await trigger.getAttribute('aria-controls', { timeout: 2_000 }).catch(() => null);
+        return id ? this.page.locator(`[id="${id}"]`) : this.listbox;
     }
 
     /** Wait for an option, and say what was on offer when it never arrives. */
@@ -74,7 +81,7 @@ export class PickerComponent {
      */
     async pickCombobox(combobox: Locator, label: string): Promise<void> {
         await combobox.click();
-        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        await (await this.listboxOf(combobox)).waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
         const option = this.option(label);
         if (!(await option.isVisible().catch(() => false))) {
             await this.page.keyboard.type(label);
@@ -90,11 +97,12 @@ export class PickerComponent {
      */
     async pickSelect(trigger: Locator, label: string): Promise<void> {
         await trigger.click();
-        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        const listbox = await this.listboxOf(trigger);
+        await listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
         await this.clickOption(this.page.getByRole('option', { name: label, exact: true }), label, 'select');
         // Not toContainText: some triggers abbreviate the chosen option ("Gallon per
         // Minute" shows as "GPM"), so the closed trigger is no place to assert the label.
-        await expect(this.listbox).toBeHidden({ timeout: OPTION_TIMEOUT });
+        await expect(listbox).toBeHidden({ timeout: OPTION_TIMEOUT });
     }
 
     /**
@@ -103,9 +111,10 @@ export class PickerComponent {
      */
     async pickSelectByValue(trigger: Locator, value: string | number): Promise<void> {
         await trigger.click();
-        await this.listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
+        const listbox = await this.listboxOf(trigger);
+        await listbox.waitFor({ state: 'visible', timeout: OPTION_TIMEOUT });
         await this.clickOption(
-            this.listbox.locator(`[data-value="${String(value)}"]`),
+            listbox.locator(`[data-value="${String(value)}"]`),
             `data-value="${String(value)}"`,
             'select',
         );

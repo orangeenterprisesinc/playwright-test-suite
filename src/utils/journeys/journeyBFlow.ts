@@ -1154,7 +1154,11 @@ export async function openCrewTransferCandidates(pages: PageObjects, run: Journe
         .toEqual(crewless ? expect.arrayContaining([...own].sort()) : [...own].sort())
         .catch(() => undefined);
 
-    const candidates = await transfer.candidateReferences();
+    // An earlier attempt's envelope stays on the relay, so a retry's import pulls its file too; those rows are this
+    // test's own residue (same employees and day, deleted in teardown), not an outsider. Any other tag still fails.
+    const earlier = run.attempt > 0 ? lineagePrefixesThroughAttempt(run.scenario, run.attempt - 1).filter((p) => p !== '') : [];
+    const isEarlierAttempt = (r: string) => !own.includes(r) && earlier.some((p) => r.endsWith(`-${p}-ui`));
+    const candidates = (await transfer.candidateReferences()).filter((r) => !isEarlierAttempt(r));
     const outsiders = crewless ? [] : candidates.filter((r) => !own.includes(r));
     const missing = own.filter((r) => !candidates.includes(r));
     if (crewless ? missing.length > 0 : candidates.length !== own.length || outsiders.length) {
