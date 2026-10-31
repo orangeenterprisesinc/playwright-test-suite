@@ -27,9 +27,6 @@ test.describe('E10 · Export-identifier matching', { tag: ['@JourneyE', '@E10'] 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E10' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // A transfer, two exports with two downloads, a reverse and two Job-form identifier saves.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE10ExportIdentifierCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const { expected, identifiers } = scenario;

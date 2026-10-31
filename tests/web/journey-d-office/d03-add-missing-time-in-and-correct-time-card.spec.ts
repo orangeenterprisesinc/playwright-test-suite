@@ -8,7 +8,6 @@ import { loadScenario } from '@utils/data/scenarioLoader';
 import { jobCardEmployeesOnScreen } from '@utils/journeys/journeyBFlow';
 import {
     captureOwnRows,
-    journeyD3TimeoutMs,
     openScopedCandidates,
     prepareJourneyD3,
     readCorrectionOnScreen,
@@ -25,8 +24,6 @@ test.describe('D3 · Add missing time-in and correct time card', { tag: ['@Journ
             { type: 'testCaseId', description: 'D3' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.setTimeout(journeyD3TimeoutMs(testInfo));
-
         const scenario = await loadScenario(JourneyD3CorrectionCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const run = await prepareJourneyD3(scenario, deps);

@@ -24,9 +24,6 @@ test.describe('E9 · Payroll export file', { tag: ['@JourneyE', '@E9'] }, () => 
         tag: ['@Regression', '@Demo'],
         annotation: [{ type: 'testCaseId', description: 'E9' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Two jobs x three Job-form saves, a transfer, two Test Files, an export and a download.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE9PayrollExportFileCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const { expected } = scenario;

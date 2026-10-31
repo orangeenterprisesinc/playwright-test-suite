@@ -13,9 +13,6 @@ test.describe('E5 · Weekly minimum-wage guarantee on piece', { tag: ['@JourneyE
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E5' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Six punches on screen, one Mon-Tue transfer, one View > Job Cards read; each with per-action screenshots.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE5MinimumWageCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
 

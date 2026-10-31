@@ -21,9 +21,6 @@ test.describe('E13 · Department and multi-state overtime split', { tag: ['@Jour
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E13' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Rules and jobs on screen, three punches, the Transfer screen twice, View > Job Cards; each with per-action screenshots.
-        test.setTimeout(600_000);
-
         const scenario = await loadScenario(JourneyE13WageOrderSplitCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
 

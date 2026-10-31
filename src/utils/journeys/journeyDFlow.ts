@@ -27,7 +27,6 @@ import {
     ensureRanchOnScreen,
 } from '@utils/fixtureRows/ensureOnScreen';
 import { relayConfig } from '@config/relay.config';
-import { journeyBTestTimeoutMs } from '@utils/api/connectivityImportApi';
 import { deliverAndVerifyCards } from '@utils/api/officeVerification';
 import { assertDelivery, envelopeView, sendEnvelope, type EnvelopeView } from '@utils/journeys/journeyBFlow';
 import { buildEnvelope, exportFileName, lineagePrefix, punchMoment, type DeviceRecord } from '@utils/relay/exportEnvelope';
@@ -928,11 +927,6 @@ export interface D3Seed extends SeedResult {
     timeOutId: number;
 }
 
-/** Three Setup forms may run on a cold fixture and the relay pull shares one import deadline. */
-export function journeyD3TimeoutMs(testInfo: TestInfo): number {
-    return Math.max(360_000, journeyBTestTimeoutMs(testInfo) + 240_000);
-}
-
 /**
  * Builds D3's fixture rows on screen and runs the before-phase sweep. The job-card sweep is
  * defensive: D3 writes none, but a hand-made transfer would block the time-card delete.
@@ -1128,11 +1122,6 @@ export interface D5Seed extends SeedResult {
     timeOutId: number;
     timeInReference: string;
     timeOutReference: string;
-}
-
-/** Three Setup forms on a cold fixture, two transfers and one reverse. */
-export function journeyD5TimeoutMs(_testInfo: TestInfo): number {
-    return 420_000;
 }
 
 /** `HH:MM` of a scenario time of day. */

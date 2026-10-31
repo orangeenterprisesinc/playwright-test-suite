@@ -28,9 +28,6 @@ test.describe('D10 · Exercise and auto-break split', { tag: ['@JourneyD', '@D10
             { type: 'testCaseId', description: 'D10' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // A skipped-budget cleanup here would leave a shared tenant preference set as well as residue.
-        test.setTimeout(360_000);
-
         // 1. Fixture rows and the crew rule on screen, preference gate, before-phase sweep.
         const scenario = await loadScenario(JourneyD10SegmentCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };

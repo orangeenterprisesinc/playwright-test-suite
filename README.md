@@ -1089,8 +1089,9 @@ Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives 
 - 🎥 Video recording
 - 📋 Trace file
 
-> Trace and video are kept for **every** test in CI and for **failed** tests locally (`CAPTURE`, default
-> `all` / `failures`). Run with `CAPTURE=all` when you need the recording of a green test, e.g. as Jira evidence.
+> Trace and 720p video are kept for **failed** tests only, in CI and locally. Every `expect(locator|page)`
+> assertion in a headless run leaves a 480p JPEG (`assert-NNNN-…jpg`) on the test, so a green test still shows
+> what it verified; clicks and navigation are not captured. See `ACTION_SHOTS` in `docs/ENVIRONMENTS.md`.
 
 ---
 

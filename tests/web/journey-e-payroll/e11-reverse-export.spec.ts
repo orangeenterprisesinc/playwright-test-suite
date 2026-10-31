@@ -22,9 +22,6 @@ test.describe('E11 · Reverse export', { tag: ['@JourneyE', '@E11'] }, () => {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E11' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // E2's setup path, a transfer, two exports, a reverse and a card edit, each with per-action screenshots.
-        test.setTimeout(720_000);
-
         const scenario = await loadScenario(JourneyE11ReverseExportCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const { expected } = scenario;

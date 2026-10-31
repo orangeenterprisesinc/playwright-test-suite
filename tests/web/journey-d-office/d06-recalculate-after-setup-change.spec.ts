@@ -25,11 +25,6 @@ test.describe('D6 · Recalculate after setup change', { tag: ['@JourneyD', '@D6'
             { type: 'testCaseId', description: 'D6' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // D6 drives two async server jobs (transfer, recalculate) plus two UI screens — the Job form
-        // for the rate change and the Job Cards grid. A skipped-budget cleanup here means permanent
-        // residue on dev, not just an untidy report, so the budget is generous on purpose.
-        test.setTimeout(360_000);
-
         const scenario = await loadScenario(JourneyDRecalculateCaseSchema, testInfo);
         const run = await prepareJourneyD(scenario, { sessionApi, testInfo, pages });
         const { expected, rate } = scenario;

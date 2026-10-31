@@ -84,7 +84,6 @@ export interface DeviceScopeOptions {
 export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOptions): Promise<DeviceScopeRun> {
     const { sessionApi, pages, testInfo } = opts;
     const { scenario, relay, device } = minted;
-    testInfo.slow();
     const mailbox: DeviceScopeRun['mailbox'] = { address: device.webMailAddress, pulled: null };
     const cleanup = register(testInfo, `${scenario.label ?? 'B15'} cleanup`, async (api) => {
         // Acknowledge first so nothing accumulates on the relay; the delete steps follow in cleanupTargets order.

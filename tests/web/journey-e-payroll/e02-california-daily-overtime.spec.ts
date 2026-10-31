@@ -25,10 +25,6 @@ test.describe('E2 · California daily overtime', { tag: ['@JourneyE', '@E2'] }, 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E2' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Up to five Setup forms, a Job saved three times, two Batch forms and two Transfer tabs — and a
-        // skipped-budget outcome here would leave residue on a shared environment.
-        test.setTimeout(360_000);
-
         const scenario = await loadScenario(JourneyE2DailyOvertimeCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const { expected, capture } = scenario;
