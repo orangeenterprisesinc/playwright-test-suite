@@ -178,9 +178,7 @@ a working password. It is **not a vault** — anyone holding both the file and
 Split three ways, because they are three different decisions:
 
 - **Generation** — `src/reporting/generate/allure/`. How a report gets built.
-- **Storage** — `artifacts/`. Where output lands. Also the S3 sync in `e2e.yml`
-  (whose *remote* key is deliberately still `test-results` — that layout is a
-  published contract that appears in Slack messages and bookmarks).
+- **Storage** — `artifacts/`. Where output lands.
 - **Recipients** — `src/reporting/recipients/recipients.ts` resolves *who* gets
   the mail from `config/notifications/recipients.csv`. Editing the routing table
   is a config change, not a code change, which is exactly why it is a CSV.

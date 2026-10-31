@@ -980,17 +980,14 @@ jobs:
         if: always()
       - uses: actions/upload-artifact@v7    # artifacts/html/ and artifacts/allure/report/
         if: always()
-      # Opt-in (SEND_S3=yes): sync artifacts/results/ (traces, videos, results.json) to S3
-      - run: aws s3 sync artifacts/results "s3://.../test-results" --no-progress
-        if: always() && env.SEND_S3 == 'yes'
 ```
 
 **CI-specific behavior:**
-- Workers: forced to **1** on CI (auth storage state is shared across tests); unlimited locally
-- Retries: defaults to **2** on CI (0 locally), overridable via `RETRY`
+- Workers: **2** everywhere, overridable via `WORKERS`
+- Retries: **1** on CI (0 locally), overridable via `RETRY`
 - `test.only()`: **blocked** on CI (`forbidOnly: true`)
 - Test-data cleanup: PET Tiger has no delete-user action in the UI, so tests that create users remove them through `DELETE /users/{id}` (added by WEBPET-1606), over the same session `auth-setup` established. There is nothing to configure and no database involved — which is the point: dev staging's SQL Server is VPC-private, so the SQL cleanup this replaced silently did nothing on the one environment CI targets, and every run leaked its test users. See [ENVIRONMENTS.md](docs/ENVIRONMENTS.md#test-data-cleanup).
-- Notifications & artifact upload are all opt-in: **Slack** (`SEND_SLACK=yes` + `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`, or a webhook — and only on the CI events in `SLACK_NOTIFY_EVENTS`), **S3 report upload** (`SEND_S3=yes` + AWS secrets), and **Email** (deprecated; `SEND_EMAIL` is pinned to `no`). Unset → each step logs a line and does nothing.
+- Notifications & artifact upload are all opt-in: **Slack** (`SEND_SLACK=yes` + `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID`, or a webhook — and only on the CI events in `SLACK_NOTIFY_EVENTS`), and **Email** (deprecated; `SEND_EMAIL` is pinned to `no`). Unset → each step logs a line and does nothing.
 
 ---
 
@@ -1037,7 +1034,7 @@ has two modes, and it picks the first one that is fully configured:
 | Configured | What lands in Slack |
 |------------|---------------------|
 | `SLACK_BOT_TOKEN` + `SLACK_CHANNEL_ID` | Summary via `chat.postMessage`, then the lean single-file **Allure report uploaded as a thread reply**, then the summary is edited to link that file from an **📊 Open Allure Report** button |
-| `SLACK_WEBHOOK_URL` only | Summary only — a webhook cannot upload and cannot edit. The report appears as a link only when `ALLURE_REPORT_URL` is set (CI does this when `SEND_S3=yes`) |
+| `SLACK_WEBHOOK_URL` only | Summary only — a webhook cannot upload and cannot edit. The report appears as a link only when `ALLURE_REPORT_URL` is set (nothing in CI sets it since the S3 upload was removed) |
 
 The button arrives a few seconds after the summary, because the link does not exist until the file
 is uploaded. Until the edit lands the message says "📎 Allure report attached in the thread",
