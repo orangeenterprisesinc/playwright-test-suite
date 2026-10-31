@@ -110,7 +110,9 @@ export class ViewTimeCardsPage extends BasePage {
     }
 
     async applyFilter(): Promise<void> {
-        await this.load(this.page.getByTestId('view-time-cards-apply'));
+        // Apply can serve the cache; Refresh's GET proves the grid holds the server's rows.
+        await this.page.getByTestId('view-time-cards-apply').click();
+        await this.refresh();
     }
 
     async refresh(): Promise<void> {
@@ -122,16 +124,10 @@ export class ViewTimeCardsPage extends BasePage {
             const url = new URL(r.url());
             return r.request().method() === 'GET' && /\/time-cards\/?$/.test(url.pathname);
         };
-        const loaded = this.page.waitForResponse(isFilterGet, { timeout: 15_000 });
-        loaded.catch(() => undefined);
+        await expect(button).toBeEnabled({ timeout: 60_000 });
+        const loaded = this.page.waitForResponse(isFilterGet, { timeout: 60_000 });
         await button.click();
-        let response = await loaded.catch(() => null);
-        if (!response) {
-            // Apply Filter with unchanged criteria serves the cached query and sends nothing; Refresh refetches.
-            const refetched = this.page.waitForResponse(isFilterGet, { timeout: 60_000 });
-            await this.page.getByTestId('view-time-cards-filter-refresh').click({ timeout: 15_000 });
-            response = await refetched;
-        }
+        const response = await loaded;
         expect(response.status(), 'GET time-cards for the filter').toBe(200);
         // A filter with no visible rows renders "No time cards match the current filter." instead of the count.
         const count = this.page.getByTestId('data-grid-count').first();
@@ -227,6 +223,11 @@ export class ViewTimeCardsPage extends BasePage {
     /** Click the row's "Edit Time Card: <id>" button; the sheet opens as a dialog. */
     async openRecord(reference: string): Promise<void> {
         const row = await this.rowByReference(reference);
+        // The first Edit click can land before the Reference filter has re-rendered the grid (C6).
+        const dataRows = this.grid.getByRole('row').filter({ has: this.page.getByRole('button', { name: /^Edit Time Card: / }) });
+        await expect
+            .poll(async () => (await dataRows.count()) - (await this.grid.getByRole('row', { name: reference }).count()), { timeout: 15_000 })
+            .toBe(0);
         const edit = row.getByRole('button', { name: /^Edit Time Card: / });
         const sheet = this.recordSheet.or(this.page.getByRole('dialog', { name: /^Edit Time (In|Out)/ }));
         // A click that lands while the Reference filter is still re-rendering the grid is swallowed

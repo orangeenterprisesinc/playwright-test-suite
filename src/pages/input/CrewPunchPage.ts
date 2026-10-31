@@ -44,6 +44,7 @@ export abstract class CrewPunchPage extends BasePage {
         private readonly listUrl: string,
         private readonly menuPath: string[] | null,
         readonly pageTitle: string | RegExp,
+        private readonly reportsStatus: boolean,
     ) {
         super(page);
         this.pageUrl = `${listUrl}/new`;
@@ -178,12 +179,14 @@ export abstract class CrewPunchPage extends BasePage {
     }
 
     /**
-     * Crew-In/Out report "Created N Time-In records." in a modal that stays open. It makes the sidebar
+     * Crew-In reports "Created N Time-In records." in a modal that stays open. It makes the sidebar
      * inert, so the next menu click would never find its group (C6/E2, 2026-10-16); a person clicks OK.
      */
     private async dismissStatusDialog(): Promise<void> {
         const dialog = this.page.getByRole('dialog', { name: /status$/i });
-        const shown = await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+        const shown = this.reportsStatus
+            ? await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false)
+            : await dialog.isVisible();
         if (!shown) return;
         await dialog.getByRole('button', { name: 'OK' }).click();
         await dialog.waitFor({ state: 'hidden' });
@@ -243,6 +246,8 @@ export abstract class CrewPunchPage extends BasePage {
     protected async waitForEmployees(): Promise<void> {
         await this.page
             .getByRole('button', { name: /Deselect All|Select All/i })
+            .first()
+            .or(this.page.getByText(/No employees (with open time in )?found for this crew/i))
             .first()
             .waitFor({ state: 'visible', timeout: 25_000 })
             .catch(() => undefined);

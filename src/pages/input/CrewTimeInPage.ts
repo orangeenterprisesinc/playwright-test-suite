@@ -13,7 +13,7 @@ import { CrewPunchPage } from './CrewPunchPage';
  */
 export class CrewTimeInPage extends CrewPunchPage {
     constructor(page: Page) {
-        super(page, '/input/crew-time-in', ['Input', 'Crew Time In'], /New Crew Time In/i);
+        super(page, '/input/crew-time-in', ['Input', 'Crew Time In'], /New Crew Time In/i, true);
     }
 
     /**
