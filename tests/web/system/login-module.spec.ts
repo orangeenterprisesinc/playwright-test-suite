@@ -31,7 +31,7 @@ async function expectLoginRejected(loginPage: LoginPage, username: string, passw
 test.describe('Login', { tag: ['@System'] }, () => {
 
     test('[Login] Verify that the user can log in with valid username and password.', {
-        tag: ['@Smoke', '@HighLevel', '@Regression'],
+        tag: ['@Smoke', '@HighLevel', '@Regression', '@CrossBrowser'],
         annotation: [
             { type: 'testCaseId', description: 'UI-001' },
         ],

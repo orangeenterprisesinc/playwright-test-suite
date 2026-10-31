@@ -308,6 +308,9 @@ cron**; there is no separate orchestrator. The static gates (typecheck, lint, th
 id checks) run inside its job, so with the automatic triggers off they execute at 4:45 PM only —
 a pull request is not checked.
 
+The tests themselves run inside Microsoft's Playwright image, not on the runner directly; see
+[DOCKER.md](DOCKER.md) for why, how to run the same thing locally, and the opt-in WebKit/Edge runs.
+
 **Nothing but the 4:45 PM cron starts a suite run.** Since 2026-10-08, per the standup call to
 run end-to-end testing once a day, a merge to main triggers nothing (`push:` commented out)
 and `repository_dispatch` / `workflow_call` are route-gated off — see the trigger bullet
