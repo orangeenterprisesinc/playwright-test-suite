@@ -208,7 +208,22 @@ export async function seedCrewDay(run: CfRun, deps: CfDeps, seed: CfSeedInput, t
 
         if (step.timeOut) await pages.crewTimeOut.punchOut({ day: target.day, crew: target.crew.name, employees: names, ...step.timeOut });
 
-        run.seeded.cards += names.length * (step.timeOut ? 2 : 1) + (step.pieceOut ? 1 : 0);
+        if (step.employeePieceOut) {
+            const p = step.employeePieceOut;
+            await pages.transferToJobCards.openFromMenu();
+            await pages.transferToJobCards.addPieceOut({
+                day: target.day,
+                time: `${String(p.at.hour).padStart(2, '0')}:${String(p.at.minute).padStart(2, '0')}`,
+                employee: target.employees[WHICH[p.employee]].name,
+                crew: target.crew.name,
+                job: run.jobs[step.job].name,
+                ranch: run.ranch.name,
+                field: run.field.name,
+                pieces: p.pieces,
+            });
+        }
+
+        run.seeded.cards += names.length * (step.timeOut ? 2 : 1) + (step.pieceOut ? 1 : 0) + (step.employeePieceOut ? 1 : 0);
         await expect(async () => {
             expect(await recordOwn()).toHaveLength(run.seeded.cards);
         }).toPass({ timeout: 60_000 });
@@ -287,4 +302,55 @@ export async function loginAsNonSu(browser: Browser): Promise<{ page: Page; page
     await pages.login.loginPetTiger(user, password);
     await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 });
     return { page, pages, close: () => context.close() };
+}
+
+// ── Cluster 2, part A: commit, piece-outs, Job Cards tab ──
+
+/** References of every own card recorded so far (the ids a seed or Crew In captured). */
+export function ownReferences(run: CfRun): string[] {
+    return (run.ctx.cards ?? []).map((c) => String(c.reference));
+}
+
+/** WEBPET-2906: delete this transfer's own job cards on View ▸ Job Cards, one Delete Selected each; refuses unless the screen shows exactly this run's cards. */
+export async function deleteOwnJobCards(run: CfRun, deps: CfDeps, transfer: TransferOutcome, confirmText: string): Promise<string[]> {
+    const view = deps.pages.viewJobCards;
+    await view.waitForTransferLanding();
+    if (view.transferRunParam() !== transfer.transferRunCounter) {
+        throw new Error(`${run.label}: refusing to delete — landed on transferRun ${view.transferRunParam()}, not ${transfer.transferRunCounter}.`);
+    }
+    const rows = view.rowsForCrew(run.crew.name);
+    // The landing URL and heading appear before the grid replaces its loading skeleton rows.
+    await expect.poll(() => rows.count(), { timeout: 30_000 }).toBe(transfer.jobCardCounters.length).catch(() => undefined);
+    const refs: string[] = [];
+    for (let i = 0; i < (await rows.count()); i += 1) refs.push(await view.referenceOf(rows.nth(i)));
+    if (refs.length !== transfer.jobCardCounters.length) {
+        throw new Error(`${run.label}: refusing to delete — ${refs.length} ${run.crew.name} row(s) on screen, the transfer wrote ${transfer.jobCardCounters.length}.`);
+    }
+    for (const ref of refs) await view.deleteOwnJobCard(ref, confirmText);
+    for (const id of transfer.jobCardCounters) {
+        const at = run.jobCardIds.indexOf(id);
+        if (at >= 0) run.jobCardIds.splice(at, 1);
+    }
+    return refs;
+}
+
+// ── Cluster 2, part B: Crew In sheet + Time In edit ──
+
+/** Record every own card of the run's crew-days (GET, cleanup ids), return the Time Ins not in `before` — the cards a Crew In just created on screen. */
+export async function recordCrewInCards(run: CfRun, deps: CfDeps, before: number[]): Promise<Array<{ id: number; reference: string; employeeId: number }>> {
+    const crewIds = new Set(crewDays(run).map((cd) => cd.crew.id));
+    const employeeIds = new Set(crewDays(run).flatMap((cd) => cd.employees.map((e) => e.id)));
+    const own: OfficeTimeCard[] = [];
+    for (const day of new Set(crewDays(run).map((cd) => cd.day))) {
+        own.push(
+            ...(await listTimeCards(deps.sessionApi, { from: day, to: day })).filter(
+                (c) => crewIds.has(Number(c.crewCounter)) || employeeIds.has(Number(c.employeeCounter)),
+            ),
+        );
+    }
+    run.ctx.cards = own;
+    for (const card of own) if (!run.timeCardIds.includes(card.timeCardCounter)) run.timeCardIds.push(card.timeCardCounter);
+    return own
+        .filter((c) => Number(c.cardType) === CARD_TYPE.timeIn && !before.includes(c.timeCardCounter))
+        .map((c) => ({ id: c.timeCardCounter, reference: String(c.reference), employeeId: Number(c.employeeCounter) }));
 }

@@ -1,0 +1,29 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -11 in this suite. The Crew In is made on screen; no seed. Cleanup deletes the created time cards by id (recorded right after the status dialog).",
+    "Use Employee Crew is needed on a fresh day: the default roster is open time-ins only.",
+    "Ranch and Field are needed when there is no earlier card on the day ('Created 0' / 'Field is Required').",
+    "'0 - Lunch' is a su tenant job (jobCounter 1199, code 5204), not a CF fixture, so the pick fails by name if it is removed.",
+    "Manual walk 2026-10-31: 'Created 2 Time-In records.', POST 201, grid shows 2 Time In rows at 12:00:00 PM, Job '0 - Lunch', CF RANCH / CF FIELD."
+  ],
+  "ticket": "WEBPET-3301",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -11,
+  "crewIn": { "at": "12:00", "phase": "0 - Lunch" },
+  "expected": {
+    "rosterStatus": "2 of 2 selected",
+    "status": "Created 2 Time-In records.",
+    "errorText": "Something went wrong on our end. Please try again.",
+    "created": 2,
+    "time": "12:00:00 PM",
+    "type": "Time In",
+    "job": "0 - Lunch",
+    "ranch": "CF RANCH",
+    "field": "CF FIELD"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Prod failure needs 8-digit TimeCard ids; dev proves a lunch Crew In saves." }
+  ],
+  "cleanup": []
+}

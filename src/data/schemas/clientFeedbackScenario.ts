@@ -15,6 +15,7 @@ const CfSeed = z.object({
     timeIn: Clock,
     timeOut: Clock.optional(),
     pieceOut: z.object({ at: Clock, pieces: z.number().int().positive().max(5) }).strict().optional(), // maximumNumberOfPieces 5 on dev
+    employeePieceOut: z.object({ employee: z.enum(['one', 'two']), at: Clock, pieces: z.number().int().positive().max(5) }).strict().optional(), // Transfer ▸ New record ▸ Add Piece-out
 }).strict();
 export type CfSeedSpec = z.infer<typeof CfSeed>;
 // One seed step, or several applied in order (a second employee left open, a second crew-day).
@@ -163,3 +164,101 @@ export const TjcIssueClickCaseSchema = ClientFeedbackBase.extend({
     }).strict(),
 }).strict();
 export type TjcIssueClickCase = z.infer<typeof TjcIssueClickCaseSchema>;
+
+// ── Cluster 2, part A: commit, piece-outs, Job Cards tab (2982 / 3426 / 2954 / 3184 / 2906) ──
+
+export const TjcHidePieceOutsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-2982'),
+    ...TjcScoped,
+    expected: z.object({
+        analyzedCaption: Text,
+        hiddenCaption: Text,
+        pieces: z.number().positive(),
+        pieceOutType: Text,
+        pieceOutRows: z.number().int().positive(),
+        analyzeRequestsOnToggle: z.number().int().nonnegative(),
+    }).strict(),
+}).strict();
+export type TjcHidePieceOutsCase = z.infer<typeof TjcHidePieceOutsCaseSchema>;
+
+export const TjcWarningsCollapseCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3426'),
+    ...TjcScoped,
+    viewport: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }).strict(),
+    expected: z.object({
+        bannerText: Text,
+        showLabel: Text,
+        hideLabel: Text,
+        tableMinHeight: Text,
+        minRows: z.number().int().positive(),
+        rowHeightPx: z.number().int().positive(),
+        listOverflowY: Text,
+        listMaxHeight: Text,
+        listItems: z.number().int().positive(),
+    }).strict(),
+}).strict();
+export type TjcWarningsCollapseCase = z.infer<typeof TjcWarningsCollapseCaseSchema>;
+
+export const TjcReverseAfterTransferCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-2954'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: z.number().int().positive(), reversedToast: Text, transferred: Text }).strict(),
+}).strict();
+export type TjcReverseAfterTransferCase = z.infer<typeof TjcReverseAfterTransferCaseSchema>;
+
+export const TjcTransferCompletesCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3184'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: z.number().int().positive(), errorText: Text, gridCount: Text }).strict(),
+}).strict();
+export type TjcTransferCompletesCase = z.infer<typeof TjcTransferCompletesCaseSchema>;
+
+export const TjcDeleteUntransfersCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-2906'),
+    ...TjcScoped,
+    expected: z.object({
+        jobCards: z.number().int().positive(),
+        deleteConfirmSuffix: Text,
+        transferred: Text,
+        pieces: z.number().positive(),
+        pieceOutType: Text,
+        pieceOuts: z.array(z.object({ employee: Text, pieces: Text }).strict()).min(2),
+    }).strict(),
+}).strict();
+export type TjcDeleteUntransfersCase = z.infer<typeof TjcDeleteUntransfersCaseSchema>;
+
+// ── Cluster 2, part B: Crew In sheet + Time In edit (3301 / 3283 / 3575 / PET-12942) ──
+
+const CrewInCreated = { rosterStatus: Text, status: Text, created: z.number().int().positive(), time: Text, type: Text, job: Text, ranch: Text, field: Text };
+
+export const TjcCrewInLunchCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3301'),
+    fixtureCrew: CfCrew,
+    dayOffset: CfDayOffset,
+    crewIn: z.object({ at: HhMm, phase: Text }).strict(),
+    expected: z.object({ ...CrewInCreated, errorText: Text }).strict(),
+}).strict();
+export type TjcCrewInLunchCase = z.infer<typeof TjcCrewInLunchCaseSchema>;
+
+export const TjcCrewInLabelsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3283'),
+    fixtureCrew: CfCrew,
+    expected: z.object({ rosterStatus: Text, labels: z.array(Text).min(2), nameOnly: z.array(Text).min(2) }).strict(),
+}).strict();
+export type TjcCrewInLabelsCase = z.infer<typeof TjcCrewInLabelsCaseSchema>;
+
+export const TjcCrewInInheritCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3575'),
+    ...TjcScoped,
+    crewIn: z.object({ at: HhMm }).strict(),
+    expected: z.object({ ...CrewInCreated, phaseName: Text, phaseAlias: Text, phaseListed: z.array(z.boolean()).length(2) }).strict(),
+}).strict();
+export type TjcCrewInInheritCase = z.infer<typeof TjcCrewInInheritCaseSchema>;
+
+export const TjcEditTimeInCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12942'),
+    ...TjcScoped,
+    edit: z.object({ employee: z.enum(['one', 'two']), to: HhMm }).strict(),
+    expected: z.object({ unsaved: Text, savedToast: Text, errorText: Text, time: Text }).strict(),
+}).strict();
+export type TjcEditTimeInCase = z.infer<typeof TjcEditTimeInCaseSchema>;

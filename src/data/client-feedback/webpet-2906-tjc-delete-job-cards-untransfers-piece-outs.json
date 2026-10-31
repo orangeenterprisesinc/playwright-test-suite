@@ -1,0 +1,33 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -9 in this suite. Commits one transfer and deletes its own job cards on screen, one Delete Selected each (never Delete All); the time cards are deleted by id in teardown.",
+    "6 cards = 2 Time In 07:00 + crew piece-out 09:00 x5 + CF B ONE individual piece-out 10:00 x3 (Transfer > New record > Add Piece-out, toast 'Time Out record created') + 2 Time Out 11:00 on the piece job. Transfer writes 2 job cards (ONE 3 pcs, TWO 5 pcs).",
+    "Manual walk 2026-10-31 (run 601): after the deletes, re-analyze listed all 6; both piece-out rows (crew '—' 5, CF B ONE 3) read Transferred No; Pieces 8. The individual piece-out's Employee cell reads ': CF B ONE' (empty export id).",
+    "CF PIECE JOB has no hourly rate, so the transfer carries 'No hourly rate' warnings; they do not block."
+  ],
+  "ticket": "WEBPET-2906",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -9,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "piece",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "pieceOut": { "at": { "hour": 9, "minute": 0 }, "pieces": 5 },
+    "employeePieceOut": { "employee": "one", "at": { "hour": 10, "minute": 0 }, "pieces": 3 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "deleteConfirmSuffix": "Are you sure? This action cannot be undone.",
+    "transferred": "No",
+    "pieces": 8,
+    "pieceOutType": "Piece Out",
+    "pieceOuts": [
+      { "employee": "—", "pieces": "5" },
+      { "employee": ": CF B ONE", "pieces": "3" }
+    ]
+  },
+  "annotations": [],
+  "cleanup": []
+}

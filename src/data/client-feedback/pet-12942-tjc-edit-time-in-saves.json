@@ -1,0 +1,25 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -10 in this suite. Seed = one Time In 07:00 for CF B ONE on CF JOB; the edit moves it to 06:55. No restore: the card is the test's own and teardown deletes it by id.",
+    "Oracle sync module is off on dev (PriyamSri 10-29), so the 'Crew should have a Department' failure cannot be provoked there; dev proves the edit saves with no such error.",
+    "Manual walk 2026-10-31: 'Unsaved changes' appeared, save toast 'Time In record saved', panel closed, row reads 6:55:00 AM."
+  ],
+  "ticket": "PET-12942",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -10,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 }
+  },
+  "edit": { "employee": "one", "to": "06:55" },
+  "expected": {
+    "unsaved": "Unsaved changes",
+    "savedToast": "Time In record saved",
+    "errorText": "Crew should have a Department",
+    "time": "6:55:00 AM"
+  },
+  "annotations": [],
+  "cleanup": []
+}

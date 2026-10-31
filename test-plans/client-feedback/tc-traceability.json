@@ -415,7 +415,7 @@
   },
   "doubt": null,
   "feasibility": "Feasible - full",
-  "reason": ""
+  "reason": "Blocked 2026-10-31: (1) the planned day pair B@-4/B@-6 straddles another spec's day; it moves to B@-14/-15. (2) The TC expects 0 Warnings, but CF PIECE JOB has no hourly rate, so every piece-job row warns 'No hourly rate available' (a Piece job's hourly rate is read-only on the form). Needs a fixture decision before automating."
  },
  {
   "ticket": "WEBPET-3329",
@@ -645,9 +645,9 @@
    "Click Report in the top bar."
   ],
   "expected": [
-   "A dialog titled Report: <report name> appears with a Report dropdown and report options (for example New Page for Each Crew, Show Employees) and buttons Cancel/Load/Save and Run.",
-   "No PDF opens until you click the run button in the dialog.",
-   "A separate Display Report button is next to Report for the direct run."
+   "A dialog titled Report: <report name> appears with a Report dropdown listing the reports and the report's options.",
+   "No PDF opens until a format button (PDF/Excel) is clicked in the dialog.",
+   "A separate Display Report button sits next to Report for the direct run."
   ],
   "testData": "CF CREW, a past date with time cards",
   "trace": {
@@ -663,7 +663,7 @@
   },
   "doubt": null,
   "feasibility": "Feasible - full",
-  "reason": ""
+  "reason": "Expected result updated 2026-10-30: the dialog no longer has Cancel (removed later by WEBPET-3835, web-pet #1450); the X closes it."
  },
  {
   "ticket": "WEBPET-2982",
@@ -1321,7 +1321,7 @@
   },
   "doubt": null,
   "feasibility": "Feasible - full",
-  "reason": ""
+  "reason": "Automated 2026-10-31 on the legacy path (Based on Later Time-Cards and Use Employee Crew both unticked): Created 2, each row gets its own Job/Ranch/Field, Phase lists names not aliases. Open finding: the sheet step 'tick Based on Later Time-Cards' still gives 'Created 0' and 'Field is Required' (Amy's 10-06 failure). Needs a dev answer before this step is reworded or reported."
  },
  {
   "ticket": "WEBPET-3577",
@@ -1777,7 +1777,7 @@
   },
   "doubt": null,
   "feasibility": "Feasible - full",
-  "reason": ""
+  "reason": "Blocked 2026-10-31: the su tenant has no ALL EMPLOYEES crew. A crew named 'ALL EMPLOYEES' created on Setup > Crew is not recognised (its roster stays empty), so the special crew is identified some other way. Need the rule from web-pet PR #1506 (code, preference or fixed id) or a fixture. The test crew was deleted again (its barcode 9019 stays reserved in the recycle bin)."
  },
  {
   "ticket": "WEBPET-3895",
@@ -2904,7 +2904,7 @@
   },
   "doubt": null,
   "feasibility": "Feasible - full",
-  "reason": ""
+  "reason": "Manual run 2026-10-30 FAILED the TC precondition: a Time In with no Time Out raises 'Time-In has no closing punch', not 'Missing Time-Out at end of the day'. The real trigger is unknown (likely a break/meal auto-return day). Ticket still Ready for Test. Parked until the trigger is confirmed."
  },
  {
   "ticket": "WEBPET-3938",

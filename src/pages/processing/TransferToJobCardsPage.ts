@@ -1793,4 +1793,167 @@ export class TransferToJobCardsPage extends BasePage {
         this.page.on('request', onRequest);
         return { count: () => seen, stop: () => void this.page.off('request', onRequest) };
     }
+
+    // ── Client feedback cluster 2, part A (WEBPET-2982/3426/2906) ──
+
+    /** Records ▸ Hide piece-outs: a display lens since WEBPET-2982 rev 2, so a toggle sends no analyze. */
+    get hidePieceOutsCheckbox(): Locator {
+        return this.page.getByTestId('transfer-hide-piece-outs');
+    }
+
+    async setHidePieceOuts(on: boolean): Promise<void> {
+        const box = this.hidePieceOutsCheckbox;
+        if ((await box.getAttribute('aria-checked')) !== String(on)) await box.click();
+        await expect(box).toHaveAttribute('aria-checked', String(on));
+    }
+
+    get jobCardsWarning(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning');
+    }
+
+    get jobCardsWarningToggle(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning-toggle');
+    }
+
+    get jobCardsWarningList(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning-list');
+    }
+
+    get jobCardsTable(): Locator {
+        return this.page.getByTestId('jobcards-grid-table');
+    }
+
+    /** Inline min-height (the 10-row floor), rendered height, and the scroll body's clientHeight. */
+    async jobCardsTableMetrics(): Promise<{ minHeight: string; height: number; bodyHeight: number }> {
+        return this.jobCardsTable.evaluate((t) => {
+            const body = Array.from(t.querySelectorAll<HTMLElement>('*')).find((e) => /\boverflow-auto\b/.test(e.className) && /\bflex-1\b/.test(e.className));
+            return { minHeight: (t as HTMLElement).style.minHeight, height: t.getBoundingClientRect().height, bodyHeight: body?.clientHeight ?? 0 };
+        });
+    }
+
+    async warningListStyle(): Promise<{ overflowY: string; maxHeight: string; items: number }> {
+        return this.jobCardsWarningList.evaluate((l) => ({ overflowY: getComputedStyle(l).overflowY, maxHeight: getComputedStyle(l).maxHeight, items: l.children.length }));
+    }
+
+    /** New record ▸ Add Piece-out: an individual piece-out. Work Crew auto-fills from the employee's home crew. The app toasts "Time Out record created". */
+    async addPieceOut(v: { day: string; time: string; employee: string; crew: string; job: string; ranch: string; field: string; pieces: number }): Promise<void> {
+        await this.newRecordButton.click({ timeout: 15_000 });
+        await this.page.getByTestId('v2-add-record-item-pieceOut').click({ timeout: 15_000 });
+        const dialog = this.page.getByRole('dialog', { name: 'Add Piece-out' });
+        await dialog.waitFor({ state: 'visible', timeout: 15_000 });
+        await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${v.day}T${v.time}`);
+        await this.pickEmployee(dialog, v.employee);
+        await dialog.getByRole('spinbutton', { name: 'Pieces' }).fill(String(v.pieces));
+        await this.pickWorkCrew(dialog, v.crew);
+        const job = dialog.getByRole('combobox', { name: /^Job\b/ });
+        await job.click({ timeout: 15_000 });
+        await this.page.keyboard.type(v.job);
+        await this.page.getByRole('option', { name: v.job, exact: true }).click({ timeout: 15_000 });
+        await expect(job).toHaveValue(v.job);
+        await this.pickOption(dialog, 'Ranch', v.ranch);
+        await this.pickOption(dialog, 'Field', v.field);
+        await this.saveAddRecord(dialog);
+        await expect(dialog).toBeHidden({ timeout: 20_000 });
+    }
+
+    // ── Client feedback cluster 2, part B (WEBPET-3301/3283/3575, PET-12942): New record ▸ Crew In ──
+
+    get crewInSheet(): Locator {
+        return this.page.getByRole('dialog', { name: 'Crew In', exact: true });
+    }
+
+    /** "Created N Time-In records." + OK; when 0 are created it asks "Do you want to see the Error log?" (No/Yes). */
+    get crewInStatus(): Locator {
+        return this.page.getByRole('dialog', { name: 'Crew-In status' });
+    }
+
+    get crewInRosterCount(): Locator {
+        return this.crewInSheet.getByText(/^\d+ of \d+ selected$/);
+    }
+
+    get crewInNoEmployees(): Locator {
+        return this.crewInSheet.getByText('No employees found for this crew.', { exact: true });
+    }
+
+    /** Roster rows are named "<Export ID> : <Name>", trimmed — ": CF B ONE" when the export id is empty. */
+    crewInEmployee(label: string): Locator {
+        return this.crewInSheet.getByRole('checkbox', { name: label, exact: true });
+    }
+
+    pageText(text: string): Locator {
+        return this.page.getByText(text);
+    }
+
+    async openCrewIn(): Promise<void> {
+        await expect(this.page.getByTestId('v2-add-record-sheet')).toBeHidden({ timeout: 30_000 });
+        await this.newRecordButton.click({ timeout: 15_000 });
+        await this.page.getByTestId('v2-add-record-item-crewIn').click({ timeout: 15_000 });
+        await expect(this.crewInSheet.locator('#crewCounter')).toBeVisible({ timeout: 15_000 });
+    }
+
+    async setCrewInCheckbox(name: 'Use Employee Crew' | 'Based on Later Time-Cards', on: boolean): Promise<void> {
+        const box = this.crewInSheet.getByRole('checkbox', { name, exact: true });
+        if ((await box.isChecked()) !== on) await box.click();
+        if (on) await expect(box).toBeChecked();
+        else await expect(box).not.toBeChecked();
+    }
+
+    /** #ranchCounter is a button; crew/field/job are inputs narrowed by typing. Options render in a portal. */
+    async pickCrewInLookup(id: 'crewCounter' | 'ranchCounter' | 'fieldCounter' | 'jobCounter', name: string): Promise<void> {
+        const control = this.crewInSheet.locator(`#${id}`);
+        await expect(control).toBeEnabled({ timeout: 15_000 });
+        await control.click();
+        if (id !== 'ranchCounter') await this.page.keyboard.type(name);
+        await this.page.getByRole('option', { name, exact: true }).click({ timeout: 15_000 });
+        if (id === 'ranchCounter') await expect(control).toContainText(name);
+        else await expect(control).toHaveValue(name);
+    }
+
+    /** Checkboxes before the crew (ticking Use Employee Crew hides Based on Later); the roster loads after the crew. */
+    async fillCrewIn(v: { day: string; time: string; crew: string; useEmployeeCrew?: boolean; basedOnLater?: boolean; ranch?: string; field?: string; phase?: string }): Promise<void> {
+        const when = this.crewInSheet.getByRole('textbox', { name: 'Date / Time *' });
+        await when.fill(`${v.day}T${v.time}`);
+        if (v.useEmployeeCrew !== undefined) await this.setCrewInCheckbox('Use Employee Crew', v.useEmployeeCrew);
+        if (v.basedOnLater !== undefined && !v.useEmployeeCrew) await this.setCrewInCheckbox('Based on Later Time-Cards', v.basedOnLater);
+        await this.pickCrewInLookup('crewCounter', v.crew);
+        if (v.ranch) await this.pickCrewInLookup('ranchCounter', v.ranch);
+        if (v.field) await this.pickCrewInLookup('fieldCounter', v.field);
+        if (v.phase) await this.pickCrewInLookup('jobCounter', v.phase);
+        await expect(when).toHaveValue(`${v.day}T${v.time}`);
+        await expect(this.crewInRosterCount.or(this.crewInNoEmployees)).toBeVisible({ timeout: 25_000 });
+    }
+
+    /** Opens Phase, reports which names are listed, closes it unchanged (Escape keeps the sheet open). */
+    async crewInPhaseListed(names: string[]): Promise<boolean[]> {
+        const control = this.crewInSheet.locator('#jobCounter');
+        await control.click();
+        const list = this.page.getByRole('listbox');
+        await expect(list).toBeVisible({ timeout: 15_000 });
+        const out: boolean[] = [];
+        for (const n of names) out.push((await list.getByRole('option', { name: n, exact: true }).count()) > 0);
+        await this.page.keyboard.press('Escape');
+        await expect(list).toBeHidden({ timeout: 10_000 });
+        await expect(control).toHaveValue('');
+        return out;
+    }
+
+    /** A 0-created save still answers POST 201, so the status dialog is the outcome; returns its text. */
+    async saveCrewIn(): Promise<string> {
+        const save = this.crewInSheet.getByRole('button', { name: 'Save', exact: true });
+        await expect(save).toBeEnabled({ timeout: 15_000 });
+        await save.click();
+        await expect(this.crewInStatus).toBeVisible({ timeout: 30_000 });
+        return (await this.crewInStatus.innerText()).replace(/\s+/g, ' ').trim();
+    }
+
+    async confirmCrewInStatus(): Promise<void> {
+        await this.crewInStatus.getByRole('button', { name: 'OK', exact: true }).click();
+        await expect(this.crewInStatus).toBeHidden({ timeout: 10_000 });
+        await expect(this.crewInSheet).toBeHidden({ timeout: 15_000 });
+    }
+
+    async closeCrewIn(): Promise<void> {
+        await this.crewInSheet.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(this.crewInSheet).toBeHidden({ timeout: 15_000 });
+    }
 }

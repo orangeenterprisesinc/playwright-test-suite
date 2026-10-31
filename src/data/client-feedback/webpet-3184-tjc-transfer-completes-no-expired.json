@@ -1,0 +1,23 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -8 in this suite. Commits one transfer; cleanup deletes the job cards by id (recorded by commitTransfer), then the time cards. The spec does not reverse.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB, 2 job cards. Manual walk 2026-10-31: toast 'Transfer complete — 2 job cards written, 4 time cards transferred.', landed on /view/job-cards?...&transferRun=N with 'Total 2 rows' and the Reverse button; no 'Transfer result expired'."
+  ],
+  "ticket": "WEBPET-3184",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -8,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "errorText": "Transfer result expired",
+    "gridCount": "Total 2 rows"
+  },
+  "annotations": [],
+  "cleanup": []
+}

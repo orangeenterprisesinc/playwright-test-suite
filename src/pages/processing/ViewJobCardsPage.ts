@@ -45,9 +45,10 @@ const REVERSE_REQUEST = /\/transfer-to-job-cards\/runs\/(\d+)\/reverse$/;
  * true, with `transferRun=N` in the URL. A different screen from `/input/job-cards` (JobCardsPage):
  * its testids are `view-job-cards-*`. Locators measured live 2026-10-15.
  *
- * Reverse, the filter, the Totals bar, Report and Test File. No delete, Delete ▾ menu, recalculate,
- * multi-edit, Export to Accounting or Clear Export Flag member exists on purpose — Delete ▾ carries
- * `view-job-cards-delete-all`, and a "delete all loaded" once wiped ~9.5k dev job cards.
+ * Reverse, the filter, the Totals bar, Report and Test File, plus Delete Selected for one own row only
+ * (WEBPET-2906; never Delete All). No Delete All, recalculate, multi-edit, Export to Accounting or Clear
+ * Export Flag member exists on purpose — Delete ▾ carries `view-job-cards-delete-all`, and a "delete all
+ * loaded" once wiped ~9.5k dev job cards.
  */
 export class ViewJobCardsPage extends BasePage {
     readonly pageUrl = '/view/job-cards';
@@ -373,5 +374,35 @@ export class ViewJobCardsPage extends BasePage {
         const index = headers.findIndex((h) => h === header || h.startsWith(`${header}\n`));
         if (index < 0) throw new Error(`Job Cards grid has no '${header}' column; headers are ${JSON.stringify(headers)}`);
         return row.getByRole('cell').nth(index);
+    }
+
+    /** The grid's row-count line ("Total 2 rows"). */
+    get gridCount(): Locator {
+        return this.page.getByTestId('data-grid-count').first();
+    }
+
+    /**
+     * Delete ▸ Delete Selected for one row. A row click selects it (single-select) and opens Edit Job Card,
+     * which is cancelled. Never `view-job-cards-delete-all`.
+     */
+    async deleteOwnJobCard(reference: string, confirmText: string): Promise<void> {
+        const row = this.grid.getByRole('row', { name: reference, exact: true });
+        await (await this.cellByHeader(row, 'Reference')).click();
+        const edit = this.page.getByRole('dialog', { name: 'Edit Job Card' });
+        const opened = await edit.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
+        if (opened) {
+            await edit.getByRole('button', { name: 'Cancel', exact: true }).click();
+            await expect(edit).toBeHidden({ timeout: 10_000 });
+        }
+        const selected = this.grid.locator('[role="row"][aria-selected="true"]');
+        await expect(selected, 'exactly the one own row is selected').toHaveCount(1);
+        await expect(selected).toHaveAttribute('aria-label', reference);
+        await this.page.getByTestId('view-job-cards-delete').click();
+        await this.page.getByTestId('view-job-cards-delete-selected').click();
+        const confirm = this.page.getByRole('alertdialog');
+        await expect(confirm).toContainText(`Delete "${reference}"?`);
+        await expect(confirm).toContainText(confirmText);
+        await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(row).toHaveCount(0, { timeout: 30_000 });
     }
 }
