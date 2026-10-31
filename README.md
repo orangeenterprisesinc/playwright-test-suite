@@ -315,6 +315,9 @@ npm install
 npx playwright install --with-deps
 ```
 
+To run the suite in Docker instead (the same browsers and libraries as CI, nothing to install but Docker
+Desktop), and for the Safari (WebKit) and Edge runs, see [docs/DOCKER.md](docs/DOCKER.md).
+
 ---
 
 ## ⚙ Configuration

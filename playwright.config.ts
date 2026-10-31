@@ -137,6 +137,21 @@ const AGENT_SEED_ENABLED =
 if (AGENT_SEED_ENABLED) process.env.AGENT_SEED = '1';
 
 /**
+ * WebKit (the engine Safari is built on) and Microsoft Edge are projects only when asked for, and then run
+ * only tests tagged @CrossBrowser, so a normal run and the nightly stay Chromium-only. See docs/DOCKER.md.
+ */
+const CROSS_BROWSER_ENABLED =
+    process.env.CROSS_BROWSER === '1' ||
+    process.argv.some(
+        (arg, i, argv) =>
+            /^--project=(webkit|msedge)$/.test(arg) || (arg === '--project' && /^(webkit|msedge)$/.test(argv[i + 1] ?? '')),
+    );
+if (CROSS_BROWSER_ENABLED) process.env.CROSS_BROWSER = '1';
+
+// tests/webpet has its own project; tests/tools and the agents' seed are opt-in projects.
+const JOURNEY_TEST_IGNORE = ['**/tests/webpet/**', '**/tests/tools/**', '**/tests/seed.spec.ts'];
+
+/**
  * Parity mode for the migrated suite. ON by default: the `webpet` project keeps
  * the SOURCE repo's run settings (30s test / 5s expect / retries 0 / no video),
  * so a run of the converted suite is still comparable with the source repo's
@@ -348,7 +363,7 @@ export default defineConfig({
             // Browserless specs (api.fixture) live in tests/web too — a spec that
             // never destructures `page` never launches a browser, so one project
             // serves both.
-            testIgnore: ['**/tests/webpet/**', '**/tests/tools/**', '**/tests/seed.spec.ts'],
+            testIgnore: JOURNEY_TEST_IGNORE,
             use: {
                 ...devices['Desktop Chrome'],
                 ...MAXIMIZED,
@@ -460,23 +475,31 @@ export default defineConfig({
               ]
             : []),
 
-        // Enable more browsers by uncommenting; each reuses the shared
-        // authenticated session from `auth-setup`.
-        // {
-        //     name: 'firefox',
-        //     use: {
-        //         ...devices['Desktop Firefox'],
-        //         storageState: '.auth/user.json',
-        //     },
-        //     dependencies: ['auth-setup'],
-        // },
-        // {
-        //     name: 'webkit',
-        //     use: {
-        //         ...devices['Desktop Safari'],
-        //         storageState: '.auth/user.json',
-        //     },
-        //     dependencies: ['auth-setup'],
-        // },
+        // ── Cross-browser (WebKit + Edge) — opt-in, see CROSS_BROWSER_ENABLED ──
+        ...(CROSS_BROWSER_ENABLED
+            ? [
+                  {
+                      // WebKit takes no Chromium window flags and cannot maximize, so it gets a fixed viewport.
+                      name: 'webkit',
+                      grep: /@CrossBrowser/,
+                      testIgnore: JOURNEY_TEST_IGNORE,
+                      use: {
+                          ...devices['Desktop Safari'],
+                          viewport: WINDOW_SIZE,
+                          launchOptions: { slowMo: Number(process.env.SLOW_MO ?? 0), args: [] },
+                          storageState: '.auth/user.json',
+                      },
+                      dependencies: ['auth-setup'],
+                  },
+                  {
+                      // The installed Microsoft Edge (Chromium-based), so the Chromium window settings apply.
+                      name: 'msedge',
+                      grep: /@CrossBrowser/,
+                      testIgnore: JOURNEY_TEST_IGNORE,
+                      use: { ...devices['Desktop Edge'], ...MAXIMIZED, storageState: '.auth/user.json' },
+                      dependencies: ['auth-setup'],
+                  },
+              ]
+            : []),
     ],
 });

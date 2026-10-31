@@ -125,6 +125,12 @@ on:
         description: 'Overrides the Slack "how was this run started" label — a cross-repo dispatcher names its origin here (e.g. web-pet PR #566). Blank = derived from the trigger.'
         required: false
         default: ''
+      browsers:
+        description: 'journey only. `cross-browser` runs the @CrossBrowser tests on WebKit (Safari engine) and Microsoft Edge instead of the Chromium suite.'
+        type: choice
+        required: false
+        default: chromium
+        options: [chromium, cross-browser]
   # Reusable, so an orchestrator could drive this once per suite. Nothing calls it
   # today — the cron above runs both suites itself. Kept because a caller inherits
   # this workflow's triggering event, which is what would keep the Slack gate in
@@ -164,6 +170,11 @@ on:
         type: string
         required: false
         default: ''
+      browsers:
+        description: '`chromium` or `cross-browser` — see the workflow_dispatch input of the same name.'
+        type: string
+        required: false
+        default: chromium
   # Must match the `event_type` the sending repo's workflow actually posts
   # (its "Trigger Automation Repository" step sends {"event_type":"run-playwright"}
   # to POST /repos/orangeenterprisesinc/playwright-test-suite/dispatches) — a
@@ -550,16 +561,13 @@ jobs:
       - name: Install test-suite deps
         run: npm ci
 
-      # Chromium-only suite (the firefox/webkit projects are commented out in
-      # playwright.config.ts) and ubuntu-24.04 already ships Chromium's system
-      # libraries — so --with-deps only added an apt-get, which hung on
-      # unreachable Ubuntu mirrors for 15 min on 2026-08-19 and cancelled both
-      # suites before a single test ran. Naming chromium also skips the unused
-      # firefox/webkit downloads. The step timeout makes a future stall fail fast
-      # instead of consuming the whole job budget.
-      - name: Install Playwright browsers
+      # Tests run inside Microsoft's Playwright image (scripts/run-in-docker.js,
+      # docs/DOCKER.md), which carries the browsers and their OS libraries, so the
+      # runner installs none. Pulled in its own step so the pull time is visible
+      # and a registry stall fails fast instead of eating the job budget.
+      - name: Pull the Playwright image
         timeout-minutes: 6
-        run: npx playwright install chromium
+        run: node scripts/run-in-docker.js --pull
 
       # No database client to install: test-data cleanup is an API call over the
       # same session the tests use (src/utils/cleanup/cleanupRegistry.ts).
@@ -668,12 +676,16 @@ jobs:
           # push/repository_dispatch runs, which therefore behave exactly as before.
           GREP: ${{ inputs.grep }}
           TEST_SCOPE: ${{ inputs.scope }}
+          BROWSERS: ${{ inputs.browsers }}
         run: |
+          # cross-browser runs only the @CrossBrowser tests, on WebKit and Edge.
+          PROJECTS=()
+          if [ "$BROWSERS" = "cross-browser" ]; then PROJECTS=(--project=webkit --project=msedge); fi
           if [ -n "$GREP" ]; then
             echo "Filtering to: $GREP"
-            npx playwright test --grep "$GREP"
+            node scripts/run-in-docker.js dev "${PROJECTS[@]}" --grep "$GREP"
           else
-            npx playwright test
+            node scripts/run-in-docker.js dev "${PROJECTS[@]}"
           fi
 
       # NOTE: no --reporter override — that would REPLACE the configured chain
@@ -706,9 +718,9 @@ jobs:
           echo "Workers: $W"
           if [ -n "$FILTER" ]; then
             echo "Filtering to: $FILTER"
-            npx playwright test --project=webpet --workers="$W" --grep "$FILTER"
+            node scripts/run-in-docker.js dev --project=webpet --workers="$W" --grep "$FILTER"
           else
-            npx playwright test --project=webpet --workers="$W"
+            node scripts/run-in-docker.js dev --project=webpet --workers="$W"
           fi
 
       # No-skip policy: a green run with 37 skips looks healthy and is not — each skip
