@@ -383,12 +383,19 @@ export class TransferToJobCardsPage extends BasePage {
         this.detachAnalyzeResponseListener();
         this.analyzeResponseHandler = (response) => {
             if (!/\/transfer-to-job-cards\/analyze(\/|$)/.test(new URL(response.url()).pathname)) return;
+            // The result is read-once on the server. Never touch a 2xx body here: a GET the page did not
+            // send consumed finished analyze results ~100 ms after the first poll in CI (run 41210291531,
+            // job 9743f41d), and this body read is the prime suspect. Only a 404 is read, for its code.
+            if (response.status() !== 404) {
+                this.analyzeResponses.push({ status: response.status(), code: undefined });
+                return;
+            }
             void response
                 .json()
                 .catch(() => ({}))
                 .then((body: { code?: string }) => {
-                    if (response.status() === 404 && body.code === 'not_found') this.analyzeSaw404 = true;
-                    this.analyzeResponses.push({ status: response.status(), code: body.code });
+                    if (body.code === 'not_found') this.analyzeSaw404 = true;
+                    this.analyzeResponses.push({ status: 404, code: body.code });
                 });
         };
         this.page.on('response', this.analyzeResponseHandler);
