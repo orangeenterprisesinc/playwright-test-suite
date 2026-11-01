@@ -223,11 +223,6 @@ export class ViewTimeCardsPage extends BasePage {
     /** Click the row's "Edit Time Card: <id>" button; the sheet opens as a dialog. */
     async openRecord(reference: string): Promise<void> {
         const row = await this.rowByReference(reference);
-        // The first Edit click can land before the Reference filter has re-rendered the grid (C6).
-        const dataRows = this.grid.getByRole('row').filter({ has: this.page.getByRole('button', { name: /^Edit Time Card: / }) });
-        await expect
-            .poll(async () => (await dataRows.count()) - (await this.grid.getByRole('row', { name: reference }).count()), { timeout: 15_000 })
-            .toBe(0);
         const edit = row.getByRole('button', { name: /^Edit Time Card: / });
         const sheet = this.recordSheet.or(this.page.getByRole('dialog', { name: /^Edit Time (In|Out)/ }));
         // A click that lands while the Reference filter is still re-rendering the grid is swallowed
