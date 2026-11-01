@@ -178,15 +178,6 @@ export function newImportDeadline(opts: number | ImportDeadlineOptions = {}): Im
     return deadline;
 }
 
-/**
- * A Journey B spec's overall timeout: project timeout plus one ceiling plus a
- * 2-minute margin. Explicit (`test.setTimeout(journeyBTestTimeoutMs(testInfo))`)
- * rather than `test.slow()`'s flat 3x multiplier, which under-covers the ceiling.
- */
-export function journeyBTestTimeoutMs(testInfo: TestInfo): number {
-    return testInfo.project.timeout + importPollTimeoutMs() + 120_000;
-}
-
 export interface ImportFileResult {
     status?: string;
     fileName?: string;

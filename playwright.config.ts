@@ -108,13 +108,11 @@ const VIDEO_SIZE = videoSize(Number(process.env.VIDEO_HEIGHT ?? 720));
 /** The web-pet suite records at 480p in framework mode; VIDEO_HEIGHT does not apply to it. */
 const WEBPET_VIDEO_SIZE = videoSize(480);
 /**
- * What a run keeps. `all` records trace + video for every test — CI, and local runs that need
- * Jira evidence; `failures` keeps them for red tests only. Every reporter copies every attachment
- * (html → html/data, allure → allure/results), so an all-green 720p journey run cost ~7 GB on disk.
+ * One ceiling for every journey test, set here and nowhere else (no test.setTimeout / slow() in specs).
+ * Measured maximum 204 s (E03, 2026-10-31); the B import stall detector names a stuck import at 8 min
+ * (IMPORT_STALL_MS), so 10 min lets it speak first. auth-setup and webpet keep the global 120 s.
  */
-const CAPTURE = process.env.CAPTURE ?? (IS_CI ? 'all' : 'failures');
-if (CAPTURE !== 'all' && CAPTURE !== 'failures') throw new Error(`CAPTURE must be "all" or "failures", got "${CAPTURE}"`);
-const CAPTURE_MODE = CAPTURE === 'all' ? ('on' as const) : ('retain-on-failure' as const);
+const JOURNEY_TIMEOUT_MS = 600_000;
 /**
  * Allure results feed CI (uploaded report, Slack lean report) and `npm run report:allure`; nothing
  * reads them in a plain local run, so they are written only on request.
@@ -235,8 +233,7 @@ export default defineConfig({
     // slow (especially cold on CI), so this is set above Playwright's 30s
     // default. Override per run with the CLI `--timeout`.
     //
-    // 120 not 110: a01-user-setup was already finishing around 117s wall with no
-    // test.slow() of its own.
+    // auth-setup and the webpet framework mode; the journey projects set JOURNEY_TIMEOUT_MS.
     timeout: 120 * 1000,
 
     // Per-assertion budget for web-first auto-retrying `expect(...)` matchers.
@@ -318,14 +315,13 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
-        // Trace + video on every test in CI, failures only locally (CAPTURE=all
-        // records everything, e.g. for Jira evidence).
+        // Kept for failed tests only, CI included: a green test leaves its assertion
+        // screenshots (src/fixtures/instrumentation/actionShots.ts) and nothing else.
         screenshot: 'only-on-failure',
-        trace: CAPTURE_MODE,
-        // 720p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit,
-        // but recording at that size shipped a 763 MB report from one red run.
-        // The frame is scaled down to fit, never up. The webpet project sets its own.
-        video: { mode: CAPTURE_MODE, size: VIDEO_SIZE },
+        trace: 'retain-on-failure',
+        // 720p (see VIDEO_SIZE): the window stays 1920x1080 so the wide grids fit; 480p from
+        // that window was unreadable as evidence. The webpet project sets its own.
+        video: { mode: 'retain-on-failure', size: VIDEO_SIZE },
 
         // Opt-in pacing, in ms per action. Defaults to 0 (no delay), so normal
         // runs are untouched. Set SLOW_MO when the recorded video has to be
@@ -364,6 +360,7 @@ export default defineConfig({
             // never destructures `page` never launches a browser, so one project
             // serves both.
             testIgnore: JOURNEY_TEST_IGNORE,
+            timeout: JOURNEY_TIMEOUT_MS,
             use: {
                 ...devices['Desktop Chrome'],
                 ...MAXIMIZED,
@@ -465,7 +462,7 @@ export default defineConfig({
                                     video: 'off' as const,
                                     screenshot: 'off' as const,
                                 }
-                              : { video: { mode: CAPTURE_MODE, size: WEBPET_VIDEO_SIZE } }),
+                              : { video: { mode: 'retain-on-failure' as const, size: WEBPET_VIDEO_SIZE } }),
                           // NO storageState: src/fixtures/webpet.fixture.ts seeds its
                           // own contexts from tests/webpet/.auth, and notifications.spec.ts's
                           // clean-context tests must start unauthenticated (matching
@@ -483,6 +480,7 @@ export default defineConfig({
                       name: 'webkit',
                       grep: /@CrossBrowser/,
                       testIgnore: JOURNEY_TEST_IGNORE,
+                      timeout: JOURNEY_TIMEOUT_MS,
                       use: {
                           ...devices['Desktop Safari'],
                           viewport: WINDOW_SIZE,
@@ -496,6 +494,7 @@ export default defineConfig({
                       name: 'msedge',
                       grep: /@CrossBrowser/,
                       testIgnore: JOURNEY_TEST_IGNORE,
+                      timeout: JOURNEY_TIMEOUT_MS,
                       use: { ...devices['Desktop Edge'], ...MAXIMIZED, storageState: '.auth/user.json' },
                       dependencies: ['auth-setup'],
                   },

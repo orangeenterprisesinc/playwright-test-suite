@@ -11,8 +11,6 @@ test.describe('R2 · Run dialog and report parameters', { tag: ['@JourneyR', '@R
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'R2' }],
     }, async ({ pages }, testInfo) => {
-        test.setTimeout(240_000);
-
         const s = await loadScenario(RunDialogCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const hub = pages.reportsHub;

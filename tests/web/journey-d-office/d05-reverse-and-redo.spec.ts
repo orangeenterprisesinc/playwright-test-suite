@@ -11,7 +11,6 @@ import {
     clockCell,
     guardReversibleRun,
     isOwnD5JobCard,
-    journeyD5TimeoutMs,
     openViewJobCardsForDay,
     prepareJourneyD5,
     reanalyzeOwnDay,
@@ -29,8 +28,6 @@ test.describe('D5 · Reverse and redo', { tag: ['@JourneyD', '@D5'] }, () => {
             { type: 'testCaseId', description: 'D5' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.setTimeout(journeyD5TimeoutMs(testInfo));
-
         const scenario = await loadScenario(JourneyD5ReverseCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const run = await prepareJourneyD5(scenario, deps);

@@ -74,8 +74,9 @@ formulas yield `${salt}${attempt}`, so B7's minted prefixes are unchanged.
 
 **One deadline per delivery, with a breaker.** *(Revised 2026-09-17: the deadline is progress-aware — it extends while `GET connectivity/import/runs/{id}` keeps changing and ends after `IMPORT_STALL_MS` of no change or at the `IMPORT_POLL_TIMEOUT_MS` ceiling, and the failure names which. The breaker trips on consecutive stalls only.)* `IMPORT_POLL_TIMEOUT_MS` is now a
 deadline shared by the run poll and the reference poll of a single delivery, not a
-fresh budget for each. Each Journey B spec sets its own timeout from that value
-rather than `test.slow()`, so the budget is visible where it is spent. After two
+fresh budget for each. *(2026-11-01: the per-spec `test.setTimeout` derived from it is gone;
+the journey projects carry one `timeout` in `playwright.config.ts`, and the stall detector
+names a stuck import well inside it.)* After two
 deliveries in a worker exhaust the deadline, the rest wait 60 s and say so
 (`import-circuit-open`): a dead import must not walk the job to its cap, because a
 cancelled job uploads no report and looks like the suite never ran.

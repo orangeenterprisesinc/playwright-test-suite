@@ -21,9 +21,6 @@ test.describe('E6 · Decimal-rounding reconciliation', { tag: ['@JourneyE', '@E6
         tag: ['@Regression', '@Demo'],
         annotation: [{ type: 'testCaseId', description: 'E6' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Three cold job creates, three transfers, two reverses and three preference saves.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE6RoundingCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
         const { expected, passes, baselinePrecision } = scenario;

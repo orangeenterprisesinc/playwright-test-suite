@@ -78,7 +78,6 @@ async function configureSmtpOnScreen(deps: NotificationEmailDeps): Promise<SmtpC
 
 export async function prepareNotificationEmail(scenario: NotificationEmailScenario, deps: NotificationEmailDeps): Promise<NotificationEmailSetup> {
     const { sessionApi, testInfo } = deps;
-    testInfo.slow();
     let smtp = await readSmtpState(sessionApi);
     if (!smtp.configured) {
         if (process.env.NOTIFY_SMTP_WRITE === '0') {

@@ -215,7 +215,6 @@ export async function prepareBiometricEnrollment(
     testInfo: TestInfo,
 ): Promise<BiometricEnrollmentRun> {
     for (const annotation of scenario.annotations) testInfo.annotations.push(annotation);
-    testInfo.slow();
 
     const gate = scenario.preferenceGate;
     if ((await readPreferenceGate(sessionApi, gate.key)) !== gate.expected) throw new Error(gate.message);

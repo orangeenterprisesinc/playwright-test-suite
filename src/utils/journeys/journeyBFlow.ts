@@ -8,7 +8,6 @@ import { B9_PAID_BREAK, JOURNEY_B_FIXTURE as F, punchDay } from '@data/journey-b
 import { UNDEFINED_EMPLOYEE, type ImportLogJson, type JourneyBScenario } from '@data/schemas/journeyBScenario';
 import {
     annotateIfImportCircuitOpen,
-    journeyBTestTimeoutMs,
     newImportDeadline,
     type ImportFileResult,
 } from '@utils/api/connectivityImportApi';
@@ -53,8 +52,6 @@ import { ackRetrieved, drainMailbox, pullFromRelay, sendToRelay, type PulledMess
 // and the office only through this module (ESLint enforces it). `pages` is optional: browserless
 // workflows (b07) import through relay-internet and never open the office UI.
 
-// B9 adds its own crew and jobs on screen and the lock wait, so its test budget is larger.
-const B9_EXTRA_TIMEOUT_MS = 300_000;
 const CREW_NAMES = new Map([
     [F.crew.code, F.crew.name],
     [B9_PAID_BREAK.crew.code, B9_PAID_BREAK.crew.name],
@@ -685,8 +682,6 @@ export interface JourneyBRun extends MintedRun {
 
 export async function runJourneyBScenario(scenario: JourneyBScenario, opts: JourneyBRunOptions): Promise<JourneyBRun> {
     const { sessionApi, pages, testInfo } = opts;
-    // The Internet pull drains the whole mailbox in one request — one import deadline beyond the project timeout.
-    testInfo.setTimeout(journeyBTestTimeoutMs(testInfo) + (scenario.fixtureRowsOnScreen?.includes('b9') ? B9_EXTRA_TIMEOUT_MS : 0));
     if (scenario.transport === 'relay-echo') throw new Error(`${scenario.label}: transport 'relay-echo' runs through runRelayEcho`);
 
     // Minted and registered BEFORE anything is created. `mintRun` is pure over

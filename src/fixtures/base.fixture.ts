@@ -31,6 +31,13 @@ import { guardApiContext } from '../utils/api/writeGuard';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
+import {
+    actionShotsEnabled,
+    beginSession,
+    endSession,
+    installActionShots,
+    uninstallActionShots,
+} from './instrumentation/actionShots';
 
 /** Per-test fixture types. */
 type CustomFixtures = {
@@ -112,6 +119,13 @@ type CustomFixtures = {
      * implementation for why it must be a fixture and not a `beforeEach`.
      */
     gate: void;
+
+    /**
+     * Auto fixture arming the per-assertion screenshots. Depends on nothing on purpose: several
+     * tests/web specs are browserless, and a `page` dependency here would launch Chromium for
+     * every one of them. The patch itself goes on in the `page` override.
+     */
+    actionShots: void;
 };
 
 /** Worker-scoped fixture types. */
@@ -178,6 +192,25 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         },
         { auto: true },
     ],
+
+    actionShots: [
+        async ({}, use, testInfo) => {
+            if (actionShotsEnabled()) beginSession(testInfo);
+            await use();
+            endSession();
+        },
+        { auto: true },
+    ],
+
+    // Playwright's stock `page` with the assertion hook patched for the test. An override, not an
+    // auto fixture, so browserless specs still never open a browser; `actionShots` is listed only so
+    // its session exists before the patch goes on and outlives the restore.
+    page: async ({ page, actionShots }, use) => {
+        void actionShots;
+        if (actionShotsEnabled()) installActionShots(page);
+        await use(page);
+        uninstallActionShots();
+    },
 
     // ── Page Object fixtures ────────────────────────────────────────
     // `pages` is the general accessor — one fixture for every screen, each built

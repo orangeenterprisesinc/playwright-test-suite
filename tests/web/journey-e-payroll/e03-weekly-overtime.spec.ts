@@ -13,9 +13,6 @@ test.describe('E3 · Weekly overtime', { tag: ['@JourneyE', '@E3'] }, () => {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E3' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Twelve punches on screen over six days, six daily transfers, View > Job Cards; each with per-action screenshots.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE3WeeklyOvertimeCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
 

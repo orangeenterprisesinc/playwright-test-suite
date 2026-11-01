@@ -11,8 +11,6 @@ test.describe('R1 · Reports hub: listing, filtering, and favorites', { tag: ['@
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'R1' }],
     }, async ({ pages }, testInfo) => {
-        test.setTimeout(180_000);
-
         const s = await loadScenario(ReportsHubCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const hub = pages.reportsHub;

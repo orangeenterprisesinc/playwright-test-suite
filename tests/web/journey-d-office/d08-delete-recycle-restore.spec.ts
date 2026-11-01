@@ -22,8 +22,6 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
             { type: 'testCaseId', description: 'D8' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        test.setTimeout(180_000);
-
         const scenario = await loadScenario(JourneyD8RecycleCaseSchema, testInfo);
         const run = prepareJourneyD8(scenario, { testInfo });
         const { expected } = run.scenario;

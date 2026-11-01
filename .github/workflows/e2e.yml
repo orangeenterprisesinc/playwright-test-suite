@@ -118,7 +118,7 @@ on:
         required: false
         default: ''
       workers:
-        description: 'webpet only. Defaults to 2. Set 1 for a baseline-comparable run — the committed dev baseline only holds serially.'
+        description: 'Both suites. Defaults to 2. journey: 3 or 4 to measure a wider run. webpet: set 1 for a baseline-comparable run — the committed dev baseline only holds serially.'
         required: false
         default: '2'
       run_label:
@@ -677,7 +677,10 @@ jobs:
           GREP: ${{ inputs.grep }}
           TEST_SCOPE: ${{ inputs.scope }}
           BROWSERS: ${{ inputs.browsers }}
+          WORKERS: ${{ inputs.workers }}
         run: |
+          # playwright.config.ts reads WORKERS; empty (cron, push) means its default of 2.
+          echo "Workers: ${WORKERS:-2 (default)}"
           # cross-browser runs only the @CrossBrowser tests, on WebKit and Edge.
           PROJECTS=()
           if [ "$BROWSERS" = "cross-browser" ]; then PROJECTS=(--project=webkit --project=msedge); fi

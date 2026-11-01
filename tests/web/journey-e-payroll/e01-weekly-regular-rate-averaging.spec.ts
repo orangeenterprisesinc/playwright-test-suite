@@ -13,9 +13,6 @@ test.describe('E1 · Weekly regular-rate averaging', { tag: ['@JourneyE', '@E1']
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'E1' }],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Six punches on screen, one Mon-Wed transfer, one View > Job Cards read; each with per-action screenshots.
-        test.setTimeout(900_000);
-
         const scenario = await loadScenario(JourneyE1RegularRateCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
 

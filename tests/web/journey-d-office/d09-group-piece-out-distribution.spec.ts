@@ -24,10 +24,6 @@ test.describe('D9 · Group piece-out distribution', { tag: ['@JourneyD', '@D9'] 
             { type: 'testCaseId', description: 'D9' },
         ],
     }, async ({ sessionApi, pages }, testInfo) => {
-        // Three Batch forms, up to five Setup forms on a cold fixture, two Transfer tabs and two edit
-        // forms. A skipped-budget cleanup here is permanent residue on dev, so the budget is generous.
-        test.setTimeout(360_000);
-
         // 1. Fixture rows on screen, preference gate, before-phase sweep.
         const scenario = await loadScenario(JourneyD9DistributionCaseSchema, testInfo);
         const deps = { sessionApi, testInfo, pages };
