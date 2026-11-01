@@ -168,7 +168,9 @@ export class ViewJobCardsPage extends BasePage {
     }
 
     async applyFilter(): Promise<void> {
-        await this.load(this.page.getByTestId('view-job-cards-apply'));
+        // Apply can serve the cache; Refresh's GET proves the grid holds the server's rows.
+        await this.page.getByTestId('view-job-cards-apply').click();
+        await this.refresh();
     }
 
     /** Expands the filter, flips the Include Exported switch only if its state differs, and asserts it. Apply after. */
@@ -188,16 +190,10 @@ export class ViewJobCardsPage extends BasePage {
             const url = new URL(r.url());
             return r.request().method() === 'GET' && /\/job-cards$/.test(url.pathname) && url.searchParams.has('from');
         };
-        const loaded = this.page.waitForResponse(isFilterGet, { timeout: 15_000 });
-        loaded.catch(() => undefined);
+        await expect(button).toBeEnabled({ timeout: 60_000 });
+        const loaded = this.page.waitForResponse(isFilterGet, { timeout: 60_000 });
         await button.click();
-        let response = await loaded.catch(() => null);
-        if (!response) {
-            // Apply Filter with unchanged criteria serves the cached query and sends nothing (2026-10-22); Refresh refetches.
-            const refetched = this.page.waitForResponse(isFilterGet, { timeout: 60_000 });
-            await this.page.getByTestId('view-job-cards-filter-refresh').click({ timeout: 15_000 });
-            response = await refetched;
-        }
+        const response = await loaded;
         expect(response.status(), 'GET job-cards for the filter').toBe(200);
         // Mirrors Time Cards: an empty filter renders a "No ... match the current filter." line instead of the count (empty text not measured here).
         const count = this.page.getByTestId('data-grid-count').first();

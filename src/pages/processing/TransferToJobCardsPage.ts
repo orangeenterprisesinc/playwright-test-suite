@@ -1,4 +1,4 @@
-import { expect, test, Frame, Locator, Page, Response } from '@playwright/test';
+import { expect, test, Frame, Locator, Page, Request, Response } from '@playwright/test';
 import { acquireTransferScreenLock } from '../../utils/sync/preferencesLock';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
@@ -893,13 +893,15 @@ export class TransferToJobCardsPage extends BasePage {
      * candidates load, so reading the rows straight afterwards reports an empty screen rather than
      * an unfinished one — and an empty screen is indistinguishable from "nothing to transfer".
      */
-    async analyzeCandidates(opts: { expected?: number } = {}): Promise<{ crewIds: unknown[] }> {
+    async analyzeCandidates(opts: { expected?: number } = {}): Promise<{ posted: boolean; crewIds: unknown[] }> {
         await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 20_000 });
-        const posted = this.page.waitForRequest(
-            (r) => r.method() === 'POST' && /\/transfer-to-job-cards\/analyze$/.test(new URL(r.url()).pathname),
-            { timeout: 30_000 },
-        );
-        posted.catch(() => undefined);
+        // The app answers an analyze of the scope it analyzed under 30 s ago from its query cache (web-pet
+        // staleTime 30_000) and sends nothing, so "no POST" is a normal outcome, not something to wait out.
+        let sent: Request | null = null;
+        const onRequest = (r: Request): void => {
+            if (r.method() === 'POST' && /\/transfer-to-job-cards\/analyze$/.test(new URL(r.url()).pathname)) sent = r;
+        };
+        this.page.on('request', onRequest);
         this.watchAnalyzeResponses();
         try {
             await this.analyzeCandidatesButton.click();
@@ -918,10 +920,11 @@ export class TransferToJobCardsPage extends BasePage {
                             : 'the expected time cards are not on the Transfer screen (already transferred by another run, or not created)'),
                 );
             }
-            const sent = await posted.catch(() => null);
-            const body = (sent?.postDataJSON() ?? {}) as { crewIds?: unknown[] };
-            return { crewIds: body.crewIds ?? [] };
+            const request = sent as Request | null;
+            const body = (request?.postDataJSON() ?? {}) as { crewIds?: unknown[] };
+            return { posted: request !== null, crewIds: body.crewIds ?? [] };
         } finally {
+            this.page.off('request', onRequest);
             this.detachAnalyzeResponseListener();
         }
     }
@@ -1190,6 +1193,8 @@ export class TransferToJobCardsPage extends BasePage {
         const prefilled = await expect(crewInput).toHaveValue(crew, { timeout: 10_000 }).then(() => true, () => false);
         if (!prefilled) {
             await crewInput.click({ timeout: 15_000 });
+            // A home crew that differs from `crew` is already in the box; typing after it garbles the search.
+            await crewInput.fill('');
             await this.page.keyboard.type(crew);
             await this.page.getByRole('option', { name: crew }).first().click({ timeout: 15_000 });
             await expect(crewInput).toHaveValue(crew);
@@ -1296,10 +1301,14 @@ export class TransferToJobCardsPage extends BasePage {
      * Server-side scope: "Search by ▸ Time Card Crew" fills crewIds on analyze and execute. The Work Crew
      * grid filter is display-only, so a transfer commits every analyzed candidate, other runs' included.
      */
+    /** The "Search by ▸ Time Card Crew" chip that proves the analyze scope on screen. */
+    timeCardCrewChip(name: string): Locator {
+        return this.page.getByTestId('transfer-search-criterion').getByRole('button', { name: `Remove ${name}`, exact: true });
+    }
+
     async scopeToTimeCardCrew(name: string): Promise<void> {
-        const criterion = this.page.getByTestId('transfer-search-criterion');
         const picker = this.page.getByTestId('transfer-filter-crews');
-        const chip = (): Locator => criterion.getByRole('button', { name: `Remove ${name}`, exact: true });
+        const chip = (): Locator => this.timeCardCrewChip(name);
 
         if (await chip().isVisible()) return;
         await this.page.getByTestId('transfer-search-by-trigger').click();

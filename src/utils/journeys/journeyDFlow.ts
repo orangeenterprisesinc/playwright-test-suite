@@ -306,10 +306,18 @@ export async function openScopedCandidates(
     // The Work Crew filter below only narrows the display; Transfer commits what analyze loaded, so scope the analyze itself.
     await transfer.scopeToTimeCardCrew(opts.crew);
     const analyzed = await transfer.analyzeCandidates({ expected: seed.timeCardCounters.length });
-    expect(
-        analyzed.crewIds.length,
-        `${run.scenario.label}: transfer scope: analyze went out unscoped (crewIds []) — a concurrent run's time cards would be transferred`,
-    ).toBeGreaterThan(0);
+    if (analyzed.posted) {
+        expect(
+            analyzed.crewIds.length,
+            `${run.scenario.label}: transfer scope: analyze went out unscoped (crewIds []) — a concurrent run's time cards would be transferred`,
+        ).toBeGreaterThan(0);
+    } else {
+        // Served from the app's 30 s cache (D5 returns to Transfer within it): no request to read, so the screen proves the scope.
+        await expect(
+            transfer.timeCardCrewChip(opts.crew),
+            `${run.scenario.label}: transfer scope: the analyze was served from cache, and Search by ▸ Time Card Crew does not read ${opts.crew}`,
+        ).toBeVisible();
+    }
 
     await transfer.filterByCrew(opts.crew);
     // The filter re-renders asynchronously; a miss falls through to the guard below, which names both sets.

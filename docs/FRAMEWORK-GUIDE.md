@@ -340,14 +340,14 @@ Windows Integrated Auth, `go build`, `pnpm dev --port 3000`) and could not run a
   `TEST_ENV` is load-bearing: unset, envLoader falls back to `local` and the suite would aim
   at a containerized stack that isn't running on the runner.
 - Steps: guard that the password secret exists → checkout → Node 24 → Java 21 (Allure) →
-  `npm ci` → `npx playwright install chromium` → compute deterministic `REPORT_S3_URL` →
-  `npx playwright test` → generate Allure report → upload artifacts → optional `aws s3 sync`.
+  `npm ci` → `npx playwright install chromium` → `npx playwright test` → generate Allure
+  report → upload artifacts.
 - Credentials: the `DEV_PASSWORD` **secret** is required and has no fallback — a generic
   `PASSWORD` secret is deliberately *not* consulted, because a stale localhost one silently
   authenticated against the wrong environment. The username is the `DEV_USER_NAME`
   **variable** (not a secret — a login name isn't a credential, and masking a short value
   like `su` mangles unrelated words in the log), defaulting to `su`.
-  Reporting (`SEND_EMAIL`/`SEND_SLACK`/`SEND_S3`) opt-in via repo vars.
+  Reporting (`SEND_EMAIL`/`SEND_SLACK`) opt-in via repo vars.
 - Test-data cleanup needs no secrets and no database route: it is an API call over the same
   session the tests use ([ENVIRONMENTS.md](ENVIRONMENTS.md#test-data-cleanup)). It used to run
   over SQL, which is why the now-unused `DB_SERVER`/`DB_USER`/`DB_PASSWORD` secrets and

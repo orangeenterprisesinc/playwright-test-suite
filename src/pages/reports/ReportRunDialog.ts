@@ -77,8 +77,9 @@ export class ReportRunDialog {
     }
 
     async selectOptions(label: string): Promise<string[]> {
-        await (await this.control(label)).click();
-        const listbox = this.page.getByRole('listbox');
+        const trigger = await this.control(label);
+        await trigger.click();
+        const listbox = await this.picker.listboxOf(trigger);
         await listbox.waitFor({ state: 'visible', timeout: 15_000 });
         const options = (await listbox.getByRole('option').allInnerTexts()).map((t) => t.trim());
         await this.page.keyboard.press('Escape');
@@ -112,7 +113,7 @@ export class ReportRunDialog {
         const input = await this.control(label);
         await input.click();
         await input.fill(text);
-        const listbox = this.page.getByRole('listbox');
+        const listbox = await this.picker.listboxOf(input);
         await listbox.waitFor({ state: 'visible', timeout: 15_000 });
         await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 15_000 });
         return (await listbox.getByRole('option').allInnerTexts()).map((t) => t.trim());
@@ -120,8 +121,10 @@ export class ReportRunDialog {
 
     async pickEntity(label: string, option: string): Promise<void> {
         const input = await this.control(label);
+        const listbox = await this.picker.listboxOf(input);
         const choice = this.page.getByRole('option', { name: PickerComponent.labelPattern(option) });
         await choice.first().click({ timeout: 15_000 });
+        await expect(listbox).toBeHidden({ timeout: 15_000 });
         await expect(input).toHaveValue(PickerComponent.labelPattern(option));
     }
 

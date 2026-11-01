@@ -17,7 +17,7 @@ export class CrewTimeOutPage extends CrewPunchPage {
     readonly tableCombobox: Locator;
 
     constructor(page: Page) {
-        super(page, '/input/crew-time-out', ['Input', 'Crew Time Out'], /New Crew Time Out/i);
+        super(page, '/input/crew-time-out', ['Input', 'Crew Time Out'], /New Crew Time Out/i, false);
         this.tableCombobox = page.locator('#crewTableCounter');
     }
 

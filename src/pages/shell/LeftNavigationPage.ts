@@ -70,7 +70,7 @@ export class LeftNavigationPage extends BasePage {
      * hidden — keeping the walkthrough idempotent regardless of the sidebar's
      * starting state.
      */
-    async expandGroup(group: string, child: string, childIsLeaf = false): Promise<void> {
+    async expandGroup(group: string, child: string, childIsLeaf = false, topLevel = false): Promise<void> {
         const childItem = childIsLeaf ? this.leafLink(child) : this.menuItem(child);
         // `.all()` below does not wait, and right after a goto('/') the dashboard has not rendered the
         // sidebar yet: it would see no candidates, click nothing, and hang on the final wait (2026-10-13).
@@ -97,7 +97,22 @@ export class LeftNavigationPage extends BasePage {
         if (await childItem.isVisible().catch(() => false)) return;
         // "Setup" is both a top-level group and File ▸ Administration ▸ Setup, and the nested one comes first
         // in the DOM once Administration is open (e.g. after Preferences) — try each until the child shows.
-        for (const candidate of await this.menuItems(group).all()) {
+        let candidates = await this.menuItems(group).all();
+        if (topLevel) {
+            // Shallowest first: a nested namesake ("Setup" under Administration) otherwise costs the 3 s probe.
+            const ranked: { candidate: Locator; depth: number }[] = [];
+            for (const candidate of candidates) {
+                if (!(await candidate.isVisible())) continue;
+                const depth = await candidate.evaluate((el) => {
+                    let n = 0;
+                    for (let p = el.parentElement; p; p = p.parentElement) if (p.matches('ul,ol,[role=group],[role=tree]')) n += 1;
+                    return n;
+                });
+                ranked.push({ candidate, depth });
+            }
+            candidates = ranked.sort((a, b) => a.depth - b.depth).map((r) => r.candidate);
+        }
+        for (const candidate of candidates) {
             if (!(await candidate.isVisible())) continue;
             await candidate.click();
             const shown = await childItem.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
@@ -120,7 +135,7 @@ export class LeftNavigationPage extends BasePage {
 
         // Expand each group using the next label as the "is it open?" probe.
         for (let i = 0; i < menuPath.length - 1; i++) {
-            await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1);
+            await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1, i === 0);
         }
 
         const leaf = menuPath[menuPath.length - 1];
@@ -139,7 +154,7 @@ export class LeftNavigationPage extends BasePage {
             if (attempt >= 2) throw new Error(`Menu ${menuPath.join(' ▸ ')} did not land on ${expectedUrl}; the app is at ${this.page.url()}`);
             this.logger.warn(`Menu ${menuPath.join(' ▸ ')} did not stick (app at ${this.page.url()}); walking it once more`);
             for (let i = 0; i < menuPath.length - 1; i++) {
-                await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1);
+                await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1, i === 0);
             }
         }
     }
