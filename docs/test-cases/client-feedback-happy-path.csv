@@ -49,13 +49,13 @@ WEBPET-3135,Smoke: View > Job Cards loads job cards for one crew without the Fai
 WEBPET-3180,The Multi Update employee list shows 'Export ID : Name' for each employee.,"1. Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.
 2. Tick two rows and click Multi Update.
 3. Set Field to Employee.
-4. Click the Value box to open the list.","Each employee in the list reads '<Export ID> : <Name>', for example '12991 : A Perez,Carmen A', not the name alone.",CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed,Feasible - full,,,
+4. Click the Value box to open the list.","Each employee in the list reads '<Export ID> : <Name>', for example '12991 : A Perez,Carmen A', not the name alone.",CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed,Feasible - full,,Automated 2026-11-01,
 WEBPET-3181,"In View > Time Cards Multi Update, typing in the Employee value box shows the typed text and finds matching employees.","1. Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.
 2. Tick two rows and click Multi Update.
 3. Set Field to Employee.
 4. Click the Value box and type CF EMPLOYEE.","- The typed text is visible in the Value box (it was an empty cursor before).
 - The list shows matching employees such as '<Export ID> : CF EMPLOYEE TWO', not 'No Employees Found'.
-- Do not click Update Records.",CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed,Feasible - full,,,
+- Do not click Update Records.",CF EMPLOYEE ONE/TWO time cards on a past date; nothing is changed,Feasible - full,,Automated 2026-11-01,
 WEBPET-3183,"The date range picker sits top-left beside the search selector on Transfer to Job Cards, not inside the Date column.","1. Open Transfer to Job Cards from the left menu.
 2. Look at the filter area at the top of the page, left of Search by.
 3. Click the Dates box and pick a past single day, then close the picker.
@@ -81,7 +81,7 @@ WEBPET-3574,A Multi Edit on View > Time Cards can be reversed with Undo and the 
 3. Open File > Administration > Restore or Reverse > Reverse Multi Edit.
 4. On the newest row (Record type TimeCard, field memo), click Undo.","- The Reverse Multi Edit - Bulk Update History page lists the new edit with Status Active and an enabled Undo button.
 - After Undo the row Status changes to Undone.
-- Back on View > Time Cards, the two rows show their old Memo value again.",CF EMPLOYEE ONE time cards on a past date; the edit is undone by the test,Feasible - full,,,
+- Back on View > Time Cards, the two rows show their old Memo value again.",CF EMPLOYEE ONE time cards on a past date; the edit is undone by the test,Feasible - full,,Automated 2026-11-01,
 WEBPET-3689,Smoke: Export to Accounting shows the job cards as Ready and none as Needs re-export when nothing changed after export.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range and filter Job Card Crew contains CF.
 3. Look at the Ready, Needs re-export and Warnings cards at the top.","- Ready shows the job card count, 'Needs re-export' shows 0, and the Export button count equals Ready.
@@ -91,7 +91,7 @@ WEBPET-3889,Several checked time cards can be deleted together on View > Time Ca
 3. Check the Delete button, then click it.
 4. In the confirmation, check the text and click Delete.","- The Delete button is enabled when two or more rows are ticked (it was greyed out before).
 - A dialog asks: Delete ""2 Time Cards""? with text about records the system refuses being skipped and reported.
-- After Delete, the two time cards disappear from the grid.",create: 2 throw-away time cards for CF EMPLOYEE ONE on a past date (they are the ones deleted),Feasible - full,,,
+- After Delete, the two time cards disappear from the grid.",create: 2 throw-away time cards for CF EMPLOYEE ONE on a past date (they are the ones deleted),Feasible - full,,Automated 2026-11-01,"Gukan / dev (cosmetic): every bulk delete also raises the single-row toast ""Time card record deleted"" next to ""Deleted N Time Card record(s)."" Seen twice."
 WEBPET-3781,"Every Reports > Input screen (e.g. Time In) opens a legacy-style selection screen with Execute, Load and Save.","1. Open Reports > Input and check the list of items.
 2. Click Time In.
 3. Check the selection screen: date range, Start time, End time and Search by.
@@ -103,7 +103,7 @@ WEBPET-3819,Reports can be run on View > Time Cards when a Time Card Crew filter
 3. Look at the Report and Display Report buttons.
 4. Click Report.","- Report and Display Report are enabled (not greyed out).
 - No message 'The report cannot apply the selection on these fields yet' appears when you hover over Report.
-- The report dialog opens.",CF CREW time cards on a past date; none created,Feasible - full,,,
+- The report dialog opens.",CF CREW time cards on a past date; none created,Feasible - full,,Automated 2026-11-01,
 WEBPET-3829,Clicking Report on Transfer to Job Cards opens the report selection instead of running a report straight away.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date with time cards, set Search by to Time Card Crew and choose CF CREW, then wait for the grid to load.
 3. Click Report in the top bar.","- A dialog titled Report: <report name> appears with a Report dropdown listing the reports and the report's options.
@@ -126,7 +126,7 @@ WEBPET-3133,"An employee's punches on View > Time Cards read oldest first (Time 
 2. Set the date range to the past date that has CF EMPLOYEE ONE punches, and click Apply Filter.
 3. Click the Employee column header to sort by Employee.
 4. Look at the rows for CF EMPLOYEE ONE.","- Rows for the employee run in time order: Time In 6:30 AM, then breaks and lunch, and the Time Out row (for example 3:00 PM) is last.
-- The Time Out is not listed first.","CF EMPLOYEE ONE with a Time In, lunch/break and Time Out on a past date (none created by the test)",Feasible - full,,,
+- The Time Out is not listed first.","CF EMPLOYEE ONE with a Time In, lunch/break and Time Out on a past date (none created by the test)",Feasible - full,,Automated 2026-11-01,
 WEBPET-3138,"On View > Time Cards the screen keeps the earlier filter when you come back, waits for Apply Filter, and the top section can be hidden.","1. Open View > Time Cards, set the date range to a past date, set Work Crew to CF CREW, and click Apply Filter.
 2. Click 'Hide top section' (top right of the grid), then click 'Show top section'.
 3. Open View > Job Cards from the left menu, then open View > Time Cards again.
@@ -134,8 +134,8 @@ WEBPET-3138,"On View > Time Cards the screen keeps the earlier filter when you c
 5. Click Apply Filter, then click the Columns button.","- The top section (record type options, crew and employee pickers, legend) hides and shows again.
 - After returning, the previous selection is shown and the grid stays empty until Apply Filter is clicked.
 - After Apply Filter the rows for CF CREW load and a scroll bar is visible on the grid.
-- The Columns button opens a list where columns can be added or removed.",CF CREW with time cards on a past date; none created,Feasible - full,,,
-WEBPET-3254,"Covered by WEBPET-3180: employee pickers show the Export ID, a colon, then the name.",Covered by WEBPET-3180,"Employee pickers read '<Export ID> : <Name>' with a visible colon, the same in the dropdown and in the grid.",none,Covered by WEBPET-3180,Confirmation task for the same Export ID : Name label fixed in WEBPET-3180.,,
+- The Columns button opens a list where columns can be added or removed.",CF CREW with time cards on a past date; none created,Feasible - full,,Automated 2026-11-01,
+WEBPET-3254,"Covered by WEBPET-3180: employee pickers show the Export ID, a colon, then the name.",Covered by WEBPET-3180,"Employee pickers read '<Export ID> : <Name>' with a visible colon, the same in the dropdown and in the grid.",none,Covered by WEBPET-3180,Confirmation task for the same Export ID : Name label fixed in WEBPET-3180.,Covered by WEBPET-3180 (automated 2026-11-01),
 WEBPET-3283,The Crew In employee list shows Export ID : Name.,"1. Open Transfer to Job Cards from the left menu.
 2. Click New record, then Crew In.
 3. Set a past Date/Time and pick CF CREW.
@@ -200,20 +200,20 @@ WEBPET-3484,Exported to Payroll is offered in Multi Edit on View > Job Cards.,"1
 4. Open the Field dropdown and choose Exported to Payroll.
 5. Set Value to Yes and click Update Records (2).","- 'Exported to Payroll' is in the Field list.
 - Value is a Yes/No dropdown.
-- The update succeeds for the 2 ticked job cards.",CF JOB cards on a past date; change to Yes is set back to No afterwards with the same Multi Edit,Feasible - full,,,
+- The update succeeds for the 2 ticked job cards.",CF JOB cards on a past date; change to Yes is set back to No afterwards with the same Multi Edit,Feasible - full,,Automated 2026-11-01,
 WEBPET-3503,The Reports hub 'For' filter shows only reports for exactly the chosen module.,"1. Open File > Administration > Reports.
 2. In the For column filter pick Employee.
 3. Look at the For value of every row shown.
 4. Change the For filter to Job and look at the rows.","- With Employee, every row has For = Employee and no row says Employee Class.
 - With Job, no Job Card, Job Category, Job Group or Job Type row is shown.",none,Feasible - full,,,
-WEBPET-3570,Same fix as WEBPET-3484: Exported to Payroll is a Multi Edit field on View > Job Cards.,Covered by WEBPET-3484,"In View > Job Cards Multi Edit, the Field list has 'Exported to Payroll' with a Yes/No Value.",none,Covered by WEBPET-3484,Jira-linked duplicate of WEBPET-3484; same fix PR.,,
+WEBPET-3570,Same fix as WEBPET-3484: Exported to Payroll is a Multi Edit field on View > Job Cards.,Covered by WEBPET-3484,"In View > Job Cards Multi Edit, the Field list has 'Exported to Payroll' with a Yes/No Value.",none,Covered by WEBPET-3484,Jira-linked duplicate of WEBPET-3484; same fix PR.,Covered by WEBPET-3484 (automated 2026-11-01),
 WEBPET-3573,"View > Time Cards sorts by Crew then Employee, shows a + button on each row, and a double-click opens the record.","1. Open View > Time Cards.
 2. Set the date range to a past date, filter Time Card Crew to CF CREW, and click Apply Filter.
 3. Look at the order of the rows and at the left of each row.
 4. Double-click a row.","- Rows are grouped by Work Crew and then by Employee, the same order as Transfer to Job Cards.
 - A + button is shown at the left of every row.
 - Double-click opens that time card record (edit panel).
-- No '25,000 time cards' banner is shown for this small selection.",CF CREW and CF EMPLOYEE ONE/TWO time cards on a past date; none created,Feasible - full,,,
+- No '25,000 time cards' banner is shown for this small selection.",CF CREW and CF EMPLOYEE ONE/TWO time cards on a past date; none created,Feasible - full,,Automated 2026-11-01,"Gukan / dev: on View > Time Cards the Employee header sort direction has no effect. Ascending, none and descending (URL sort=employee / employee.desc) all keep the same order. The spec asserts only the default Crew-then-Employee order the ticket asks for."
 WEBPET-3575,"Crew In saves with Ranch, Field and Phase left empty and gives each employee their own last Job, Ranch and Field.","1. Open Transfer to Job Cards from the left menu.
 2. Click New record, then Crew In.
 3. Set Date/Time to a past date at 7:30 AM and Crew to CF CREW. Open the Phase dropdown and check it lists job names (not job aliases).
@@ -283,7 +283,7 @@ WEBPET-3791,Transfer department filter and the minimum-wage rule now follow the 
 WEBPET-3890,Each row on View > Time Cards has a trash bin icon that deletes that one time card.,"1. Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.
 2. Look at the left of a CF EMPLOYEE ONE row, next to the + button.
 3. Click the trash bin icon on that row and confirm the delete.","- A trash bin icon is shown on every row, between the checkbox/+ and the Employee column, as on Transfer to Job Cards.
-- After confirming, that one time card disappears from the grid.",create: 1 throw-away time card for CF EMPLOYEE ONE on a past date (it is the one deleted),Feasible - full,,,
+- After confirming, that one time card disappears from the grid.",create: 1 throw-away time card for CF EMPLOYEE ONE on a past date (it is the one deleted),Feasible - full,,Automated 2026-11-01,"Gukan / dev (found while arranging CF CREW C on 10/26, not part of this ticket): Crew Time Out listed both members ticked and saved a Time Out for an employee who had no Time In that day, leaving an orphan card. Should Crew Time Out offer only employees who are clocked in?"
 WEBPET-3893,"Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves.","1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, set Search by to Time Card Crew, Match to Contains and type the CF CREW code, wait for the grid.
 3. Click New record, then Crew In.
@@ -294,7 +294,7 @@ WEBPET-3895,The Multi Update field list on View > Time Cards includes the fields
 2. Tick two rows.
 3. Click Multi Update.
 4. Open the Field dropdown.","- The Field list includes 'Date, Time', 'Employee Selection', 'GPS Reading', 'Run' and 'Traceability' (along with Date, Employee, Job, Memo, Time, Type, Work Crew and others).
-- The 'Update Records (2)' button is shown next to the Value box.",CF CREW time cards on a past date; nothing is changed,Feasible - full,,,
+- The 'Update Records (2)' button is shown next to the Value box.",CF CREW time cards on a past date; nothing is changed,Feasible - full,,Automated 2026-11-01,
 WEBPET-3927,"Employee Add > Quick has Name, Middle, Export Identifier and Time Card Defaults, and saves them.","1. Open Employee Add > Quick.
 2. Enter First Name, Last Name, Middle, and an Export Identifier.
 3. Under Time Card Defaults choose Default Ranch, Default Field and Default Job.
@@ -444,7 +444,7 @@ WEBPET-3940,"Deleting all checked time cards at once finishes quickly, removes e
 3. Click Delete and confirm Delete ""N Time Cards""? with Delete.
 4. Open File > Administration > Restore or Reverse > Reverse Multi Delete.","- The delete finishes in a few seconds and the success message says the same N as the dialog.
 - The grid shows no remaining rows for that selection.
-- Reverse Multi Delete (Bulk Delete History) lists the delete batch with Undo.",create: 3 throw-away CF EMPLOYEE ONE time cards on a past date (they are deleted; restore via Reverse Multi Delete),Feasible - full,,,
+- Reverse Multi Delete (Bulk Delete History) lists the delete batch with Undo.",create: 3 throw-away CF EMPLOYEE ONE time cards on a past date (they are deleted; restore via Reverse Multi Delete),Feasible - full,,Manual fail: the bulk delete never appears on Reverse Multi Delete and Undo is disabled,"Gukan / dev: the fast bulk delete works, but the deleted batch never shows on File > Restore or Reverse > Reverse Multi Delete, so the ticket's ""can't be reversed"" part is still open. Report it to dev?"
 WEBPET-3872,Smoke: Time In: Daily Piece Summary Extended runs from Reports > Input > Time In and shows rows.,"1. Open Reports > Input > Time In.
 2. Set Date In to one past date and click Execute.
 3. Choose the report 'Daily Piece Summary Extended'.
