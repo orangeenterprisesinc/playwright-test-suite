@@ -48,6 +48,7 @@ import { EmployeePage } from '../pages/setup/EmployeePage';
 import { CropPage } from '../pages/setup/CropPage';
 import { DeletedRecordsPage } from '../pages/admin/DeletedRecordsPage';
 import { BulkDeleteHistoryPage } from '../pages/admin/BulkDeleteHistoryPage';
+import { ReverseMultiEditPage } from '../pages/admin/ReverseMultiEditPage';
 import { ReverseExportPage } from '../pages/admin/ReverseExportPage';
 import { ExportToAccountingPage } from '../pages/processing/ExportToAccountingPage';
 import { ReportsHubPage } from '../pages/reports/ReportsHubPage';
@@ -117,6 +118,8 @@ export interface PageObjects {
     readonly deletedRecords: DeletedRecordsPage;
     /** File ▸ Restore or Reverse ▸ Reverse Multi Delete (D8). */
     readonly bulkDeleteHistory: BulkDeleteHistoryPage;
+    /** File ▸ Restore or Reverse ▸ Reverse Multi Edit (WEBPET-3574). */
+    readonly reverseMultiEdit: ReverseMultiEditPage;
     /** File ▸ Export to Accounting, `/export-to-accounting` (E11). */
     readonly exportToAccounting: ExportToAccountingPage;
     /** File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll) (E11). */
@@ -176,6 +179,7 @@ export function createPageObjects(page: Page): PageObjects {
         get crop() { return lazy('crop', () => new CropPage(page)); },
         get deletedRecords() { return lazy('deletedRecords', () => new DeletedRecordsPage(page)); },
         get bulkDeleteHistory() { return lazy('bulkDeleteHistory', () => new BulkDeleteHistoryPage(page)); },
+        get reverseMultiEdit() { return lazy('reverseMultiEdit', () => new ReverseMultiEditPage(page)); },
         get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
         get reverseExport() { return lazy('reverseExport', () => new ReverseExportPage(page)); },
         get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },

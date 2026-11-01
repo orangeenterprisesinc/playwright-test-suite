@@ -20,7 +20,7 @@ const COLUMN = { performed: 0, performedBy: 1, recordType: 2, field: 3, newValue
 export type HistoryColumn = keyof typeof COLUMN;
 
 export class BulkDeleteHistoryPage extends BasePage {
-    readonly pageUrl = '/restore-or-reverse/bulk-delete-history';
+    readonly pageUrl = '/restore-or-reverse/bulk-delete-history' as string;
     readonly pageTitle: string | RegExp = /.*/;
 
     readonly heading: Locator;

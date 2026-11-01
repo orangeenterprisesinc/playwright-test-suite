@@ -262,3 +262,112 @@ export const TjcEditTimeInCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ unsaved: Text, savedToast: Text, errorText: Text, time: Text }).strict(),
 }).strict();
 export type TjcEditTimeInCase = z.infer<typeof TjcEditTimeInCaseSchema>;
+
+// ── Cluster 3, part A: View ▸ Time Cards (3138 / 3133 / 3573 / 3819 / 3889 / 3890) ──
+
+const Rows = z.number().int().positive();
+
+export const VtcCarryOverCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3138'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, criterionLine: Text, hideLabel: Text, showLabel: Text, pickerColumns: z.array(Text).min(2), toggleColumn: Text }).strict(),
+}).strict();
+export type VtcCarryOverCase = z.infer<typeof VtcCarryOverCaseSchema>;
+
+export const VtcPunchOrderCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3133'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, sortColumn: Text, sequence: z.array(z.object({ time: Text, type: Text }).strict()).min(3) }).strict(),
+}).strict();
+export type VtcPunchOrderCase = z.infer<typeof VtcPunchOrderCaseSchema>;
+
+export const VtcSortPlusDblClickCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3573'),
+    ...TjcScoped,
+    expected: z.object({
+        rows: Rows,
+        order: z.array(z.object({ employee: z.enum(['one', 'two']), time: Text }).strict()).min(4),
+        sheetTitle: Text,
+        openTime: HhMm,
+        absentBanner: Text,
+    }).strict(),
+}).strict();
+export type VtcSortPlusDblClickCase = z.infer<typeof VtcSortPlusDblClickCaseSchema>;
+
+export const VtcReportWithCrewCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3819'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, criterionLine: Text, blockedMessage: Text, titlePrefix: Text }).strict(),
+}).strict();
+export type VtcReportWithCrewCase = z.infer<typeof VtcReportWithCrewCaseSchema>;
+
+export const VtcMultiDeleteCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3889'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, confirmHeading: Text, confirmText: Text, toast: Text }).strict(),
+}).strict();
+export type VtcMultiDeleteCase = z.infer<typeof VtcMultiDeleteCaseSchema>;
+
+export const VtcRowTrashCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3890'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, confirmHeading: Text, confirmText: Text, toast: Text }).strict(),
+}).strict();
+export type VtcRowTrashCase = z.infer<typeof VtcRowTrashCaseSchema>;
+
+// ── Cluster 3, part B: Multi Update / Reverse Multi Edit / Job Cards Multi Edit (3895 / 3181 / 3180 / 3574 / 3484) ──
+
+export const VtcMuFieldsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3895'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, updateLabel: Text, fields: z.array(Text).min(5) }).strict(),
+}).strict();
+export type VtcMuFieldsCase = z.infer<typeof VtcMuFieldsCaseSchema>;
+
+export const VtcMuEmployeeTypeCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3181'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, field: Text, typed: Text, options: z.array(Text).min(1), notFound: Text }).strict(),
+}).strict();
+export type VtcMuEmployeeTypeCase = z.infer<typeof VtcMuEmployeeTypeCaseSchema>;
+
+export const VtcMuEmployeeLabelCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3180'),
+    ...TjcScoped,
+    expected: z.object({ rows: Rows, field: Text, ownLabels: z.array(Text).length(2), labelPattern: Text }).strict(),
+}).strict();
+export type VtcMuEmployeeLabelCase = z.infer<typeof VtcMuEmployeeLabelCaseSchema>;
+
+export const VtcReverseMultiEditCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3574'),
+    ...TjcScoped,
+    expected: z.object({
+        rows: Rows,
+        field: Text,
+        value: Text,
+        fieldName: Text,
+        recordType: Text,
+        toast: Text,
+        active: Text,
+        undone: Text,
+        undoText: Text,
+    }).strict(),
+}).strict();
+export type VtcReverseMultiEditCase = z.infer<typeof VtcReverseMultiEditCaseSchema>;
+
+export const VjcExportedMultiEditCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3484'),
+    ...TjcScoped,
+    expected: z.object({
+        jobCards: z.number().int().positive(),
+        field: Text,
+        values: z.array(Text).length(2),
+        set: Text,
+        restore: Text,
+        review: Text,
+        toast: Text,
+        column: Text,
+        deleteConfirmSuffix: Text,
+    }).strict(),
+}).strict();
+export type VjcExportedMultiEditCase = z.infer<typeof VjcExportedMultiEditCaseSchema>;

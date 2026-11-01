@@ -1,0 +1,25 @@
+{
+  "_notes": [
+    "CF CREW C owns day -5; data scoped by Search by Time Card Crew contains.",
+    "2 cards: CF C ONE Time In 07:00 + Time Out 11:00. The delete is the workflow and happens on screen. Walked on dev 2026-10-31: Delete disabled with nothing ticked; two ticked -> Delete \"2 Time Cards\"? -> toast 'Deleted 2 Time Card record(s).'; both rows gone."
+  ],
+  "ticket": "WEBPET-3889",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -5,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "rows": 2,
+    "confirmHeading": "Delete \"2 Time Cards\"?",
+    "confirmText": "A card the system refuses to delete is skipped and reported.",
+    "toast": "Deleted 2 Time Card record(s)."
+  },
+  "annotations": [],
+  "cleanup": []
+}

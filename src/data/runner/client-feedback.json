@@ -127,8 +127,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3180|WEBPET-3254",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3181",
@@ -140,8 +140,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3181",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3183",
@@ -192,8 +192,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3574",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3689",
@@ -218,8 +218,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3889",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3781",
@@ -244,8 +244,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3819",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3829",
@@ -296,8 +296,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3133",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3138",
@@ -309,8 +309,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3138",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3283",
@@ -465,8 +465,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3484|WEBPET-3570",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3503",
@@ -491,8 +491,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3573",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3575",
@@ -660,8 +660,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3890",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3893",
@@ -686,8 +686,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3895",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3927",

@@ -11,6 +11,7 @@ import { getPreferences } from '@utils/api/preferencesApi';
 import { cleanupExportRuns, healExportResidue } from '@utils/api/exportToAccountingApi';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, sweepFixtureCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import { listBulkHistory } from '@utils/api/recycleBinApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { register } from '@utils/cleanup/cleanupScope';
 import { ownerForTicket, readableName } from '@utils/cleanup/runToken';
@@ -22,7 +23,7 @@ import {
     ensureJobOnScreen,
     ensureRanchOnScreen,
 } from '@utils/fixtureRows/ensureOnScreen';
-import { commitTransfer, guardReversibleRun, openScopedCandidates, type SeedResult, type TransferOutcome } from '@utils/journeys/journeyDFlow';
+import { commitTransfer, guardReversibleRun, openScopedCandidates, performedText, type SeedResult, type TransferOutcome } from '@utils/journeys/journeyDFlow';
 import { exportCrewDay as exportE, reverseOwnExport } from '@utils/journeys/journeyEFlow';
 
 export interface CfDeps {
@@ -353,4 +354,43 @@ export async function recordCrewInCards(run: CfRun, deps: CfDeps, before: number
     return own
         .filter((c) => Number(c.cardType) === CARD_TYPE.timeIn && !before.includes(c.timeCardCounter))
         .map((c) => ({ id: c.timeCardCounter, reference: String(c.reference), employeeId: Number(c.employeeCounter) }));
+}
+
+// ── Cluster 3, part A: View ▸ Time Cards ──
+
+/** Cards a test deleted on screen leave teardown's by-id list (a soft-deleted id would only 404 there). */
+export function forgetCards(run: CfRun, ids: number[]): void {
+    for (const id of ids) {
+        const at = run.timeCardIds.indexOf(id);
+        if (at >= 0) run.timeCardIds.splice(at, 1);
+    }
+}
+
+// ── Cluster 3, part B: Reverse Multi Edit (3574), plumbing (d) reads only, the D8 pattern ──
+
+export async function bulkEditHead(deps: CfDeps): Promise<number> {
+    return (await listBulkHistory(deps.sessionApi, 'edit')).reduce((m, r) => Math.max(m, r.id), 0);
+}
+
+/** The one edit batch since `sinceId` matching table/field/value/count; refuses on 0 (after 15 s) or more than 1. */
+export async function findOwnEditBatch(
+    run: CfRun,
+    deps: CfDeps,
+    sinceId: number,
+    want: { tableName: string; fieldName: string; newValue: string; recordCount: number },
+): Promise<{ id: number; performedText: string; recordCount: number }> {
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+        const fresh = (await listBulkHistory(deps.sessionApi, 'edit')).filter(
+            (r) => r.id > sinceId && r.tableName === want.tableName && r.fieldName === want.fieldName && r.newValue === want.newValue,
+        );
+        if (fresh.length > 1) throw new Error(`${run.label}: refusing, ${fresh.length} matching edit batches since ${sinceId}`);
+        if (fresh.length === 1) {
+            const r = fresh[0];
+            if (r.recordCount !== want.recordCount || r.undoneOn !== null || !r.undoable) throw new Error(`${run.label}: edit batch ${r.id} is not this run's: ${JSON.stringify(r)}`);
+            return { id: r.id, performedText: performedText(r.createdOn), recordCount: r.recordCount };
+        }
+        if (Date.now() > deadline) throw new Error(`${run.label}: no new ${want.tableName}.${want.fieldName} edit batch after ${sinceId}`);
+        await new Promise((res) => setTimeout(res, 1_000));
+    }
 }

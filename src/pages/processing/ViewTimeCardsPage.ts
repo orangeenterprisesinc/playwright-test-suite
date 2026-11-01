@@ -1,6 +1,8 @@
-import { Locator, Page, Response, expect } from '@playwright/test';
+import { Locator, Page, Request, Response, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
+import { DataGridComponent } from '../../components/DataGridComponent';
+import { ReportDialog } from './ReportDialog';
 
 export interface TimeCardQuestionAnswer {
     question: string;
@@ -52,6 +54,8 @@ export class ViewTimeCardsPage extends BasePage {
     readonly dateRange: Locator;
     readonly includeTransferred: Locator;
     readonly recordSheet: Locator;
+    readonly cardGrid: DataGridComponent;
+    readonly report: ReportDialog;
 
     private readonly leftNav: LeftNavigationPage;
     private openedReference = '';
@@ -64,6 +68,8 @@ export class ViewTimeCardsPage extends BasePage {
         this.dateRange = page.getByTestId('selection-date-range');
         this.includeTransferred = page.getByTestId('view-time-cards-include-transferred');
         this.recordSheet = page.getByTestId('view-time-cards-action-sheet');
+        this.cardGrid = new DataGridComponent(page, 'Time Cards', 'Time Card');
+        this.report = new ReportDialog(page, page.getByTestId('view-time-cards-report'));
     }
 
     async openFromMenu(): Promise<void> {
@@ -289,6 +295,116 @@ export class ViewTimeCardsPage extends BasePage {
             memo: await this.fieldText('#memo'),
             questions: await this.readQuestions(),
         };
+    }
+
+    // ── Cluster 3, part A: toolbar, row actions, selection carry-over (WEBPET-3138/3133/3573/3819/3889/3890), measured 2026-10-31 ──
+    get reportButton(): Locator { return this.page.getByTestId('view-time-cards-report'); }
+    get displayReportButton(): Locator { return this.page.getByTestId('view-time-cards-display-report'); }
+    get deleteButton(): Locator { return this.page.getByTestId('view-time-cards-delete'); }
+    get topStripToggle(): Locator { return this.page.getByTestId('view-time-cards-top-strip-toggle'); }
+    /** Legend + "Filter displayed rows" (Work Crew / Employee pickers); unmounted while hidden. */
+    get topStrip(): Locator { return this.page.getByTestId('view-time-cards-top-strip'); }
+    get crewPicker(): Locator { return this.page.getByTestId('view-time-cards-grid-filter-crews'); }
+    get emptyState(): Locator { return this.grid.getByText(/^No time cards match the current filter/i); }
+    criterionLine(field: string): Locator { return this.page.getByTestId(`view-time-cards-criteria-line-${field}`); }
+    row(reference: string): Locator { return this.grid.getByRole('row', { name: reference, exact: true }); }
+    rowAddButton(reference: string): Locator { return this.grid.getByRole('button', { name: `Add a record for ${reference}`, exact: true }); }
+    rowTrashButton(reference: string): Locator { return this.grid.getByRole('button', { name: `Delete Time Card ${reference}`, exact: true }); }
+    recordDialog(title: string): Locator { return this.page.getByRole('dialog', { name: title }); }
+    toast(text: string): Locator { return this.page.locator('[data-sonner-toast]').filter({ hasText: text }); }
+    textOnScreen(text: string): Locator { return this.page.getByText(text); }
+
+    /** Search by ▸ Time Card Crew ▸ Match Contains: the selection that survives leaving the screen (the grid Work Crew chip does not). */
+    async scopeToTimeCardCrew(name: string): Promise<void> {
+        await this.expandFilter();
+        const want = `Time Card Crew contains "${name}"`;
+        const line = this.criterionLine('workCrew');
+        if ((await line.count()) > 0 && (await line.innerText()).trim() === want) return;
+        await this.page.getByTestId('view-time-cards-criteria-search-by').click();
+        await this.page.getByTestId('view-time-cards-criteria-search-by-workCrew').click();
+        await this.page.getByTestId('view-time-cards-criteria-match').click();
+        await this.page.getByTestId('view-time-cards-criteria-match-like').click();
+        await this.page.getByTestId('view-time-cards-criteria-workCrew-text').fill(name);
+        await expect(line, `the selection must read ${want}`).toHaveText(want, { timeout: 10_000 });
+    }
+
+    /** Sticky per browser; aria-expanded is the state. */
+    async setTopSection(visible: boolean): Promise<void> {
+        const want = visible ? 'true' : 'false';
+        if ((await this.topStripToggle.getAttribute('aria-expanded')) !== want) await this.topStripToggle.click();
+        await expect(this.topStripToggle).toHaveAttribute('aria-expanded', want);
+    }
+
+    async expectScopedTo(day: string): Promise<void> {
+        const [year, month, date] = day.split('-');
+        const part = `0?${Number(month)}/0?${Number(date)}/(?:${year}|${year.slice(-2)})`;
+        await expect(this.dateRange).toContainText(new RegExp(`${part}.*[–-].*${part}`, 's'), { timeout: 20_000 });
+    }
+
+    /** Counts the browser's own GET /time-cards (the filter query); nothing is sent by the test. */
+    trackFilterRequests(): { count(): number; stop(): void } {
+        let n = 0;
+        const onRequest = (r: Request) => { if (r.method() === 'GET' && /\/time-cards\/?$/.test(new URL(r.url()).pathname)) n += 1; };
+        this.page.on('request', onRequest);
+        return { count: () => n, stop: () => this.page.off('request', onRequest) };
+    }
+
+    async settle(): Promise<void> { await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined); }
+
+    /** Left edge in px; throws by name when the element has no box. */
+    async leftEdge(target: Locator): Promise<number> {
+        const box = await target.boundingBox();
+        if (!box) throw new Error('the element has no bounding box (not rendered)');
+        return box.x;
+    }
+
+    async dismissPopup(): Promise<void> { await this.page.keyboard.press('Escape'); }
+
+    /** WEBPET-3573/3378: a single click only selects the row; a double-click opens the record, as in legacy. */
+    async openRecordByDoubleClick(reference: string): Promise<void> {
+        await (await this.cellByHeader(this.row(reference), 'Time')).dblclick();
+        await expect(this.recordSheet).toBeVisible({ timeout: 15_000 });
+        this.openedReference = reference;
+    }
+
+    async confirmDelete(heading: string, body: string): Promise<void> {
+        const dialog = this.page.getByRole('alertdialog', { name: heading });
+        await expect(dialog, `no "${heading}" confirmation`).toBeVisible({ timeout: 10_000 });
+        await expect(dialog).toContainText(body);
+        await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(dialog).toBeHidden({ timeout: 30_000 });
+    }
+
+    // ── Cluster 3, part B: Multi Update bar (WEBPET-3895/3181/3180/3574), measured 2026-10-31. No testids except the employee combobox. ──
+    get multiUpdateToggle(): Locator { return this.page.getByRole('button', { name: 'Multi Update', exact: true }); }
+    get muField(): Locator { return this.page.getByRole('main').getByRole('combobox', { name: 'Field', exact: true }); }
+    muTextValue(label: string): Locator { return this.page.getByRole('main').getByRole('textbox', { name: label, exact: true }); }
+    /** WEBPET-3181: a typeable combobox (placeholder "Select an employee…"), not a Select. */
+    get muEmployeeValue(): Locator { return this.page.getByTestId('mu-employee-combobox'); }
+    get muComboItems(): Locator { return this.page.locator('[data-slot="combobox-popup"][data-open] [data-slot="combobox-item"]'); }
+    updateRecordsButton(n: number): Locator { return this.page.getByRole('button', { name: `Update Records (${n})`, exact: true }); }
+
+    async openMultiUpdate(): Promise<void> {
+        if ((await this.multiUpdateToggle.getAttribute('aria-pressed')) !== 'true') await this.multiUpdateToggle.click();
+        await expect(this.multiUpdateToggle).toHaveAttribute('aria-pressed', 'true');
+        await expect(this.muField).toBeVisible({ timeout: 10_000 });
+    }
+    async muFieldLabels(): Promise<string[]> {
+        await this.muField.click();
+        const opts = this.page.getByRole('listbox').getByRole('option');
+        await expect(opts.first()).toBeVisible();
+        const labels = (await opts.allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        return labels;
+    }
+    async chooseMuField(label: string): Promise<void> {
+        await this.muField.click();
+        await this.page.getByRole('option', { name: label, exact: true }).click();
+        await expect(this.muField).toHaveText(label);
+    }
+    async muComboLabels(): Promise<string[]> {
+        await expect(this.muComboItems.first()).toBeVisible({ timeout: 10_000 });
+        return (await this.muComboItems.allInnerTexts()).map((t) => t.trim());
     }
 
     /** Cancel leaves the sheet without saving. */
