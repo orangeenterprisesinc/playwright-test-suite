@@ -39,9 +39,13 @@ interface Session {
 let session: Session | null = null;
 const restore: Array<() => void> = [];
 
-/** Off in headed runs (the downscale repaint is visible) and with `ACTION_SHOTS=0`. */
+/**
+ * Opt-in (`ACTION_SHOTS=1`), never in headed runs (the downscale repaint is visible). Off by default:
+ * ~2,000 CDP captures per full run cost ~3 test-minutes and ~1,000 attachments (run 41331575698),
+ * and the standard evidence for a green test is the trace, re-run with `--trace on` when needed.
+ */
 export function actionShotsEnabled(): boolean {
-    return process.env.HEADED !== '1' && process.env.ACTION_SHOTS !== '0';
+    return process.env.HEADED !== '1' && process.env.ACTION_SHOTS === '1';
 }
 
 function readOptions(): Options {
