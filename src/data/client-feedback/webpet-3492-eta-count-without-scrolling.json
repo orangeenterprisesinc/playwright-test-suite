@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "CF CREW D owns day -6. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and Job Card Crew contains CF CREW D, Refresh; nothing is exported. The Refresh draft is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-01 (day 10-30): the same equality holds and scrolling changes nothing; with 2 rows the grid has no scroll area."
+  ],
+  "ticket": "WEBPET-3492",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -6,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": { "jobCards": 2, "matched": "2 matched", "exportLabel": "Export 2 JobCards", "jobCardsLine": "Job-cards 2 of 2" },
+  "annotations": [
+    { "type": "not-asserted", "description": "Volume half (counts right while rows are not all rendered) is a smoke concern: 2 own cards render without a scroll area." }
+  ],
+  "cleanup": []
+}

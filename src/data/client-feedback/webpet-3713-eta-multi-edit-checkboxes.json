@@ -1,0 +1,19 @@
+{
+  "_notes": [
+    "CF CREW D owns day -3. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and Job Card Crew contains CF CREW D, Refresh; nothing is exported. The Refresh draft is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-01 (day 10-30): row checkboxes checked and disabled before Multi Edit; enabled and unchecked with Multi Edit on; ticking one reads 'Update Records (1)'; off again restores checked and disabled. The first click after Multi Edit turns on only selects the row, so the tick is retried."
+  ],
+  "ticket": "WEBPET-3713",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -3,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": { "jobCards": 2, "updateLabel": "Update Records (1)" },
+  "annotations": [],
+  "cleanup": []
+}

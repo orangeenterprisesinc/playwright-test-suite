@@ -1,0 +1,10 @@
+{
+  "_notes": [
+    "Layout only, no rows: menu -> Export to Accounting, read under the step bar. Walked on dev 2026-11-01, empty and scoped: Refine, Dates, Search by."
+  ],
+  "ticket": "WEBPET-3715",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "expected": { "absent": ["Scope Adjustments", "Include re-export candidates"], "firstItems": ["Refine", "Dates", "Search by"] },
+  "annotations": [],
+  "cleanup": []
+}

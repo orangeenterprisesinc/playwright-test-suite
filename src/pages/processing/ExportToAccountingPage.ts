@@ -172,6 +172,75 @@ export class ExportToAccountingPage extends BasePage {
         return { succeeded, failed, skipped, jobCards };
     }
 
+    // Cluster 4A (measured 2026-11-01): candidates header, summary row, Multi Edit, row drawer
+    // Not a role query: the modal drawer aria-hides the screen behind it, which stays rendered.
+    get screenRoot(): Locator { return this.page.getByTestId('export-v2-page'); }
+    get matchedCount(): Locator { return this.page.getByTestId('export-v2-grid-count'); }
+    get recordCountLine(): Locator { return this.page.getByTestId('export-v2-record-count-line'); }
+
+    /** As displayed: the label and its count are separate spans, so textContent reads "Job-cards2 of 2". */
+    async recordCountText(): Promise<string> {
+        return (await this.recordCountLine.innerText()).replace(/\s+/g, ' ').trim();
+    }
+    get totalsLine(): Locator { return this.page.getByTestId('export-v2-totals-line'); }
+    get multiEditButton(): Locator { return this.page.getByRole('button', { name: 'Multi Edit', exact: true }); }
+    get updateRecordsButton(): Locator { return this.page.getByRole('button', { name: /^Update Records/ }); }
+    get rowDrawer(): Locator { return this.page.getByRole('dialog', { name: 'Edit Job Card' }); }
+    screenText(text: string | RegExp): Locator { return this.page.getByText(text); }
+
+    async counter(kind: 'pending' | 'needsReexport' | 'warnings'): Promise<number> {
+        return Number(/^(\d+)/.exec((await this.page.getByTestId(`export-v2-counter-${kind}`).innerText()).trim())?.[1] ?? NaN);
+    }
+
+    /** Rows and their checkboxes are named by jobCardCounter ("10934", "Select 10934"). */
+    candidateRow(jobCardId: number): Locator { return this.grid.getByRole('row', { name: String(jobCardId), exact: true }); }
+    rowCheckbox(jobCardId: number): Locator { return this.grid.getByRole('checkbox', { name: `Select ${jobCardId}`, exact: true }); }
+    rowCheckboxes(): Locator { return this.grid.getByRole('checkbox', { name: /^Select \d+$/ }); }
+
+    async setMultiEdit(on: boolean): Promise<void> {
+        if (((await this.multiEditButton.getAttribute('aria-pressed')) === 'true') !== on) await this.multiEditButton.click();
+        await expect(this.multiEditButton).toHaveAttribute('aria-pressed', String(on));
+    }
+
+    /** The first click after Multi Edit turns on can only select the row (2026-11-01), so it is retried until the box reads right. */
+    async setRowTicked(jobCardId: number, ticked: boolean): Promise<void> {
+        const box = this.rowCheckbox(jobCardId);
+        await expect(async () => {
+            if ((await box.isChecked()) !== ticked) await box.click();
+            expect(await box.isChecked()).toBe(ticked);
+        }).toPass({ timeout: 15_000 });
+    }
+
+    /** A data cell (Employee), never the checkbox or the shifts button. */
+    async openRowDrawer(jobCardId: number): Promise<void> {
+        await this.candidateRow(jobCardId).getByRole('cell').nth(1).click();
+        await this.rowDrawer.waitFor({ state: 'visible', timeout: 15_000 });
+    }
+
+    async closeRowDrawer(): Promise<void> {
+        await this.rowDrawer.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(this.rowDrawer).toBeHidden({ timeout: 10_000 });
+    }
+
+    async scrollGrid(): Promise<void> {
+        await this.grid.hover();
+        await this.page.mouse.wheel(0, 2_000);
+    }
+
+    /** Visible leaf texts between the step bar and the Candidates section, top-to-bottom then left-to-right. */
+    async labelsUnderStepBar(): Promise<string[]> {
+        return this.page.getByTestId('export-v2-page').evaluate((root) => {
+            const spine = root.querySelector('[data-testid="export-v2-spine"]')!.getBoundingClientRect().bottom;
+            const grid = root.querySelector('[data-testid="export-v2-grid"]')!.getBoundingClientRect().top;
+            return Array.from(root.querySelectorAll<HTMLElement>('*'))
+                .filter((e) => e.children.length === 0 && e.offsetParent !== null && (e.innerText ?? '').trim() !== '')
+                .map((e) => ({ t: e.innerText.trim(), r: e.getBoundingClientRect() }))
+                .filter(({ r }) => r.top >= spine - 1 && r.bottom <= grid + 1)
+                .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
+                .map(({ t }) => t);
+        });
+    }
+
     toastText(text: string | RegExp): Locator {
         return this.page.getByText(text).first();
     }

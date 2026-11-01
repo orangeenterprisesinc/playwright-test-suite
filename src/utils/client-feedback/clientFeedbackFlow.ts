@@ -8,7 +8,8 @@ import type { CfSeedInput } from '@data/schemas/clientFeedbackScenario';
 import { punchDay } from '@data/journey-b/fixture';
 import { deleteJobCard, getJobCard, listJobCards } from '@utils/api/jobCardsApi';
 import { getPreferences } from '@utils/api/preferencesApi';
-import { cleanupExportRuns, healExportResidue } from '@utils/api/exportToAccountingApi';
+import { cleanupExportRuns, healExportResidue, runIdOf } from '@utils/api/exportToAccountingApi';
+import { withExportDraftLock } from '@utils/sync/preferencesLock';
 import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, sweepFixtureCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { listBulkHistory } from '@utils/api/recycleBinApi';
@@ -393,4 +394,38 @@ export async function findOwnEditBatch(
         if (Date.now() > deadline) throw new Error(`${run.label}: no new ${want.tableName}.${want.fieldName} edit batch after ${sinceId}`);
         await new Promise((res) => setTimeout(res, 1_000));
     }
+}
+
+// ── Cluster 4A: Export to Accounting, screen-only (no export) ──
+
+/**
+ * The ETA visit for the run's crew-day inside the shared export-draft lock: menu, Payroll, the day, Job Card Crew
+ * contains the crew, Refresh. Refresh upserts the user's single draft; its id is recorded at once (teardown covers a
+ * kill) and the draft is dropped before the lock is released, so no other worker finds its draft gone.
+ */
+export async function withCrewEta<T>(run: CfRun, deps: CfDeps, check: () => Promise<T>): Promise<T> {
+    const eta = deps.pages.exportToAccounting;
+    return withExportDraftLock(async () => {
+        const drafts: number[] = [];
+        try {
+            await eta.openFromMenu();
+            await eta.selectType('Payroll');
+            await eta.scopeToDay(run.day);
+            await eta.scopeToCrew(run.crew.name);
+            const refreshed = await eta.refresh((body) => {
+                const id = runIdOf(body);
+                drafts.push(id);
+                run.exportRunIds.push(id);
+            });
+            expect(refreshed.candidatesStatus, `${run.label}: POST …/candidates`).toBeLessThan(300);
+            return await check();
+        } finally {
+            await cleanupExportRuns(deps.sessionApi, drafts, (name, error) =>
+                deps.testInfo.attach(name, { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' }));
+            for (const id of drafts) {
+                const at = run.exportRunIds.indexOf(id);
+                if (at >= 0) run.exportRunIds.splice(at, 1);
+            }
+        }
+    });
 }

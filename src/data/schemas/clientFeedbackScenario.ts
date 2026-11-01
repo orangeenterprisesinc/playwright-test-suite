@@ -371,3 +371,55 @@ export const VjcExportedMultiEditCaseSchema = ClientFeedbackBase.extend({
     }).strict(),
 }).strict();
 export type VjcExportedMultiEditCase = z.infer<typeof VjcExportedMultiEditCaseSchema>;
+
+// ── Cluster 4A: Export to Accounting screen-only (3712 / 3713 / 3714 / 3715 / 3716 / 3492 / 3930) ──
+
+const EtaCounts = { jobCards: Rows, matched: Text, exportLabel: Text, jobCardsLine: Text };
+
+export const EtaNoTotalLineCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3712'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: Rows, totalLine: Text, needsReexport: z.number().int().nonnegative(), warnings: z.number().int().nonnegative() }).strict(),
+}).strict();
+export type EtaNoTotalLineCase = z.infer<typeof EtaNoTotalLineCaseSchema>;
+
+export const EtaMultiEditCheckboxesCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3713'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: Rows, updateLabel: Text }).strict(),
+}).strict();
+export type EtaMultiEditCheckboxesCase = z.infer<typeof EtaMultiEditCheckboxesCaseSchema>;
+
+export const EtaRowDrawerCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3714'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: Rows, side: Text, fieldLabels: z.array(Text).min(6), crew: Text, matched: Text }).strict(),
+}).strict();
+export type EtaRowDrawerCase = z.infer<typeof EtaRowDrawerCaseSchema>;
+
+export const EtaNoScopeAdjustmentsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3715'),
+    expected: z.object({ absent: z.array(Text).length(2), firstItems: z.array(Text).length(3) }).strict(),
+}).strict();
+export type EtaNoScopeAdjustmentsCase = z.infer<typeof EtaNoScopeAdjustmentsCaseSchema>;
+
+export const EtaCountEqualsExportCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3716'),
+    ...TjcScoped,
+    expected: z.object(EtaCounts).strict(),
+}).strict();
+export type EtaCountEqualsExportCase = z.infer<typeof EtaCountEqualsExportCaseSchema>;
+
+export const EtaCountNoScrollCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3492'),
+    ...TjcScoped,
+    expected: z.object(EtaCounts).strict(),
+}).strict();
+export type EtaCountNoScrollCase = z.infer<typeof EtaCountNoScrollCaseSchema>;
+
+export const EtaTotalsAboveGridCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3930'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: Rows, stripLabels: z.array(Text).min(3), totalsLabels: z.array(Text).min(4) }).strict(),
+}).strict();
+export type EtaTotalsAboveGridCase = z.infer<typeof EtaTotalsAboveGridCaseSchema>;
