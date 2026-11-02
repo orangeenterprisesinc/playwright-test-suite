@@ -135,8 +135,9 @@ const AGENT_SEED_ENABLED =
 if (AGENT_SEED_ENABLED) process.env.AGENT_SEED = '1';
 
 /**
- * WebKit (the engine Safari is built on) and Microsoft Edge are projects only when asked for, and then run
- * only tests tagged @CrossBrowser, so a normal run and the nightly stay Chromium-only. See docs/DOCKER.md.
+ * WebKit (the engine Safari is built on) and Microsoft Edge are projects only when asked for, so a normal run
+ * and the nightly stay Chromium-only. Which tests they run is the normal --grep; @CrossBrowser marks the
+ * smoke subset the CI `cross-browser` option uses. See docs/DOCKER.md.
  */
 const CROSS_BROWSER_ENABLED =
     process.env.CROSS_BROWSER === '1' ||
@@ -478,7 +479,6 @@ export default defineConfig({
                   {
                       // WebKit takes no Chromium window flags and cannot maximize, so it gets a fixed viewport.
                       name: 'webkit',
-                      grep: /@CrossBrowser/,
                       testIgnore: JOURNEY_TEST_IGNORE,
                       timeout: JOURNEY_TIMEOUT_MS,
                       use: {
@@ -492,7 +492,6 @@ export default defineConfig({
                   {
                       // The installed Microsoft Edge (Chromium-based), so the Chromium window settings apply.
                       name: 'msedge',
-                      grep: /@CrossBrowser/,
                       testIgnore: JOURNEY_TEST_IGNORE,
                       timeout: JOURNEY_TIMEOUT_MS,
                       use: { ...devices['Desktop Edge'], ...MAXIMIZED, storageState: '.auth/user.json' },

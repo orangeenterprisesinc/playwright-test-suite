@@ -51,7 +51,7 @@ installed `@playwright/test`).
 | `npm run docker:test` | The journey suite, as `npm test` does natively. |
 | `npm run docker:test -- --grep=@Smoke` | Any Playwright arguments go after `--`. |
 | `npm run docker:test:webpet` | The migrated web-pet suite. |
-| `npm run docker:test:cross-browser` | The cross-browser tests on WebKit and Edge (see below). |
+| `npm run docker:test:cross-browser` | The journey suite on WebKit and Edge (see below). |
 
 Results land where they always do: `artifacts/html` (open with `npm run test:report`), `artifacts/results`,
 `artifacts/logs`. The repo folder is shared with the container, so nothing needs copying out.
@@ -84,14 +84,17 @@ The suite runs on Chromium. Two extra Playwright projects can run selected tests
 | `webkit` | WebKit, the engine Safari is built on | Not Safari itself. Real Safari only runs on macOS (a macOS CI runner or a cloud service such as BrowserStack), which this repo does not use. |
 | `msedge` | Microsoft Edge | The real Edge browser. Installed on Windows already; the Docker run installs it in the container (about 40 seconds). |
 
-Both projects are **off** unless asked for, and they run **only tests tagged `@CrossBrowser`**. A normal
+Both projects are **off** unless asked for. Once asked for they run whatever `--grep` selects, the whole
+journey suite by default; `@CrossBrowser` is the smoke subset the CI `cross-browser` option runs. A normal
 `npm test` and the nightly CI run stay Chromium-only.
 
 Today one test carries the tag, as a placeholder: the login happy path in
 `tests/web/system/login-module.spec.ts`.
 
-- Run them: `npm run test:cross-browser` (native) or `npm run docker:test:cross-browser`.
-- In CI: run the E2E workflow by hand and set **browsers** to `cross-browser`.
+- Run them: `npm run test:cross-browser` (native) or `npm run docker:test:cross-browser`; add `-- --grep @CrossBrowser`
+  for the smoke subset only.
+- In CI: run the E2E workflow by hand and set **browsers** to `webkit` or `msedge` for the whole suite on that
+  browser (one browser per run, about the Chromium run's length), or `cross-browser` for the @CrossBrowser smoke on both.
 - Add a test: put `'@CrossBrowser'` in its `tag` list. Nothing else changes; `npm run runner:check` accepts the
   tag. Check the test first for anything Chromium-specific, such as `src/fixtures/base.fixture.ts`, which
   launches a Chromium helper browser.
