@@ -9,7 +9,7 @@ export const ClientFeedbackFixtureSchema = z.object({
     ranch: Entity,
     field: Entity,
     jobs: z.object({
-        hourly: Entity.extend({ paymentType: z.literal('Time'), hourlyRate: z.number().positive() }).strict(),
+        hourly: Entity.extend({ paymentType: z.literal('Time'), hourlyRate: z.number().positive(), earningCodes: z.string().min(1).optional() }).strict(),
         piece: Entity.extend({ paymentType: z.literal('Piece'), pieceRate: z.number().positive() }).strict(),
     }).strict(),
     crews: z.object({ A: CrewBlock, B: CrewBlock, C: CrewBlock, D: CrewBlock }).strict(),
