@@ -27,6 +27,7 @@ export class FilterScriptsPage extends BasePage {
     readonly emptyUsersButton: Locator;
     readonly saveButton: Locator;
     readonly cancelButton: Locator;
+    readonly deleteButton: Locator;
     private readonly leftNav: LeftNavigationPage;
 
     constructor(page: Page) {
@@ -44,6 +45,7 @@ export class FilterScriptsPage extends BasePage {
         this.emptyUsersButton = main.getByRole('button', { name: 'Empty', exact: true });
         this.saveButton = main.getByRole('button', { name: 'Save', exact: true });
         this.cancelButton = main.getByRole('button', { name: 'Cancel', exact: true });
+        this.deleteButton = main.getByRole('button', { name: 'Delete', exact: true });
     }
 
     async gotoList(): Promise<void> {
@@ -71,6 +73,17 @@ export class FilterScriptsPage extends BasePage {
         await expect(this.saveButton, 'the script form is clean').toBeDisabled();
         await this.cancelButton.click();
         await this.page.waitForURL((u) => u.pathname === this.pageUrl, { timeout: 15_000 });
+    }
+
+    /** WEBPET-3817: delete an own script on screen. Soft: it moves to View deleted and its name stays reserved. */
+    async deleteScript(name: string, deletedToast: string): Promise<void> {
+        await this.openScript(name);
+        await this.deleteButton.click();
+        const confirm = this.page.getByRole('alertdialog', { name: `Delete "${name}"?` });
+        await expect(confirm).toBeVisible({ timeout: 15_000 });
+        await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+        await this.page.waitForURL((u) => u.pathname === this.pageUrl, { timeout: 15_000 });
+        await expect(this.page.locator('[data-sonner-toast]').filter({ hasText: deletedToast })).toBeVisible({ timeout: 15_000 });
     }
 }
 

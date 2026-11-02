@@ -520,3 +520,54 @@ export const FilterScriptEditCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ screenLabel: Text, screen: Text, scriptType: Text, absentField: Text, addUsersPlaceholder: Text }).strict(),
 }).strict();
 export type FilterScriptEditCase = z.infer<typeof FilterScriptEditCaseSchema>;
+
+// ── Cluster 6A: Reports screens (3462 / 3858 / 3817 / 3503) ──
+
+const DateCriterion = z.object({ field: Text, key: Text, match: Text }).strict();
+const SelectionButtons = z.array(Text).length(3);
+
+export const JobCardReportSelectionCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3462'),
+    fixtureCrew: CfCrew,
+    range: z.object({ fromOffset: CfDayOffset, toOffset: CfDayOffset, start: HhMm, end: HhMm }).strict(),
+    expected: z.object({
+        title: Text,
+        startTime: Text,
+        endTime: Text,
+        buttons: SelectionButtons,
+        dateLineTemplate: Text,
+        crewLineTemplate: Text,
+        dialogTitlePrefix: Text,
+    }).strict(),
+}).strict();
+export type JobCardReportSelectionCase = z.infer<typeof JobCardReportSelectionCaseSchema>;
+
+export const TimeInInRangeDefaultsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3858'),
+    criterion: DateCriterion,
+    expected: z.object({ fromTime: HhMm, toTime: HhMm, summaryTemplate: Text }).strict(),
+}).strict();
+export type TimeInInRangeDefaultsCase = z.infer<typeof TimeInInRangeDefaultsCaseSchema>;
+
+export const ReportScriptThisWeekCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3817'),
+    criterion: z.object({ field: Text, key: Text, match: Text, range: Text }).strict(),
+    expected: z.object({
+        summaryLine: Text,
+        savedToast: Text,
+        landingTitle: Text,
+        viewerTitlePrefix: Text,
+        runCriterion: z.object({ f: Text, op: Text, v: z.array(Text).min(1) }).strict(),
+        pdfFilterLine: Text,
+        deletedToast: Text,
+    }).strict(),
+}).strict();
+export type ReportScriptThisWeekCase = z.infer<typeof ReportScriptThisWeekCaseSchema>;
+
+export const ReportsHubForFilterCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3503'),
+    expected: z.object({
+        filters: z.array(z.object({ module: Text, absent: z.array(Text).min(1) }).strict()).length(2),
+    }).strict(),
+}).strict();
+export type ReportsHubForFilterCase = z.infer<typeof ReportsHubForFilterCaseSchema>;

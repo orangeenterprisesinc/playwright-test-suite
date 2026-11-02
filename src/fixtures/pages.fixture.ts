@@ -55,6 +55,9 @@ import { ReportsHubPage } from '../pages/reports/ReportsHubPage';
 import { EmployeeQuickAddPage } from '../pages/setup/EmployeeQuickAddPage';
 import { TimeSheetValidationPage } from '../pages/setup/TimeSheetValidationPage';
 import { FilterScriptsPage } from '../pages/admin/FilterScriptsPage';
+import { JobCardReportSelectionPage } from '../pages/reports/JobCardReportSelectionPage';
+import { ScreenReportSelectionPage } from '../pages/reports/ScreenReportSelectionPage';
+import { ReportScriptsPage } from '../pages/reports/ReportScriptsPage';
 
 /**
  * Every page object, lazily constructed.
@@ -148,6 +151,14 @@ export interface PageObjects {
     readonly timeSheetValidation: TimeSheetValidationPage;
     /** File ▸ Administration ▸ Setup ▸ Scripts, `/setup/filter-scripts` (WEBPET-3864). */
     readonly filterScripts: FilterScriptsPage;
+
+    // ── Client feedback 6A: Reports ────────────────────────────────
+    /** Reports ▸ Input ▸ Job Card, `/reports/input/job-card` (WEBPET-3462). */
+    readonly jobCardReportSelection: JobCardReportSelectionPage;
+    /** Reports ▸ Input ▸ Time In, `/reports/screen/time-in` (WEBPET-3858 / 3817). */
+    readonly timeInReportSelection: ScreenReportSelectionPage;
+    /** Reports ▸ Report Scripts, `/reports/scripts` (WEBPET-3817). */
+    readonly reportScripts: ReportScriptsPage;
 }
 
 /**
@@ -202,5 +213,8 @@ export function createPageObjects(page: Page): PageObjects {
         get employeeQuickAdd() { return lazy('employeeQuickAdd', () => new EmployeeQuickAddPage(page)); },
         get timeSheetValidation() { return lazy('timeSheetValidation', () => new TimeSheetValidationPage(page)); },
         get filterScripts() { return lazy('filterScripts', () => new FilterScriptsPage(page)); },
+        get jobCardReportSelection() { return lazy('jobCardReportSelection', () => new JobCardReportSelectionPage(page)); },
+        get timeInReportSelection() { return lazy('timeInReportSelection', () => new ScreenReportSelectionPage(page, 'Time In', '/reports/screen/time-in')); },
+        get reportScripts() { return lazy('reportScripts', () => new ReportScriptsPage(page)); },
     };
 }

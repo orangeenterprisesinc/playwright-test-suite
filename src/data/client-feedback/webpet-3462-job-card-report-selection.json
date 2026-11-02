@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su): Reports > Input > Job Card opens 'Job Card Report Selection' on the current week (11/02/2026 – 11/08/2026), Start time 12:00 AM, End time 11:59 PM; Search by Job Card Crew, Match Contains (Position stays Contains), text 9011 gives 'Date In is between 11/2/2026, 12:00 AM and 11/8/2026, 11:59 PM' and 'Job Card Crew contains \"9011\"'; Execute opens 'Report: All Data — 11/2/2026'; PDF answered 200.",
+    "9011 is CF CREW A's code (fixture.json, exists on su), typed as text; nothing is created. Two past days keep the run small. The date line is built in the browser (en-US m/d in Docker, d/m locally); the time pickers and the date chip use a fixed US format."
+  ],
+  "ticket": "WEBPET-3462",
+  "screen": { "menuPath": ["Reports", "Input", "Job Card"], "url": "/reports/input/job-card" },
+  "fixtureCrew": "A",
+  "range": { "fromOffset": -2, "toOffset": -1, "start": "00:00", "end": "23:59" },
+  "expected": {
+    "title": "Job Card Report Selection",
+    "startTime": "12:00 AM",
+    "endTime": "11:59 PM",
+    "buttons": ["Execute", "Load", "Save"],
+    "dateLineTemplate": "Date In is between {from} and {to}",
+    "crewLineTemplate": "Job Card Crew contains \"{text}\"",
+    "dialogTitlePrefix": "Report: All Data — "
+  },
+  "annotations": [],
+  "cleanup": []
+}

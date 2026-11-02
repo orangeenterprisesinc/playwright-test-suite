@@ -1,0 +1,15 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su): File > Administration > Reports (500 rows). For = Employee gives ?module=Employee and 32 rows, every For 'Employee', no 'Employee Class'. For = Job gives 3 rows (All Data, Barcodes, Job Management), every For 'Job'. Read-only."
+  ],
+  "ticket": "WEBPET-3503",
+  "screen": { "menuPath": ["File", "Administration", "Reports"], "url": "/settings/reports" },
+  "expected": {
+    "filters": [
+      { "module": "Employee", "absent": ["Employee Class"] },
+      { "module": "Job", "absent": ["Job Card", "Job Category", "Job Group", "Job Type"] }
+    ]
+  },
+  "annotations": [],
+  "cleanup": []
+}

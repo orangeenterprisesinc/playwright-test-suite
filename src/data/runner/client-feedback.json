@@ -179,8 +179,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3462",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3574",
@@ -478,8 +478,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3503",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3573",
@@ -751,8 +751,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3858",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3864",
@@ -1076,8 +1076,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3817",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3833",

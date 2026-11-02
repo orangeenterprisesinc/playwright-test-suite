@@ -132,6 +132,8 @@ const TARGETS: readonly CleanupTarget[] = [
     },
     { entity: 'notification', listPath: 'notifications', idKey: 'notificationCounter', order: 59, prefixes: [uid('ZZ NOTIF CHECK ')] },
     { entity: 'user', listPath: 'users', idKey: 'usersCounter', order: 60, prefixes: [uid('QA User '), six('ZZTEST_USR_'), readable('USER')] },
+    // Report scripts saved from a report dialog (WEBPET-3817); soft delete, a deleted name stays reserved.
+    { entity: 'filterScript', listPath: 'filter-scripts', idKey: 'filterScriptCounter', order: 62, prefixes: [readable('NEW REPORT SCRIPT')], note: 'soft-delete only; a deleted name stays reserved (from-report 500 on reuse)' },
 ];
 
 export const CLEANUP_TARGETS: readonly CleanupTarget[] = [...TARGETS].sort((a, b) => a.order - b.order);

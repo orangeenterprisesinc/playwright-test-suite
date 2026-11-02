@@ -468,7 +468,7 @@ export async function ensureCfTimeCardDefaults(deps: CfDeps): Promise<{ ranch: E
  * Teardown for rows a spec creates and then deletes on screen: a by-name soft delete (cleanup allowance) that survives a
  * timeout and finds nothing once the screen delete ran. Employee and Validation have no purge (WEBPET-1798).
  */
-function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation', names: string[]): void {
+function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation' | 'filterScript', names: string[]): void {
     const steps = names.map((name) => ({ kind: 'delete' as const, entity, name }));
     register(deps.testInfo, `${label} delete own ${entity} rows`, (api) => runCleanup(steps, api, deps.testInfo, { phase: 'after' }));
 }
@@ -493,4 +493,26 @@ export function mintValidationNames(deps: CfDeps, ticket: string, count: number)
     const names = [first, ...Array.from({ length: count - 1 }, (_, i) => `${first}-${String(i + 2)}`)];
     registerDeleteByName(deps, ticket, 'validation', names);
     return names;
+}
+
+// ── Cluster 6A: Reports screens ──
+
+/** A CF crew's code (fixture.json), typed into a report criterion as text; nothing is ensured or created. */
+export function cfCrewCode(key: CfCrewKey): string {
+    return cfCrew(key).crew.code;
+}
+
+/** WEBPET-3817: a run-minted report-script name; its by-name teardown is registered before anything is saved. */
+export function mintReportScriptName(deps: CfDeps, ticket: string): string {
+    const name = mintName(ticket, 'REPORT SCRIPT');
+    registerDeleteByName(deps, ticket, 'filterScript', [name]);
+    return name;
+}
+
+/** `{key}` placeholders in a scenario's expected text, filled from values the run computes (dates, minted names). */
+export function fillTemplate(template: string, values: Record<string, string>): string {
+    return template.replace(/\{(\w+)\}/g, (_, key: string) => {
+        if (!(key in values)) throw new Error(`fillTemplate: no value for {${key}} in '${template}'`);
+        return values[key];
+    });
 }
