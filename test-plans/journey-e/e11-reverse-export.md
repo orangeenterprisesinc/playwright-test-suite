@@ -93,7 +93,7 @@
 - `openFromMenu()`: intro text `/^Reverse a completed Export to Accounting run/` visible.
 - `table` = `getByRole('main').getByRole('table')`; columns read by header (Run date, Type, Performed by, Job Cards).
 - `rows({ type, performedBy, jobCards })`.
-- `parseRunDate(text)` (dd/mm/yyyy, HH:mm:ss local → Date).
+- `parseRunDate(text, dayFirst)` (local time in the browser's locale — `dd/mm/yyyy, HH:mm:ss` or `m/d/yyyy, h:mm:ss AM` → Date; `listRuns` asks the browser which order).
 - `reverseRun(own: { id, row })`: route guard on `**/export-to-accounting/runs/*/reverse*` aborting other ids → the row's **Reverse** → read the prompt `/This will flip (\d+) Job Card\(s\) back to not-exported/` → arm `waitForResponse` POST `/runs/{id}/reverse` → **Reverse run** → return `{ prompt, status, jobCardsReversed }`.
 - `reversedToast` (text calibrated on the first run).
 

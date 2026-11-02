@@ -913,17 +913,27 @@ export class TransferToJobCardsPage extends BasePage {
         try {
             await this.analyzeCandidatesButton.click();
             const wanted = opts.expected ?? 1;
-            try {
-                await expect
-                    .poll(async () => (await this.candidateReferences()).length, { timeout: 90_000 })
-                    .toBeGreaterThanOrEqual(wanted);
-            } catch {
+            const retryUntil = Date.now() + 90_000;
+            const seen: { state: 'loaded' | 'retry' | 'loading' } = { state: 'loading' };
+            const state = async (): Promise<'loaded' | 'retry' | 'loading'> => {
+                if ((await this.candidateReferences()).length >= wanted) seen.state = 'loaded';
+                else seen.state = (await this.analyzeRetryButton.isVisible().catch(() => false)) ? 'retry' : 'loading';
+                return seen.state;
+            };
+            for (;;) {
+                const settled = await expect
+                    .poll(state, { timeout: 90_000 })
+                    .not.toBe('loading')
+                    .then(() => true, () => false);
+                const outcome = settled ? seen.state : 'timeout';
+                if (outcome === 'loaded') break;
+                if (outcome === 'retry' && Date.now() < retryUntil && (await this.retryLostAnalyze())) continue;
                 const loaded = (await this.candidateReferences()).length;
-                const lost = this.analyzeSaw404 || (await this.analyzeRetryButton.isVisible().catch(() => false));
+                const lost = this.analyzeSaw404 || outcome === 'retry';
                 throw new Error(
                     `analyze loaded ${loaded} of ${wanted} transfer candidate(s) — ` +
                         (lost
-                            ? 'analyze job lost (GET …/analyze/{jobId} 404 not_found or "Try again" shown)'
+                            ? `analyze job lost (GET …/analyze/{jobId} 404 not_found or "Try again" shown; ${this.analyzeRetries} retry click(s))`
                             : 'the expected time cards are not on the Transfer screen (already transferred by another run, or not created)'),
                 );
             }
@@ -934,6 +944,24 @@ export class TransferToJobCardsPage extends BasePage {
             this.page.off('request', onRequest);
             this.detachAnalyzeResponseListener();
         }
+    }
+
+    /**
+     * The app restarts a lost analyze job three times on its own, then parks on "Try again". Run 41399650394
+     * (D5): every job in a ~2 min window 404'd 1.6 s after its POST, and the retry 2 min later loaded first time.
+     * As in waitForCandidatesResult, Try again is clicked on that exact 404 signature only, at most 5 times.
+     */
+    private async retryLostAnalyze(): Promise<boolean> {
+        if (!this.analyzeSaw404 || this.analyzeRetries >= 5) return false;
+        this.analyzeRetries += 1;
+        this.analyzeSaw404 = false;
+        this.analyzeResponses = [];
+        test.info().annotations.push({
+            type: 'analyze-job-not-found-retried',
+            description: `Retry ${this.analyzeRetries}: GET .../transfer-to-job-cards/analyze/{jobId} → 404 not_found; clicked "Try again".`,
+        });
+        await this.analyzeRetryButton.click();
+        return true;
     }
 
     /**
@@ -1161,9 +1189,20 @@ export class TransferToJobCardsPage extends BasePage {
     }
 
     async waitForReanalyze(panel: Locator = this.timeInPanel): Promise<void> {
-        await panel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined);
-        await this.page.getByRole('button', { name: /Analyzing/i }).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
-        await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 90_000 });
+        // The button re-enables on a failed analyze too, leaving the pre-save rows on screen (D5 locally, 2026-11-02).
+        this.watchAnalyzeResponses();
+        try {
+            await panel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined);
+            const retryUntil = Date.now() + 90_000;
+            for (;;) {
+                await this.page.getByRole('button', { name: /Analyzing/i }).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
+                await expect(this.analyzeCandidatesButton).toBeEnabled({ timeout: 90_000 });
+                if (!(await this.analyzeRetryButton.isVisible().catch(() => false))) return;
+                if (Date.now() >= retryUntil || !(await this.retryLostAnalyze())) return;
+            }
+        } finally {
+            this.detachAnalyzeResponseListener();
+        }
     }
 
     // ── Reverse and redo (D5) — Add Time-In / Add Time-Out dialogs, Time Out panel, toasts ──
