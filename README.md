@@ -1086,9 +1086,9 @@ Override the file location with `EMAIL_RECIPIENTS_FILE`. Resolution logic lives 
 - 🎥 Video recording
 - 📋 Trace file
 
-> Trace and 720p video are kept for **failed** tests only, in CI and locally. Every `expect(locator|page)`
-> assertion in a headless run leaves a 480p JPEG (`assert-NNNN-…jpg`) on the test, so a green test still shows
-> what it verified; clicks and navigation are not captured. See `ACTION_SHOTS` in `docs/ENVIRONMENTS.md`.
+> Trace and 720p video are kept for **failed** tests only, in CI and locally. For a green test's evidence,
+> re-run it with `--trace on`, or set `ACTION_SHOTS=1` for a 480p JPEG after every `expect(locator|page)`
+> assertion (`assert-NNNN-…jpg`; off by default). See `ACTION_SHOTS` in `docs/ENVIRONMENTS.md`.
 
 ---
 
