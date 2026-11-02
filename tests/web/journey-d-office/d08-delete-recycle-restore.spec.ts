@@ -36,6 +36,9 @@ test.describe('D8 · Delete to recycle and restore', { tag: ['@JourneyD', '@D8']
             recordCropId(run, name, crop.savedIdFromUrl());
             await expect(crop.successToast(expected.createdToast), `'${name}' must be confirmed as created`).toBeVisible();
             await expect(crop.heading(expected.editHeadingPrefix + name)).toBeVisible();
+            // Every create toast shares one id (`Crop:create:ok`, web-pet notifications.ts), so a create fired while
+            // the last one is still up reuses it and shows nothing new (crop 3 of 4, local run 2026-11-02).
+            await expect(crop.successToast(expected.createdToast), 'the create toast clears before the next create').toBeHidden({ timeout: 15_000 });
         }
         await crop.gotoList();
         await crop.filterToStem(run.stem);

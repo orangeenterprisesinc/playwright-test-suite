@@ -87,7 +87,7 @@ function fixtureReconcileLines(): [string, string][] {
                       `${s.quiesce.verdict ? `, ${s.quiesce.verdict}` : ''}), mailbox drained ${String(s.mailbox.drained)}, ` +
                       `cards matched ${String(s.sweep.matched)} deleted ${String(s.sweep.deleted)} skipped(409) ` +
                       `${String(s.sweep.skippedTransferred)} failed ${String(s.sweep.failed)}`
-                    : 'disabled (FIXTURE_RECONCILE=0)',
+                    : 'disabled (local run without FIXTURE_RECONCILE=1, or FIXTURE_RECONCILE=0)',
             ]);
         } catch {
             /* a malformed summary is not worth failing teardown over */
