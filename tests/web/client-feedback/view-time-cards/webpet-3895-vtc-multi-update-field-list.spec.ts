@@ -12,7 +12,6 @@ test.describe('WEBPET-3895 · View Time Cards: Multi Update field list', { tag: 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3895' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcMuFieldsCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

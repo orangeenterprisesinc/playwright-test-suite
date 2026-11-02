@@ -12,7 +12,6 @@ test.describe('WEBPET-3283 · Transfer to Job Cards: Crew In employee labels', {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3283' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcCrewInLabelsCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

@@ -12,7 +12,6 @@ test.describe('WEBPET-3889 · View Time Cards: delete several checked cards', { 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3889' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcMultiDeleteCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

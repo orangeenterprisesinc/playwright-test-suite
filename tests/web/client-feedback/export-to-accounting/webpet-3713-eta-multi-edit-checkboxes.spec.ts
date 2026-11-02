@@ -12,7 +12,6 @@ test.describe('WEBPET-3713 · Export to Accounting: Multi Edit checkboxes', { ta
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3713' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(EtaMultiEditCheckboxesCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const eta = pages.exportToAccounting;

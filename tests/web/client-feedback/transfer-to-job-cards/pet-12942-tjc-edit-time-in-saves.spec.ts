@@ -12,7 +12,6 @@ test.describe('PET-12942 · Transfer to Job Cards: editing a Time In saves', { t
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'PET-12942' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcEditTimeInCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

@@ -12,7 +12,6 @@ test.describe('WEBPET-3819 · View Time Cards: reports with a crew filter', { ta
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3819' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcReportWithCrewCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

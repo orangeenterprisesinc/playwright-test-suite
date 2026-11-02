@@ -12,7 +12,6 @@ test.describe('WEBPET-2906 · Transfer to Job Cards: deleting job cards untransf
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-2906' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcDeleteUntransfersCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

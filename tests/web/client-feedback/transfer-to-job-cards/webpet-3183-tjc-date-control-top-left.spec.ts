@@ -12,7 +12,6 @@ test.describe('WEBPET-3183 · Transfer to Job Cards: date range picker top-left'
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3183' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcDateControlCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

@@ -12,7 +12,6 @@ test.describe('WEBPET-3184 · Transfer to Job Cards: transfer completes with no 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3184' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcTransferCompletesCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

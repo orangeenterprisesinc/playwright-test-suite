@@ -12,7 +12,6 @@ test.describe('WEBPET-3573 · View Time Cards: default sort, + button, double-cl
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3573' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcSortPlusDblClickCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

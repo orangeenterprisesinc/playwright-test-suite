@@ -12,7 +12,6 @@ test.describe('WEBPET-3714 · Export to Accounting: row opens a drawer', { tag: 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3714' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(EtaRowDrawerCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const eta = pages.exportToAccounting;

@@ -12,7 +12,6 @@ test.describe('WEBPET-3831 · Transfer to Job Cards: issue click selects the row
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3831' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcIssueClickCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

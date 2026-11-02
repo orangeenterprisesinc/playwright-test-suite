@@ -12,7 +12,6 @@ test.describe('WEBPET-2982 · Transfer to Job Cards: hide piece-outs keeps the p
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-2982' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcHidePieceOutsCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

@@ -12,7 +12,6 @@ test.describe('WEBPET-3426 · Transfer to Job Cards: Job Cards warnings collapse
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3426' }],
     }, async ({ page, pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcWarningsCollapseCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

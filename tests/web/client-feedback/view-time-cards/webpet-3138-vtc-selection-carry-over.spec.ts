@@ -12,7 +12,6 @@ test.describe('WEBPET-3138 · View Time Cards: the selection carries over', { ta
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3138' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcCarryOverCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

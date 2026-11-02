@@ -12,7 +12,6 @@ test.describe('WEBPET-3890 · View Time Cards: row trash icon', { tag: ['@Client
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3890' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcRowTrashCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

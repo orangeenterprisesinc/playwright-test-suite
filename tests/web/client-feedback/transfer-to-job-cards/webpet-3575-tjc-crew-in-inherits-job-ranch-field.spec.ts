@@ -12,7 +12,6 @@ test.describe('WEBPET-3575 · Transfer to Job Cards: Crew In inherits Job, Ranch
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3575' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcCrewInInheritCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

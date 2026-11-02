@@ -12,7 +12,6 @@ test.describe('WEBPET-3574 · View Time Cards: reverse a Multi Edit', { tag: ['@
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3574' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcReverseMultiEditCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

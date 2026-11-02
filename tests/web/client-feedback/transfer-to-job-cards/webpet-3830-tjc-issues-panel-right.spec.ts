@@ -12,7 +12,6 @@ test.describe('WEBPET-3830 · Transfer to Job Cards: Issues panel on the right',
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3830' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcIssuesPanelCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

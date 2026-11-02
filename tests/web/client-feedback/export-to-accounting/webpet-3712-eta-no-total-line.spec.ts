@@ -12,7 +12,6 @@ test.describe('WEBPET-3712 · Export to Accounting: no total line', { tag: ['@Cl
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3712' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(EtaNoTotalLineCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const eta = pages.exportToAccounting;

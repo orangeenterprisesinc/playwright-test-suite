@@ -12,7 +12,6 @@ test.describe('WEBPET-3301 · Transfer to Job Cards: Crew In for Phase 0 - Lunch
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3301' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(TjcCrewInLunchCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const tjc = pages.transferToJobCards;

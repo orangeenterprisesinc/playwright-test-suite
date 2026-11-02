@@ -12,7 +12,6 @@ test.describe('WEBPET-3180 · View Time Cards: Multi Update employee labels', { 
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3180' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(VtcMuEmployeeLabelCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const view = pages.viewTimeCards;

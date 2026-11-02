@@ -12,7 +12,6 @@ test.describe('WEBPET-3716 · Export to Accounting: count equals Export button',
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3716' }],
     }, async ({ pages, sessionApi }, testInfo) => {
-        testInfo.slow();
         const s = await loadScenario(EtaCountEqualsExportCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
         const eta = pages.exportToAccounting;
