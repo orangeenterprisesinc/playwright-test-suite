@@ -516,3 +516,8 @@ export function fillTemplate(template: string, values: Record<string, string>): 
         return values[key];
     });
 }
+
+/** `YYYY-MM-DD` of today + offset on prepareCfRun's clock: a range end that is never seeded (WEBPET-3932). */
+export function cfDay(offset: number): string {
+    return isoDay(punchDay(offset));
+}

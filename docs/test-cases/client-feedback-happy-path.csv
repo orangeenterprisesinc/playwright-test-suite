@@ -75,7 +75,7 @@ WEBPET-3462,Reports > Input > Job Card opens the Job Card Report Selection scree
 4. Read the Filter description at the bottom.
 5. Click Execute.","- Screen title is Job Card Report Selection and the Execute button is visible.
 - Filter description shows 'Date In is between <start 12:00 AM> and <end 11:59 PM>' and 'Job Card Crew contains ""164""'.
-- Execute opens the report dialog for the selected job cards.",A past date range; a crew code that exists on the su tenant (e.g. from CF CREW). No records created.,Feasible - full,,,
+- Execute opens the report dialog for the selected job cards.",A past date range; a crew code that exists on the su tenant (e.g. from CF CREW). No records created.,Feasible - full,,Automated 2026-11-02 (crew filter on CF CREW A's code; Execute opens the report dialog and a PDF; read only),
 WEBPET-3574,A Multi Edit on View > Time Cards can be reversed with Undo and the old value returns.,"1. Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.
 2. Tick two CF EMPLOYEE ONE rows, click Multi Update, set Field to Memo, type CF UNDO TEST in Value, and click Update Records (2).
 3. Open File > Administration > Restore or Reverse > Reverse Multi Edit.
@@ -97,7 +97,7 @@ WEBPET-3781,"Every Reports > Input screen (e.g. Time In) opens a legacy-style se
 3. Check the selection screen: date range, Start time, End time and Search by.
 4. Click Execute.","- Input menu lists Batch, Case Load, Item Traceability, Job Card, Load, Meal or Break, Non Labor, Signature, Time In, Time Out, Traceability, Verification.
 - Time In opens a Report Selection screen with the date range, Start time 12:00 AM, End time 11:59 PM, Search by, and Execute / Load / Save buttons.
-- Filter description shows 'Date In is between ... 12:00 AM and ... 11:59 PM'; Execute runs the report.",none,Feasible - full,,,
+- Filter description shows 'Date In is between ... 12:00 AM and ... 11:59 PM'; Execute runs the report.",none,Feasible - full,,"Manual fail 2026-11-02: Reports > Input > Time In ('Time In Report Selection') has no date range and no Start/End time - only Search by, 'No filters selected.' and Execute / Load / Save. Execute does run the report. The Input menu list matches, plus an extra 'Time Card'.",Should every Reports > Input selection screen (Time In here) carry the date range with Start 12:00 AM / End 11:59 PM like Job Card does? Screenshot .playwright-mcp/cf-3781-time-in-selection-no-date-range.png
 WEBPET-3819,Reports can be run on View > Time Cards when a Time Card Crew filter is applied.,"1. Open View > Time Cards.
 2. Set a past date range, add the filter Time Card Crew contains CF, and click Apply Filter.
 3. Look at the Report and Display Report buttons.
@@ -205,7 +205,7 @@ WEBPET-3503,The Reports hub 'For' filter shows only reports for exactly the chos
 2. In the For column filter pick Employee.
 3. Look at the For value of every row shown.
 4. Change the For filter to Job and look at the rows.","- With Employee, every row has For = Employee and no row says Employee Class.
-- With Job, no Job Card, Job Category, Job Group or Job Type row is shown.",none,Feasible - full,,,
+- With Job, no Job Card, Job Category, Job Group or Job Type row is shown.",none,Feasible - full,,Automated 2026-11-02 (For = Employee and For = Job; read only),
 WEBPET-3570,Same fix as WEBPET-3484: Exported to Payroll is a Multi Edit field on View > Job Cards.,Covered by WEBPET-3484,"In View > Job Cards Multi Edit, the Field list has 'Exported to Payroll' with a Yes/No Value.",none,Covered by WEBPET-3484,Jira-linked duplicate of WEBPET-3484; same fix PR.,Covered by WEBPET-3484 (automated 2026-11-01),
 WEBPET-3573,"View > Time Cards sorts by Crew then Employee, shows a + button on each row, and a double-click opens the record.","1. Open View > Time Cards.
 2. Set the date range to a past date, filter Time Card Crew to CF CREW, and click Apply Filter.
@@ -321,7 +321,7 @@ WEBPET-3858,Choosing In range on a Reports date filter defaults From to 12:00 AM
 2. Set Search by to Date In.
 3. Set Match to In range.
 4. Read the From and To fields and the Filter description.","- From shows today's date with 12:00 AM and To shows the same date with 11:59 PM.
-- Filter description reads ""Date In is between '<date>, 12:00 AM' AND '<date>, 11:59 PM'"".",none,Feasible - full,,,
+- Filter description reads ""Date In is between '<date>, 12:00 AM' AND '<date>, 11:59 PM'"".",none,Feasible - full,,"Automated 2026-11-02 (From/To and filter line built from the browser's date, locale-proof; read only)",
 WEBPET-3864,"The Edit Filter Script screen matches Legacy: Screen label, script type name, read-only fields, user assignment.","1. Open File > Administration > Setup > Scripts.
 2. Open a script (e.g. Employees Currently on the Job).
 3. Read the Screen and Script Type fields.
@@ -332,7 +332,7 @@ WEBPET-3864,"The Edit Filter Script screen matches Legacy: Screen label, script 
 WEBPET-3805,Reports > Input > Job Card has Load and Save for report scripts.,"1. Open Reports > Input > Job Card.
 2. Check the buttons under the Filter description.
 3. Click Load.","- Execute, Load and Save buttons are shown.
-- Load lists the saved Job Card report scripts.","At least one saved Job Card script (create it with Save first if none exists, then delete it).",Feasible - full,,,
+- Load lists the saved Job Card report scripts.","At least one saved Job Card script (create it with Save first if none exists, then delete it).",Feasible - full,,"Manual fail 2026-11-02: Job Card Report Selection has Execute, Load and Save, but the screen's Load opens 'Load Filter Script' underneath the Report dialog, so its script picker cannot be clicked (reproduced 3 times). Only after closing the Report dialog does Load list the saved Job Card script.",Load dialog stacking: should the screen-level Load open on top (or without) the Report dialog? Screenshot .playwright-mcp/cf-3805-load-dialog-covered.png
 WEBPET-3831,Clicking an exception in the Issues panel selects and scrolls to the affected time card in the grid.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date with at least one issue, filter to CF CREW and click Analyze Transfer Candidates.
 3. In the Issues panel on the right, click an issue (for example Unknown employee or Missing Time-Out at end of the day).
@@ -417,28 +417,31 @@ WEBPET-3717,"If a licence scan fails, Quick Add now shows a short code (PARSE, N
 WEBPET-3788,A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Administration > Setup.,"1. Log in as the non-admin user E2ENonSU.
 2. Open File > Administration > Setup.
 3. Look through the Setup list.","- Alias Field and Mobile Phone Carrier are not in the list.
-- The other Setup entries the user is allowed to see are listed as normal.","Non-admin user E2ENonSU (password kept in the local .env, not here)",Feasible - full,,,
+- The other Setup entries the user is allowed to see are listed as normal.","Non-admin user E2ENonSU (password kept in the local .env, not here)",Feasible - full,,"Blocked 2026-11-02: E2ENonSU is role Clerk and has no File > Administration at all (File holds only Restore or Reverse and Switch to Scan Mode), so the Setup list can't be reached. As su both Alias Field and Mobile Phone Carrier are listed.","Need a non-su, non-Administrator user whose role still opens File > Administration > Setup (or restate the TC: the items must not be reachable for a Clerk). Which?"
 WEBPET-3789,"On the Reports hub a For link to a screen the user cannot open shows as plain text, not a link.","1. Log in as the non-admin user E2ENonSU.
 2. Open File > Administration > Reports.
 3. Find a report whose For value is Mobile Phone Carrier (a screen this user cannot open).","- The For value Mobile Phone Carrier is plain text, not a clickable link.
-- Clicking it does not bounce the user to the home page.","Non-admin user E2ENonSU (password kept in the local .env, not here)",Feasible - full,,,
+- Clicking it does not bounce the user to the home page.","Non-admin user E2ENonSU (password kept in the local .env, not here)",Feasible - full,,"Blocked 2026-11-02: E2ENonSU (Clerk) has no Reports hub; the hub URL redirects to /dashboard. As su, For = Mobile Phone Carrier is a link to /setup/mobile-phone-carriers.",Same fixture question as 3788: which non-admin user can open File > Administration > Reports but not Mobile Phone Carrier?
 WEBPET-3888,"The User record has working Shortcut and Alias Set fields, and double-clicking Alias Set creates a new Alias Set.","1. Open File > Administration > User and click New.
 2. Pick a value in Shortcut.
 3. Double-click the Alias Set field.
-4. In the new Alias Set form enter a name and Save.
-5. Cancel the user record without saving.","- Shortcut and Alias Set are on the user record and accept a value.
-- Double-clicking Alias Set opens a new Alias Set form, and after Save the new set is selected in the field.",create: one Alias Set named CF3888 NEW ALIAS SET …; deleted afterwards. No user is saved,Feasible - full,,,
+4. In the Add Alias Set form check the Alias Fields grid and Alias Type, then pick Alias Type Windows.
+5. Enter a name and Save.
+6. Cancel the user record without saving.","- Shortcut and Alias Set are on the user record and accept a value.
+- Double-clicking Alias Set opens a new Alias Set form whose Alias Fields grid is always shown and Alias Type starts blank.
+- Picking Windows fills the grid with that type's Alias Fields (74 on dev), sorted by Alias Field.
+- After Save the new set is selected in the user's Alias Set field.",create: one Alias Set named CF3888 NEW ALIAS SET …; deleted afterwards. No user is saved,Feasible - full,"TC updated 2026-11-02 to the latest fix, web-pet PR #1547 (QA failed 10/30: new Alias Set had no context/grid).","Manual fail 2026-11-02: the New User form has no Shortcut field (General section: Name, Password, Role, Initials, Email, Language, Active, Alias Set, Onboarding Device). The Alias Set half passes with PR #1547: double-click opens 'Add Alias Set', grid always shown, Type blank, Windows fills 74 Alias Fields, Save selects the new set on the user.",Shortcut on the User record: not on the form (no shortcutCounter in the user schema; GET /shortcuts is empty on dev). Was it meant to ship with #1489? Also: the deleted-set list showed the new set with aliasFields [] although 74 rows were on screen at Save - persisted? Screenshot .playwright-mcp/cf-3888-new-user-no-shortcut-field.png
 WEBPET-3932,The Time In date filter accepts a date range with start and end times.,"1. Open Input > Time In.
 2. In the From and To filter set a date range of two past days.
 3. Set a start time and an end time for the range.
 4. Click Apply.","- The calendar filter lets you pick a start date and time and an end date and time.
-- The grid shows only Time In records inside the chosen date and time range.",A past date range with CF fixture time-ins,Feasible - full,,,
+- The grid shows only Time In records inside the chosen date and time range.",A past date range with CF fixture time-ins,Feasible - full,,"Automated 2026-11-02 (CF CREW D day -12: Time Ins at 07:00 and 11:00; range day -13 08:00 to day -12 10:00 lists the 07:00 one, not the 11:00 one, and every row is inside; own cards deleted by id)",
 WEBPET-3937,The two reverse export menu items use the legacy captions.,"1. Reload the app so the newest build loads.
 2. Open File > Restore or Reverse.
 3. Find the two reverse export to accounting items.
 4. Read their captions.","- One item reads 'Reverse Export to Accounting (Cost Accounting)'.
 - The other reads 'Reverse Export to Accounting (Payroll)'.
-- Old captions 'Reverse Job Costing Export to Accounting' and 'Reverse Payroll Export to Accounting' are gone.",none,Feasible - full,,,
+- Old captions 'Reverse Job Costing Export to Accounting' and 'Reverse Payroll Export to Accounting' are gone.",none,Feasible - full,,Automated 2026-11-02 (File > Restore or Reverse captions; read only),
 WEBPET-3940,"Deleting all checked time cards at once finishes quickly, removes every selected card and reports the right count.","1. Open View > Time Cards, filter to the past date and CF CREW, and click Apply Filter.
 2. Tick the select-all checkbox in the header.
 3. Click Delete and confirm Delete ""N Time Cards""? with Delete.
@@ -453,7 +456,7 @@ WEBPET-3872,Smoke: Time In: Daily Piece Summary Extended runs from Reports > Inp
 WEBPET-3817,A saved report script runs from Reports > Report Scripts with its relative dates and Execute Report setting.,"1. Open Reports > Report Scripts.
 2. Select the test script (Time In report, Date In = This week, Execute Report = Yes).
 3. Click Execute.","- The report runs straight away (Execute Report = Yes) without stopping on the selection screen.
-- The dates used are the current week (Monday to Sunday), not the dates the script was saved with.",create: a Time In report script with Date In = This week and Execute Report = Yes; deleted afterwards,Feasible - full,,,
+- The dates used are the current week (Monday to Sunday), not the dates the script was saved with.",create: a Time In report script with Date In = This week and Execute Report = Yes; deleted afterwards,Feasible - full,,"Automated 2026-11-02 (run-tagged Time In script, Date In = This week; proves the run sends the relative criterion and the PDF prints 'Date In is This week'; script soft-deleted on screen)","The Monday-Sunday dates are worked out on the server and shown nowhere (screen and request carry only 'This week'), so automation proves the script runs relative, not with its saved dates. Separately: a Job Card script saved from that screen's default range stores fixed dates and reruns that fixed week - expected?"
 WEBPET-3833,The Missing Time-Out at end of the day issue names the affected time card.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick the past date where CF CREW A has a Time In with no Time Out, filter to CF CREW A and click Analyze Transfer Candidates.
 3. In the Issues panel, open Missing Time-Out at end of the day.","- The issue shows 1 affected.

@@ -1024,8 +1024,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3932",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3937",
@@ -1037,8 +1037,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3937",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3940",

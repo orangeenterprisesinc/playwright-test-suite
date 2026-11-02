@@ -571,3 +571,19 @@ export const ReportsHubForFilterCaseSchema = ClientFeedbackBase.extend({
     }).strict(),
 }).strict();
 export type ReportsHubForFilterCase = z.infer<typeof ReportsHubForFilterCaseSchema>;
+
+// ── Cluster 6B: File menu captions, Time In range (3937 / 3932) ──
+
+export const RestoreReverseCaptionsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3937'),
+    expected: z.object({ captions: z.array(Text).length(2), oldCaptions: z.array(Text).length(2) }).strict(),
+}).strict();
+export type RestoreReverseCaptionsCase = z.infer<typeof RestoreReverseCaptionsCaseSchema>;
+
+export const TimeInDateTimeRangeCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3932'),
+    ...TjcScoped,
+    range: z.object({ fromOffset: CfDayOffset, start: HhMm, end: HhMm }).strict(),
+    expected: z.object({ title: Text, inside: CfWho, insideAt: HhMm, outside: CfWho, maxRows: z.number().int().positive() }).strict(),
+}).strict();
+export type TimeInDateTimeRangeCase = z.infer<typeof TimeInDateTimeRangeCaseSchema>;

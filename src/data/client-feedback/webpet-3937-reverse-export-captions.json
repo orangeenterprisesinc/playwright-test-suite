@@ -1,0 +1,14 @@
+{
+  "_notes": [
+    "Read-only: File ▸ Restore or Reverse captions only; neither screen is opened. Restore or Reverse also sits under File ▸ Administration for su; FileMenu reads the File-level one (last in DOM order).",
+    "Walked on dev 2026-11-02 (su and E2ENonSU): both new captions are links (both href /export-to-accounting/reverse); 'Reverse Export to Inventory Accounting' is a disabled entry; neither old caption is listed."
+  ],
+  "ticket": "WEBPET-3937",
+  "screen": { "menuPath": ["File", "Restore or Reverse"], "url": "/export-to-accounting/reverse" },
+  "expected": {
+    "captions": ["Reverse Export to Accounting (Cost Accounting)", "Reverse Export to Accounting (Payroll)"],
+    "oldCaptions": ["Reverse Job Costing Export to Accounting", "Reverse Payroll Export to Accounting"]
+  },
+  "annotations": [],
+  "cleanup": []
+}

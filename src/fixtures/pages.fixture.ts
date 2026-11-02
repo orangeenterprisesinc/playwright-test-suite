@@ -58,6 +58,8 @@ import { FilterScriptsPage } from '../pages/admin/FilterScriptsPage';
 import { JobCardReportSelectionPage } from '../pages/reports/JobCardReportSelectionPage';
 import { ScreenReportSelectionPage } from '../pages/reports/ScreenReportSelectionPage';
 import { ReportScriptsPage } from '../pages/reports/ReportScriptsPage';
+import { FileMenu } from '../pages/shell/FileMenu';
+import { TimeInListPage } from '../pages/input/TimeInListPage';
 
 /**
  * Every page object, lazily constructed.
@@ -159,6 +161,12 @@ export interface PageObjects {
     readonly timeInReportSelection: ScreenReportSelectionPage;
     /** Reports ▸ Report Scripts, `/reports/scripts` (WEBPET-3817). */
     readonly reportScripts: ReportScriptsPage;
+
+    // ── Client feedback 6B: File menu captions, Time In list ──────────
+    /** Sidebar File group: Restore or Reverse captions (WEBPET-3937). */
+    readonly fileMenu: FileMenu;
+    /** Input ▸ Time In, `/input/time-in` (WEBPET-3932). */
+    readonly timeInList: TimeInListPage;
 }
 
 /**
@@ -216,5 +224,7 @@ export function createPageObjects(page: Page): PageObjects {
         get jobCardReportSelection() { return lazy('jobCardReportSelection', () => new JobCardReportSelectionPage(page)); },
         get timeInReportSelection() { return lazy('timeInReportSelection', () => new ScreenReportSelectionPage(page, 'Time In', '/reports/screen/time-in')); },
         get reportScripts() { return lazy('reportScripts', () => new ReportScriptsPage(page)); },
+        get fileMenu() { return lazy('fileMenu', () => new FileMenu(page)); },
+        get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
     };
 }

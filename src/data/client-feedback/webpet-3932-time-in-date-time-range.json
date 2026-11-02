@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "CF CREW D owns day -12. Day -13 is only the range's start day; nothing is seeded there. Crew Time In on screen: CF D ONE at 07:00 and CF D TWO at 11:00 on day -12, Time In only. The range runs from day -13 08:00 to day -12 10:00, so ONE (07:00 on the end day) is inside and TWO (after the 10:00 end) is outside. Other crews' rows share these days, so the spec checks the own rows plus 'every row is inside', never counts. Teardown deletes the own cards by id (prepareCfRun).",
+    "Walked on dev 2026-11-02 (su) on existing rows. 10/20 08:00 - 10/21 10:00 + Apply listed only the 10/21 7:00 AM row (B1, Kishore A) and dropped the 10/20 one; the URL read ?from=2026-10-20T08:00&to=2026-10-21T10:00. The range is continuous: the start time applies to the start date, the end time to the end date."
+  ],
+  "ticket": "WEBPET-3932",
+  "screen": { "menuPath": ["Input", "Time In"], "url": "/input/time-in" },
+  "fixtureCrew": "D",
+  "dayOffset": -12,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } },
+    { "employees": ["two"], "job": "hourly", "timeIn": { "hour": 11, "minute": 0 } }
+  ],
+  "range": { "fromOffset": -13, "start": "08:00", "end": "10:00" },
+  "expected": { "title": "Time In", "inside": "one", "insideAt": "07:00", "outside": "two", "maxRows": 100 },
+  "annotations": [],
+  "cleanup": []
+}
