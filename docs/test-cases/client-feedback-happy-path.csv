@@ -245,7 +245,7 @@ WEBPET-3706,Undo after a Setup multi-delete restores the records and shows succe
 2. Select two or more rows and delete them with Multi-Delete.
 3. Click Undo.
 4. Check the grid.","- The deleted rows come back in the grid.
-- A success message shows and no error or failure message appears.",create: two throwaway validation rows; remove them afterwards.,Feasible - full,Manual walk 2026-11-02: the menu label is Setup > 'TimeSheet Setup' and the screen heading 'TimeSheet Validations'; Multi-Delete is Multi-Edit > select > More actions > Delete. Created rows get run-tagged names (validations have no purge).,Pending: manual pass 2026-11-02; automation in progress,
+- A success message shows and no error or failure message appears.",create: two throwaway validation rows; remove them afterwards.,Feasible - full,Manual walk 2026-11-02: the menu label is Setup > 'TimeSheet Setup' and the screen heading 'TimeSheet Validations'; Multi-Delete is Multi-Edit > select > More actions > Delete. Created rows get run-tagged names (validations have no purge).,"Automated 2026-11-02 (two run-tagged validation rows, soft-deleted afterwards)",
 WEBPET-3707,Smoke: a Time & Piece transfer still creates job cards without error.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, filter to CF CREW, click Analyze Transfer Candidates.
 3. Click Transfer to Job Cards and confirm.
@@ -301,13 +301,13 @@ WEBPET-3927,"Employee Add > Quick has Name, Middle, Export Identifier and Time C
 4. Click Save employee.
 5. Click Open record and compare the values.","- Quick form shows Name, First Name, Last Name, Middle, Export Identifier and a Time Card Defaults section (Default Ranch, Default Field, Default Job, Always Use Default Job).
 - Banner reads '<name> was added. Ready for the next employee.'
-- The opened employee shows the same Middle, Export Identifier and defaults.",create: one employee (e.g. CF QUICK ADD TEST) with CF RANCH defaults; delete it afterwards.,Feasible - full,,Pending: manual pass 2026-11-02; automation in progress,Gukan / dev: Employee Add > Quick pre-fills Crew with B1 CREW (looks like a preference default). Should Quick Add default a crew at all? The spec clears it so a test employee never joins a fixture crew's roster.
+- The opened employee shows the same Middle, Export Identifier and defaults.",create: one employee (e.g. CF QUICK ADD TEST) with CF RANCH defaults; delete it afterwards.,Feasible - full,,"Automated 2026-11-02 (run-tagged employee, soft-deleted on screen; Crew cleared)",Gukan / dev: Employee Add > Quick pre-fills Crew with B1 CREW (looks like a preference default). Should Quick Add default a crew at all? The spec clears it so a test employee never joins a fixture crew's roster.
 WEBPET-3929,"After saving a Quick Add employee, the banner has a Print badge link.","1. Open Employee Add > Quick.
 2. Enter First Name and Last Name.
 3. Click Save employee.
 4. Read the banner at the top.
 5. Click Print badge.","- Banner reads '<name> was added. Ready for the next employee.' with 'Print badge' and 'Open record' links.
-- Print badge opens the employee's badge for printing without opening the record.",create: one employee (e.g. CF QUICK BADGE TEST); delete it afterwards.,Feasible - full,,Pending: manual pass 2026-11-02; automation in progress,
+- Print badge opens the employee's badge for printing without opening the record.",create: one employee (e.g. CF QUICK BADGE TEST); delete it afterwards.,Feasible - full,,"Automated 2026-11-02 (reads the badge PDF from the print frame; run-tagged employee, soft-deleted)",
 WEBPET-3930,The totals on Export to Accounting sit above the Candidates grid.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Look above the Candidates heading.","- The strip 'Job-cards N of N / Employees N of N / Pieces ...' and the 'Totals Gross ... Net ... Amount ...' row are shown above the Candidates grid.
@@ -328,7 +328,7 @@ WEBPET-3864,"The Edit Filter Script screen matches Legacy: Screen label, script 
 4. Read Description, then scroll to Report Viewer Users.","- The field is labeled Screen and shows the screen name (e.g. Time In), locked.
 - Script Type shows a name (e.g. Report), not a number, and is locked.
 - Description is read-only and an Execute Script button is available; no Table field is visible.
-- Report Viewer Users has Add Users (Select users...) and Empty.",An existing script; nothing is changed or saved.,Feasible - full,"Manual walk 2026-11-02: the example script 'Employees Currently on the Job' does not exist on su (9 scripts); the walk and the spec use 'Permanent Badge Assignment' (Time In / Report), which shows every field the ticket names.",Pending: manual pass 2026-11-02; automation in progress,
+- Report Viewer Users has Add Users (Select users...) and Empty.",An existing script; nothing is changed or saved.,Feasible - full,"Manual walk 2026-11-02: the example script 'Employees Currently on the Job' does not exist on su (9 scripts); the walk and the spec use 'Permanent Badge Assignment' (Time In / Report), which shows every field the ticket names.",Automated 2026-11-02 (script 'Permanent Badge Assignment'; read only),
 WEBPET-3805,Reports > Input > Job Card has Load and Save for report scripts.,"1. Open Reports > Input > Job Card.
 2. Check the buttons under the Filter description.
 3. Click Load.","- Execute, Load and Save buttons are shown.

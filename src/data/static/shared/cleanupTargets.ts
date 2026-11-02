@@ -127,7 +127,7 @@ const TARGETS: readonly CleanupTarget[] = [
         listPath: 'validations',
         idKey: 'validationCounter',
         order: 58,
-        prefixes: [six('_PET202TestValidation_'), six('_PET202TestValidation2_')],
+        prefixes: [six('_PET202TestValidation_'), six('_PET202TestValidation2_'), readable('NEW VALIDATION')],
         note: 'soft-delete only (WEBPET-1798)',
     },
     { entity: 'notification', listPath: 'notifications', idKey: 'notificationCounter', order: 59, prefixes: [uid('ZZ NOTIF CHECK ')] },

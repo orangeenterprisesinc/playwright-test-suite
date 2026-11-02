@@ -384,6 +384,48 @@ export class EmployeePage extends SetupScreenPage {
         await prompt.getByRole('button', { name: "Don't Save", exact: true }).click({ timeout: 15_000 });
         await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
     }
+
+    // ── Client feedback 5B: the record a Quick Add saved (WEBPET-3927 / 3929) ──
+
+    get middleNameInput(): Locator {
+        return this.page.locator('#middleName');
+    }
+
+    /** Middle, Export Identifier and Time Card Defaults as the Edit form shows them, once the pickers have loaded. */
+    async readQuickAddFields(): Promise<{
+        middle: string;
+        exportIdentifier: string;
+        defaultRanch: string;
+        defaultField: string;
+        defaultJob: string;
+        alwaysUseDefaultJob: boolean;
+    }> {
+        const read = async () => ({
+            middle: await this.middleNameInput.inputValue(),
+            exportIdentifier: await this.exportIdentifierInput.inputValue(),
+            defaultRanch: (await this.defaultRanchSelect.innerText()).trim(),
+            defaultField: (await this.defaultFieldCombobox.inputValue()).replace(/^.* : /, ''),
+            defaultJob: (await this.defaultJobCombobox.inputValue()).replace(/^.* : /, ''),
+            alwaysUseDefaultJob: (await this.page.getByRole('switch', { name: 'Always Use Default Job' }).getAttribute('aria-checked')) === 'true',
+        });
+        // The ranch select shows its raw counter id, and the comboboxes stay empty, until their options load.
+        await expect
+            .poll(async () => {
+                const v = await read();
+                return v.defaultField !== '' && v.defaultJob !== '' && !/^\d*$/.test(v.defaultRanch);
+            }, { timeout: 15_000 })
+            .toBe(true)
+            .catch(() => undefined);
+        return read();
+    }
+
+    /** Edit form ▸ Delete ▸ confirm `Delete "<name>"?`: a soft delete (WEBPET-1798); the app returns to the list. */
+    async deleteOpenRecord(name: string): Promise<void> {
+        await this.page.getByRole('main').getByRole('button', { name: 'Delete', exact: true }).click();
+        const dialog = this.page.getByRole('alertdialog', { name: `Delete "${name}"?` });
+        await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+        await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
+    }
 }
 
 export default EmployeePage;

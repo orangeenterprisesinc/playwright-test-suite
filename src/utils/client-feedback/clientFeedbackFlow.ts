@@ -16,7 +16,8 @@ import { listBulkHistory } from '@utils/api/recycleBinApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
 import { register } from '@utils/cleanup/cleanupScope';
 import { ownerForTicket, readableName } from '@utils/cleanup/runToken';
-import type { CleanupContext } from '@utils/cleanup/runCleanup';
+import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
+import { makeEmployeeName } from '@data/generated';
 import {
     ensureCrewOnScreen,
     ensureEmployeeOnScreen,
@@ -451,4 +452,45 @@ export async function ensureCfInactiveField(deps: CfDeps): Promise<{ ranch: Ensu
     const ranch = await ensureCfRanch(deps);
     const field = await ensureFieldOnScreen({ ...CF_FIXTURE.inactiveField, ranch: { id: ranch.id, name: ranch.name }, active: false }, onScreenDeps(deps));
     return { ranch, field };
+}
+
+// ── Cluster 5B: Employee Quick Add, Time Sheet Validations ──
+
+/** WEBPET-3927: the Time Card Defaults a Quick Add employee points at: CF RANCH, CF FIELD under it, CF JOB. */
+export async function ensureCfTimeCardDefaults(deps: CfDeps): Promise<{ ranch: EnsuredRecord; field: EnsuredRecord; job: EnsuredRecord }> {
+    const ranch = await ensureCfRanch(deps);
+    const field = await ensureFieldOnScreen({ ...CF_FIXTURE.field, ranch: { id: ranch.id, name: ranch.name } }, onScreenDeps(deps));
+    const job = await ensureJobOnScreen(CF_FIXTURE.jobs.hourly, onScreenDeps(deps));
+    return { ranch, field, job };
+}
+
+/**
+ * Teardown for rows a spec creates and then deletes on screen: a by-name soft delete (cleanup allowance) that survives a
+ * timeout and finds nothing once the screen delete ran. Employee and Validation have no purge (WEBPET-1798).
+ */
+function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation', names: string[]): void {
+    const steps = names.map((name) => ({ kind: 'delete' as const, entity, name }));
+    register(deps.testInfo, `${label} delete own ${entity} rows`, (api) => runCleanup(steps, api, deps.testInfo, { phase: 'after' }));
+}
+
+export interface QuickAddEmployeeName {
+    /** `W3927 NEW EMPLOYEE 1102-105600-W1`: the Name the residue sweep reclaims. */
+    name: string;
+    /** `W3927 1102-105600-W1`: the 20-char Last Name short form; also used as the Export Identifier. */
+    lastName: string;
+}
+
+/** Mints a Quick Add employee's names and registers its teardown before anything is saved. */
+export function mintQuickAddEmployee(deps: CfDeps, ticket: string): QuickAddEmployeeName {
+    const { name, lastName } = makeEmployeeName(ownerForTicket(ticket));
+    registerDeleteByName(deps, ticket, 'employee', [name]);
+    return { name, lastName };
+}
+
+/** `count` validation names on one stamp (the minted name, then `-2`, `-3`), so one Name filter lists exactly them. */
+export function mintValidationNames(deps: CfDeps, ticket: string, count: number): string[] {
+    const first = mintName(ticket, 'VALIDATION');
+    const names = [first, ...Array.from({ length: count - 1 }, (_, i) => `${first}-${String(i + 2)}`)];
+    registerDeleteByName(deps, ticket, 'validation', names);
+    return names;
 }

@@ -1,0 +1,12 @@
+{
+  "_notes": [
+    "Menu label is Setup > TimeSheet Setup; heading 'TimeSheet Validations'. Two run-minted rows on one stamp (<name>, <name>-2) so one Name filter lists exactly them; deleted rows stay reserved (WEBPET-1798).",
+    "Walked on dev 2026-11-02 (su): Multi-Edit, tick both, More actions > Delete, 'Delete 2 selected rows?' > 'Delete 2'; toast 'Records deleted', grid 'No validations found.'; the selection bar's Undo (bulk-delete-undo 204) brought both rows back with toast 'Delete undone' and no error toast. Teardown deletes them again on screen without Undo."
+  ],
+  "ticket": "WEBPET-3706",
+  "screen": { "menuPath": ["Setup", "TimeSheet Setup"], "url": "/setup/timesheet/validations" },
+  "rows": 2,
+  "expected": { "deletedToast": "Records deleted", "emptyGrid": "No validations found.", "undoneToast": "Delete undone" },
+  "annotations": [],
+  "cleanup": []
+}

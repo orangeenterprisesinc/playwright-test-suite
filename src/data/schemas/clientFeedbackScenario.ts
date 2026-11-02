@@ -490,3 +490,33 @@ export const SetupEmployeeContactCrewCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ errorText: Text, filterLinePrefix: Text, rowSuffix: Text, listed: z.array(Text).min(1) }).strict(),
 }).strict();
 export type SetupEmployeeContactCrewCase = z.infer<typeof SetupEmployeeContactCrewCaseSchema>;
+
+// ── Cluster 5B: Employee Quick Add, Time Sheet Validations, Scripts (3927 / 3929 / 3706 / 3864) ──
+
+export const QuickAddDefaultsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3927'),
+    employee: z.object({ firstName: Text, middle: Text }).strict(),
+    expected: z.object({ labels: z.array(Text).min(1), section: Text, bannerSuffix: Text, alwaysUseDefaultJob: z.boolean() }).strict(),
+}).strict();
+export type QuickAddDefaultsCase = z.infer<typeof QuickAddDefaultsCaseSchema>;
+
+export const QuickAddPrintBadgeCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3929'),
+    employee: z.object({ firstName: Text }).strict(),
+    expected: z.object({ bannerSuffix: Text, pdfMagic: Text }).strict(),
+}).strict();
+export type QuickAddPrintBadgeCase = z.infer<typeof QuickAddPrintBadgeCaseSchema>;
+
+export const ValidationUndoMultiDeleteCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3706'),
+    rows: z.number().int().min(2),
+    expected: z.object({ deletedToast: Text, emptyGrid: Text, undoneToast: Text }).strict(),
+}).strict();
+export type ValidationUndoMultiDeleteCase = z.infer<typeof ValidationUndoMultiDeleteCaseSchema>;
+
+export const FilterScriptEditCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3864'),
+    script: Text,
+    expected: z.object({ screenLabel: Text, screen: Text, scriptType: Text, absentField: Text, addUsersPlaceholder: Text }).strict(),
+}).strict();
+export type FilterScriptEditCase = z.infer<typeof FilterScriptEditCaseSchema>;

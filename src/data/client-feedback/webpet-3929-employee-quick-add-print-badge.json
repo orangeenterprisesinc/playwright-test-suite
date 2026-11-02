@@ -1,0 +1,12 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su): Save shows the status banner with a 'Print badge' button and an 'Open record' link. Print badge POSTs employees/<id>/badge (200, a one-page %PDF-1.7) and loads it into a hidden 0x0 blob: iframe that prints it; the page stays on Quick Add with the banner showing.",
+    "The badge prints the Last Name and First Name lines and a barcode. Name is filled with the minted name (left blank, the server composes '<Last> <First>', which the residue sweep cannot date). Crew is cleared (B1 CREW pre-fill). Deleted on screen via Open record."
+  ],
+  "ticket": "WEBPET-3929",
+  "screen": { "menuPath": ["Employee Add", "Quick"], "url": "/setup/employees/quick-add" },
+  "employee": { "firstName": "BADGE" },
+  "expected": { "bannerSuffix": "was added. Ready for the next employee.", "pdfMagic": "%PDF-" },
+  "annotations": [],
+  "cleanup": []
+}

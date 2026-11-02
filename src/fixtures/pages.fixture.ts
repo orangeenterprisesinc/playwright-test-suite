@@ -52,6 +52,9 @@ import { ReverseMultiEditPage } from '../pages/admin/ReverseMultiEditPage';
 import { ReverseExportPage } from '../pages/admin/ReverseExportPage';
 import { ExportToAccountingPage } from '../pages/processing/ExportToAccountingPage';
 import { ReportsHubPage } from '../pages/reports/ReportsHubPage';
+import { EmployeeQuickAddPage } from '../pages/setup/EmployeeQuickAddPage';
+import { TimeSheetValidationPage } from '../pages/setup/TimeSheetValidationPage';
+import { FilterScriptsPage } from '../pages/admin/FilterScriptsPage';
 
 /**
  * Every page object, lazily constructed.
@@ -137,6 +140,14 @@ export interface PageObjects {
     readonly importSingleFolder: ImportSingleFolderPage;
     /** Connectivity ▸ Import ▸ Import Log — the Internet Import Log grid (A6). */
     readonly importLog: ImportLogPage;
+
+    // ── Client feedback 5B ─────────────────────────────────────────
+    /** Employee Add ▸ Quick, `/setup/employees/quick-add` (WEBPET-3927 / 3929). */
+    readonly employeeQuickAdd: EmployeeQuickAddPage;
+    /** Setup ▸ TimeSheet Setup, `/setup/timesheet/validations` (WEBPET-3706). */
+    readonly timeSheetValidation: TimeSheetValidationPage;
+    /** File ▸ Administration ▸ Setup ▸ Scripts, `/setup/filter-scripts` (WEBPET-3864). */
+    readonly filterScripts: FilterScriptsPage;
 }
 
 /**
@@ -188,5 +199,8 @@ export function createPageObjects(page: Page): PageObjects {
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
         get importSingleFolder() { return lazy('importSingleFolder', () => new ImportSingleFolderPage(page)); },
         get importLog() { return lazy('importLog', () => new ImportLogPage(page)); },
+        get employeeQuickAdd() { return lazy('employeeQuickAdd', () => new EmployeeQuickAddPage(page)); },
+        get timeSheetValidation() { return lazy('timeSheetValidation', () => new TimeSheetValidationPage(page)); },
+        get filterScripts() { return lazy('filterScripts', () => new FilterScriptsPage(page)); },
     };
 }
