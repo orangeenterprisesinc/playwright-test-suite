@@ -193,7 +193,7 @@ WEBPET-3464,After Export on Export to Accounting the user can rename the export 
 4. In the Save export file dialog, change the File name to CF CREW export.txt.
 5. Click Save As... and then Cancel in the save window.","- A Save export file dialog opens with an editable File name and the line 'Payroll Export File Folder: <path>'.
 - Save As... opens the save window with the changed name.
-- No file is downloaded automatically.",CF CREW job card in Ready state on a past date; Cancel keeps it unsaved,Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
+- No file is downloaded automatically.",CF CREW job card in Ready state on a past date; Cancel keeps it unsaved,Feasible - full,,Automated 2026-11-02 (Save As runs against a stand-in for the OS save window; nothing is exported),
 WEBPET-3484,Exported to Payroll is offered in Multi Edit on View > Job Cards.,"1. Open View > Job Cards.
 2. Set a past date range, filter to CF CREW, and click Apply Filter.
 3. Tick two CF JOB rows and click Multi Edit.
@@ -316,7 +316,7 @@ WEBPET-3931,The default export file name on Export to Accounting follows the leg
 2. Set a past date range for CF CREW with at least one Ready job card.
 3. Click Test File.
 4. Look at the 'Export file' line in the Test File panel.","- The file name reads PET followed by 17 digits and .txt (for example PET20261027000847700.txt), not 'famous-120-3-payroll-<date>.txt'.
-- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
+- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,,Automated 2026-11-02,Gukan / dev: the file name's timestamp is UTC (PET20261102100108188 was generated at 15:31 IST = 10:01:08.188Z). Legacy PET probably used local time. Not asserted; the ticket asks only for PET + date/time.
 WEBPET-3858,Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM.,"1. Open Reports > Input > Time In.
 2. Set Search by to Date In.
 3. Set Match to In range.
@@ -464,7 +464,7 @@ WEBPET-3938,A copy button next to the export file name copies the name and shows
 4. Click the copy icon next to the file name.
 5. Click Discard.","- The dialog shows the file name (PET...txt) with an icon-only copy button beside it.
 - A 'Copied.' message appears after clicking the copy icon.
-- After Discard nothing is saved or marked as exported.","CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
+- After Discard nothing is saved or marked as exported.","CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",Feasible - full,,Automated 2026-11-02 (Chromium: reads the clipboard back),
 PET-12942,Editing the time of an existing Time In on Transfer to Job Cards saves.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, set Search by to Time Card Crew and choose CF CREW, wait for the grid.
 3. Open a Time In row of CF EMPLOYEE ONE (click the row).

@@ -423,3 +423,28 @@ export const EtaTotalsAboveGridCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ jobCards: Rows, stripLabels: z.array(Text).min(3), totalsLabels: z.array(Text).min(4) }).strict(),
 }).strict();
 export type EtaTotalsAboveGridCase = z.infer<typeof EtaTotalsAboveGridCaseSchema>;
+
+// ── Cluster 4B: Save export file dialog and Test File name (3464 / 3931 / 3938); nothing is exported ──
+
+const EtaSaveDialogBase = { jobCards: Rows, fileName: Text, discardConfirm: Text, discardWarning: Text, candidateStatus: Text };
+
+export const EtaRenameBeforeSaveCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3464'),
+    ...TjcScoped,
+    expected: z.object({ ...EtaSaveDialogBase, title: Text, folderLine: Text, saveAsLabel: Text, newName: Text }).strict(),
+}).strict();
+export type EtaRenameBeforeSaveCase = z.infer<typeof EtaRenameBeforeSaveCaseSchema>;
+
+export const EtaTestFileNameCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3931'),
+    ...TjcScoped,
+    expected: z.object({ jobCards: Rows, fileName: Text, legacyPrefix: Text, recordsWritten: Text, matched: Text }).strict(),
+}).strict();
+export type EtaTestFileNameCase = z.infer<typeof EtaTestFileNameCaseSchema>;
+
+export const EtaCopyFileNameCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3938'),
+    ...TjcScoped,
+    expected: z.object({ ...EtaSaveDialogBase, copyLabel: Text, copied: Text }).strict(),
+}).strict();
+export type EtaCopyFileNameCase = z.infer<typeof EtaCopyFileNameCaseSchema>;

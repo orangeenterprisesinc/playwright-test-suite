@@ -403,22 +403,30 @@ export async function findOwnEditBatch(
  * contains the crew, Refresh. Refresh upserts the user's single draft; its id is recorded at once (teardown covers a
  * kill) and the draft is dropped before the lock is released, so no other worker finds its draft gone.
  */
-export async function withCrewEta<T>(run: CfRun, deps: CfDeps, check: () => Promise<T>): Promise<T> {
+export async function withCrewEta<T>(run: CfRun, deps: CfDeps, check: (track: (body: unknown) => void) => Promise<T>): Promise<T> {
     const eta = deps.pages.exportToAccounting;
     return withExportDraftLock(async () => {
         const drafts: number[] = [];
+        // Any run id the visit creates is dropped before the lock is released; POST …/run answers without one (2026-11-02), so that case is a no-op.
+        const track = (body: unknown): void => {
+            let id: number;
+            try {
+                id = runIdOf(body);
+            } catch {
+                return;
+            }
+            if (drafts.includes(id)) return;
+            drafts.push(id);
+            run.exportRunIds.push(id);
+        };
         try {
             await eta.openFromMenu();
             await eta.selectType('Payroll');
             await eta.scopeToDay(run.day);
             await eta.scopeToCrew(run.crew.name);
-            const refreshed = await eta.refresh((body) => {
-                const id = runIdOf(body);
-                drafts.push(id);
-                run.exportRunIds.push(id);
-            });
+            const refreshed = await eta.refresh(track);
             expect(refreshed.candidatesStatus, `${run.label}: POST …/candidates`).toBeLessThan(300);
-            return await check();
+            return await check(track);
         } finally {
             await cleanupExportRuns(deps.sessionApi, drafts, (name, error) =>
                 deps.testInfo.attach(name, { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' }));

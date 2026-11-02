@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "CF CREW D owns day -10. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and crew, Refresh, Test File, reads the Export file name and record count, closes. Test File changes no data. The Refresh draft is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-02 (day 10-24, one pair for 3931/3938/3464): Test File 2 ready / 0 cannot export, PET20261102100108188.txt, 2 records written; Save export file dialog, copy, 'Copied.', Discard x2 and Save As against the stand-in all confirmed live; nothing exported (draft 142 stayed draft)."
+  ],
+  "ticket": "WEBPET-3931",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -10,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": { "jobCards": 2, "fileName": "^PET\\d{17}\\.txt$", "legacyPrefix": "famous-120-3-payroll-", "recordsWritten": "2 records written", "matched": "2 matched" },
+  "annotations": [
+    { "type": "not-asserted", "description": "The file-name timestamp's time zone (UTC on dev, e.g. PET20261102100108188 at 15:31 IST); the ticket asks only for PET + date/time." }
+  ],
+  "cleanup": []
+}

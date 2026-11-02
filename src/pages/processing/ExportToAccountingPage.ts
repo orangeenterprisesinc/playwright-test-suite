@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { Download, Locator, Page, Response, Route, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
+import { ExportSaveDialog } from './ExportSaveDialog';
 import { TestFileSheet } from './TestFileSheet';
 import { ordinal } from './ViewJobCardsPage';
 
@@ -51,6 +52,7 @@ export class ExportToAccountingPage extends BasePage {
     readonly exportButton: Locator;
     readonly destinationText: Locator;
     readonly testFile: TestFileSheet;
+    readonly saveDialog: ExportSaveDialog;
     // CALIBRATE: the Recent Exports locators are unmeasured; the webpet ExportDispatchWorkspacePage testids are a reference only.
     readonly recentButton: Locator;
     readonly recentSheet: Locator;
@@ -68,6 +70,7 @@ export class ExportToAccountingPage extends BasePage {
         this.exportButton = page.getByRole('button', { name: /^Export (\d+) JobCards?$/ });
         this.destinationText = page.getByText(/·\s*File output/).first();
         this.testFile = new TestFileSheet(page);
+        this.saveDialog = new ExportSaveDialog(page);
         this.recentButton = page.getByTestId('export-v2-history-button').or(page.getByRole('button', { name: /^Recent/ })).first();
         this.recentSheet = page.getByTestId('export-v2-history-sheet').or(page.getByRole('dialog', { name: /Recent Exports/i })).first();
     }
@@ -136,6 +139,33 @@ export class ExportToAccountingPage extends BasePage {
         const candidatesResponse = await candidates;
         await this.grid.waitFor({ state: 'visible', timeout: 30_000 });
         return { runStatus: runsResponse.status(), candidatesStatus: candidatesResponse.status() };
+    }
+
+    /**
+     * Refresh again within the same visit: the SPA re-POSTs only …/candidates and reuses its draft (measured 2026-11-02
+     * after Export ▸ Discard), so `refresh()` would wait 60 s for a …/runs that never comes. A …/runs that does come is
+     * still handed to `onRun`.
+     */
+    async refreshCandidates(onRun?: (body: Record<string, unknown>) => void): Promise<number> {
+        const seen: Promise<void>[] = [];
+        const onResponse = (r: Response): void => {
+            if (onRun && r.request().method() === 'POST' && /\/export-to-accounting\/runs$/.test(new URL(r.url()).pathname)) {
+                seen.push(r.json().then((b) => onRun(b as Record<string, unknown>), () => undefined));
+            }
+        };
+        const candidates = this.page.waitForResponse((r) => r.request().method() === 'POST' && /\/export-to-accounting\/candidates$/.test(new URL(r.url()).pathname), { timeout: 60_000 });
+        candidates.catch(() => undefined);
+        this.page.on('response', onResponse);
+        try {
+            await expect(this.refreshButton, 'Refresh stays disabled until a date range is picked').toBeEnabled({ timeout: 15_000 });
+            await this.refreshButton.click();
+            const res = await candidates;
+            await this.grid.waitFor({ state: 'visible', timeout: 30_000 });
+            await Promise.all(seen);
+            return res.status();
+        } finally {
+            this.page.off('response', onResponse);
+        }
     }
 
     async openRecentExports(): Promise<void> {
@@ -435,6 +465,38 @@ export class ExportToAccountingPage extends BasePage {
             this.page.off('response', onResponse);
             await this.page.unroute('**/export-to-accounting/**', guard);
         }
+    }
+
+    /**
+     * Export ▸ confirm ▸ Export up to the "Save export file" dialog, never past it (WEBPET-3464/3938). Refuses unless
+     * the grid holds exactly the caller's rows and the save-picker stand-in is armed. `onRun` gets POST …/run's body
+     * before anything is asserted. "Nothing to export" (e.g. a missing earning code) fails by name with the server's answer.
+     */
+    async openSaveDialog(opts: { expectedCount: number; crew: string; onRun: (body: unknown) => void }): Promise<{ confirmText: string; offered: string[] }> {
+        const rows = await this.candidates();
+        const count = await this.exportCount();
+        if (rows.length !== opts.expectedCount || rows.some((r) => r.crew !== opts.crew) || count !== opts.expectedCount) {
+            throw new Error(`Refusing to export: the grid shows ${rows.length} row(s) ${JSON.stringify(rows.map((r) => r.crew))}, the button says ${count}, this test owns ${opts.expectedCount} of '${opts.crew}'.`);
+        }
+        if (!(await this.saveDialog.pickerArmed())) throw new Error('Refusing to export: the save-picker stand-in is not armed; the SPA would open the native save window by itself.');
+        const confirm = this.page.getByTestId('export-v2-confirm-dialog');
+        await this.exportButton.click();
+        await confirm.waitFor({ state: 'visible', timeout: 15_000 });
+        const confirmText = (await confirm.getByRole('heading').innerText()).trim();
+        if (Number(CONFIRM_TEXT.exec(confirmText)?.[1]) !== opts.expectedCount) throw new Error(`The confirm dialog reads "${confirmText}", expected ${opts.expectedCount} job card(s); not confirming.`);
+        const run = this.page.waitForResponse((r) => r.request().method() === 'POST' && /\/export-to-accounting\/run$/.test(new URL(r.url()).pathname), { timeout: 60_000 });
+        run.catch(() => undefined);
+        await this.page.getByTestId('export-v2-confirm-export').click();
+        const response = await run;
+        const body: unknown = await response.json().catch(() => null);
+        opts.onRun(body);
+        const outcome = await Promise.race([
+            this.saveDialog.root.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'dialog' as const),
+            this.page.getByText(/^Nothing to export/).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'nothing to export' as const),
+        ]).catch(() => 'no dialog' as const);
+        if (outcome !== 'dialog') throw new Error(`Export reached no "Save export file" dialog (${outcome}); POST …/run answered ${response.status()} ${JSON.stringify(body).slice(0, 400)}`);
+        // The SPA offers the save window by itself right after Export (default name); the stand-in's Cancel is what opens this dialog.
+        return { confirmText, offered: await this.saveDialog.pickerCalls() };
     }
 }
 

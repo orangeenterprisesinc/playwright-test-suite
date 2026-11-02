@@ -452,8 +452,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3464",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3484",
@@ -738,8 +738,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3931",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3858",
@@ -1102,8 +1102,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3938",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "PET-12942",

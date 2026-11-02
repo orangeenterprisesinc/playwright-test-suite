@@ -11,6 +11,9 @@ export class TestFileSheet {
     readonly sheet: Locator;
     readonly heading: Locator;
     readonly resultsAlert: Locator;
+    /** The Export file block once a file was generated (WEBPET-3931): its name and "N records written". */
+    readonly fileName: Locator;
+    readonly recordsWritten: Locator;
     private readonly summary: Locator;
 
     constructor(private readonly page: Page) {
@@ -21,6 +24,8 @@ export class TestFileSheet {
         this.heading = this.sheet.locator('[data-slot="sheet-title"]', { hasText: /^Test File$/ });
         this.summary = page.getByTestId('job-card-analyze-summary');
         this.resultsAlert = page.getByTestId('export-analyze-results');
+        this.fileName = page.getByTestId('export-test-file-name');
+        this.recordsWritten = this.sheet.getByText(/^\d+ records? written$/);
     }
 
     /** Click Test File and wait for both of the sheet's own POSTs; returns the crew ids each one carried. */
