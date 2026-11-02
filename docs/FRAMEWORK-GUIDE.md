@@ -536,5 +536,7 @@ Time cards have no name prefix either; the fixture-day reconcile
 (`src/utils/cleanup/fixtureReconcile.ts`, both hooks) waits out the previous run's
 in-flight imports and sweeps the Journey B fixture employee-days over the whole
 fixture-day window, on top of the per-spec `sweepFixtureCards` / `cleanupCards`.
-Knobs: `FIXTURE_RECONCILE=0`, `RECONCILE_STALL_MS`, `RECONCILE_CEILING_MS`,
-`RECONCILE_BUDGET_MS`.
+It runs in CI only: it deletes every fixture-employee card whoever made it, and a
+local client-feedback loop wiped the 2026-11-02 nightly's Journey B cards mid-test.
+Knobs: `FIXTURE_RECONCILE=1` (opt a local run in), `FIXTURE_RECONCILE=0` (off, CI
+included), `RECONCILE_STALL_MS`, `RECONCILE_CEILING_MS`, `RECONCILE_BUDGET_MS`.

@@ -51,6 +51,21 @@ export type ReconcilePhase = 'start' | 'end';
 export interface ReconcileOptions {
     phase: ReconcilePhase;
     context?: APIRequestContext;
+    /** The residue-sweep tool asked for it by name, so the local-run default does not apply. */
+    standalone?: boolean;
+}
+
+/**
+ * The sweep deletes every fixture-employee card in the window, whoever made it. A local run of ANY spec
+ * therefore wipes a concurrent nightly's fresh Journey B cards mid-test: in run 41435456717 a client-feedback
+ * loop on a dev machine started a run every 2-3 min, its reconciles deleted 38 of the nightly's cards and
+ * drained 2 of its envelopes, and B1-B10 read an empty Transfer screen. So it is on in CI only; a local run
+ * opts in with FIXTURE_RECONCILE=1, and =0 still turns it off everywhere.
+ */
+export function fixtureReconcileEnabled(standalone = false): boolean {
+    const flag = process.env.FIXTURE_RECONCILE;
+    if (flag === '0') return false;
+    return standalone || flag === '1' || Boolean(process.env.CI);
 }
 
 export type ProbeAnswer = 'present' | 'absent' | 'unknown';
@@ -518,7 +533,7 @@ export async function reconcileFixtureDays(opts: ReconcileOptions): Promise<Reco
         return summary;
     };
 
-    if (process.env.FIXTURE_RECONCILE === '0') {
+    if (!fixtureReconcileEnabled(opts.standalone)) {
         summary.enabled = false;
         return finish();
     }

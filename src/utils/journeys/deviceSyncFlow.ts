@@ -108,18 +108,36 @@ export async function scopeDevice(minted: MintedDeviceScope, opts: DeviceScopeOp
     return { ...minted, entities: { ranch, field, crew }, deviceId, mailbox, cleanup };
 }
 
+async function pullUntil(url: string, mailbox: string, ms: number): Promise<PulledMessage | null> {
+    let pulled: PulledMessage | null = null;
+    const deadline = Date.now() + ms;
+    while (!(pulled = await pullFromRelay(url, mailbox)) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+    return pulled;
+}
+
 /** Drains the device mailbox, pushes, pulls the envelope back and attaches it. */
 export async function pushAndPull(run: DeviceScopeRun, pages: PageObjects, testInfo: TestInfo): Promise<DeviceSync> {
     const { url } = run.relay;
     // Anything already queued for this mailbox would be pulled instead of ours.
     await drainMailbox(url, run.mailbox.address);
-    const { destination } = await pages.scanDevice.pushToDevice();
+    let { destination } = await pages.scanDevice.pushToDevice();
     // The push panel reports success before the relay has the message (CI 2026-10-28: one pull right
     // after it read nothing, the retry read the file), so pull like a device would, for a bounded while.
-    let pulled: PulledMessage | null = null;
-    const deadline = Date.now() + 60_000;
-    while (!(pulled = await pullFromRelay(url, run.mailbox.address)) && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 2_000));
+    let pulled = await pullUntil(url, run.mailbox.address, 60_000);
+    if (!pulled) {
+        // A send the office marks completed can still never reach the relay: "No more Messages" for 57 s after
+        // processedAt (local 2026-11-02), and the nightly lost it the same way on 10-31 and 11-01. Push again,
+        // as the office would; the second push is recorded so a lost send never passes silently.
+        testInfo.annotations.push({
+            type: 'device-push-repeated',
+            description: `Nothing reached ${run.mailbox.address} within 60 s of a completed push; pushed again.`,
+        });
+        await pages.scanDevice.gotoEdit(run.deviceId, run.device.name);
+        await pages.scanDevice.waitForEditReady();
+        ({ destination } = await pages.scanDevice.pushToDevice());
+        pulled = await pullUntil(url, run.mailbox.address, 60_000);
     }
     run.mailbox.pulled = pulled;
     if (pulled) await testInfo.attach('scan-device-export.xml', { body: pulled.attachment, contentType: 'application/xml' });
