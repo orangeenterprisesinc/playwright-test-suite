@@ -58,11 +58,11 @@ on:
         required: false
         default: ''
       browsers:
-        description: 'journey only. `cross-browser` runs the @CrossBrowser tests on WebKit (Safari engine) and Microsoft Edge instead of the Chromium suite.'
+        description: 'journey only. `webkit` (Safari engine) or `msedge` runs the suite (or the grep) on that browser instead of Chromium; `cross-browser` runs the @CrossBrowser smoke on both.'
         type: choice
         required: false
         default: chromium
-        options: [chromium, cross-browser]
+        options: [chromium, webkit, msedge, cross-browser]
   # Nothing calls this today; a caller would inherit its triggering event, which the Slack gate reads.
   workflow_call:
     inputs:
@@ -98,7 +98,7 @@ on:
         required: false
         default: ''
       browsers:
-        description: '`chromium` or `cross-browser` — see the workflow_dispatch input of the same name.'
+        description: '`chromium`, `webkit`, `msedge` or `cross-browser` — see the workflow_dispatch input of the same name.'
         type: string
         required: false
         default: chromium
@@ -358,8 +358,13 @@ jobs:
         run: |
           FILTER="$GREP"
           ARGS=()
-          # cross-browser runs only the @CrossBrowser tests, on WebKit and Edge.
-          if [ "$SUITE" != "webpet" ] && [ "$BROWSERS" = "cross-browser" ]; then ARGS+=(--project=webkit --project=msedge); fi
+          # webkit / msedge run the suite (or the grep) on that browser; cross-browser is the @CrossBrowser smoke on both.
+          if [ "$SUITE" != "webpet" ]; then
+            case "$BROWSERS" in
+              webkit|msedge) ARGS+=(--project="$BROWSERS") ;;
+              cross-browser) ARGS+=(--project=webkit --project=msedge); FILTER="${FILTER:-@CrossBrowser}" ;;
+            esac
+          fi
           if [ "$SUITE" = "webpet" ]; then
             if [ -n "$BATCH" ]; then FILTER="@WPBatch$BATCH"; fi
             W="${WORKERS:-2}"
