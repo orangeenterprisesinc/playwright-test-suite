@@ -9,7 +9,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 export interface ReverseRunRow {
-    /** `dd/mm/yyyy, HH:mm:ss` as shown. */
+    /** As shown, in the browser's locale (see parseRunDate). */
     runDate: string;
     at: Date;
     type: string;
@@ -50,11 +50,25 @@ export class ReverseExportPage extends BasePage {
         return used;
     }
 
-    /** `26/10/2026, 17:04:41`, local time. */
-    static parseRunDate(text: string): Date {
-        const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})/.exec(text.trim());
-        if (!m) throw new Error(`Run date "${text}" is not dd/mm/yyyy, HH:mm:ss`);
-        return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]), Number(m[6]));
+    /**
+     * Local time in the browser's locale: `26/10/2026, 17:04:41` (en-GB) or `11/2/2026, 7:06:10 AM` (en-US, the
+     * Playwright Docker image). Read day-first, an en-US date lands months away and the own run is filtered out.
+     */
+    static parseRunDate(text: string, dayFirst: boolean): Date {
+        const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})(?:\s*([AP])M)?/i.exec(text.trim());
+        if (!m) throw new Error(`Run date "${text}" is not d/m/yyyy or m/d/yyyy, h:mm:ss`);
+        const [day, month] = dayFirst ? [m[1], m[2]] : [m[2], m[1]];
+        let hour = Number(m[4]);
+        if (m[7]) hour = (hour % 12) + (m[7].toUpperCase() === 'P' ? 12 : 0);
+        return new Date(Number(m[3]), Number(month) - 1, Number(day), hour, Number(m[5]), Number(m[6]));
+    }
+
+    /** The page formats with the browser's default locale, so ask that locale which comes first. */
+    private async dateIsDayFirst(): Promise<boolean> {
+        return this.page.evaluate(() => {
+            const parts = new Intl.DateTimeFormat().formatToParts(new Date(2000, 11, 31));
+            return parts.findIndex((p) => p.type === 'day') < parts.findIndex((p) => p.type === 'month');
+        });
     }
 
     private dataRows(): Locator {
@@ -71,6 +85,7 @@ export class ReverseExportPage extends BasePage {
             return i;
         };
         const at = { date: index('Run date'), type: index('Type'), by: index('Performed by'), cards: index('Job Cards') };
+        const dayFirst = await this.dateIsDayFirst();
         const rows = this.dataRows();
         const count = await rows.count();
         const out: ReverseRunRow[] = [];
@@ -78,7 +93,7 @@ export class ReverseExportPage extends BasePage {
             const cells = (await rows.nth(i).getByRole('cell').allInnerTexts()).map((c) => c.trim());
             out.push({
                 runDate: cells[at.date] ?? '',
-                at: ReverseExportPage.parseRunDate(cells[at.date] ?? ''),
+                at: ReverseExportPage.parseRunDate(cells[at.date] ?? '', dayFirst),
                 type: cells[at.type] ?? '',
                 performedBy: cells[at.by] ?? '',
                 jobCards: Number((cells[at.cards] ?? '').replace(/[^0-9]/g, '')),
