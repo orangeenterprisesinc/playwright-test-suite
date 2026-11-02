@@ -8,6 +8,8 @@ export const ClientFeedbackFixtureSchema = z.object({
     _notes: z.array(z.string()).optional(),
     ranch: Entity,
     field: Entity,
+    /** WEBPET-3701: kept Active = No by ensureFieldOnScreen; never activated, never deleted. */
+    inactiveField: Entity,
     jobs: z.object({
         hourly: Entity.extend({ paymentType: z.literal('Time'), hourlyRate: z.number().positive(), earningCodes: z.string().min(1).optional() }).strict(),
         piece: Entity.extend({ paymentType: z.literal('Piece'), pieceRate: z.number().positive() }).strict(),

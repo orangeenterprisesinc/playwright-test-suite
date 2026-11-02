@@ -205,6 +205,8 @@ export interface FieldSpec extends CodedSpec {
     state?: string;
     /** Defaults to the code; the Famous writer refuses cards whose Field has none. */
     exportIdentifier?: string;
+    /** Set only by a fixture that must stay inactive (WEBPET-3701); absent means Active is never touched. */
+    active?: boolean;
 }
 
 const FIELD: EntitySpec<FieldSpec> = {
@@ -220,17 +222,31 @@ const FIELD: EntitySpec<FieldSpec> = {
             state: spec.state,
             exportIdentifier: spec.exportIdentifier ?? spec.code,
         });
-        return outcome === 'created' ? pages.field.savedIdFromUrl() : null;
+        if (outcome !== 'created') return null;
+        const id = pages.field.savedIdFromUrl();
+        // createField does not drive Active; an inactive fixture is switched off on its Edit form.
+        if (spec.active === false) {
+            await pages.field.gotoEditById(id, spec.name);
+            await pages.field.setActive(false);
+        }
+        return id;
     },
     readDetail: ({ api }, id) => getDetail(api, 'fields', id),
-    // Never overwrites a value that is set.
-    needsRepair: (detail) =>
-        typeof detail.exportIdentifier !== 'string' || detail.exportIdentifier.trim() === '' ? ['exportIdentifier'] : [],
-    async repair({ pages }, id, name, _repairs, spec) {
+    // Never overwrites a value that is set; Active is compared only when the spec names it.
+    needsRepair: (detail, spec) => {
+        const repairs: Repair[] = [];
+        if (typeof detail.exportIdentifier !== 'string' || detail.exportIdentifier.trim() === '') repairs.push('exportIdentifier');
+        if (spec.active !== undefined && isActive(detail) !== spec.active) repairs.push('active');
+        return repairs;
+    },
+    async repair({ pages }, id, name, repairs, spec) {
         await pages.field.gotoEditById(id, name);
-        const wanted = spec.exportIdentifier ?? spec.code;
-        const shown = await pages.field.setExportIdentifier(wanted);
-        if (shown !== wanted) throw new Error(`Field '${name}': Export Identifier reads '${shown}' after saving, wanted '${wanted}'.`);
+        if (repairs.includes('exportIdentifier')) {
+            const wanted = spec.exportIdentifier ?? spec.code;
+            const shown = await pages.field.setExportIdentifier(wanted);
+            if (shown !== wanted) throw new Error(`Field '${name}': Export Identifier reads '${shown}' after saving, wanted '${wanted}'.`);
+        }
+        if (repairs.includes('active') && spec.active !== undefined) await pages.field.setActive(spec.active);
     },
 };
 

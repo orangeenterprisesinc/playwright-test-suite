@@ -1,0 +1,12 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su). Name contains 'CF RANCH' leaves 1 row; Report offers only All Data; the PDF prints 'Name contains CF RANCH' above 'Ranch: All Data' and one ranch row, and every ranch row carries a 'GPS Point' line.",
+    "The ticket text says 'Filters: <caption> contains <value>'; the build prints no 'Filters:' prefix (planner finding F1). The printed criterion line is asserted. Arrange: CF RANCH only; nothing created, no (crew, day) pair."
+  ],
+  "ticket": "WEBPET-3424",
+  "screen": { "menuPath": ["Setup", "Ranch"], "url": "/setup/ranches" },
+  "filter": { "column": "Name", "value": "CF RANCH" },
+  "expected": { "rows": 1, "dialogTitlePrefix": "Report: All Data", "filterLine": "Name contains CF RANCH", "reportTitle": "Ranch: All Data", "rowMarker": "GPS Point" },
+  "annotations": [],
+  "cleanup": []
+}

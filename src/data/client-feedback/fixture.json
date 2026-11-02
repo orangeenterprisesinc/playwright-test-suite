@@ -4,10 +4,12 @@
     "Names start with 'CF ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^CF / so the residue sweep and fixture reconcile can never reclaim them. Never deleted.",
     "Built on screen by src/utils/client-feedback/clientFeedbackFlow.ts through ensureOnScreen (existence is a GET, create/repair is UI). The Time job carries hourlyRate 1: a rate-less job raises 'No hourly rate available' on transfer.",
     "Isolation unit is (crew, day): each scenario file owns one (fixtureCrew, dayOffset) pair, enforced by scenarioLoader.assertDistinctCrewDays.",
-    "CF JOB carries the Earning Code every exportable dev job has (RH,,OT,,DT,,RDP,,ODT,,DDT); without it Test File and Export reject every CF card (cluster 4B, 2026-11-01)."
+    "CF JOB carries the Earning Code every exportable dev job has (RH,,OT,,DT,,RDP,,ODT,,DDT); without it Test File and Export reject every CF card (cluster 4B, 2026-11-01).",
+    "CF INACTIVE FIELD (9005, under CF RANCH) is WEBPET-3701's inactive record: ensureFieldOnScreen creates it on screen once, switches Active off on its Edit form, and repairs Active back to No if anything turns it on. 9005 and the name were free live and in the recycle bin on 2026-11-02."
   ],
   "ranch": { "code": "9001", "name": "CF RANCH" },
   "field": { "code": "9002", "name": "CF FIELD" },
+  "inactiveField": { "code": "9005", "name": "CF INACTIVE FIELD" },
   "jobs": {
     "hourly": { "code": "9003", "name": "CF JOB", "paymentType": "Time", "hourlyRate": 1, "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
     "piece": { "code": "9004", "name": "CF PIECE JOB", "paymentType": "Piece", "pieceRate": 1 }

@@ -1,0 +1,8 @@
+{
+  "_notes": ["Screen only, no rows. Walked on dev 2026-11-02: Add fields opens 'Add columns' with 18 captions including Rate and no form.field… key. Closed with Escape, nothing ticked (layout is per user)."],
+  "ticket": "WEBPET-3425",
+  "screen": { "menuPath": ["Setup", "Employee"], "url": "/setup/employees" },
+  "expected": { "caption": "Rate", "rawKeyMarker": "form.field" },
+  "annotations": [],
+  "cleanup": []
+}

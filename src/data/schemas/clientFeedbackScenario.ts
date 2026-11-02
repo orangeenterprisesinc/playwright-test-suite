@@ -448,3 +448,45 @@ export const EtaCopyFileNameCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ ...EtaSaveDialogBase, copyLabel: Text, copied: Text }).strict(),
 }).strict();
 export type EtaCopyFileNameCase = z.infer<typeof EtaCopyFileNameCaseSchema>;
+
+// ── Cluster 5A: Setup screens and report PDFs (3424 / 3425 / 3577 / 3701 / 3703) ──
+
+const CfWho = z.enum(['one', 'two']);
+
+export const SetupRanchReportFilterCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3424'),
+    filter: z.object({ column: Text, value: Text }).strict(),
+    expected: z.object({ rows: Rows, dialogTitlePrefix: Text, filterLine: Text, reportTitle: Text, rowMarker: Text }).strict(),
+}).strict();
+export type SetupRanchReportFilterCase = z.infer<typeof SetupRanchReportFilterCaseSchema>;
+
+export const SetupEmployeeAddFieldsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3425'),
+    expected: z.object({ caption: Text, rawKeyMarker: Text }).strict(),
+}).strict();
+export type SetupEmployeeAddFieldsCase = z.infer<typeof SetupEmployeeAddFieldsCaseSchema>;
+
+export const SetupEmployeeTabSelectsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3577'),
+    fixtureCrew: CfCrew,
+    employee: CfWho,
+    department: z.object({ typed: Text, match: Text }).strict(),
+    expected: z.object({ departmentAfterLeave: Text }).strict(),
+}).strict();
+export type SetupEmployeeTabSelectsCase = z.infer<typeof SetupEmployeeTabSelectsCaseSchema>;
+
+export const SetupFieldInactiveBadgeCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3701'),
+    filter: z.object({ column: Text }).strict(),
+    expected: z.object({ rows: Rows, recordsScope: Text, viewerTitlePrefix: Text, badges: Rows }).strict(),
+}).strict();
+export type SetupFieldInactiveBadgeCase = z.infer<typeof SetupFieldInactiveBadgeCaseSchema>;
+
+export const SetupEmployeeContactCrewCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3703'),
+    fixtureCrew: CfCrew,
+    filter: z.object({ column: Text }).strict(),
+    report: Text,
+    expected: z.object({ errorText: Text, filterLinePrefix: Text, rowSuffix: Text, listed: z.array(Text).min(1) }).strict(),
+}).strict();
+export type SetupEmployeeContactCrewCase = z.infer<typeof SetupEmployeeContactCrewCaseSchema>;

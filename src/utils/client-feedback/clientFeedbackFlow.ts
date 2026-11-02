@@ -437,3 +437,18 @@ export async function withCrewEta<T>(run: CfRun, deps: CfDeps, check: (track: (b
         }
     });
 }
+
+// ── Cluster 5A: Setup screens and report PDFs ──
+
+const onScreenDeps = (deps: CfDeps) => ({ api: deps.sessionApi, pages: deps.pages, testInfo: deps.testInfo });
+
+export async function ensureCfRanch(deps: CfDeps): Promise<EnsuredRecord> {
+    return ensureRanchOnScreen(CF_FIXTURE.ranch, onScreenDeps(deps));
+}
+
+/** WEBPET-3701: CF RANCH, then the fixed inactive field under it: found by code, created on screen once, kept Active = No. */
+export async function ensureCfInactiveField(deps: CfDeps): Promise<{ ranch: EnsuredRecord; field: EnsuredRecord }> {
+    const ranch = await ensureCfRanch(deps);
+    const field = await ensureFieldOnScreen({ ...CF_FIXTURE.inactiveField, ranch: { id: ranch.id, name: ranch.name }, active: false }, onScreenDeps(deps));
+    return { ranch, field };
+}

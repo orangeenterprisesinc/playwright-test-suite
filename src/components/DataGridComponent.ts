@@ -14,6 +14,7 @@
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseComponent } from './BaseComponent';
+import { PickerComponent } from './PickerComponent';
 
 /**
  * A PET Tiger list grid.
@@ -192,6 +193,19 @@ export class DataGridComponent extends BaseComponent {
             throw new Error(`'${label}' has no text filter (its filter is a picker/date/number control)`);
         }
         await box.fill(text);
+    }
+
+    /** Picks a value in a column's picker filter (Crew, Department, Ranch on Setup lists): the combobox in that filter cell. */
+    async columnPickerFilter(label: string, value: string): Promise<void> {
+        const index = await this.columnIndex(label);
+        const box = this.filterRow.getByRole('columnheader').nth(index).getByRole('combobox');
+        if ((await box.count()) === 0) throw new Error(`'${label}' has no picker filter (its filter is a text/date/number control)`);
+        await new PickerComponent(this.page).pickCombobox(box.first(), value);
+    }
+
+    /** A Setup row's Active cell ("Active: <name>"). */
+    activeCheckbox(name: string): Locator {
+        return this.getByRole('checkbox', { name: `Active: ${name}`, exact: true });
     }
 
     /** Ticks rows by "Select <label>" or by body-row position; never a bare first checkbox (Setup rows also carry "Active: <name>"). */

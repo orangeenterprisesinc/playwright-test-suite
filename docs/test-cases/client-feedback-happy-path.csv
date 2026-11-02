@@ -149,12 +149,12 @@ WEBPET-3423,Smoke: Recalculate on a job card works without error and keeps its h
 WEBPET-3424,Setup > Ranch Report prints only the rows matching the grid filter.,"1. Open Setup > Ranch.
 2. Filter the grid on Worker Comp Code (or Name contains CF) so only a few ranches remain.
 3. Note the number of rows left.
-4. Click Report and open the PDF.","- PDF header shows 'Filters: <column caption> contains <value>' (e.g. Worker Comp Code contains 8291).
-- PDF has the same number of rows as the grid, not every ranch.",none; use an existing ranch value (CF RANCH name works). Nothing created.,Feasible - full,,,
+4. Click Report and open the PDF.","- The PDF prints the grid's filter line '<column caption> contains <value>' above the rows (e.g. Name contains CF RANCH, or Worker Comp Code contains 8291).
+- PDF has the same number of rows as the grid, not every ranch.",none; use an existing ranch value (CF RANCH name works). Nothing created.,Feasible - full,Sheet correction 2026-11-02 (manual walk): the PDF prints the criterion line without a 'Filters:' prefix (e.g. 'Name contains CF RANCH'); Expected Result reworded to what the fix prints. Setup > Ranch offers only the 'All Data' report.,Automated 2026-11-02 (reads the report PDF text),
 WEBPET-3425,The Add fields picker on Setup > Employee shows a real caption 'Rate' instead of a raw key.,"1. Open Setup > Employee.
 2. Click Add fields on the grid.
 3. Look through the field list for the rate entry.","- The list contains 'Rate'.
-- No entry reads 'form.field.rate.label' or any other raw form.field... text.",none,Feasible - full,,,
+- No entry reads 'form.field.rate.label' or any other raw form.field... text.",none,Feasible - full,,Automated 2026-11-02,
 WEBPET-3426,"On Transfer to Job Cards > Job Cards, the warnings banner is collapsed to a count line and the grid still shows about 10 rows.","1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date that produces job card warnings, filter to CF CREW and click Analyze Transfer Candidates.
 3. Click the Job Cards tab.
@@ -225,17 +225,17 @@ WEBPET-3577,Pressing Tab in a dropdown after typing a single match selects that 
 2. In Department, click the field and type the start of a department name that has only one match (e.g. Sycamore).
 3. Press Tab.
 4. Check the Department field.","- Department shows the matching value (e.g. Sycamore ...), not blank.
-- The cursor moves to the next field with the value kept.",Employee CF EMPLOYEE ONE; do not save (or restore the original Department if saved).,Feasible - full,,,
+- The cursor moves to the next field with the value kept.",Employee CF EMPLOYEE ONE; do not save (or restore the original Department if saved).,Feasible - full,,Automated 2026-11-02 (leaves without saving),
 WEBPET-3701,Print Badges prints a badge for an inactive record that the grid shows.,"1. Open Setup > Field.
 2. Filter the grid to an inactive field (turn off Active only / filter Active = No).
 3. Click Print Badges.
 4. Open the preview.","- The preview shows one badge for the inactive field.
-- It is not an empty report.",An existing inactive field (not created).,Feasible - full,,,
+- It is not an empty report.",An existing inactive field (not created).,Feasible - full,,"Automated 2026-11-02 (fixture CF INACTIVE FIELD 9005, kept Active = No; reads the badge PDF text)",
 WEBPET-3703,An Employee report run with a Crew filter returns a PDF instead of a 'could not be bound' error.,"1. Open Setup > Employee.
 2. Filter the grid by Crew (e.g. CF CREW).
 3. Click Report, pick Employee Contact and run it to PDF.
 4. Read the PDF header.","- A PDF opens with no 'multi-part identifier could not be bound' error.
-- Header shows 'Filters: Crew = <crew name>' and lists only the filtered employees.",Crew CF CREW (has CF EMPLOYEE ONE/TWO). Nothing created.,Feasible - full,,,
+- The PDF prints the filter line 'Crew = <crew name>' and lists only the filtered employees.",Crew CF CREW (has CF EMPLOYEE ONE/TWO). Nothing created.,Feasible - full,"Sheet correction 2026-11-02 (manual walk): the PDF prints 'Crew = CF CREW D' without a 'Filters:' prefix, and the report option is named 'Contact' (viewer 'Employee - Contact'); Expected Result reworded.",Automated 2026-11-02 (reads the report PDF text),
 WEBPET-3705,Smoke: a normal transfer still creates job cards without error after the zero-pay rate change.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, filter to CF CREW, click Analyze Transfer Candidates.
 3. Click Transfer to Job Cards and confirm.
@@ -245,7 +245,7 @@ WEBPET-3706,Undo after a Setup multi-delete restores the records and shows succe
 2. Select two or more rows and delete them with Multi-Delete.
 3. Click Undo.
 4. Check the grid.","- The deleted rows come back in the grid.
-- A success message shows and no error or failure message appears.",create: two throwaway validation rows; remove them afterwards.,Feasible - full,,,
+- A success message shows and no error or failure message appears.",create: two throwaway validation rows; remove them afterwards.,Feasible - full,Manual walk 2026-11-02: the menu label is Setup > 'TimeSheet Setup' and the screen heading 'TimeSheet Validations'; Multi-Delete is Multi-Edit > select > More actions > Delete. Created rows get run-tagged names (validations have no purge).,Pending: manual pass 2026-11-02; automation in progress,
 WEBPET-3707,Smoke: a Time & Piece transfer still creates job cards without error.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, filter to CF CREW, click Analyze Transfer Candidates.
 3. Click Transfer to Job Cards and confirm.
@@ -301,13 +301,13 @@ WEBPET-3927,"Employee Add > Quick has Name, Middle, Export Identifier and Time C
 4. Click Save employee.
 5. Click Open record and compare the values.","- Quick form shows Name, First Name, Last Name, Middle, Export Identifier and a Time Card Defaults section (Default Ranch, Default Field, Default Job, Always Use Default Job).
 - Banner reads '<name> was added. Ready for the next employee.'
-- The opened employee shows the same Middle, Export Identifier and defaults.",create: one employee (e.g. CF QUICK ADD TEST) with CF RANCH defaults; delete it afterwards.,Feasible - full,,,
+- The opened employee shows the same Middle, Export Identifier and defaults.",create: one employee (e.g. CF QUICK ADD TEST) with CF RANCH defaults; delete it afterwards.,Feasible - full,,Pending: manual pass 2026-11-02; automation in progress,Gukan / dev: Employee Add > Quick pre-fills Crew with B1 CREW (looks like a preference default). Should Quick Add default a crew at all? The spec clears it so a test employee never joins a fixture crew's roster.
 WEBPET-3929,"After saving a Quick Add employee, the banner has a Print badge link.","1. Open Employee Add > Quick.
 2. Enter First Name and Last Name.
 3. Click Save employee.
 4. Read the banner at the top.
 5. Click Print badge.","- Banner reads '<name> was added. Ready for the next employee.' with 'Print badge' and 'Open record' links.
-- Print badge opens the employee's badge for printing without opening the record.",create: one employee (e.g. CF QUICK BADGE TEST); delete it afterwards.,Feasible - full,,,
+- Print badge opens the employee's badge for printing without opening the record.",create: one employee (e.g. CF QUICK BADGE TEST); delete it afterwards.,Feasible - full,,Pending: manual pass 2026-11-02; automation in progress,
 WEBPET-3930,The totals on Export to Accounting sit above the Candidates grid.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Look above the Candidates heading.","- The strip 'Job-cards N of N / Employees N of N / Pieces ...' and the 'Totals Gross ... Net ... Amount ...' row are shown above the Candidates grid.
@@ -328,7 +328,7 @@ WEBPET-3864,"The Edit Filter Script screen matches Legacy: Screen label, script 
 4. Read Description, then scroll to Report Viewer Users.","- The field is labeled Screen and shows the screen name (e.g. Time In), locked.
 - Script Type shows a name (e.g. Report), not a number, and is locked.
 - Description is read-only and an Execute Script button is available; no Table field is visible.
-- Report Viewer Users has Add Users (Select users...) and Empty.",An existing script; nothing is changed or saved.,Feasible - full,,,
+- Report Viewer Users has Add Users (Select users...) and Empty.",An existing script; nothing is changed or saved.,Feasible - full,"Manual walk 2026-11-02: the example script 'Employees Currently on the Job' does not exist on su (9 scripts); the walk and the spec use 'Permanent Badge Assignment' (Time In / Report), which shows every field the ticket names.",Pending: manual pass 2026-11-02; automation in progress,
 WEBPET-3805,Reports > Input > Job Card has Load and Save for report scripts.,"1. Open Reports > Input > Job Card.
 2. Check the buttons under the Filter description.
 3. Click Load.","- Execute, Load and Save buttons are shown.
@@ -372,7 +372,7 @@ WEBPET-3610,The Employee Gender select saves Male and shows Male again after reo
 3. Choose Male and Save.
 4. Close and reopen CF EMPLOYEE ONE and read Gender.
 5. Set Gender back to its original value and Save.","- The Gender list shows Unspecified, Male, Female and Non-Binary.
-- After reopening, Gender shows Male.",CF EMPLOYEE ONE; the original Gender value is restored at the end,Feasible - full,,,
+- After reopening, Gender shows Male.",CF EMPLOYEE ONE; the original Gender value is restored at the end,Feasible - full,"Manual walk 2026-11-02 failed on the list bullet: the Gender select offers only Male, Female and Non-Binary; there is no 'Unspecified' option (an empty value comes back only through a 'Clear selection' button once a value is set). Saving Male and reopening shows Male (stored as 0), so the save half of the fix works. Not automated until the list matches.",Manual fail: the Gender list has no 'Unspecified' option (see Reason),"Gukan / dev: is 'Unspecified' still expected in the Gender list (the ticket's legacy mapping includes it), or is 'Clear selection' the intended way to leave Gender empty? Male / Female / Non-Binary save correctly."
 WEBPET-3796,"Under Oracle Synchronization, job card and time card row scoping now uses the Oracle department-and-crew filter so a restricted user does not see more than legacy allows.","Not testable on UI: It is a latent security fix for the Oracle Synchronization licence, which no client has; the manual UI check was not done.",A restricted user on a licensed client sees no wider a set of cards than legacy allows.,—,Not feasible,"It is a latent security fix for the Oracle Synchronization licence, which no client has; the manual UI check was not done.",,
 WEBPET-3164,Smoke: a Time-In report launched from the View > Time Cards grid runs without an unbindable-column error.,"1. Open View > Time Cards.
 2. Filter to a past date and Work Crew = CF CREW, then click Apply Filter.

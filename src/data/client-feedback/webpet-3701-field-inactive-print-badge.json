@@ -1,0 +1,12 @@
+{
+  "_notes": [
+    "Owns the fixed CF INACTIVE FIELD (9005, CF RANCH, Active = No) through ensureCfInactiveField; it is never deleted and is protected by /^CF /.",
+    "Walked on dev 2026-11-02 against an existing inactive field (5215-Grape Embryos): Print Badges dialog with Records = Current filter, then Print, opens 'Field - Badges CR80 — …' with one badge (ranch name, field name)."
+  ],
+  "ticket": "WEBPET-3701",
+  "screen": { "menuPath": ["Setup", "Field"], "url": "/setup/fields" },
+  "filter": { "column": "Name" },
+  "expected": { "rows": 1, "recordsScope": "Current filter", "viewerTitlePrefix": "Field - Badges CR80", "badges": 1 },
+  "annotations": [],
+  "cleanup": []
+}

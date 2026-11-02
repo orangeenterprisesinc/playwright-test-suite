@@ -360,6 +360,30 @@ export class EmployeePage extends SetupScreenPage {
         await expect(this.unsavedChangesBar).toBeVisible();
         await this.saveEdit();
     }
+
+    // ── Client feedback 5A: Department Tab (WEBPET-3577) ──
+
+    /** Types into Department and returns the options once every one contains what was typed; the list stays open for the Tab. */
+    async typeDepartment(prefix: string): Promise<string[]> {
+        await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        await this.departmentCombobox.click();
+        await this.departmentCombobox.pressSequentially(prefix);
+        const options = (await this.pickers.listboxOf(this.departmentCombobox)).getByRole('option');
+        const narrowed = async (): Promise<string[] | null> => {
+            const texts = (await options.allInnerTexts()).map((t) => t.trim());
+            return texts.length > 0 && texts.every((t) => t.toLowerCase().includes(prefix.toLowerCase())) ? texts : null;
+        };
+        await expect.poll(narrowed, { timeout: 15_000, message: `Department never narrowed to options containing '${prefix}'` }).not.toBeNull();
+        return (await narrowed()) ?? [];
+    }
+
+    /** A dirty form's Cancel reads "Discard changes" and raises "Save changes before leaving?"; Don't Save returns to the list. */
+    async leaveWithoutSaving(): Promise<void> {
+        await this.page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+        const prompt = this.page.getByRole('alertdialog', { name: 'Save changes before leaving?' });
+        await prompt.getByRole('button', { name: "Don't Save", exact: true }).click({ timeout: 15_000 });
+        await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
+    }
 }
 
 export default EmployeePage;
