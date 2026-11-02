@@ -32,7 +32,7 @@ WEBPET-3492,The Export button count equals the number of job cards matched witho
 2. Set a past date range and filter Job Card Crew contains CF.
 3. Wait for the grid to load, do not scroll.
 4. Compare '3798 matched'-style count, 'Job-cards N of N' and the bottom-right Export button label.","- The Export button reads 'Export N JobCards' with N equal to the matched count (for example 3798 matched, Export 3798 JobCards), even though only a few rows are loaded.
-- The count does not change when you scroll the grid.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,,
+- The count does not change when you scroll the grid.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,"Automated 2026-11-02 (count equality only; the many-rows half is a volume smoke, not asserted)",
 WEBPET-2906,Deleting job cards makes the transferred Piece Out time cards available again on Transfer to Job Cards.,"1. Open Transfer to Job Cards from the left menu, pick a past date, filter to CF CREW, click Analyze Transfer Candidates and note the piece-out rows.
 2. Click Transfer to Job Cards (bottom right) and confirm; the Job Cards screen opens.
 3. On Job Cards, select the job cards just created and click Delete.
@@ -193,7 +193,7 @@ WEBPET-3464,After Export on Export to Accounting the user can rename the export 
 4. In the Save export file dialog, change the File name to CF CREW export.txt.
 5. Click Save As... and then Cancel in the save window.","- A Save export file dialog opens with an editable File name and the line 'Payroll Export File Folder: <path>'.
 - Save As... opens the save window with the changed name.
-- No file is downloaded automatically.",CF CREW job card in Ready state on a past date; Cancel keeps it unsaved,Feasible - full,,,
+- No file is downloaded automatically.",CF CREW job card in Ready state on a past date; Cancel keeps it unsaved,Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
 WEBPET-3484,Exported to Payroll is offered in Multi Edit on View > Job Cards.,"1. Open View > Job Cards.
 2. Set a past date range, filter to CF CREW, and click Apply Filter.
 3. Tick two CF JOB rows and click Multi Edit.
@@ -255,27 +255,27 @@ WEBPET-3712,Export to Accounting shows no total line under the Candidates rows.,
 2. Set a past date range that has job cards for CF CREW.
 3. Wait for the Candidates grid to load.
 4. Look under the last row of the grid.","- No 'Total N rows' line is shown below the grid rows.
-- The counts at the top (Ready, Needs re-export, Warnings) are unchanged.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,,
+- The counts at the top (Ready, Needs re-export, Warnings) are unchanged.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,Automated 2026-11-02,"Gukan / dev: View > Job Cards still shows the 'Total N rows' line under its grid; this ticket removed it on Export to Accounting only. Also (F6): after a reload of the View > Job Cards transfer landing, the Crews chip shows the raw crew id (e.g. 2466) instead of the crew name."
 WEBPET-3713,On Export to Accounting the row checkboxes are disabled until Multi Edit is switched on.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Try to tick the checkbox of the first row.
 4. Click Multi Edit, then tick the checkbox of the first row.","- Before Multi Edit the row checkboxes are greyed out and cannot be ticked.
 - After clicking Multi Edit the checkboxes are enabled and the row can be ticked.
-- Do not run an update.","CF CREW job cards on a past date; none created, nothing is changed",Feasible - full,,,
+- Do not run an update.","CF CREW job cards on a past date; none created, nothing is changed",Feasible - full,,Automated 2026-11-02,"Gukan / dev (minor): right after Multi Edit turns on, the first click on a row checkbox only selects the row (Shifts panel fills) and the box stays unticked; the second click ticks it. The spec retries the tick."
 WEBPET-3714,Clicking a row on Export to Accounting opens the job card in a right-side drawer.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Click one row.
 4. Click the X at the top right of the drawer.","- A drawer titled 'Edit Job Card' opens on the right showing the job card (Reference, Date / Time In, Employee, Job, Ranch, Crew), with the Export to Accounting screen still behind it.
-- After closing, the screen is as before: same date range, filters and rows.","CF CREW job cards on a past date; none created, do not click Save or Delete in the drawer",Feasible - full,,,
+- After closing, the screen is as before: same date range, filters and rows.","CF CREW job cards on a past date; none created, do not click Save or Delete in the drawer",Feasible - full,,Automated 2026-11-02,
 WEBPET-3715,Export to Accounting no longer has the Scope Adjustments panel or the Include re-export candidates toggle.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW.
 3. Look at the area above the Refine section.","- There is no 'Scope Adjustments' panel and no 'Include re-export candidates' toggle.
-- Refine, Dates and Search by are the first items under the step bar.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,,
+- Refine, Dates and Search by are the first items under the step bar.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,Automated 2026-11-02,
 WEBPET-3716,The job card count on Export to Accounting equals the number on the Export button.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range and filter Job Card Crew contains CF.
 3. Wait for the rows to load and read the 'N matched' count and the 'Job-cards N of N' strip.
 4. Read the label on the bottom-right Export button.","- The Export button reads 'Export N JobCards' with the same N as 'N matched' and 'Job-cards N of N' (for example 3798 matched and Export 3798 JobCards).
-- The Ready count at the top is also N when nothing needs re-export.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,,
+- The Ready count at the top is also N when nothing needs re-export.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,Automated 2026-11-02,
 WEBPET-3776,Creating a user in the admin console works even when the browser holds two pt_admin_csrf cookies.,"Not testable on UI: It needs a browser holding a stale duplicate pt_admin_csrf cookie on the demo admin console, which cannot be set up in a normal test.","- Create user succeeds (no csrf.invalid 403) for a browser with a stale CSRF cookie.
 - Login or logout clears stale cookies.",—,Not feasible,"It needs a browser holding a stale duplicate pt_admin_csrf cookie on the demo admin console, which cannot be set up in a normal test.",,
 WEBPET-3790,"Preference export, Meta4 format list and export department filters now follow the Oracle Synchronization licence.","Not testable on UI: It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable.",A licensed client sees the Oracle versions; every other client sees no change.,—,Not feasible,"It only applies to a client with Oracle Synchronization, which no client has; Jen Dwyer closed it as not QA-testable.",,
@@ -311,12 +311,12 @@ WEBPET-3929,"After saving a Quick Add employee, the banner has a Print badge lin
 WEBPET-3930,The totals on Export to Accounting sit above the Candidates grid.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Look above the Candidates heading.","- The strip 'Job-cards N of N / Employees N of N / Pieces ...' and the 'Totals Gross ... Net ... Amount ...' row are shown above the Candidates grid.
-- Nothing needs scrolling past the grid to see them.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,,
+- Nothing needs scrolling past the grid to see them.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,Automated 2026-11-02,
 WEBPET-3931,The default export file name on Export to Accounting follows the legacy format PET + date and time.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW with at least one Ready job card.
 3. Click Test File.
 4. Look at the 'Export file' line in the Test File panel.","- The file name reads PET followed by 17 digits and .txt (for example PET20261027000847700.txt), not 'famous-120-3-payroll-<date>.txt'.
-- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,,,
+- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
 WEBPET-3858,Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM.,"1. Open Reports > Input > Time In.
 2. Set Search by to Date In.
 3. Set Match to In range.
@@ -464,7 +464,7 @@ WEBPET-3938,A copy button next to the export file name copies the name and shows
 4. Click the copy icon next to the file name.
 5. Click Discard.","- The dialog shows the file name (PET...txt) with an icon-only copy button beside it.
 - A 'Copied.' message appears after clicking the copy icon.
-- After Discard nothing is saved or marked as exported.","CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",Feasible - full,,,
+- After Discard nothing is saved or marked as exported.","CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",Feasible - full,,"Pending: first manual walk blocked (CF JOB had no Earning Code, fixed 2026-11-02); re-walk in progress",
 PET-12942,Editing the time of an existing Time In on Transfer to Job Cards saves.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date, set Search by to Time Card Crew and choose CF CREW, wait for the grid.
 3. Open a Time In row of CF EMPLOYEE ONE (click the row).
