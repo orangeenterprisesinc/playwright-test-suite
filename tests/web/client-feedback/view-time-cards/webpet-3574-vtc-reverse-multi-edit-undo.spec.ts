@@ -70,8 +70,10 @@ test.describe('WEBPET-3574 · View Time Cards: reverse a Multi Edit', { tag: ['@
         await view.scopeToDay(run.day);
         await view.scopeToTimeCardCrew(run.crew.name);
         await view.applyFilter();
+        // The count is already up from the cached Apply render, so the refreshed rows can paint a beat after the GET
+        // (CF full run 2026-11-02 read the pre-Undo value once); poll like step 3.
         for (const [i, ref] of refs.entries()) {
-            expect(await view.readCell(view.row(ref), s.expected.field), `${ref} has its old value back`).toBe(before[i]);
+            await expect.poll(() => view.readCell(view.row(ref), s.expected.field), { message: `${ref} has its old value back`, timeout: 15_000 }).toBe(before[i]);
         }
     });
 });

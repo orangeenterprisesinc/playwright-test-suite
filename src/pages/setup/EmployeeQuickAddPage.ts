@@ -31,6 +31,8 @@ export interface PrintedBadge {
     pdf: Buffer;
 }
 
+type PrintWindow = Window & { __cfPrintCalls?: number };
+
 export class EmployeeQuickAddPage extends BasePage {
     static readonly MENU_PATH = ['Employee Add', 'Quick'];
     readonly pageUrl = '/setup/employees/quick-add';
@@ -138,8 +140,42 @@ export class EmployeeQuickAddPage extends BasePage {
         await expect(this.banner).toContainText(name, { timeout: 15_000 });
     }
 
+    /**
+     * The app prints from the hidden frame on load (`contentWindow.focus(); contentWindow.print()`). Headless Chrome
+     * mostly never fires that load for a blob PDF (measured 2026-11-03), but when it does the real print job can leave
+     * the context unable to close (CF full run 2026-11-02: teardown hit the 10-min cap). So a blob frame's `print` is
+     * recorded instead, like ExportSaveDialog's save-picker stand-in; nothing asserts on it, as load is not reliable.
+     */
+    private async armPrintStandIn(): Promise<void> {
+        await this.page.evaluate(() => {
+            const w = window as PrintWindow;
+            w.__cfPrintCalls = 0;
+            const proto = HTMLIFrameElement.prototype as HTMLIFrameElement & { __cfPrintArmed?: boolean };
+            if (proto.__cfPrintArmed) return;
+            proto.__cfPrintArmed = true;
+            const original = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
+            if (!original?.get) return;
+            const read = original.get;
+            Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+                configurable: true,
+                get(this: HTMLIFrameElement) {
+                    const win = read.call(this) as Window | null;
+                    if (!win || !this.src.startsWith('blob:')) return win;
+                    return new Proxy(win, {
+                        get(target, prop) {
+                            if (prop === 'print') return () => { w.__cfPrintCalls = (w.__cfPrintCalls ?? 0) + 1; };
+                            const value: unknown = Reflect.get(target, prop);
+                            return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+                        },
+                    });
+                },
+            });
+        });
+    }
+
     /** Print badge: the badge PDF the app produced and handed to its hidden print frame. */
     async printBadge(): Promise<PrintedBadge> {
+        await this.armPrintStandIn();
         const badge = this.page.waitForResponse(
             (r) => r.request().method() === 'POST' && /\/employees\/\d+\/badge$/.test(new URL(r.url()).pathname),
             { timeout: 30_000 },

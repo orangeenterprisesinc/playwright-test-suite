@@ -55,12 +55,23 @@ export class LeftNavigationPage extends BasePage {
         return this.page.getByRole('link', { name, exact: true }).filter({ visible: true }).first();
     }
 
-    private menuItems(name: string): Locator {
-        return this.page
+    private menuItems(name: string, root: Page | Locator = this.page): Locator {
+        return root
             .getByRole('link', { name, exact: true })
-            .or(this.page.getByRole('button', { name, exact: true }))
-            .or(this.page.getByRole('menuitem', { name, exact: true }))
-            .or(this.page.getByRole('treeitem', { name, exact: true }));
+            .or(root.getByRole('button', { name, exact: true }))
+            .or(root.getByRole('menuitem', { name, exact: true }))
+            .or(root.getByRole('treeitem', { name, exact: true }));
+    }
+
+    /**
+     * The child as rendered inside this group's own list item. "Setup" is also a top-level group, so a page-wide match
+     * passed for File ▸ Administration's child before Administration had rendered it; the next step then saw one "Setup"
+     * button, toggled the top-level one and never found Scripts (3817, full runs 2026-11-02 and 11-03).
+     */
+    private childInGroup(groupButton: Locator, child: string, childIsLeaf: boolean): Locator {
+        const subtree = groupButton.locator('xpath=ancestor::li[1]');
+        const items = childIsLeaf ? subtree.getByRole('link', { name: child, exact: true }) : this.menuItems(child, subtree);
+        return items.filter({ visible: true }).first();
     }
 
     /**
@@ -81,15 +92,16 @@ export class LeftNavigationPage extends BasePage {
         if ((await groupButtons.count()) === 1) {
             const expanded = await groupButtons.first().getAttribute('aria-expanded');
             if (expanded === 'true' || expanded === 'false') {
+                const inGroup = this.childInGroup(groupButtons.first(), child, childIsLeaf);
                 if (expanded === 'false') await groupButtons.first().click();
-                const shown = await childItem.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+                const shown = await inGroup.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
                 if (shown) return;
                 // The group opened but never rendered its children (B8, 2026-10-29, slow dev): fold it and open it once more.
                 await groupButtons.first().click();
                 await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'false', { timeout: 5_000 });
                 await groupButtons.first().click();
                 await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
-                await childItem.waitFor({ state: 'visible', timeout: 15_000 });
+                await inGroup.waitFor({ state: 'visible', timeout: 15_000 });
                 return;
             }
         }
