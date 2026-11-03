@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "CF CREW C owns day -12. Commits one transfer (2 job cards), sets Exported to Payroll Yes then back to No through Multi Edit on screen, then deletes the own job cards on screen.",
+    "Walked on dev 2026-10-31: field list has 'Exported to Payroll'; value No/Yes; Review and confirm '2 job card(s) will be updated: Exported to Payroll: Yes.'; toast '2 records updated'; with Include Exported on the Exported column reads Yes, then No after the restore."
+  ],
+  "ticket": "WEBPET-3484",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Job Cards"], "url": "/view/job-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -12,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "field": "Exported to Payroll",
+    "values": ["No", "Yes"],
+    "set": "Yes",
+    "restore": "No",
+    "review": "2 job card(s) will be updated: Exported to Payroll: ",
+    "toast": "2 records updated",
+    "column": "Exported",
+    "deleteConfirmSuffix": "Are you sure? This action cannot be undone."
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "WEBPET-3570 is the duplicate this spec covers." }
+  ],
+  "cleanup": []
+}

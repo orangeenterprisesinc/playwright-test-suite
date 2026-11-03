@@ -174,26 +174,13 @@ export class ReportsHubPage extends BasePage {
         await expect(this.starButton(name)).toHaveAttribute('aria-pressed', String(on));
     }
 
-    private sortHeader(column: 'Report' | 'Last Run'): Locator {
-        return this.gridLocator.getByRole('columnheader', { name: column === 'Report' ? /Report$/ : /Last Run$/ });
-    }
-
     async sortState(column: 'Report' | 'Last Run'): Promise<string> {
-        return (await this.sortHeader(column).getAttribute('aria-sort')) ?? 'none';
+        return this.grid.sortState(column);
     }
 
     /** Clicks the header text until aria-sort reads `dir` (the cycle's order depends on the starting state). */
     async sortBy(column: 'Report' | 'Last Run', dir: 'ascending' | 'descending'): Promise<void> {
-        const seen: string[] = [];
-        for (let click = 0; click <= 4; click += 1) {
-            const current = await this.sortState(column);
-            seen.push(current);
-            if (current === dir) return;
-            if (click === 4) break;
-            await this.sortHeader(column).getByText(column, { exact: true }).click();
-            await expect.poll(() => this.sortState(column), { timeout: 5_000 }).not.toBe(current);
-        }
-        throw new Error(`Sorting ${column} never reached ${dir}; states seen: ${seen.join(' → ')}`);
+        await this.grid.sortBy(column, dir);
     }
 
     async moduleOptions(): Promise<string[]> {

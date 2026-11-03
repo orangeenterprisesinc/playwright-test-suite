@@ -12,6 +12,9 @@ export interface BulkHistoryRow {
     createdOn: string;
     undoneOn: string | null;
     undoable: boolean;
+    /** Edit batches only (`type=edit`). */
+    fieldName?: string;
+    newValue?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -38,7 +41,12 @@ export async function listDeleted(request: APIRequestContext, listPath: string):
 
 /** Every bulk-delete history row, newest and oldest alike. */
 export async function listBulkDeleteHistory(request: APIRequestContext): Promise<BulkHistoryRow[]> {
-    const res = await request.get('bulk-update-history', { params: { status: 'all', type: 'delete' } });
+    return listBulkHistory(request, 'delete');
+}
+
+/** `type=edit` lists Multi Update batches; the row shape is the same. */
+export async function listBulkHistory(request: APIRequestContext, type: 'delete' | 'edit'): Promise<BulkHistoryRow[]> {
+    const res = await request.get('bulk-update-history', { params: { status: 'all', type } });
     if (!res.ok()) throw new Error(`GET bulk-update-history failed with ${res.status()}: ${(await res.text()).slice(0, 300)}`);
     return asArray(await res.json()).map((r) => ({
         id: Number(r.id ?? r.bulkUpdateHistoryCounter),
@@ -48,5 +56,7 @@ export async function listBulkDeleteHistory(request: APIRequestContext): Promise
         createdOn: String(r.createdOn ?? ''),
         undoneOn: r.undoneOn == null ? null : String(r.undoneOn),
         undoable: r.undoable === true,
+        fieldName: r.fieldName == null ? undefined : String(r.fieldName),
+        newValue: r.newValue == null ? undefined : String(r.newValue),
     }));
 }

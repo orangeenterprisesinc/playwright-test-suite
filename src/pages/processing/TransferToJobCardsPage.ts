@@ -1,9 +1,20 @@
-import { expect, test, Frame, Locator, Page, Request, Response } from '@playwright/test';
+import { expect, test, Frame, Locator, Page, Request, Response, TestInfo } from '@playwright/test';
 import { acquireTransferScreenLock } from '../../utils/sync/preferencesLock';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
+import { DataGridComponent } from '../../components/DataGridComponent';
 import { pickRangeInPopup, usDate } from './dateRangePopup';
+import { ReportDialog } from './ReportDialog';
+import { PdfViewerDialog } from '../reports/PdfViewerDialog';
+
+export type Box = { x: number; y: number; width: number; height: number };
+export type StatusPill = 'ready' | 'blocking' | 'warnings' | 'deferred';
+export type GridFilterKind = 'Work Crew' | 'Employee';
+
+const GRID_FILTER_TESTID: Record<GridFilterKind, string> = { 'Work Crew': 'transfer-grid-filter-crews', Employee: 'transfer-grid-filter-employees' };
+// The screen's default End; the value is localStorage-only, so a test that moves it puts it back.
+const TRANSFER_END_OF_DAY = '23:59';
 
 /**
  * Input ▸ Transfer to Job Card (catalog D2/D4) — the screen Amy's Journey B
@@ -125,6 +136,22 @@ export class TransferToJobCardsPage extends BasePage {
     /** The Issues breakdown panel below the grid. */
     readonly issuesRegion: Locator;
 
+    /** Grid header "Columns" button and the "Show columns" picker it opens. */
+    readonly columnsButton: Locator;
+    readonly columnPicker: Locator;
+
+    // Client feedback (WEBPET-3183/3431/3829/3830/3835)
+    /** Toolbar Report; opens the report selection dialog since WEBPET-3829. */
+    readonly report: ReportDialog;
+    readonly displayReportButton: Locator;
+    readonly pdfViewer: PdfViewerDialog;
+    readonly beginTimeInput: Locator;
+    /** type=time, HH:MM, browser-stored. */
+    readonly endTimeInput: Locator;
+    readonly searchByControl: Locator;
+    readonly issuesPanel: Locator;
+    readonly issuesGroupBy: Locator;
+
     // ── Multi-Edit (top-level "Multi Update" toolbar button) ──────────────────────
     /**
      * Role-based, not a testid. Relocated from a "More actions ▸ Multi-Edit" menu
@@ -203,6 +230,16 @@ export class TransferToJobCardsPage extends BasePage {
         this.dateRangeFilter = this.pageRoot.getByRole('button', { name: 'Dates', exact: true });
         this.warningsCounter = this.topStrip.getByText(/Warnings/i);
         this.issuesRegion = page.getByRole('region', { name: 'Issues' });
+        this.columnsButton = this.gridHeader.getByRole('button', { name: 'Columns', exact: true });
+        this.columnPicker = page.getByRole('dialog', { name: 'Show columns' });
+        this.report = new ReportDialog(page, page.getByTestId('v2-toolbar-report'));
+        this.displayReportButton = page.getByTestId('v2-toolbar-display-report');
+        this.pdfViewer = new PdfViewerDialog(page);
+        this.beginTimeInput = page.getByTestId('transfer-begin-time-input');
+        this.endTimeInput = page.getByTestId('transfer-end-time-input');
+        this.searchByControl = page.getByTestId('transfer-search-by-trigger');
+        this.issuesPanel = page.getByTestId('v2-issues-panel');
+        this.issuesGroupBy = page.getByTestId('v2-issues-group-by');
 
         this.multiUpdateButton = page.getByRole('button', { name: /^Multi Update$/i });
         this.multiEdit = new WebpetMultiEditDialogComponent(page);
@@ -271,6 +308,40 @@ export class TransferToJobCardsPage extends BasePage {
             throw error;
         }
         this.page.on('framenavigated', onNavigate);
+    }
+
+    async openColumnPicker(): Promise<void> {
+        await this.columnsButton.click();
+        await this.columnPicker.waitFor({ state: 'visible', timeout: 10_000 });
+    }
+
+    /** Each entry also renders an unnamed hidden input checkbox; the name filter excludes it. */
+    columnPickerEntry(label: string): Locator {
+        return this.columnPicker.getByRole('checkbox', { name: label, exact: true });
+    }
+
+    /** Ticks the entry if it is not already; true when it had to. The layout is saved per user, so callers only tick. */
+    async showColumn(label: string): Promise<boolean> {
+        const entry = this.columnPickerEntry(label);
+        if (await entry.isChecked()) return false;
+        await entry.click();
+        await expect(entry).toBeChecked();
+        return true;
+    }
+
+    /** Ticks the entry when it is not; a tick is recorded as a `self-heal` annotation. */
+    async ensureColumnShown(label: string, testInfo: TestInfo): Promise<void> {
+        if (await this.showColumn(label)) testInfo.annotations.push({ type: 'self-heal', description: `'${label}' was unticked; ticked on screen` });
+    }
+
+    async closeColumnPicker(): Promise<void> {
+        await this.columnPicker.getByRole('button', { name: 'Close', exact: true }).click();
+        await this.columnPicker.waitFor({ state: 'hidden', timeout: 10_000 });
+    }
+
+    /** Exact, so "Pay by Piece" cannot match "Pieces". */
+    gridColumnHeader(header: string): Locator {
+        return this.grid.getByRole('columnheader', { name: `Reorder column ${header}`, exact: true });
     }
 
     /**
@@ -1296,6 +1367,30 @@ export class TransferToJobCardsPage extends BasePage {
         return Number((/Pieces([\d.,]+)/.exec(text)?.[1] ?? 'NaN').replace(/,/g, ''));
     }
 
+    /** Totals line under the Time Cards grid. Loading: aria-busy="true"; failed: data-degraded="true". */
+    get totalsStrip(): Locator {
+        return this.page.getByTestId('timecards-totals-strip-issues');
+    }
+
+    get totalsCaption(): Locator {
+        return this.totalsStrip.getByText(/^Includes \d+ Time Cards? of \d+ initial selection$/);
+    }
+
+    /** "Totals couldn't be loaded." — rendered only when the totals query failed (WEBPET-3064). */
+    get totalsUnavailable(): Locator {
+        return this.page.getByTestId('timecards-totals-unavailable');
+    }
+
+    /** The value span after a label span (Gross/Net/Meals/Pieces/Employees). */
+    totalsValue(label: string): Locator {
+        return this.totalsStrip.getByText(label, { exact: true }).locator('xpath=following-sibling::span[1]');
+    }
+
+    /** NaN until rendered, so a poll keeps waiting. */
+    async totalsNumber(label: string): Promise<number> {
+        return Number(((await this.totalsValue(label).textContent()) ?? '').replace(/,/g, ''));
+    }
+
     async rowPieces(reference: string): Promise<Locator> {
         return this.cellByHeader(this.rowByReference(reference), 'Pieces');
     }
@@ -1488,5 +1583,377 @@ export class TransferToJobCardsPage extends BasePage {
             jobCards: read(/Job Cards\s*(\d+)/),
             employees: read(/Employees\s*(\d+)/),
         };
+    }
+
+    // ── Client feedback: time window, report, layout (WEBPET-3183/3431/3829/3830/3835) ──
+
+    /** The user's F5. */
+    async reload(): Promise<void> {
+        await this.page.reload();
+        await this.pageRoot.waitFor({ state: 'visible', timeout: 30_000 });
+    }
+
+    async setEndTime(hhmm: string): Promise<void> {
+        await this.endTimeInput.fill(hhmm);
+        await expect(this.endTimeInput).toHaveValue(hhmm);
+    }
+
+    /** The value dies with the test's context; putting the default back keeps a reused browser clean. */
+    async withEndTime<T>(hhmm: string, body: () => Promise<T>): Promise<T> {
+        await this.setEndTime(hhmm);
+        try {
+            return await body();
+        } finally {
+            await this.setEndTime(TRANSFER_END_OF_DAY).catch(() => undefined);
+        }
+    }
+
+    /** The filter-row controls of one column; empty when the column has no filter. Needs the grid headers, so analyze first. */
+    async gridFilterControls(header: string): Promise<Locator> {
+        const headers = await this.gridHeaders();
+        const filterRow = this.grid.getByRole('row').filter({ has: this.page.getByRole('textbox', { name: 'Filter…' }) }).first();
+        return filterRow.getByRole('columnheader').nth(this.headerIndex(headers, header)).locator('input, button, [role="combobox"]');
+    }
+
+    private async boxOf(locator: Locator, name: string): Promise<Box> {
+        const box = await locator.boundingBox();
+        if (!box) throw new Error(`Transfer to Job Cards: ${name} is not rendered`);
+        return box;
+    }
+
+    async dateControlBoxes(): Promise<{ dates: Box; searchBy: Box }> {
+        return { dates: await this.boxOf(this.dateRangeFilter, 'the Dates control'), searchBy: await this.boxOf(this.searchByControl, 'the Search by control') };
+    }
+
+    async layoutBoxes(): Promise<{ grid: Box; issues: Box; totals: Box }> {
+        return {
+            grid: await this.boxOf(this.grid, 'the grid'),
+            issues: await this.boxOf(this.issuesPanel, 'the Issues panel'),
+            totals: await this.boxOf(this.totalsStrip, 'the totals line'),
+        };
+    }
+
+    async reportCornerBoxes(): Promise<{ dialog: Box; close: Box }> {
+        return { dialog: await this.boxOf(this.report.dialog, 'the Report dialog'), close: await this.boxOf(this.report.closeX, 'the Report close X') };
+    }
+
+    /** The Date cell of every loaded candidate, in grid order. */
+    async candidateDates(): Promise<string[]> {
+        const out: string[] = [];
+        for (const reference of await this.candidateReferences()) out.push((await this.readRow(reference)).date);
+        return out;
+    }
+
+    usDay(day: string): string {
+        return usDate(day);
+    }
+
+    // ── Client feedback: grid filters, status pills, Single select, issue click (WEBPET-3433/3834/2986/3831) ──
+
+    /** The Time Cards grid by its analyzed caption ("Includes N Time Cards of N initial selection"); display filters do not change that name. */
+    get cardGrid(): DataGridComponent {
+        return new DataGridComponent(this.page, /^Includes \d+ Time Cards? of \d+ initial selection$/, 'Time Card');
+    }
+
+    analyzedGrid(caption: string): Locator {
+        return this.page.getByRole('grid', { name: caption, exact: true });
+    }
+
+    statusPill(status: StatusPill): Locator {
+        return this.page.getByTestId(`v2-top-strip-${status}-button`);
+    }
+
+    async clickStatusPill(status: StatusPill): Promise<void> {
+        await this.statusPill(status).click();
+    }
+
+    /** Status badge keyword of every rendered grid row; scoped to rows because the issue detail has its own badge. */
+    async visibleStatuses(): Promise<string[]> {
+        const texts = await this.page.getByRole('row').locator('[data-testid^="v2-status-pill-"]').allInnerTexts();
+        return texts.map((t) => t.trim());
+    }
+
+    get singleSelectSwitch(): Locator {
+        return this.page.getByTestId('transfer-grid-filter-single');
+    }
+
+    async setSingleSelect(on: boolean): Promise<void> {
+        const toggle = this.singleSelectSwitch;
+        await toggle.waitFor({ state: 'visible', timeout: 30_000 });
+        if ((await toggle.getAttribute('aria-checked')) !== String(on)) await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-checked', String(on));
+    }
+
+    gridFilterTrigger(kind: GridFilterKind): Locator {
+        return this.page.getByTestId(GRID_FILTER_TESTID[kind]);
+    }
+
+    /** Chips text: "All work crews" / "All employees" / the picked label. */
+    gridFilterValue(kind: GridFilterKind): Locator {
+        return this.page.getByTestId(`${GRID_FILTER_TESTID[kind]}-chips`);
+    }
+
+    private gridFilterPopover(kind: GridFilterKind): Locator {
+        const search = kind === 'Work Crew' ? /Search work crew/i : /Search employee/i;
+        return this.page.getByRole('dialog').filter({ has: this.page.getByRole('searchbox', { name: search }) });
+    }
+
+    async gridFilterOptions(kind: GridFilterKind): Promise<string[]> {
+        await this.gridFilterTrigger(kind).click();
+        const popover = this.gridFilterPopover(kind);
+        await popover.waitFor({ state: 'visible', timeout: 10_000 });
+        const texts = (await popover.getByRole('button').allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        await expect(popover).toBeHidden({ timeout: 10_000 });
+        return texts.filter((t) => t !== '' && !/^Clear \(\d+\)$/.test(t));
+    }
+
+    /** Single mode closes the popover after a pick and leaves focus on the trigger. */
+    async pickGridFilter(kind: GridFilterKind, label: string): Promise<void> {
+        await this.gridFilterTrigger(kind).click();
+        await this.gridFilterPopover(kind).getByRole('button', { name: label, exact: true }).click();
+        await expect(this.gridFilterValue(kind)).toContainText(label);
+    }
+
+    async stepGridFilter(kind: GridFilterKind, key: 'ArrowDown' | 'ArrowUp'): Promise<void> {
+        const trigger = this.gridFilterTrigger(kind);
+        await trigger.focus();
+        await this.page.keyboard.press(key);
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    async clearGridFilter(kind: GridFilterKind): Promise<void> {
+        await this.gridFilterTrigger(kind).getByRole('button', { name: /^Remove / }).click();
+    }
+
+    async filterControlBoxes(): Promise<{ single: Box; crew: Box; employee: Box }> {
+        return {
+            single: await this.boxOf(this.singleSelectSwitch, 'the Single select switch'),
+            crew: await this.boxOf(this.gridFilterTrigger('Work Crew'), 'the Work Crew filter'),
+            employee: await this.boxOf(this.gridFilterTrigger('Employee'), 'the Employee filter'),
+        };
+    }
+
+    /** Several Time Card Crew chips in one picker visit; scopeToTimeCardCrew stays single-crew for its callers. */
+    async scopeToTimeCardCrews(names: string[]): Promise<void> {
+        const criterion = this.page.getByTestId('transfer-search-criterion');
+        const picker = this.page.getByTestId('transfer-filter-crews');
+        const chip = (name: string): Locator => criterion.getByRole('button', { name: `Remove ${name}`, exact: true });
+
+        await this.page.getByTestId('transfer-search-by-trigger').click();
+        await this.page.getByTestId('transfer-search-by-crew').click();
+        await expect(picker).toBeVisible({ timeout: 10_000 });
+        await picker.click();
+        const dialog = this.page.getByRole('dialog');
+        for (const name of names) {
+            if (!(await chip(name).isVisible())) await dialog.getByRole('button', { name, exact: true }).click();
+        }
+        await this.page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden({ timeout: 10_000 });
+        for (const name of names) await expect(chip(name), `Time Card Crew scope shows "${name}"`).toBeVisible({ timeout: 10_000 });
+    }
+
+    issueGroup(code: string): Locator {
+        return this.page.getByTestId(`v2-issue-group-${code}`);
+    }
+
+    get issueDetail(): Locator {
+        return this.page.getByTestId('v2-issue-detail');
+    }
+
+    /** Read only: a mouse click is intercepted by the panel header and a keyboard activation opens the Fix sheet. */
+    issueDetailRow(timeCardCounter: number): Locator {
+        return this.page.getByTestId(`v2-issue-detail-row-${timeCardCounter}`);
+    }
+
+    /** Clicks the issue group (a mouse click works there) and waits for its detail. */
+    async clickIssue(code: string): Promise<void> {
+        await this.expandIssuesPanel();
+        await this.issueGroup(code).click();
+        await expect(this.issueDetail).toBeVisible({ timeout: 15_000 });
+    }
+
+    gridRow(reference: string): Locator {
+        return this.page.getByRole('row', { name: reference, exact: true });
+    }
+
+    /** Labels of the rows drawn underlined — the selected-row cue has no aria state. */
+    async highlightedReferences(): Promise<string[]> {
+        return this.page
+            .locator('[role="row"][aria-label]')
+            .evaluateAll((rows) => rows.filter((r) => getComputedStyle(r).textDecorationLine.includes('underline')).map((r) => r.getAttribute('aria-label') ?? ''));
+    }
+
+    /** Counts POST …/analyze the browser sends; observes traffic, makes no API call. */
+    countAnalyzeRequests(): { count(): number; stop(): void } {
+        let seen = 0;
+        const onRequest = (r: Request): void => {
+            if (r.method() === 'POST' && /\/transfer-to-job-cards\/analyze$/.test(new URL(r.url()).pathname)) seen += 1;
+        };
+        this.page.on('request', onRequest);
+        return { count: () => seen, stop: () => void this.page.off('request', onRequest) };
+    }
+
+    // ── Client feedback cluster 2, part A (WEBPET-2982/3426/2906) ──
+
+    /** Records ▸ Hide piece-outs: a display lens since WEBPET-2982 rev 2, so a toggle sends no analyze. */
+    get hidePieceOutsCheckbox(): Locator {
+        return this.page.getByTestId('transfer-hide-piece-outs');
+    }
+
+    async setHidePieceOuts(on: boolean): Promise<void> {
+        const box = this.hidePieceOutsCheckbox;
+        if ((await box.getAttribute('aria-checked')) !== String(on)) await box.click();
+        await expect(box).toHaveAttribute('aria-checked', String(on));
+    }
+
+    get jobCardsWarning(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning');
+    }
+
+    get jobCardsWarningToggle(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning-toggle');
+    }
+
+    get jobCardsWarningList(): Locator {
+        return this.page.getByTestId('jobcards-grid-warning-list');
+    }
+
+    get jobCardsTable(): Locator {
+        return this.page.getByTestId('jobcards-grid-table');
+    }
+
+    /** Inline min-height (the 10-row floor), rendered height, and the scroll body's clientHeight. */
+    async jobCardsTableMetrics(): Promise<{ minHeight: string; height: number; bodyHeight: number }> {
+        return this.jobCardsTable.evaluate((t) => {
+            const body = Array.from(t.querySelectorAll<HTMLElement>('*')).find((e) => /\boverflow-auto\b/.test(e.className) && /\bflex-1\b/.test(e.className));
+            return { minHeight: (t as HTMLElement).style.minHeight, height: t.getBoundingClientRect().height, bodyHeight: body?.clientHeight ?? 0 };
+        });
+    }
+
+    async warningListStyle(): Promise<{ overflowY: string; maxHeight: string; items: number }> {
+        return this.jobCardsWarningList.evaluate((l) => ({ overflowY: getComputedStyle(l).overflowY, maxHeight: getComputedStyle(l).maxHeight, items: l.children.length }));
+    }
+
+    /** New record ▸ Add Piece-out: an individual piece-out. Work Crew auto-fills from the employee's home crew. The app toasts "Time Out record created". */
+    async addPieceOut(v: { day: string; time: string; employee: string; crew: string; job: string; ranch: string; field: string; pieces: number }): Promise<void> {
+        await this.newRecordButton.click({ timeout: 15_000 });
+        await this.page.getByTestId('v2-add-record-item-pieceOut').click({ timeout: 15_000 });
+        const dialog = this.page.getByRole('dialog', { name: 'Add Piece-out' });
+        await dialog.waitFor({ state: 'visible', timeout: 15_000 });
+        await dialog.getByRole('textbox', { name: 'Date / Time *' }).fill(`${v.day}T${v.time}`);
+        await this.pickEmployee(dialog, v.employee);
+        await dialog.getByRole('spinbutton', { name: 'Pieces' }).fill(String(v.pieces));
+        await this.pickWorkCrew(dialog, v.crew);
+        const job = dialog.getByRole('combobox', { name: /^Job\b/ });
+        await job.click({ timeout: 15_000 });
+        await this.page.keyboard.type(v.job);
+        await this.page.getByRole('option', { name: v.job, exact: true }).click({ timeout: 15_000 });
+        await expect(job).toHaveValue(v.job);
+        await this.pickOption(dialog, 'Ranch', v.ranch);
+        await this.pickOption(dialog, 'Field', v.field);
+        await this.saveAddRecord(dialog);
+        await expect(dialog).toBeHidden({ timeout: 20_000 });
+    }
+
+    // ── Client feedback cluster 2, part B (WEBPET-3301/3283/3575, PET-12942): New record ▸ Crew In ──
+
+    get crewInSheet(): Locator {
+        return this.page.getByRole('dialog', { name: 'Crew In', exact: true });
+    }
+
+    /** "Created N Time-In records." + OK; when 0 are created it asks "Do you want to see the Error log?" (No/Yes). */
+    get crewInStatus(): Locator {
+        return this.page.getByRole('dialog', { name: 'Crew-In status' });
+    }
+
+    get crewInRosterCount(): Locator {
+        return this.crewInSheet.getByText(/^\d+ of \d+ selected$/);
+    }
+
+    get crewInNoEmployees(): Locator {
+        return this.crewInSheet.getByText('No employees found for this crew.', { exact: true });
+    }
+
+    /** Roster rows are named "<Export ID> : <Name>", trimmed — ": CF B ONE" when the export id is empty. */
+    crewInEmployee(label: string): Locator {
+        return this.crewInSheet.getByRole('checkbox', { name: label, exact: true });
+    }
+
+    pageText(text: string): Locator {
+        return this.page.getByText(text);
+    }
+
+    async openCrewIn(): Promise<void> {
+        await expect(this.page.getByTestId('v2-add-record-sheet')).toBeHidden({ timeout: 30_000 });
+        await this.newRecordButton.click({ timeout: 15_000 });
+        await this.page.getByTestId('v2-add-record-item-crewIn').click({ timeout: 15_000 });
+        await expect(this.crewInSheet.locator('#crewCounter')).toBeVisible({ timeout: 15_000 });
+    }
+
+    async setCrewInCheckbox(name: 'Use Employee Crew' | 'Based on Later Time-Cards', on: boolean): Promise<void> {
+        const box = this.crewInSheet.getByRole('checkbox', { name, exact: true });
+        if ((await box.isChecked()) !== on) await box.click();
+        if (on) await expect(box).toBeChecked();
+        else await expect(box).not.toBeChecked();
+    }
+
+    /** #ranchCounter is a button; crew/field/job are inputs narrowed by typing. Options render in a portal. */
+    async pickCrewInLookup(id: 'crewCounter' | 'ranchCounter' | 'fieldCounter' | 'jobCounter', name: string): Promise<void> {
+        const control = this.crewInSheet.locator(`#${id}`);
+        await expect(control).toBeEnabled({ timeout: 15_000 });
+        await control.click();
+        if (id !== 'ranchCounter') await this.page.keyboard.type(name);
+        await this.page.getByRole('option', { name, exact: true }).click({ timeout: 15_000 });
+        if (id === 'ranchCounter') await expect(control).toContainText(name);
+        else await expect(control).toHaveValue(name);
+    }
+
+    /** Checkboxes before the crew (ticking Use Employee Crew hides Based on Later); the roster loads after the crew. */
+    async fillCrewIn(v: { day: string; time: string; crew: string; useEmployeeCrew?: boolean; basedOnLater?: boolean; ranch?: string; field?: string; phase?: string }): Promise<void> {
+        const when = this.crewInSheet.getByRole('textbox', { name: 'Date / Time *' });
+        await when.fill(`${v.day}T${v.time}`);
+        if (v.useEmployeeCrew !== undefined) await this.setCrewInCheckbox('Use Employee Crew', v.useEmployeeCrew);
+        if (v.basedOnLater !== undefined && !v.useEmployeeCrew) await this.setCrewInCheckbox('Based on Later Time-Cards', v.basedOnLater);
+        await this.pickCrewInLookup('crewCounter', v.crew);
+        if (v.ranch) await this.pickCrewInLookup('ranchCounter', v.ranch);
+        if (v.field) await this.pickCrewInLookup('fieldCounter', v.field);
+        if (v.phase) await this.pickCrewInLookup('jobCounter', v.phase);
+        await expect(when).toHaveValue(`${v.day}T${v.time}`);
+        await expect(this.crewInRosterCount.or(this.crewInNoEmployees)).toBeVisible({ timeout: 25_000 });
+    }
+
+    /** Opens Phase, reports which names are listed, closes it unchanged (Escape keeps the sheet open). */
+    async crewInPhaseListed(names: string[]): Promise<boolean[]> {
+        const control = this.crewInSheet.locator('#jobCounter');
+        await control.click();
+        const list = this.page.getByRole('listbox');
+        await expect(list).toBeVisible({ timeout: 15_000 });
+        const out: boolean[] = [];
+        for (const n of names) out.push((await list.getByRole('option', { name: n, exact: true }).count()) > 0);
+        await this.page.keyboard.press('Escape');
+        await expect(list).toBeHidden({ timeout: 10_000 });
+        await expect(control).toHaveValue('');
+        return out;
+    }
+
+    /** A 0-created save still answers POST 201, so the status dialog is the outcome; returns its text. */
+    async saveCrewIn(): Promise<string> {
+        const save = this.crewInSheet.getByRole('button', { name: 'Save', exact: true });
+        await expect(save).toBeEnabled({ timeout: 15_000 });
+        await save.click();
+        await expect(this.crewInStatus).toBeVisible({ timeout: 30_000 });
+        return (await this.crewInStatus.innerText()).replace(/\s+/g, ' ').trim();
+    }
+
+    async confirmCrewInStatus(): Promise<void> {
+        await this.crewInStatus.getByRole('button', { name: 'OK', exact: true }).click();
+        await expect(this.crewInStatus).toBeHidden({ timeout: 10_000 });
+        await expect(this.crewInSheet).toBeHidden({ timeout: 15_000 });
+    }
+
+    async closeCrewIn(): Promise<void> {
+        await this.crewInSheet.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(this.crewInSheet).toBeHidden({ timeout: 15_000 });
     }
 }

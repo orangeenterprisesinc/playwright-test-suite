@@ -1,0 +1,24 @@
+{
+  "_notes": [
+    "CF CREW C owns day -6; data scoped by Search by Time Card Crew contains.",
+    "1 card: CF C ONE Time In 07:00. The delete is the workflow and happens on screen. Walked on dev 2026-10-31: trash icon on every row between + and Work Crew; Delete \"Time Card <ref>\"? -> toast 'Time card record deleted'; row gone. {reference} in confirmHeading is replaced with the card's Reference."
+  ],
+  "ticket": "WEBPET-3890",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -6,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 }
+  },
+  "expected": {
+    "rows": 1,
+    "confirmHeading": "Delete \"Time Card {reference}\"?",
+    "confirmText": "Are you sure? This action cannot be undone.",
+    "toast": "Time card record deleted"
+  },
+  "annotations": [],
+  "cleanup": []
+}

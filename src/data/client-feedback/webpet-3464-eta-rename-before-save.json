@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "CF CREW D owns day -9. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and Job Card Crew is CF CREW D, Refresh; arms the save-picker stand-in, Export > confirm > Export up to the Save export file dialog, renames, Save As against the stand-in (= Cancel), Discard, Refresh. Nothing is exported. Every run id is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-02 (day 10-24, one pair for 3931/3938/3464): Test File 2 ready / 0 cannot export, PET20261102100108188.txt, 2 records written; Save export file dialog, copy, 'Copied.', Discard x2 and Save As against the stand-in all confirmed live; nothing exported (draft 142 stayed draft)."
+  ],
+  "ticket": "WEBPET-3464",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -9,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "title": "Save export file",
+    "fileName": "^PET\\d{17}\\.txt$",
+    "folderLine": "^Payroll Export File Folder: \\S.*$",
+    "saveAsLabel": "Save As…",
+    "newName": "CF CREW export.txt",
+    "discardConfirm": "Discard file",
+    "discardWarning": "Discard this file and nothing is exported — the JobCards stay Ready, so you can export them again. The file itself cannot be downloaded again.",
+    "candidateStatus": "Pending"
+  },
+  "annotations": [
+    { "type": "native-dialog-stand-in", "description": "window.showSaveFilePicker is replaced before Export by a function that records suggestedName and rejects with AbortError (the user's Cancel); the OS save window cannot be driven." },
+    { "type": "not-asserted", "description": "A completed Save / Save As and the saved file: never driven, nothing may be exported." }
+  ],
+  "cleanup": []
+}

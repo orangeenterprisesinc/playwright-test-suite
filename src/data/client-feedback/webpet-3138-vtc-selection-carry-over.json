@@ -1,0 +1,31 @@
+{
+  "_notes": [
+    "CF CREW C owns day -1; data scoped by Search by Time Card Crew contains.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB. Walked on dev 2026-10-31 (on the 10/29 cards): leaving through View > Job Cards and coming back from the menu restored the range and the criterion line, loaded nothing, Report was disabled and 0 GET /time-cards were sent."
+  ],
+  "ticket": "WEBPET-3138",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -1,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "rows": 4,
+    "criterionLine": "Time Card Crew contains \"CF CREW C\"",
+    "hideLabel": "Hide top section",
+    "showLabel": "Show top section",
+    "pickerColumns": ["Work Crew", "Employee", "Reference", "Memo"],
+    "toggleColumn": "Memo"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The scroll bar: viewport-dependent layout." },
+    { "type": "not-asserted", "description": "The Records radios stay visible when the top section is hidden: a separate ticket." },
+    { "type": "not-asserted", "description": "The grid Work Crew chip (Filter displayed rows) is not part of carry-over; only the Search by selection is." }
+  ],
+  "cleanup": []
+}

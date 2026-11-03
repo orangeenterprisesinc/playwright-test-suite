@@ -45,9 +45,10 @@ const REVERSE_REQUEST = /\/transfer-to-job-cards\/runs\/(\d+)\/reverse$/;
  * true, with `transferRun=N` in the URL. A different screen from `/input/job-cards` (JobCardsPage):
  * its testids are `view-job-cards-*`. Locators measured live 2026-10-15.
  *
- * Reverse, the filter, the Totals bar, Report and Test File. No delete, Delete ▾ menu, recalculate,
- * multi-edit, Export to Accounting or Clear Export Flag member exists on purpose — Delete ▾ carries
- * `view-job-cards-delete-all`, and a "delete all loaded" once wiped ~9.5k dev job cards.
+ * Reverse, the filter, the Totals bar, Report and Test File, plus Delete Selected for one own row only
+ * (WEBPET-2906; never Delete All). Multi Edit (WEBPET-3484) ticks own rows by Reference only, never Select all. No Delete All, recalculate, Export to Accounting or Clear
+ * Export Flag member exists on purpose — Delete ▾ carries `view-job-cards-delete-all`, and a "delete all
+ * loaded" once wiped ~9.5k dev job cards.
  */
 export class ViewJobCardsPage extends BasePage {
     readonly pageUrl = '/view/job-cards';
@@ -86,7 +87,7 @@ export class ViewJobCardsPage extends BasePage {
         this.crewChips = page.getByTestId('view-job-cards-filter-crews-chips');
         this.employeeChips = page.getByTestId('view-job-cards-filter-employees-chips');
         this.totalsBar = page.getByTestId('view-job-cards-shift-totals');
-        this.report = new ReportDialog(page);
+        this.report = new ReportDialog(page, page.getByTestId('view-job-cards-print-report'));
         this.testFile = new TestFileSheet(page);
     }
 
@@ -373,5 +374,87 @@ export class ViewJobCardsPage extends BasePage {
         const index = headers.findIndex((h) => h === header || h.startsWith(`${header}\n`));
         if (index < 0) throw new Error(`Job Cards grid has no '${header}' column; headers are ${JSON.stringify(headers)}`);
         return row.getByRole('cell').nth(index);
+    }
+
+    // ── Cluster 3, part B: Multi Edit (WEBPET-3484), measured 2026-10-31: a mode toggle; row checkboxes "Select <ref>" exist only while it is pressed. ──
+    get multiEditToggle(): Locator { return this.page.getByRole('button', { name: 'Multi Edit', exact: true }); }
+    get meField(): Locator { return this.page.getByRole('main').getByRole('combobox', { name: 'Field', exact: true }); }
+    meValue(field: string): Locator { return this.page.getByRole('main').getByRole('combobox', { name: field, exact: true }); }
+    rowCheckbox(reference: string): Locator { return this.grid.getByRole('checkbox', { name: `Select ${reference}`, exact: true }); }
+    rowByReference(reference: string): Locator { return this.grid.getByRole('row', { name: reference, exact: true }); }
+    updateRecordsButton(n: number): Locator { return this.page.getByRole('button', { name: `Update Records (${n})`, exact: true }); }
+    get reviewDialog(): Locator { return this.page.getByRole('alertdialog', { name: 'Review and confirm' }); }
+    toast(text: string): Locator { return this.page.locator('[data-sonner-toast]').filter({ hasText: text }); }
+    async setMultiEdit(on: boolean): Promise<void> {
+        const want = on ? 'true' : 'false';
+        if ((await this.multiEditToggle.getAttribute('aria-pressed')) !== want) await this.multiEditToggle.click();
+        await expect(this.multiEditToggle).toHaveAttribute('aria-pressed', want);
+    }
+    async meFieldLabels(): Promise<string[]> {
+        await this.meField.click();
+        const opts = this.page.getByRole('listbox').getByRole('option');
+        await expect(opts.first()).toBeVisible();
+        const labels = (await opts.allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        return labels;
+    }
+    async chooseMeField(label: string): Promise<void> {
+        await this.meField.click();
+        await this.page.getByRole('option', { name: label, exact: true }).click();
+        await expect(this.meField).toHaveText(label);
+    }
+    async meValueOptions(field: string): Promise<string[]> {
+        await this.meValue(field).click();
+        const opts = this.page.getByRole('listbox').getByRole('option');
+        await expect(opts.first()).toBeVisible();
+        const labels = (await opts.allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        return labels;
+    }
+    async chooseMeValue(field: string, value: string): Promise<void> {
+        await this.meValue(field).click();
+        await this.page.getByRole('option', { name: value, exact: true }).click();
+        await expect(this.meValue(field)).toHaveText(value);
+    }
+    /** Ticks exactly `refs` (never Select all: the day carries other crews' cards). */
+    async tickOwn(refs: string[]): Promise<void> {
+        for (const ref of refs) { await this.rowCheckbox(ref).check(); await expect(this.rowCheckbox(ref)).toBeChecked(); }
+    }
+    async updateAndConfirm(n: number, reviewText: string): Promise<void> {
+        await this.updateRecordsButton(n).click();
+        await expect(this.reviewDialog, 'no "Review and confirm"').toBeVisible({ timeout: 10_000 });
+        await expect(this.reviewDialog).toContainText(reviewText);
+        await this.reviewDialog.getByRole('button', { name: 'Confirm update', exact: true }).click();
+        await expect(this.reviewDialog).toBeHidden({ timeout: 30_000 });
+    }
+
+    /** The grid's row-count line ("Total 2 rows"). */
+    get gridCount(): Locator {
+        return this.page.getByTestId('data-grid-count').first();
+    }
+
+    /**
+     * Delete ▸ Delete Selected for one row. A row click selects it (single-select) and opens Edit Job Card,
+     * which is cancelled. Never `view-job-cards-delete-all`.
+     */
+    async deleteOwnJobCard(reference: string, confirmText: string): Promise<void> {
+        const row = this.grid.getByRole('row', { name: reference, exact: true });
+        await (await this.cellByHeader(row, 'Reference')).click();
+        const edit = this.page.getByRole('dialog', { name: 'Edit Job Card' });
+        const opened = await edit.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
+        if (opened) {
+            await edit.getByRole('button', { name: 'Cancel', exact: true }).click();
+            await expect(edit).toBeHidden({ timeout: 10_000 });
+        }
+        const selected = this.grid.locator('[role="row"][aria-selected="true"]');
+        await expect(selected, 'exactly the one own row is selected').toHaveCount(1);
+        await expect(selected).toHaveAttribute('aria-label', reference);
+        await this.page.getByTestId('view-job-cards-delete').click();
+        await this.page.getByTestId('view-job-cards-delete-selected').click();
+        const confirm = this.page.getByRole('alertdialog');
+        await expect(confirm).toContainText(`Delete "${reference}"?`);
+        await expect(confirm).toContainText(confirmText);
+        await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(row).toHaveCount(0, { timeout: 30_000 });
     }
 }

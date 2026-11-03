@@ -1,0 +1,23 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -7 in this suite. Commits one transfer and reverses it on screen (the reverse removes the job cards).",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB, 2 job cards. Manual walk 2026-10-31: toast 'Transfer run reversed', landed on /transfer-to-job-cards with the 4 rows loaded, Transferred = No, no Analyze click."
+  ],
+  "ticket": "WEBPET-2954",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -7,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "reversedToast": "Transfer run reversed",
+    "transferred": "No"
+  },
+  "annotations": [],
+  "cleanup": []
+}

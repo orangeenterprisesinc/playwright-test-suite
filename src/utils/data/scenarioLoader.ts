@@ -7,6 +7,7 @@ import { JsonDataReader } from '../../data/readers/JsonDataReader';
 // One JSON scenario file per spec file, same basename:
 //   tests/web/journey-b-field/b03-x.spec.ts → src/data/journey-b/b03-x.json
 //   tests/web/system/login-module.spec.ts   → src/data/system/login-module.json
+//   tests/web/client-feedback/transfer-to-job-cards/webpet-3311-x.spec.ts → src/data/client-feedback/webpet-3311-x.json
 // SCENARIO_DATA_DIR overrides the root, as RUNNER_DATA_DIR does for runner rows.
 // A file is either one scenario object, or `{ shared?, cases: { '<testCaseId>': … } }`.
 // Do not use a root `data` array key — JsonDataReader unwraps it.
@@ -17,9 +18,11 @@ const FIXTURE_FILE = 'fixture.json';
 type MultiCaseFile = { shared?: Record<string, unknown>; cases: Record<string, Record<string, unknown>> };
 
 export function scenarioFileFor(specFile: string): string {
-    const folder = path.basename(path.dirname(specFile));
-    const journey = folder === 'system' ? 'system' : /^(journey-[a-z])(?:-|$)/.exec(folder)?.[1];
-    if (!journey) throw new Error(`scenarioLoader: '${folder}' is not a journey-<x>-<area> or system folder (${specFile})`);
+    const dir = path.dirname(specFile);
+    const folder = path.basename(dir);
+    const journey = path.basename(path.dirname(dir)) === 'client-feedback' ? 'client-feedback'
+        : folder === 'system' ? 'system' : /^(journey-[a-z])(?:-|$)/.exec(folder)?.[1];
+    if (!journey) throw new Error(`scenarioLoader: '${folder}' is not a journey-<x>-<area>, system or client-feedback/<area> folder (${specFile})`);
     return path.join(DATA_ROOT, journey, `${path.basename(specFile).replace(/\.spec\.ts$/, '')}.json`);
 }
 
@@ -51,6 +54,7 @@ export async function loadScenario<S extends z.ZodTypeAny>(schema: S, testInfo: 
         throw new Error(`${rel(file)} failed validation — ${issues}`);
     }
     if (path.basename(path.dirname(file)) === 'journey-b') await assertDistinctDayOffsets(path.dirname(file));
+    if (path.basename(path.dirname(file)) === 'client-feedback') await assertDistinctCrewDays(path.dirname(file));
     return result.data as z.output<S>;
 }
 
@@ -95,6 +99,39 @@ function assertDistinctDayOffsets(dir: string): Promise<void> {
             throw new Error(
                 `Journey B dayOffset shared across scenario files (one fixture day per workflow, workers=2): ` +
                     clashes.map(([o, f]) => `${o} → ${f.join(', ')}`).join('; '),
+            );
+        }
+    })());
+}
+
+const CF_MAX_DAY_OFFSET = 21; // maximumDaysForTransferExport on dev (read 2026-10-30)
+
+// Client-feedback tickets share four fixture crews; one (crew, day) pair per scenario file keeps workers=2 from colliding.
+let crewDayCheck: Promise<void> | undefined;
+function assertDistinctCrewDays(dir: string): Promise<void> {
+    return (crewDayCheck ??= (async () => {
+        const byPair = new Map<string, string[]>();
+        for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== FIXTURE_FILE)) {
+            const raw = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as Record<string, unknown> & Partial<MultiCaseFile>;
+            const pairs = new Set<string>();
+            const collect = (o: Record<string, unknown> | undefined) => {
+                if (!o) return;
+                if (Array.isArray(o.extraCrews)) for (const x of o.extraCrews) collect(x as Record<string, unknown>);
+                if (typeof o.fixtureCrew !== 'string' || typeof o.dayOffset !== 'number') return;
+                if (Math.abs(o.dayOffset) > CF_MAX_DAY_OFFSET) {
+                    throw new Error(`client-feedback ${name}: dayOffset ${o.dayOffset} is outside the ±${CF_MAX_DAY_OFFSET} day export window`);
+                }
+                pairs.add(`${o.fixtureCrew}@${o.dayOffset}`);
+            };
+            collect(raw);
+            collect(raw.shared);
+            for (const c of Object.values(raw.cases ?? {})) collect(c);
+            for (const pair of pairs) byPair.set(pair, [...(byPair.get(pair) ?? []), name]);
+        }
+        const clashes = [...byPair].filter(([, files]) => files.length > 1);
+        if (clashes.length) {
+            throw new Error(
+                `client-feedback (fixtureCrew, dayOffset) shared across scenario files: ` + clashes.map(([p, f]) => `${p} → ${f.join(', ')}`).join('; '),
             );
         }
     })());

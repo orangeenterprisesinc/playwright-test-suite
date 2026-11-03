@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "No data: the time window is browser state. Begin/End are type=time inputs (transfer-begin-time-input / transfer-end-time-input); End is stored in localStorage pet-tiger.transfer.timeWindow.v2.endTime and sends no request (bundle index-CfOPnFmW.js, 2026-10-30).",
+    "The spec puts End back to the default in a finally; the value dies with the test's context anyway."
+  ],
+  "ticket": "WEBPET-3431",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "expected": {
+    "defaultBegin": "00:00",
+    "defaultEnd": "23:59",
+    "pickedEnd": "17:00"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Reset of a pre-fix stored 11:59 AM (old key pet-tiger.transfer.endTime) needs hand-seeded browser storage; the TC checks the default and the remembered pick." }
+  ],
+  "cleanup": []
+}

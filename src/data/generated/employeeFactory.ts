@@ -9,7 +9,10 @@ const MAX_LAST_NAME = 20;
 /** `name` is the sweepable tag (`A5 NEW EMPLOYEE 1029-153245-W1`); `lastName` is its short form (`A5 1029-153245-W1`) for the 20-char field. */
 export function makeEmployeeName(owner: string): { name: string; lastName: string } {
     const name = readableName(owner, NOUN);
-    const lastName = `${owner} ${name.slice(`${owner} NEW ${NOUN} `.length)}`;
+    const short = `${owner} ${name.slice(`${owner} NEW ${NOUN} `.length)}`;
+    // A W3929-style owner leaves room for a one-digit worker only; a long run restarts workers past W9 (W14 = 21 chars).
+    // Last Name is not unique and the sweep reads Name, so the worker tag is what gives way.
+    const lastName = short.length <= MAX_LAST_NAME ? short : short.replace(/-W\d+(?=(-\d+)?$)/, '');
     if (!isSweepable('employee', name)) throw new Error(`makeEmployeeName: '${name}' is not a name the residue sweep reclaims (cleanupTargets.ts)`);
     if (name.length > MAX_NAME) throw new Error(`makeEmployeeName: Name '${name}' is ${name.length} chars, over ${MAX_NAME}`);
     if (lastName.length > MAX_LAST_NAME) throw new Error(`makeEmployeeName: Last Name '${lastName}' is ${lastName.length} chars, over ${MAX_LAST_NAME}`);

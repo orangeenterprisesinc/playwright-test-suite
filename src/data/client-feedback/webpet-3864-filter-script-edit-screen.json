@@ -1,0 +1,14 @@
+{
+  "_notes": [
+    "Read only: opened and left with Cancel (Save stays disabled). The sheet's example 'Employees Currently on the Job' does not exist on su; 'Permanent Badge Assignment' (id 7) is a seed Time In / Report script.",
+    "Walked on dev 2026-11-02: Screen = Time In and Script Type = Report, both read-only text; Description read-only; Execute Script in the footer; no Table field; Report Viewer Users has Add Users ('Select users...') and Empty (disabled while no users are assigned)."
+  ],
+  "ticket": "WEBPET-3864",
+  "screen": { "menuPath": ["File", "Administration", "Setup", "Scripts"], "url": "/setup/filter-scripts" },
+  "script": "Permanent Badge Assignment",
+  "expected": { "screenLabel": "Screen", "screen": "Time In", "scriptType": "Report", "absentField": "Table", "addUsersPlaceholder": "Select users..." },
+  "annotations": [
+    { "type": "data-note", "description": "Uses 'Permanent Badge Assignment' (Time In / Report): the sheet's 'Employees Currently on the Job' is not on the su tenant." }
+  ],
+  "cleanup": []
+}

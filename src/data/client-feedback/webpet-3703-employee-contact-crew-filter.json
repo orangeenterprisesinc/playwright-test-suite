@@ -1,0 +1,14 @@
+{
+  "_notes": [
+    "Crew filter on the Employee grid = CF CREW D leaves CF D ONE and CF D TWO. Report, then Contact (the sheet's 'Employee Contact'; viewer 'Employee - Contact'), then PDF.",
+    "Walked on dev 2026-11-02: no error; header 'Crew = CF CREW D' with no 'Filters:' prefix (finding F1); rows print Full Name as last name then first name: 'D ONE CF', 'D TWO CF'. Read-only; no (crew, day) pair."
+  ],
+  "ticket": "WEBPET-3703",
+  "screen": { "menuPath": ["Setup", "Employee"], "url": "/setup/employees" },
+  "fixtureCrew": "D",
+  "filter": { "column": "Crew" },
+  "report": "Contact",
+  "expected": { "errorText": "could not be bound", "filterLinePrefix": "Crew = ", "rowSuffix": " CF", "listed": ["D ONE CF", "D TWO CF"] },
+  "annotations": [],
+  "cleanup": []
+}

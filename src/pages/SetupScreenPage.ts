@@ -26,6 +26,8 @@ import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { DataGridComponent } from '../components/DataGridComponent';
 import { LeftNavigationPage } from './shell/LeftNavigationPage';
+import { ReportDialog } from './processing/ReportDialog';
+import { PdfViewerDialog } from './reports/PdfViewerDialog';
 
 /**
  * What happened when a New form was submitted.
@@ -337,6 +339,55 @@ export abstract class SetupScreenPage extends BasePage {
                 'GET /api/setup-identifier-preferences has allowRecordBarcodeModification off, ' +
                 'and a fixture row must never be created without its code',
         ).toBeEditable();
+    }
+
+    // ── List toolbar: Report, Add fields, Print Badges (measured 2026-11-02) ──
+
+    private reportDialog?: ReportDialog;
+
+    /** The list's Report (page-header-action-report) opens the shared Report dialog; the PDF prints the grid's current filter. */
+    get report(): ReportDialog {
+        this.reportDialog ??= new ReportDialog(this.page, this.page.getByTestId('page-header-action-report'));
+        return this.reportDialog;
+    }
+
+    /** "Add fields" (page-header-action-columns) opens "Add columns": one listitem per optional column, named by its caption. */
+    get addFieldsDialog(): Locator {
+        return this.page.getByRole('dialog', { name: 'Add columns' });
+    }
+
+    /** The Add fields captions in order. Escape closes without ticking anything: the column layout is saved per user. */
+    async addFieldsCaptions(): Promise<string[]> {
+        await this.page.getByTestId('page-header-action-columns').click();
+        await expect(this.addFieldsDialog).toBeVisible({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+        const captions = (await this.addFieldsDialog.getByRole('listitem').allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+        await this.page.keyboard.press('Escape');
+        await expect(this.addFieldsDialog).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+        return captions;
+    }
+
+    get printBadgesDialog(): Locator {
+        return this.page.getByRole('alertdialog', { name: 'Print Badges' });
+    }
+
+    /**
+     * Print Badges (page-header-action-badges) → "Print Badges" (Badge / Label, Records, Barcode symbology) → Print opens the
+     * PDF viewer; the PDF is saved to `saveTo`. `records` is the Records choice the dialog must show; it is read, never changed.
+     */
+    async printBadges(records: string, saveTo: string): Promise<{ viewerHeading: string; savedPath: string; savedBytes: number }> {
+        await this.page.getByTestId('page-header-action-badges').click();
+        const dialog = this.printBadgesDialog;
+        await expect(dialog).toBeVisible({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+        await expect(dialog.getByText(records, { exact: true }), `Print Badges prints "${records}"`).toBeVisible();
+        const viewer = new PdfViewerDialog(this.page);
+        await dialog.getByRole('button', { name: 'Print', exact: true }).click();
+        const opened = await viewer.waitOpen();
+        const saved = await viewer.download(saveTo);
+        await viewer.close();
+        // Closing the viewer closed the Print Badges dialog too on 2026-11-02; Cancel covers a build where it stays.
+        if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(dialog).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+        return { viewerHeading: opened.heading, savedPath: saveTo, savedBytes: saved.savedBytes };
     }
 
     // ── Screen-specific hooks ───────────────────────────────────────

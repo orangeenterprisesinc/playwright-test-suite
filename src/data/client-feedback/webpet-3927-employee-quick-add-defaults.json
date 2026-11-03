@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su). Quick form labels: Name, First Name *, Last Name *, Middle, Export Identifier, Date of Birth, Gender | Department, Crew, Hourly Rate, Hire Date, Authorized to Work Until | Time Card Defaults: Default Ranch, Default Field, Default Job, Always Use Default Job. No Barcode field.",
+    "Saved W3927 NEW EMPLOYEE 1102-105600-W0: POST employees 201, Barcode 7503 assigned by the server; banner '<name> was added. Ready for the next employee.'; Open record showed Middle M, the Export Identifier, CF RANCH / CF FIELD / CF JOB, Always Use Default Job off. Deleted on screen.",
+    "Crew arrives pre-filled with B1 CREW (preferences); the spec clears it so the throwaway never joins a Journey B roster. Name, Last Name and Export Identifier are run-minted (Employee has no purge, WEBPET-1798). Arrange: CF RANCH, CF FIELD, CF JOB only; no (crew, day) pair."
+  ],
+  "ticket": "WEBPET-3927",
+  "screen": { "menuPath": ["Employee Add", "Quick"], "url": "/setup/employees/quick-add" },
+  "employee": { "firstName": "QUICK", "middle": "M" },
+  "expected": {
+    "labels": ["Name", "First Name", "Last Name", "Middle", "Export Identifier", "Default Ranch", "Default Field", "Default Job", "Always Use Default Job"],
+    "section": "Time Card Defaults",
+    "bannerSuffix": "was added. Ready for the next employee.",
+    "alwaysUseDefaultJob": false
+  },
+  "annotations": [],
+  "cleanup": []
+}

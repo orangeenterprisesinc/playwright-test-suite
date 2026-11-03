@@ -1,0 +1,14 @@
+{
+  "_notes": [
+    "CF D ONE is edited and never saved; leave through Discard changes, then Don't Save. 'Guerr' matches only Guerrero, the protected Journey A department (a04/a05); the list also shows a Create \"Guerr\" button, which Tab does not trigger.",
+    "Walked on dev 2026-11-02 on CF D TWO: Tab kept Guerrero and moved focus to Crew (#crewCounter); the grid's Department stayed '—'. No (crew, day) pair: fixtureCrew without dayOffset."
+  ],
+  "ticket": "WEBPET-3577",
+  "screen": { "menuPath": ["Setup", "Employee"], "url": "/setup/employees" },
+  "fixtureCrew": "D",
+  "employee": "one",
+  "department": { "typed": "Guerr", "match": "Guerrero" },
+  "expected": { "departmentAfterLeave": "—" },
+  "annotations": [],
+  "cleanup": []
+}

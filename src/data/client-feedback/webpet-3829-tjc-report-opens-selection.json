@@ -1,0 +1,28 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -9 in this suite. Analyze only; nothing committed, no report is run.",
+    "Report (v2-toolbar-report) opens alertdialog 'Report: All Data — <today>' with report-select (69 options) and report-param-* controls; no iframe blob: and no /reports/run request. Display Report (v2-toolbar-display-report) sits right of Report (2026-10-30).",
+    "2 cards = Time In 07:00 + Time Out 11:00 on CF JOB."
+  ],
+  "ticket": "WEBPET-3829",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -9,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "titlePrefix": "Report: ",
+    "minReportOptions": 2,
+    "paramTestIdPrefix": "report-param-",
+    "displayReportLabel": "Display Report"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Cancel in the sheet's expected result: removed by WEBPET-3835 (web-pet #1450); asserted absent by the 3835 spec." },
+    { "type": "not-asserted", "description": "No report is run: Display Report, PDF and Excel stay unclicked." }
+  ],
+  "cleanup": []
+}

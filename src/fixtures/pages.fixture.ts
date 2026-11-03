@@ -48,9 +48,18 @@ import { EmployeePage } from '../pages/setup/EmployeePage';
 import { CropPage } from '../pages/setup/CropPage';
 import { DeletedRecordsPage } from '../pages/admin/DeletedRecordsPage';
 import { BulkDeleteHistoryPage } from '../pages/admin/BulkDeleteHistoryPage';
+import { ReverseMultiEditPage } from '../pages/admin/ReverseMultiEditPage';
 import { ReverseExportPage } from '../pages/admin/ReverseExportPage';
 import { ExportToAccountingPage } from '../pages/processing/ExportToAccountingPage';
 import { ReportsHubPage } from '../pages/reports/ReportsHubPage';
+import { EmployeeQuickAddPage } from '../pages/setup/EmployeeQuickAddPage';
+import { TimeSheetValidationPage } from '../pages/setup/TimeSheetValidationPage';
+import { FilterScriptsPage } from '../pages/admin/FilterScriptsPage';
+import { JobCardReportSelectionPage } from '../pages/reports/JobCardReportSelectionPage';
+import { ScreenReportSelectionPage } from '../pages/reports/ScreenReportSelectionPage';
+import { ReportScriptsPage } from '../pages/reports/ReportScriptsPage';
+import { FileMenu } from '../pages/shell/FileMenu';
+import { TimeInListPage } from '../pages/input/TimeInListPage';
 
 /**
  * Every page object, lazily constructed.
@@ -117,6 +126,8 @@ export interface PageObjects {
     readonly deletedRecords: DeletedRecordsPage;
     /** File ▸ Restore or Reverse ▸ Reverse Multi Delete (D8). */
     readonly bulkDeleteHistory: BulkDeleteHistoryPage;
+    /** File ▸ Restore or Reverse ▸ Reverse Multi Edit (WEBPET-3574). */
+    readonly reverseMultiEdit: ReverseMultiEditPage;
     /** File ▸ Export to Accounting, `/export-to-accounting` (E11). */
     readonly exportToAccounting: ExportToAccountingPage;
     /** File ▸ Administration ▸ Restore or Reverse ▸ Reverse Export to Accounting (Payroll) (E11). */
@@ -134,6 +145,28 @@ export interface PageObjects {
     readonly importSingleFolder: ImportSingleFolderPage;
     /** Connectivity ▸ Import ▸ Import Log — the Internet Import Log grid (A6). */
     readonly importLog: ImportLogPage;
+
+    // ── Client feedback 5B ─────────────────────────────────────────
+    /** Employee Add ▸ Quick, `/setup/employees/quick-add` (WEBPET-3927 / 3929). */
+    readonly employeeQuickAdd: EmployeeQuickAddPage;
+    /** Setup ▸ TimeSheet Setup, `/setup/timesheet/validations` (WEBPET-3706). */
+    readonly timeSheetValidation: TimeSheetValidationPage;
+    /** File ▸ Administration ▸ Setup ▸ Scripts, `/setup/filter-scripts` (WEBPET-3864). */
+    readonly filterScripts: FilterScriptsPage;
+
+    // ── Client feedback 6A: Reports ────────────────────────────────
+    /** Reports ▸ Input ▸ Job Card, `/reports/input/job-card` (WEBPET-3462). */
+    readonly jobCardReportSelection: JobCardReportSelectionPage;
+    /** Reports ▸ Input ▸ Time In, `/reports/screen/time-in` (WEBPET-3858 / 3817). */
+    readonly timeInReportSelection: ScreenReportSelectionPage;
+    /** Reports ▸ Report Scripts, `/reports/scripts` (WEBPET-3817). */
+    readonly reportScripts: ReportScriptsPage;
+
+    // ── Client feedback 6B: File menu captions, Time In list ──────────
+    /** Sidebar File group: Restore or Reverse captions (WEBPET-3937). */
+    readonly fileMenu: FileMenu;
+    /** Input ▸ Time In, `/input/time-in` (WEBPET-3932). */
+    readonly timeInList: TimeInListPage;
 }
 
 /**
@@ -176,6 +209,7 @@ export function createPageObjects(page: Page): PageObjects {
         get crop() { return lazy('crop', () => new CropPage(page)); },
         get deletedRecords() { return lazy('deletedRecords', () => new DeletedRecordsPage(page)); },
         get bulkDeleteHistory() { return lazy('bulkDeleteHistory', () => new BulkDeleteHistoryPage(page)); },
+        get reverseMultiEdit() { return lazy('reverseMultiEdit', () => new ReverseMultiEditPage(page)); },
         get exportToAccounting() { return lazy('exportToAccounting', () => new ExportToAccountingPage(page)); },
         get reverseExport() { return lazy('reverseExport', () => new ReverseExportPage(page)); },
         get crewTimeIn() { return lazy('crewTimeIn', () => new CrewTimeInPage(page)); },
@@ -184,5 +218,13 @@ export function createPageObjects(page: Page): PageObjects {
         get importInternet() { return lazy('importInternet', () => new ImportInternetPage(page)); },
         get importSingleFolder() { return lazy('importSingleFolder', () => new ImportSingleFolderPage(page)); },
         get importLog() { return lazy('importLog', () => new ImportLogPage(page)); },
+        get employeeQuickAdd() { return lazy('employeeQuickAdd', () => new EmployeeQuickAddPage(page)); },
+        get timeSheetValidation() { return lazy('timeSheetValidation', () => new TimeSheetValidationPage(page)); },
+        get filterScripts() { return lazy('filterScripts', () => new FilterScriptsPage(page)); },
+        get jobCardReportSelection() { return lazy('jobCardReportSelection', () => new JobCardReportSelectionPage(page)); },
+        get timeInReportSelection() { return lazy('timeInReportSelection', () => new ScreenReportSelectionPage(page, 'Time In', '/reports/screen/time-in')); },
+        get reportScripts() { return lazy('reportScripts', () => new ReportScriptsPage(page)); },
+        get fileMenu() { return lazy('fileMenu', () => new FileMenu(page)); },
+        get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
     };
 }

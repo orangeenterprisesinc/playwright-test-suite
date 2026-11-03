@@ -1,0 +1,27 @@
+{
+  "_notes": [
+    "CF CREW C owns day -11; data scoped by Search by Time Card Crew contains.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB. Walked on dev 2026-10-31: all 44 options read '<Export ID> : <Name>'; CF employees have no Export ID so they read ': CF C ONE' / ': CF C TWO', never the bare name."
+  ],
+  "ticket": "WEBPET-3180",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -11,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "rows": 4,
+    "field": "Employee",
+    "ownLabels": [": CF C ONE", ": CF C TWO"],
+    "labelPattern": "^([^:]*\\S )?: \\S"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "CF fixture employees carry no Export ID (WEBPET-3283 relies on ': NAME'), so a populated ID is not proven on own data." }
+  ],
+  "cleanup": []
+}

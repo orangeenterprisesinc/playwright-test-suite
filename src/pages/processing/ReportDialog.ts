@@ -30,11 +30,49 @@ export class ReportDialog {
     readonly closeButton: Locator;
     private readonly viewer: PdfViewerDialog;
 
-    constructor(private readonly page: Page) {
-        this.trigger = page.getByTestId('view-job-cards-print-report');
+    /** The owning screen's Report button (View ▸ Job Cards view-job-cards-print-report, View ▸ Time Cards view-time-cards-report, Transfer v2-toolbar-report). */
+    constructor(private readonly page: Page, trigger: Locator) {
+        this.trigger = trigger;
         this.dialog = page.getByRole('alertdialog', { name: /^Report: / });
         this.closeButton = page.getByTestId('report-close');
         this.viewer = new PdfViewerDialog(page);
+    }
+
+    /** The X top-right (`report-close`, aria-label "Close") is the dialog's only close; there is no Cancel. */
+    get closeX(): Locator {
+        return this.closeButton;
+    }
+
+    /** Exact matching keeps the hidden `report-cancel-run` ("Cancel run") from matching. */
+    get cancelButton(): Locator {
+        return this.dialog.getByRole('button', { name: 'Cancel', exact: true });
+    }
+
+    /** The visible button row's labels, in order (Excel, Export, Load, Save, PDF, plus the Edit buttons). */
+    async buttonRowLabels(): Promise<string[]> {
+        // The `has` locators start from the page: a `has` rooted at this.dialog would never match inside it.
+        const row = this.dialog
+            .locator('div')
+            .filter({ has: this.page.getByTestId('report-save-trigger') })
+            .filter({ has: this.page.getByRole('button', { name: 'PDF', exact: true }) })
+            .last();
+        const labels = await row.getByRole('button').filter({ visible: true }).allInnerTexts();
+        return labels.map((t) => t.trim()).filter(Boolean);
+    }
+
+    /** The report picker's options. Escape closes only the listbox; the dialog stays open. */
+    async reportOptions(): Promise<string[]> {
+        await this.dialog.getByRole('combobox').first().click();
+        const listbox = this.page.getByRole('listbox');
+        await listbox.waitFor({ state: 'visible', timeout: 15_000 });
+        const options = (await listbox.getByRole('option').allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        await expect(listbox).toBeHidden({ timeout: 15_000 });
+        return options;
+    }
+
+    async close(): Promise<void> {
+        await this.closeIfOpen();
     }
 
     async open(): Promise<void> {

@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { Download, Locator, Page, Response, Route, expect } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
+import { ExportSaveDialog } from './ExportSaveDialog';
 import { TestFileSheet } from './TestFileSheet';
 import { ordinal } from './ViewJobCardsPage';
 
@@ -51,6 +52,7 @@ export class ExportToAccountingPage extends BasePage {
     readonly exportButton: Locator;
     readonly destinationText: Locator;
     readonly testFile: TestFileSheet;
+    readonly saveDialog: ExportSaveDialog;
     // CALIBRATE: the Recent Exports locators are unmeasured; the webpet ExportDispatchWorkspacePage testids are a reference only.
     readonly recentButton: Locator;
     readonly recentSheet: Locator;
@@ -68,6 +70,7 @@ export class ExportToAccountingPage extends BasePage {
         this.exportButton = page.getByRole('button', { name: /^Export (\d+) JobCards?$/ });
         this.destinationText = page.getByText(/·\s*File output/).first();
         this.testFile = new TestFileSheet(page);
+        this.saveDialog = new ExportSaveDialog(page);
         this.recentButton = page.getByTestId('export-v2-history-button').or(page.getByRole('button', { name: /^Recent/ })).first();
         this.recentSheet = page.getByTestId('export-v2-history-sheet').or(page.getByRole('dialog', { name: /Recent Exports/i })).first();
     }
@@ -138,6 +141,33 @@ export class ExportToAccountingPage extends BasePage {
         return { runStatus: runsResponse.status(), candidatesStatus: candidatesResponse.status() };
     }
 
+    /**
+     * Refresh again within the same visit: the SPA re-POSTs only …/candidates and reuses its draft (measured 2026-11-02
+     * after Export ▸ Discard), so `refresh()` would wait 60 s for a …/runs that never comes. A …/runs that does come is
+     * still handed to `onRun`.
+     */
+    async refreshCandidates(onRun?: (body: Record<string, unknown>) => void): Promise<number> {
+        const seen: Promise<void>[] = [];
+        const onResponse = (r: Response): void => {
+            if (onRun && r.request().method() === 'POST' && /\/export-to-accounting\/runs$/.test(new URL(r.url()).pathname)) {
+                seen.push(r.json().then((b) => onRun(b as Record<string, unknown>), () => undefined));
+            }
+        };
+        const candidates = this.page.waitForResponse((r) => r.request().method() === 'POST' && /\/export-to-accounting\/candidates$/.test(new URL(r.url()).pathname), { timeout: 60_000 });
+        candidates.catch(() => undefined);
+        this.page.on('response', onResponse);
+        try {
+            await expect(this.refreshButton, 'Refresh stays disabled until a date range is picked').toBeEnabled({ timeout: 15_000 });
+            await this.refreshButton.click();
+            const res = await candidates;
+            await this.grid.waitFor({ state: 'visible', timeout: 30_000 });
+            await Promise.all(seen);
+            return res.status();
+        } finally {
+            this.page.off('response', onResponse);
+        }
+    }
+
     async openRecentExports(): Promise<void> {
         await this.recentButton.click({ timeout: 15_000 });
         await this.recentSheet.waitFor({ state: 'visible', timeout: 15_000 });
@@ -170,6 +200,75 @@ export class ExportToAccountingPage extends BasePage {
         const jobCards = (await this.recentSheet.getByText(/^JobCard #\d+$/).allInnerTexts()).map((t) => Number(/\d+/.exec(t)?.[0]));
         await this.recentSheet.getByRole('button', { name: 'Back to list' }).click({ timeout: 15_000 });
         return { succeeded, failed, skipped, jobCards };
+    }
+
+    // Cluster 4A (measured 2026-11-01): candidates header, summary row, Multi Edit, row drawer
+    // Not a role query: the modal drawer aria-hides the screen behind it, which stays rendered.
+    get screenRoot(): Locator { return this.page.getByTestId('export-v2-page'); }
+    get matchedCount(): Locator { return this.page.getByTestId('export-v2-grid-count'); }
+    get recordCountLine(): Locator { return this.page.getByTestId('export-v2-record-count-line'); }
+
+    /** As displayed: the label and its count are separate spans, so textContent reads "Job-cards2 of 2". */
+    async recordCountText(): Promise<string> {
+        return (await this.recordCountLine.innerText()).replace(/\s+/g, ' ').trim();
+    }
+    get totalsLine(): Locator { return this.page.getByTestId('export-v2-totals-line'); }
+    get multiEditButton(): Locator { return this.page.getByRole('button', { name: 'Multi Edit', exact: true }); }
+    get updateRecordsButton(): Locator { return this.page.getByRole('button', { name: /^Update Records/ }); }
+    get rowDrawer(): Locator { return this.page.getByRole('dialog', { name: 'Edit Job Card' }); }
+    screenText(text: string | RegExp): Locator { return this.page.getByText(text); }
+
+    async counter(kind: 'pending' | 'needsReexport' | 'warnings'): Promise<number> {
+        return Number(/^(\d+)/.exec((await this.page.getByTestId(`export-v2-counter-${kind}`).innerText()).trim())?.[1] ?? NaN);
+    }
+
+    /** Rows and their checkboxes are named by jobCardCounter ("10934", "Select 10934"). */
+    candidateRow(jobCardId: number): Locator { return this.grid.getByRole('row', { name: String(jobCardId), exact: true }); }
+    rowCheckbox(jobCardId: number): Locator { return this.grid.getByRole('checkbox', { name: `Select ${jobCardId}`, exact: true }); }
+    rowCheckboxes(): Locator { return this.grid.getByRole('checkbox', { name: /^Select \d+$/ }); }
+
+    async setMultiEdit(on: boolean): Promise<void> {
+        if (((await this.multiEditButton.getAttribute('aria-pressed')) === 'true') !== on) await this.multiEditButton.click();
+        await expect(this.multiEditButton).toHaveAttribute('aria-pressed', String(on));
+    }
+
+    /** The first click after Multi Edit turns on can only select the row (2026-11-01), so it is retried until the box reads right. */
+    async setRowTicked(jobCardId: number, ticked: boolean): Promise<void> {
+        const box = this.rowCheckbox(jobCardId);
+        await expect(async () => {
+            if ((await box.isChecked()) !== ticked) await box.click();
+            expect(await box.isChecked()).toBe(ticked);
+        }).toPass({ timeout: 15_000 });
+    }
+
+    /** A data cell (Employee), never the checkbox or the shifts button. */
+    async openRowDrawer(jobCardId: number): Promise<void> {
+        await this.candidateRow(jobCardId).getByRole('cell').nth(1).click();
+        await this.rowDrawer.waitFor({ state: 'visible', timeout: 15_000 });
+    }
+
+    async closeRowDrawer(): Promise<void> {
+        await this.rowDrawer.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(this.rowDrawer).toBeHidden({ timeout: 10_000 });
+    }
+
+    async scrollGrid(): Promise<void> {
+        await this.grid.hover();
+        await this.page.mouse.wheel(0, 2_000);
+    }
+
+    /** Visible leaf texts between the step bar and the Candidates section, top-to-bottom then left-to-right. */
+    async labelsUnderStepBar(): Promise<string[]> {
+        return this.page.getByTestId('export-v2-page').evaluate((root) => {
+            const spine = root.querySelector('[data-testid="export-v2-spine"]')!.getBoundingClientRect().bottom;
+            const grid = root.querySelector('[data-testid="export-v2-grid"]')!.getBoundingClientRect().top;
+            return Array.from(root.querySelectorAll<HTMLElement>('*'))
+                .filter((e) => e.children.length === 0 && e.offsetParent !== null && (e.innerText ?? '').trim() !== '')
+                .map((e) => ({ t: e.innerText.trim(), r: e.getBoundingClientRect() }))
+                .filter(({ r }) => r.top >= spine - 1 && r.bottom <= grid + 1)
+                .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
+                .map(({ t }) => t);
+        });
     }
 
     toastText(text: string | RegExp): Locator {
@@ -366,6 +465,38 @@ export class ExportToAccountingPage extends BasePage {
             this.page.off('response', onResponse);
             await this.page.unroute('**/export-to-accounting/**', guard);
         }
+    }
+
+    /**
+     * Export ▸ confirm ▸ Export up to the "Save export file" dialog, never past it (WEBPET-3464/3938). Refuses unless
+     * the grid holds exactly the caller's rows and the save-picker stand-in is armed. `onRun` gets POST …/run's body
+     * before anything is asserted. "Nothing to export" (e.g. a missing earning code) fails by name with the server's answer.
+     */
+    async openSaveDialog(opts: { expectedCount: number; crew: string; onRun: (body: unknown) => void }): Promise<{ confirmText: string; offered: string[] }> {
+        const rows = await this.candidates();
+        const count = await this.exportCount();
+        if (rows.length !== opts.expectedCount || rows.some((r) => r.crew !== opts.crew) || count !== opts.expectedCount) {
+            throw new Error(`Refusing to export: the grid shows ${rows.length} row(s) ${JSON.stringify(rows.map((r) => r.crew))}, the button says ${count}, this test owns ${opts.expectedCount} of '${opts.crew}'.`);
+        }
+        if (!(await this.saveDialog.pickerArmed())) throw new Error('Refusing to export: the save-picker stand-in is not armed; the SPA would open the native save window by itself.');
+        const confirm = this.page.getByTestId('export-v2-confirm-dialog');
+        await this.exportButton.click();
+        await confirm.waitFor({ state: 'visible', timeout: 15_000 });
+        const confirmText = (await confirm.getByRole('heading').innerText()).trim();
+        if (Number(CONFIRM_TEXT.exec(confirmText)?.[1]) !== opts.expectedCount) throw new Error(`The confirm dialog reads "${confirmText}", expected ${opts.expectedCount} job card(s); not confirming.`);
+        const run = this.page.waitForResponse((r) => r.request().method() === 'POST' && /\/export-to-accounting\/run$/.test(new URL(r.url()).pathname), { timeout: 60_000 });
+        run.catch(() => undefined);
+        await this.page.getByTestId('export-v2-confirm-export').click();
+        const response = await run;
+        const body: unknown = await response.json().catch(() => null);
+        opts.onRun(body);
+        const outcome = await Promise.race([
+            this.saveDialog.root.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'dialog' as const),
+            this.page.getByText(/^Nothing to export/).first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'nothing to export' as const),
+        ]).catch(() => 'no dialog' as const);
+        if (outcome !== 'dialog') throw new Error(`Export reached no "Save export file" dialog (${outcome}); POST …/run answered ${response.status()} ${JSON.stringify(body).slice(0, 400)}`);
+        // The SPA offers the save window by itself right after Export (default name); the stand-in's Cancel is what opens this dialog.
+        return { confirmText, offered: await this.saveDialog.pickerCalls() };
     }
 }
 

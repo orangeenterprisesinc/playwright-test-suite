@@ -1,0 +1,28 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -3 in this suite. Analyze only; nothing committed.",
+    "5 cards = 2 Time In 07:00 + crew piece-out 09:00 x5 + 2 Time Out 11:00 on the piece job. Manual walk 2026-10-31: caption 5 of 5 -> 4 of 4 with Hide piece-outs ticked, Pieces 5 both ways.",
+    "Hide piece-outs is a display lens since the rev 2 fix, so a toggle sends no analyze request."
+  ],
+  "ticket": "WEBPET-2982",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -3,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "piece",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "pieceOut": { "at": { "hour": 9, "minute": 0 }, "pieces": 5 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "analyzedCaption": "Includes 5 Time Cards of 5 initial selection",
+    "hiddenCaption": "Includes 4 Time Cards of 4 initial selection",
+    "pieces": 5,
+    "pieceOutType": "Piece Out",
+    "pieceOutRows": 1,
+    "analyzeRequestsOnToggle": 0
+  },
+  "annotations": [],
+  "cleanup": []
+}

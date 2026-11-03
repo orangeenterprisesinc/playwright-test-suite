@@ -1,0 +1,28 @@
+{
+  "_notes": [
+    "CF CREW C owns day -2; data scoped by Search by Time Card Crew contains.",
+    "6 cards: each employee has a 06:30 Time In (CF JOB), a 10:30 Time In (CF PIECE JOB, standing in for lunch) and a 15:00 Time Out. Walked on dev 2026-10-31: sorted by Employee each employee reads 6:30 AM Time In, 10:30 AM Time In, 3:00 PM Time Out."
+  ],
+  "ticket": "WEBPET-3133",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -2,
+  "seed": [
+    { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 6, "minute": 30 } },
+    { "employees": ["one", "two"], "job": "piece", "timeIn": { "hour": 10, "minute": 30 }, "timeOut": { "hour": 15, "minute": 0 } }
+  ],
+  "expected": {
+    "rows": 6,
+    "sortColumn": "Employee",
+    "sequence": [
+      { "time": "6:30 AM", "type": "Time In" },
+      { "time": "10:30 AM", "type": "Time In" },
+      { "time": "3:00 PM", "type": "Time Out" }
+    ]
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "No CF break/lunch job exists, so a 10:30 Time In on CF PIECE JOB stands in for the lunch rows." }
+  ],
+  "cleanup": []
+}

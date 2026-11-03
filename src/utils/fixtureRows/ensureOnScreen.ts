@@ -35,7 +35,7 @@ export interface OnScreenDeps {
 }
 
 /** What a repair put right. Each maps to one form control. */
-export type Repair = 'active' | 'homeCrew' | 'exportIdentifier' | 'includeInTransfer';
+export type Repair = 'active' | 'homeCrew' | 'exportIdentifier' | 'includeInTransfer' | 'earningCodes';
 
 export interface EnsuredOnScreen extends EnsuredRecord {
     /** Where the row came from — `created` is the only one that drove a form. */
@@ -205,6 +205,8 @@ export interface FieldSpec extends CodedSpec {
     state?: string;
     /** Defaults to the code; the Famous writer refuses cards whose Field has none. */
     exportIdentifier?: string;
+    /** Set only by a fixture that must stay inactive (WEBPET-3701); absent means Active is never touched. */
+    active?: boolean;
 }
 
 const FIELD: EntitySpec<FieldSpec> = {
@@ -220,17 +222,31 @@ const FIELD: EntitySpec<FieldSpec> = {
             state: spec.state,
             exportIdentifier: spec.exportIdentifier ?? spec.code,
         });
-        return outcome === 'created' ? pages.field.savedIdFromUrl() : null;
+        if (outcome !== 'created') return null;
+        const id = pages.field.savedIdFromUrl();
+        // createField does not drive Active; an inactive fixture is switched off on its Edit form.
+        if (spec.active === false) {
+            await pages.field.gotoEditById(id, spec.name);
+            await pages.field.setActive(false);
+        }
+        return id;
     },
     readDetail: ({ api }, id) => getDetail(api, 'fields', id),
-    // Never overwrites a value that is set.
-    needsRepair: (detail) =>
-        typeof detail.exportIdentifier !== 'string' || detail.exportIdentifier.trim() === '' ? ['exportIdentifier'] : [],
-    async repair({ pages }, id, name, _repairs, spec) {
+    // Never overwrites a value that is set; Active is compared only when the spec names it.
+    needsRepair: (detail, spec) => {
+        const repairs: Repair[] = [];
+        if (typeof detail.exportIdentifier !== 'string' || detail.exportIdentifier.trim() === '') repairs.push('exportIdentifier');
+        if (spec.active !== undefined && isActive(detail) !== spec.active) repairs.push('active');
+        return repairs;
+    },
+    async repair({ pages }, id, name, repairs, spec) {
         await pages.field.gotoEditById(id, name);
-        const wanted = spec.exportIdentifier ?? spec.code;
-        const shown = await pages.field.setExportIdentifier(wanted);
-        if (shown !== wanted) throw new Error(`Field '${name}': Export Identifier reads '${shown}' after saving, wanted '${wanted}'.`);
+        if (repairs.includes('exportIdentifier')) {
+            const wanted = spec.exportIdentifier ?? spec.code;
+            const shown = await pages.field.setExportIdentifier(wanted);
+            if (shown !== wanted) throw new Error(`Field '${name}': Export Identifier reads '${shown}' after saving, wanted '${wanted}'.`);
+        }
+        if (repairs.includes('active') && spec.active !== undefined) await pages.field.setActive(spec.active);
     },
 };
 
@@ -296,6 +312,8 @@ export interface JobSpec extends CodedSpec {
     paymentType?: 'Time' | 'Piece';
     hourlyRate?: number;
     pieceRate?: number;
+    /** Job form "Earning Code"; without it Test File and Export reject every card ("does not contain the Earning Code"). */
+    earningCodes?: string;
 }
 
 const JOB: EntitySpec<JobSpec> = {
@@ -310,13 +328,29 @@ const JOB: EntitySpec<JobSpec> = {
             hourlyRate: spec.hourlyRate,
             pieceRate: spec.pieceRate,
         });
-        return outcome === 'created' ? pages.job.savedJobId() : null;
+        if (outcome !== 'created') return null;
+        const id = pages.job.savedJobId();
+        if (spec.earningCodes !== undefined) {
+            await pages.job.gotoEditById(id, spec.name);
+            await pages.job.setEarningCodes(spec.earningCodes);
+        }
+        return id;
     },
     readDetail: ({ api }, id) => getDetail(api, 'jobs', id),
-    needsRepair: (detail) => (isActive(detail) ? [] : ['active']),
-    async repair({ pages }, id, name) {
-        await pages.job.gotoEditById(id, name);
-        await pages.job.setActive(true);
+    needsRepair: (detail, spec) => {
+        const repairs: Repair[] = isActive(detail) ? [] : ['active'];
+        if (spec.earningCodes !== undefined && String(detail.earnDedCode ?? '') !== spec.earningCodes) repairs.push('earningCodes');
+        return repairs;
+    },
+    async repair({ pages }, id, name, repairs, spec) {
+        if (repairs.includes('active')) {
+            await pages.job.gotoEditById(id, name);
+            await pages.job.setActive(true);
+        }
+        if (repairs.includes('earningCodes') && spec.earningCodes !== undefined) {
+            await pages.job.gotoEditById(id, name);
+            await pages.job.setEarningCodes(spec.earningCodes);
+        }
     },
 };
 

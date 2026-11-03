@@ -1,0 +1,27 @@
+{
+  "_notes": [
+    "CF CREW C owns day -4; data scoped by Search by Time Card Crew contains.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB. Walked on dev 2026-10-31: with the crew criterion applied, Report and Display Report are enabled, no tooltip, no 'cannot apply the selection' text, Report opens 'Report: All Data'."
+  ],
+  "ticket": "WEBPET-3819",
+  "customer": "Cesar",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -4,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "rows": 4,
+    "criterionLine": "Time Card Crew contains \"CF CREW C\"",
+    "blockedMessage": "cannot apply the selection",
+    "titlePrefix": "Report: "
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "No report is run: PDF, Excel and Save stay unclicked." }
+  ],
+  "cleanup": []
+}

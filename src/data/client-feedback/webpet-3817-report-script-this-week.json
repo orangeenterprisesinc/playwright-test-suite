@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "Walked on dev 2026-11-02 (su): Time In, Date In > Current > This week reads 'Date In is This week'; Save > Save as New (Execute report on by default) stores <FilterCurrent><SelectionType>CurrentWeek (relative, no dates).",
+    "Reports > Report Scripts, filter, row click (selected), header Execute lands on Time In Report Selection with 'Date In is This week' and opens the PDF viewer 'Time-in - All Data — <date, time>' directly, with no Report dialog. POST /reports/run carries criteria [{f:dateIn, op:current, v:[currentWeek]}]; the server resolves Mon–Sun, which no screen shows (F6).",
+    "pdfFilterLine was not verifiable in the walk (the planner browser cannot read PDF text); confirm on the first run."
+  ],
+  "ticket": "WEBPET-3817",
+  "screen": { "menuPath": ["Reports", "Report Scripts"], "url": "/reports/scripts" },
+  "criterion": { "field": "Date In", "key": "dateIn", "match": "Current", "range": "This week" },
+  "expected": {
+    "summaryLine": "Date In is This week",
+    "savedToast": "Filter script \"{name}\" saved.",
+    "landingTitle": "Time In Report Selection",
+    "viewerTitlePrefix": "Time-in - All Data — ",
+    "runCriterion": { "f": "dateIn", "op": "current", "v": ["currentWeek"] },
+    "pdfFilterLine": "Date In is This week",
+    "deletedToast": "Filter script deleted"
+  },
+  "annotations": [],
+  "cleanup": []
+}

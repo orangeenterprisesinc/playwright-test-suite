@@ -19,6 +19,31 @@ export async function pickDayInPopup(popup: Locator, day: string): Promise<void>
     await cell.first().click();
 }
 
+/** One day as a range: one cell click, read back; a second click only when the first moved just one end. */
+export async function pickSingleDayRangeInPopup(popup: Locator, day: string): Promise<void> {
+    const [, m, d] = day.split('-').map(Number);
+    const read = async (): Promise<[number, number, number, number]> => {
+        const month = popup.getByRole('textbox', { name: 'Month' });
+        const date = popup.getByRole('textbox', { name: 'Day' });
+        return [
+            Number(await month.nth(0).inputValue()),
+            Number(await date.nth(0).inputValue()),
+            Number(await month.nth(1).inputValue()),
+            Number(await date.nth(1).inputValue()),
+        ];
+    };
+    const ok = ([m0, d0, m1, d1]: [number, number, number, number]): boolean => m0 === m && d0 === d && m1 === m && d1 === d;
+
+    await pickDayInPopup(popup, day);
+    let [m0, d0, m1, d1] = await read();
+    if (ok([m0, d0, m1, d1])) return;
+    await pickDayInPopup(popup, day);
+    [m0, d0, m1, d1] = await read();
+    if (!ok([m0, d0, m1, d1])) {
+        throw new Error(`The date popup reads ${m0}/${d0} – ${m1}/${d1} after clicking ${day} twice`);
+    }
+}
+
 /** `YYYY-MM-DD` → `MM/DD/YYYY`, the date chip's format. */
 export function usDate(day: string): string {
     const [year, month, date] = day.split('-');

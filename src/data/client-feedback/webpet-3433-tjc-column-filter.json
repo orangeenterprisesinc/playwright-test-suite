@@ -1,0 +1,29 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -3 in this suite. Analyze only; nothing committed.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB. The filtered grid's own name keeps the analyzed count; the totals-strip caption follows the filter (2026-10-30)."
+  ],
+  "ticket": "WEBPET-3433",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -3,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "column": "Job",
+    "filterText": "cf j",
+    "matchText": "CF JOB",
+    "analyzedCaption": "Includes 4 Time Cards of 4 initial selection",
+    "filteredCaption": "Includes 2 Time Cards of 2 initial selection",
+    "filtered": 2
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The original bug bit when the grid's first data row had a blank Job; the cascade sort puts a Time In first, so the seed cannot force that path. Lower-case partial text proves the contains / ignore-case match the fix introduced." }
+  ],
+  "cleanup": []
+}

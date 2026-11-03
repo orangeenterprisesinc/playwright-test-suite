@@ -14,6 +14,7 @@
  */
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseComponent } from './BaseComponent';
+import { PickerComponent } from './PickerComponent';
 
 /**
  * A PET Tiger list grid.
@@ -27,7 +28,7 @@ export class DataGridComponent extends BaseComponent {
      */
     private readonly entity: string;
 
-    constructor(page: Page, gridName: string, entity: string) {
+    constructor(page: Page, gridName: string | RegExp, entity: string) {
         super(page, page.getByRole('grid', { name: gridName }));
         this.entity = entity;
     }
@@ -106,19 +107,150 @@ export class DataGridComponent extends BaseComponent {
         await this.rowFor(name).waitFor({ state: 'visible' });
     }
 
-    // NOTE — filtering by an arbitrary column is deliberately not implemented.
-    //
-    // The obvious version (find the column's header index, fill `filters.nth(index)`)
-    // is wrong on this grid. Measured against the live Users screen: the grid renders
-    // 12 `columnheader` cells but only 3 filter boxes, and the filter boxes live
-    // inside *blank* header cells (indices 6, 7 and 9) rather than inside the
-    // labelled ones (Name=0, Initials=1, Role=2, Email=3, Active=4). Header index and
-    // filter index therefore do not correspond, and not every column is filterable.
-    //
-    // `filterByName` works because the Name filter happens to be the first filter box.
-    // When a screen genuinely needs to filter a different column, inspect that grid's
-    // filter row and implement it from the real structure — do not reintroduce an
-    // index-based mapping here, because every screen inherits it.
+    // The title row and the filter row are separate `role=row`s with equal columnheader counts (Time Cards
+    // 22/22, Ranches 7/7, Reports 5/5, measured 2026-10-30), so a column's index in the title row is its index
+    // in the filter row. The old count of 12 headers against 3 boxes mixed both rows.
+    private get titleRow(): Locator {
+        return this.getByRole('row').filter({ has: this.page.getByRole('columnheader', { name: /^Reorder column / }) }).first();
+    }
+
+    // Filter-row cells carry data-col (crew, employee, reference…); title-row cells never do.
+    private get filterRow(): Locator {
+        return this.getByRole('row').filter({ has: this.page.locator('[role="columnheader"][data-col]') }).first();
+    }
+
+    get bodyRows(): Locator {
+        return this.getByRole('row').filter({ has: this.page.getByRole('cell') });
+    }
+
+    get selectAllCheckbox(): Locator {
+        return this.getByRole('checkbox', { name: 'Select all rows', exact: true });
+    }
+
+    /** "Select <row aria-label>": the Reference on Time Cards, the Name on Setup lists. */
+    rowCheckbox(rowLabel: string): Locator {
+        return this.getByRole('checkbox', { name: `Select ${rowLabel}`, exact: true });
+    }
+
+    /** The title row's column labels, in order (blank for the checkbox and action columns). */
+    async headerLabels(): Promise<string[]> {
+        const headers = this.titleRow.getByRole('columnheader');
+        await headers.first().waitFor({ state: 'visible', timeout: 15_000 });
+        return (await headers.allInnerTexts()).map((t) => t.replace(/^Reorder column /, '').split('\n')[0].trim());
+    }
+
+    private async columnIndex(label: string): Promise<number> {
+        const labels = await this.headerLabels();
+        const index = labels.findIndex((l) => l.toLowerCase() === label.toLowerCase());
+        if (index < 0) throw new Error(`${this.entity} grid has no '${label}' column; headers are ${JSON.stringify(labels)}`);
+        return index;
+    }
+
+    async sortState(label: string): Promise<string> {
+        const index = await this.columnIndex(label);
+        return (await this.titleRow.getByRole('columnheader').nth(index).getAttribute('aria-sort')) ?? 'none';
+    }
+
+    /** Clicks the header text until aria-sort reads `dir` (the cycle's order depends on the starting state). */
+    async sortBy(label: string, dir: 'ascending' | 'descending'): Promise<void> {
+        const index = await this.columnIndex(label);
+        const header = this.titleRow.getByRole('columnheader').nth(index);
+        const seen: string[] = [];
+        for (let click = 0; click <= 4; click += 1) {
+            const current = await this.sortState(label);
+            seen.push(current);
+            if (current === dir) return;
+            if (click === 4) break;
+            await header.getByText(label, { exact: true }).click();
+            await expect.poll(() => this.sortState(label), { timeout: 5_000 }).not.toBe(current);
+        }
+        throw new Error(`Sorting ${label} never reached ${dir}; states seen: ${seen.join(' → ')}`);
+    }
+
+    /**
+     * One column's text for every rendered row. Rendered rows only: the grid virtualises past about 100 rows,
+     * so narrow it first and compare with `totalRowCount()`.
+     */
+    async columnValues(label: string): Promise<string[]> {
+        const index = await this.columnIndex(label);
+        const headerCount = (await this.headerLabels()).length;
+        // Cells are right-aligned against the headers, as ViewTimeCardsPage.cellByHeader reads them.
+        return this.bodyRows.evaluateAll(
+            (rows, [i, headers]) =>
+                rows.map((row) => {
+                    const cells = Array.from(row.querySelectorAll('[role="cell"]'));
+                    return (cells[i + cells.length - headers]?.textContent ?? '').trim();
+                }),
+            [index, headerCount] as [number, number],
+        );
+    }
+
+    /** Fills a column's text filter. Picker, date and number filters are not text boxes and fail by name. */
+    async columnFilter(label: string, text: string): Promise<void> {
+        const index = await this.columnIndex(label);
+        const box = this.filterRow.getByRole('columnheader').nth(index).getByPlaceholder('Filter…');
+        if ((await box.count()) === 0) {
+            throw new Error(`'${label}' has no text filter (its filter is a picker/date/number control)`);
+        }
+        await box.fill(text);
+    }
+
+    /** Picks a value in a column's picker filter (Crew, Department, Ranch on Setup lists): the combobox in that filter cell. */
+    async columnPickerFilter(label: string, value: string): Promise<void> {
+        const index = await this.columnIndex(label);
+        const box = this.filterRow.getByRole('columnheader').nth(index).getByRole('combobox');
+        if ((await box.count()) === 0) throw new Error(`'${label}' has no picker filter (its filter is a text/date/number control)`);
+        await new PickerComponent(this.page).pickCombobox(box.first(), value);
+    }
+
+    /** A Setup row's Active cell ("Active: <name>"). */
+    activeCheckbox(name: string): Locator {
+        return this.getByRole('checkbox', { name: `Active: ${name}`, exact: true });
+    }
+
+    /** Ticks rows by "Select <label>" or by body-row position; never a bare first checkbox (Setup rows also carry "Active: <name>"). */
+    async selectRows(rows: Array<string | number>): Promise<void> {
+        for (const row of rows) {
+            const box =
+                typeof row === 'string'
+                    ? this.rowCheckbox(row)
+                    : this.bodyRows.nth(row).getByRole('checkbox', { name: /^Select / });
+            await expect(box, `no selection checkbox for row ${row} (selection/Multi Update mode off?)`).toBeVisible();
+            await box.check();
+            await expect(box).toBeChecked();
+        }
+    }
+
+    async selectAll(): Promise<void> {
+        await expect(this.selectAllCheckbox, 'no Select all rows checkbox (selection/Multi Update mode off?)').toBeVisible();
+        await this.selectAllCheckbox.check();
+        await expect(this.selectAllCheckbox).toBeChecked();
+    }
+
+    /** Opens the "Show columns" picker unless it is already open. */
+    async openColumnsPicker(trigger: Locator = this.page.getByRole('button', { name: 'Columns', exact: true })): Promise<Locator> {
+        const picker = this.page.getByRole('dialog', { name: 'Show columns' });
+        if (!(await picker.isVisible())) await trigger.click();
+        await expect(picker).toBeVisible();
+        return picker;
+    }
+
+    /**
+     * Shows or hides a column. The layout is per user and server-side (`/api/user/grid-layouts/<grid>…`), so any
+     * test that hides a column shows it again in teardown.
+     */
+    async toggleColumn(label: string, visible: boolean, trigger?: Locator): Promise<void> {
+        const picker = await this.openColumnsPicker(trigger);
+        const box = picker.getByRole('checkbox', { name: label, exact: true });
+        if ((await box.isChecked()) !== visible) await box.click();
+        if (visible) await expect(box).toBeChecked();
+        else await expect(box).not.toBeChecked();
+        await this.page.keyboard.press('Escape');
+        await expect(picker).toBeHidden();
+        const labels = await this.headerLabels();
+        const present = labels.some((l) => l.toLowerCase() === label.toLowerCase());
+        expect(present, `'${label}' ${visible ? 'should be in' : 'should not be in'} the headers ${JSON.stringify(labels)}`).toBe(visible);
+    }
 
     /**
      * The row count from the grid's "Total N rows" footer — what the grid is

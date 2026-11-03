@@ -1,0 +1,19 @@
+{
+  "_notes": [
+    "CF CREW D owns day -2. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and Job Card Crew contains CF CREW D, Refresh; nothing is exported. The Refresh draft is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-01 (day 10-30): no 'Total N rows' line anywhere; counters read 2 Ready, 0 Needs re-export, 0 Warnings."
+  ],
+  "ticket": "WEBPET-3712",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -2,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": { "jobCards": 2, "totalLine": "^Total \\d+ rows?$", "needsReexport": 0, "warnings": 0 },
+  "annotations": [],
+  "cleanup": []
+}

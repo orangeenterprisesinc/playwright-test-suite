@@ -1,0 +1,25 @@
+{
+  "_notes": [
+    "CF CREW D owns day -4. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and Job Card Crew contains CF CREW D, Refresh; nothing is exported. The Refresh draft is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
+    "Walked on dev 2026-11-01 (day 10-30): clicking the Employee cell opens 'Edit Job Card' (right side) over the screen; fields Reference, Date / Time In *, Employee *, Job *, Ranch *, Crew (CF CREW D); X closes it and Dates, criterion, '2 matched' and the 2 rows are unchanged."
+  ],
+  "ticket": "WEBPET-3714",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "D",
+  "dayOffset": -4,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "jobCards": 2,
+    "side": "right",
+    "fieldLabels": ["Reference", "Date / Time In *", "Employee *", "Job *", "Ranch *", "Crew"],
+    "crew": "CF CREW D",
+    "matched": "2 matched"
+  },
+  "annotations": [],
+  "cleanup": []
+}

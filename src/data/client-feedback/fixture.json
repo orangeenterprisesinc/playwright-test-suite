@@ -1,0 +1,35 @@
+{
+  "_notes": [
+    "Fixed client-feedback fixture. The 9xxx code block was free on dev (su) 2026-10-30; avoid 9501 and 9911-9915 (soft-deleted, they reserve their codes in the recycle bin).",
+    "Names start with 'CF ' on purpose: cleanupTargets.PROTECTED_NAME_PATTERNS guards /^CF / so the residue sweep and fixture reconcile can never reclaim them. Never deleted.",
+    "Built on screen by src/utils/client-feedback/clientFeedbackFlow.ts through ensureOnScreen (existence is a GET, create/repair is UI). The Time job carries hourlyRate 1: a rate-less job raises 'No hourly rate available' on transfer.",
+    "Isolation unit is (crew, day): each scenario file owns one (fixtureCrew, dayOffset) pair, enforced by scenarioLoader.assertDistinctCrewDays.",
+    "CF JOB carries the Earning Code every exportable dev job has (RH,,OT,,DT,,RDP,,ODT,,DDT); without it Test File and Export reject every CF card (cluster 4B, 2026-11-01).",
+    "CF INACTIVE FIELD (9005, under CF RANCH) is WEBPET-3701's inactive record: ensureFieldOnScreen creates it on screen once, switches Active off on its Edit form, and repairs Active back to No if anything turns it on. 9005 and the name were free live and in the recycle bin on 2026-11-02."
+  ],
+  "ranch": { "code": "9001", "name": "CF RANCH" },
+  "field": { "code": "9002", "name": "CF FIELD" },
+  "inactiveField": { "code": "9005", "name": "CF INACTIVE FIELD" },
+  "jobs": {
+    "hourly": { "code": "9003", "name": "CF JOB", "paymentType": "Time", "hourlyRate": 1, "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
+    "piece": { "code": "9004", "name": "CF PIECE JOB", "paymentType": "Piece", "pieceRate": 1 }
+  },
+  "crews": {
+    "A": {
+      "crew": { "code": "9011", "name": "CF CREW A" },
+      "employees": { "one": { "code": "9021", "name": "CF A ONE" }, "two": { "code": "9022", "name": "CF A TWO" } }
+    },
+    "B": {
+      "crew": { "code": "9012", "name": "CF CREW B" },
+      "employees": { "one": { "code": "9031", "name": "CF B ONE" }, "two": { "code": "9032", "name": "CF B TWO" } }
+    },
+    "C": {
+      "crew": { "code": "9013", "name": "CF CREW C" },
+      "employees": { "one": { "code": "9041", "name": "CF C ONE" }, "two": { "code": "9042", "name": "CF C TWO" } }
+    },
+    "D": {
+      "crew": { "code": "9014", "name": "CF CREW D" },
+      "employees": { "one": { "code": "9051", "name": "CF D ONE" }, "two": { "code": "9052", "name": "CF D TWO" } }
+    }
+  }
+}

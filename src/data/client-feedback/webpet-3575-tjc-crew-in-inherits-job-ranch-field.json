@@ -1,0 +1,37 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -12 in this suite. Seed = 2 Time In 07:00 + 2 Time Out 11:00 on CF JOB (the cards the new Crew In inherits from); the new Crew In at 07:30 is made on screen.",
+    "Automated on the legacy path: both checkboxes (Use Employee Crew, Based on Later Time-Cards) are unticked.",
+    "The Happy Path sheet step says to tick Based on Later Time-Cards. With it ticked the roster arrives unticked ('0 of 2 selected'); after Select All, Save gives 'Created 0 Time-In records.' and the error log 'CF B ONE: Field is Required' / 'CF B TWO: Field is Required' (walk 2026-10-31). That is Amy's 10-06 FAILED symptom. The later card is a Time Out with no job: a question for dev, and the sheet step is to be reworded.",
+    "The sheet's View > Time Cards check is done on the Transfer grid (same columns).",
+    "'Box - Field Packing' is a su tenant job whose alias 'Cajas del Fil' must not be listed in Phase (CF jobs have alias null)."
+  ],
+  "ticket": "WEBPET-3575",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -12,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "crewIn": { "at": "07:30" },
+  "expected": {
+    "rosterStatus": "2 of 2 selected",
+    "status": "Created 2 Time-In records.",
+    "created": 2,
+    "time": "7:30:00 AM",
+    "type": "Time In",
+    "job": "CF JOB",
+    "ranch": "CF RANCH",
+    "field": "CF FIELD",
+    "phaseName": "Box - Field Packing",
+    "phaseAlias": "Cajas del Fil",
+    "phaseListed": [true, false]
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The 'Based on Later Time-Cards' ticked path: it gives Created 0 / Field is Required on dev (the later card is a Time Out with no job); automated on the legacy path with both checkboxes unticked." }
+  ],
+  "cleanup": []
+}

@@ -360,6 +360,72 @@ export class EmployeePage extends SetupScreenPage {
         await expect(this.unsavedChangesBar).toBeVisible();
         await this.saveEdit();
     }
+
+    // ── Client feedback 5A: Department Tab (WEBPET-3577) ──
+
+    /** Types into Department and returns the options once every one contains what was typed; the list stays open for the Tab. */
+    async typeDepartment(prefix: string): Promise<string[]> {
+        await expect(this.departmentCombobox).not.toHaveAttribute('placeholder', /^Loading/, { timeout: 30_000 });
+        await this.departmentCombobox.click();
+        await this.departmentCombobox.pressSequentially(prefix);
+        const options = (await this.pickers.listboxOf(this.departmentCombobox)).getByRole('option');
+        const narrowed = async (): Promise<string[] | null> => {
+            const texts = (await options.allInnerTexts()).map((t) => t.trim());
+            return texts.length > 0 && texts.every((t) => t.toLowerCase().includes(prefix.toLowerCase())) ? texts : null;
+        };
+        await expect.poll(narrowed, { timeout: 15_000, message: `Department never narrowed to options containing '${prefix}'` }).not.toBeNull();
+        return (await narrowed()) ?? [];
+    }
+
+    /** A dirty form's Cancel reads "Discard changes" and raises "Save changes before leaving?"; Don't Save returns to the list. */
+    async leaveWithoutSaving(): Promise<void> {
+        await this.page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+        const prompt = this.page.getByRole('alertdialog', { name: 'Save changes before leaving?' });
+        await prompt.getByRole('button', { name: "Don't Save", exact: true }).click({ timeout: 15_000 });
+        await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
+    }
+
+    // ── Client feedback 5B: the record a Quick Add saved (WEBPET-3927 / 3929) ──
+
+    get middleNameInput(): Locator {
+        return this.page.locator('#middleName');
+    }
+
+    /** Middle, Export Identifier and Time Card Defaults as the Edit form shows them, once the pickers have loaded. */
+    async readQuickAddFields(): Promise<{
+        middle: string;
+        exportIdentifier: string;
+        defaultRanch: string;
+        defaultField: string;
+        defaultJob: string;
+        alwaysUseDefaultJob: boolean;
+    }> {
+        const read = async () => ({
+            middle: await this.middleNameInput.inputValue(),
+            exportIdentifier: await this.exportIdentifierInput.inputValue(),
+            defaultRanch: (await this.defaultRanchSelect.innerText()).trim(),
+            defaultField: (await this.defaultFieldCombobox.inputValue()).replace(/^.* : /, ''),
+            defaultJob: (await this.defaultJobCombobox.inputValue()).replace(/^.* : /, ''),
+            alwaysUseDefaultJob: (await this.page.getByRole('switch', { name: 'Always Use Default Job' }).getAttribute('aria-checked')) === 'true',
+        });
+        // The ranch select shows its raw counter id, and the comboboxes stay empty, until their options load.
+        await expect
+            .poll(async () => {
+                const v = await read();
+                return v.defaultField !== '' && v.defaultJob !== '' && !/^\d*$/.test(v.defaultRanch);
+            }, { timeout: 15_000 })
+            .toBe(true)
+            .catch(() => undefined);
+        return read();
+    }
+
+    /** Edit form ▸ Delete ▸ confirm `Delete "<name>"?`: a soft delete (WEBPET-1798); the app returns to the list. */
+    async deleteOpenRecord(name: string): Promise<void> {
+        await this.page.getByRole('main').getByRole('button', { name: 'Delete', exact: true }).click();
+        const dialog = this.page.getByRole('alertdialog', { name: `Delete "${name}"?` });
+        await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+        await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
+    }
 }
 
 export default EmployeePage;

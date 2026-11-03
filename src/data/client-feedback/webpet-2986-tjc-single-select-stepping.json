@@ -1,0 +1,42 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -5 and CF CREW B owns day -5 (extraCrews). Analyze only; nothing committed. Cluster 2 must skip B@-5.",
+    "6 cards = A: 2 employees x (Time In + Time Out) + B: 1 employee x (Time In + Time Out), 07:00-11:00 on CF JOB.",
+    "Single select lives in the browser's localStorage, so the throwaway context needs no teardown. Option labels: crews 'CF CREW A', employees ': CF A ONE' (export id empty)."
+  ],
+  "ticket": "WEBPET-2986",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -5,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "extraCrews": [
+    {
+      "fixtureCrew": "B",
+      "dayOffset": -5,
+      "seed": {
+        "employees": ["one"],
+        "job": "hourly",
+        "timeIn": { "hour": 7, "minute": 0 },
+        "timeOut": { "hour": 11, "minute": 0 }
+      }
+    }
+  ],
+  "expected": {
+    "filters": [
+      { "kind": "Work Crew", "column": "Crew", "allLabel": "All work crews" },
+      { "kind": "Employee", "column": "Employee", "allLabel": "All employees" }
+    ],
+    "analyzed": 6,
+    "analyzedCaption": "Includes 6 Time Cards of 6 initial selection"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Crew-to-crew stepping was walked by hand on one crew only (CF CREW B did not exist on dev yet); the spec's first run creates B and asserts both." }
+  ],
+  "cleanup": []
+}

@@ -35,6 +35,10 @@ export enum ConfigProperties {
     USER_NAME = 'USER_NAME',
     /** Application login password (env: `PASSWORD`) */
     PASSWORD = 'PASSWORD',
+    /** Non-SU login for client-feedback permission tickets (env: `CF_NONSU_USER`) */
+    CF_NONSU_USER = 'CF_NONSU_USER',
+    /** Its password — gitignored .env / CI secret only (env: `CF_NONSU_PASSWORD`) */
+    CF_NONSU_PASSWORD = 'CF_NONSU_PASSWORD',
 
     /* ── Runtime Configuration ───────────────────────── */
 

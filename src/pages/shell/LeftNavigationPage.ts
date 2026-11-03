@@ -55,12 +55,29 @@ export class LeftNavigationPage extends BasePage {
         return this.page.getByRole('link', { name, exact: true }).filter({ visible: true }).first();
     }
 
-    private menuItems(name: string): Locator {
-        return this.page
+    private menuItems(name: string, root: Page | Locator = this.page): Locator {
+        return root
             .getByRole('link', { name, exact: true })
-            .or(this.page.getByRole('button', { name, exact: true }))
-            .or(this.page.getByRole('menuitem', { name, exact: true }))
-            .or(this.page.getByRole('treeitem', { name, exact: true }));
+            .or(root.getByRole('button', { name, exact: true }))
+            .or(root.getByRole('menuitem', { name, exact: true }))
+            .or(root.getByRole('treeitem', { name, exact: true }));
+    }
+
+    /**
+     * The child as rendered in the panel this group button controls (base-ui `aria-controls`, measured 2026-11-03), or
+     * the page-wide match when the child is not in that panel: File ▸ Export to Accounting is a top-level link.
+     * "Setup" is also a top-level group, so a page-wide match passed for File ▸ Administration's child before
+     * Administration had rendered it; the next step then saw one "Setup", toggled the top-level one and never found
+     * Scripts (3817, full runs 2026-11-02 and 11-03).
+     */
+    private async childInGroup(groupButton: Locator, child: string, childIsLeaf: boolean, pageWide: Locator): Promise<Locator> {
+        const panelId = await groupButton.getAttribute('aria-controls');
+        if (!panelId) return pageWide;
+        const panel = this.page.locator(`[id="${panelId}"]`);
+        const shown = await panel.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+        if (!shown) return pageWide;
+        const items = childIsLeaf ? panel.getByRole('link', { name: child, exact: true }) : this.menuItems(child, panel);
+        return (await items.count()) > 0 ? items.filter({ visible: true }).first() : pageWide;
     }
 
     /**
@@ -82,14 +99,15 @@ export class LeftNavigationPage extends BasePage {
             const expanded = await groupButtons.first().getAttribute('aria-expanded');
             if (expanded === 'true' || expanded === 'false') {
                 if (expanded === 'false') await groupButtons.first().click();
-                const shown = await childItem.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+                const inGroup = await this.childInGroup(groupButtons.first(), child, childIsLeaf, childItem);
+                const shown = await inGroup.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
                 if (shown) return;
                 // The group opened but never rendered its children (B8, 2026-10-29, slow dev): fold it and open it once more.
                 await groupButtons.first().click();
                 await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'false', { timeout: 5_000 });
                 await groupButtons.first().click();
                 await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
-                await childItem.waitFor({ state: 'visible', timeout: 15_000 });
+                await inGroup.waitFor({ state: 'visible', timeout: 15_000 });
                 return;
             }
         }

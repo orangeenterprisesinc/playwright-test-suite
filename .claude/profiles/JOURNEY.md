@@ -139,6 +139,13 @@ human-reviewable.
 7. **Finalize** — rows to `status=automated`, `enabled=1`, re-sync,
    `npm run runner:check`; report the `coverage:catalog` delta.
 
+## Client-feedback suite
+
+* One ticket, one spec, one test, one runner row in `src/data/runner/client-feedback.csv`. `testCaseId` = the ticket key.
+* `tests/web/client-feedback/<area>/` with data in `src/data/client-feedback/<base>.json`.
+* Describe tags `@ClientFeedback` + `@<TICKET>`. UI-first, menu navigation, data-driven.
+* Assertions come from the ticket's expected result, the QA sign-off and the fix PR.
+
 ## Healer notes
 
 * Gate-skips masquerade as green — run the gate-skip check in

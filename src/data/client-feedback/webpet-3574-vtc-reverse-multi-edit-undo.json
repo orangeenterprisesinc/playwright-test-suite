@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "CF CREW C owns day -10; data scoped by Search by Time Card Crew contains.",
+    "4 cards = 2 Time In + 2 Time Out 07:00-11:00 on CF JOB. ONE's two cards get Memo 'CF UNDO TEST', then the batch is undone on Reverse Multi Edit. Walked on dev 2026-10-31: toast '2 records updated', history row Active, Undo dialog, Status Undone, Memo blank again."
+  ],
+  "ticket": "WEBPET-3574",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -10,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "expected": {
+    "rows": 4,
+    "field": "Memo",
+    "value": "CF UNDO TEST",
+    "fieldName": "memo",
+    "recordType": "TimeCard",
+    "toast": "2 records updated",
+    "active": "Active",
+    "undone": "Undone",
+    "undoText": "This restores 2 record(s) changed by the \"memo\" update to their previous values."
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The in-toast Undo is not used; the edit-history row stays as an audit row." }
+  ],
+  "cleanup": []
+}

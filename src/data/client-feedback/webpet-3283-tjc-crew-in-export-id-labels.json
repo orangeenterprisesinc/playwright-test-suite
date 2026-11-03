@@ -1,0 +1,19 @@
+{
+  "_notes": [
+    "No data: the test opens Crew In, ticks Use Employee Crew, picks CF CREW B and closes the sheet. No (crew, day) pair is used.",
+    "The roster checkboxes are named '<Export ID> : <Name>', trimmed. The CF employees have exportIdentifier null, so the label is ': CF B ONE' / ': CF B TWO' (walk 2026-10-31). Before the fix the label was the bare name.",
+    "The default date (now) stays: the roster for a crew with Use Employee Crew ignores the day."
+  ],
+  "ticket": "WEBPET-3283",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "expected": {
+    "rosterStatus": "2 of 2 selected",
+    "labels": [": CF B ONE", ": CF B TWO"],
+    "nameOnly": ["CF B ONE", "CF B TWO"]
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "A non-empty Export ID before the colon: CF fixture employees have none; adding one would change every CF label." }
+  ],
+  "cleanup": []
+}

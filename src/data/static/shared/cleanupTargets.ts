@@ -47,6 +47,7 @@ export const PROTECTED_NAME_PATTERNS: readonly RegExp[] = [
     /^C\d{1,2} /, // Journey C fixture: C6 CREW, C6 TABLE ONE …
     /^D\d{1,2} /, // Journey D fixture: D6 CREW, D6 JOB, D6 PICKER ONE …
     /^E\d{1,2} /, // Journey E fixture: E2 CREW, E2 JOB, E2 PICKER ONE … (the space keeps 'E2EEmp_' sweepable)
+    /^CF /, // client-feedback fixture: CF RANCH, CF CREW A, CF A ONE …
     /^RestrictedTest/, // reused webpet non-SU login
     /^(ADP 5|Crew 01|DFV|Forklift|su|Admin)$/, // seed rows and logins
 ];
@@ -126,11 +127,13 @@ const TARGETS: readonly CleanupTarget[] = [
         listPath: 'validations',
         idKey: 'validationCounter',
         order: 58,
-        prefixes: [six('_PET202TestValidation_'), six('_PET202TestValidation2_')],
+        prefixes: [six('_PET202TestValidation_'), six('_PET202TestValidation2_'), readable('NEW VALIDATION')],
         note: 'soft-delete only (WEBPET-1798)',
     },
     { entity: 'notification', listPath: 'notifications', idKey: 'notificationCounter', order: 59, prefixes: [uid('ZZ NOTIF CHECK ')] },
     { entity: 'user', listPath: 'users', idKey: 'usersCounter', order: 60, prefixes: [uid('QA User '), six('ZZTEST_USR_'), readable('USER')] },
+    // Report scripts saved from a report dialog (WEBPET-3817); soft delete, a deleted name stays reserved.
+    { entity: 'filterScript', listPath: 'filter-scripts', idKey: 'filterScriptCounter', order: 62, prefixes: [readable('NEW REPORT SCRIPT')], note: 'soft-delete only; a deleted name stays reserved (from-report 500 on reuse)' },
 ];
 
 export const CLEANUP_TARGETS: readonly CleanupTarget[] = [...TARGETS].sort((a, b) => a.order - b.order);

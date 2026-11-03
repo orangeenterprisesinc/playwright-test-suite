@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -2 in this suite. Analyze only; nothing committed.",
+    "Seed = piece job (5 cards): every piece-job time-in and the piece-out raise 'No hourly rate available' because CF PIECE JOB has no hourly rate, which gives the 4 warnings the banner counts (walk 2026-10-31).",
+    "The ticket's 1366 x 674 viewport is set with page.setViewportSize; the config runs viewport:null + maximize, so the innerHeight precondition is asserted. Measured at 674: table min-height 376px, scroll body 330px = 10 x 33px rows."
+  ],
+  "ticket": "WEBPET-3426",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Job Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -2,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "piece",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "pieceOut": { "at": { "hour": 9, "minute": 0 }, "pieces": 5 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "viewport": { "width": 1366, "height": 674 },
+  "expected": {
+    "bannerText": "4 warnings in this Job Cards preview",
+    "showLabel": "Show details",
+    "hideLabel": "Hide details",
+    "tableMinHeight": "376px",
+    "minRows": 10,
+    "rowHeightPx": 33,
+    "listOverflowY": "auto",
+    "listMaxHeight": "192px",
+    "listItems": 2
+  },
+  "annotations": [],
+  "cleanup": []
+}
