@@ -208,10 +208,11 @@ export function referencesInExport(xml: string): string[] {
  * B3 imports two Time In cards for one employee and must not touch any other
  * card type that employee happens to carry that day. `crewIds`, when given, also removes those
  * crews' employee-less cards (a crew piece-out has no employee for the sweep to match).
+ * `referenceMatches`, when given, keeps only the cards whose reference it accepts.
  */
 export async function sweepFixtureCards(
     request: APIRequestContext,
-    opts: { employeeIds: number[]; day: string; cardTypes?: number[]; crewIds?: number[] },
+    opts: { employeeIds: number[]; day: string; cardTypes?: number[]; crewIds?: number[]; referenceMatches?: (reference: string) => boolean },
 ): Promise<{ removed: number; failed: number }> {
     const wanted = new Set(opts.employeeIds);
     const wantedTypes = opts.cardTypes ? new Set(opts.cardTypes) : undefined;
@@ -219,7 +220,8 @@ export async function sweepFixtureCards(
     const existing = (await listTimeCards(request, { from: opts.day, to: opts.day })).filter(
         (c) =>
             (wanted.has(Number(c.employeeCounter)) || (c.employeeCounter == null && wantedCrews?.has(Number(c.crewCounter)) === true)) &&
-            (!wantedTypes || wantedTypes.has(Number(c.cardType))),
+            (!wantedTypes || wantedTypes.has(Number(c.cardType))) &&
+            (!opts.referenceMatches || opts.referenceMatches(c.reference ?? '')),
     );
 
     let removed = 0;

@@ -24,7 +24,8 @@ import { getPreferences } from '@utils/api/preferencesApi';
 import { ensureQuestion, type QuestionRecord } from '@utils/api/questionsApi';
 import { ensureEmployee } from '@utils/api/setupEntitiesApi';
 import { ensureCrewOnScreen, ensureJobOnScreen, type OnScreenDeps } from '@utils/fixtureRows/ensureOnScreen';
-import { findByReferences, isoDay, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import { findByReferences, isoDay, sweepFixtureCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
+import { allowApiWrites } from '@utils/api/writeGuard';
 import { findNotifiableUser, type UserListItem } from '@utils/api/usersApi';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { currentScope, type CleanupScope } from '@utils/cleanup/cleanupScope';
@@ -346,6 +347,42 @@ export function lineagePrefixesThroughAttempt(scenario: JourneyBScenario, attemp
         for (const device of scenario.devices ?? []) prefixes.push(lineagePrefix(device.salt, a));
     }
     return prefixes;
+}
+
+/**
+ * A retry's import also pulls an earlier attempt's envelope whose send landed but whose import failed (B8, local
+ * 2026-11-03: "The relay could not be reached", then the retry imported both crew piece-outs). Those rows are this
+ * test's own, but left on the day they double a crew total and a preview; remove them within the scenario's own
+ * `timeCards` cleanup scope, matched by the earlier attempts' reference prefixes only.
+ */
+async function removeEarlierAttemptCards(
+    scenario: JourneyBScenario,
+    attempt: number,
+    office: OfficeFixture,
+    api: APIRequestContext,
+    testInfo: TestInfo,
+): Promise<void> {
+    const earlier = lineagePrefixesThroughAttempt(scenario, attempt - 1).filter((p) => p !== '');
+    if (!earlier.length) return;
+    for (const step of scenario.cleanup) {
+        if (step.kind !== 'timeCards') continue;
+        const day = isoDay(punchDay(step.dayOffset));
+        const swept = await allowApiWrites('cleanup', `${scenario.label} earlier-attempt rows`, () =>
+            sweepFixtureCards(api, {
+                employeeIds: step.employeeCodes.flatMap((code) => office.employees.get(code)?.id ?? []),
+                day,
+                ...(step.cardTypes ? { cardTypes: step.cardTypes } : {}),
+                ...(step.crewCodes?.includes(office.crew.code) ? { crewIds: [office.crew.id] } : {}),
+                referenceMatches: (reference) => earlier.some((p) => reference.endsWith(`-${p}-ui`)),
+            }),
+        );
+        if (swept.removed || swept.failed) {
+            testInfo.annotations.push({
+                type: 'earlier-attempt-rows-removed',
+                description: `Removed ${swept.removed} row(s) an earlier attempt's late envelope imported on ${day} (${swept.failed} could not be deleted).`,
+            });
+        }
+    }
 }
 
 /** Attach the envelope, push it to `to`, attach the relay's answer. The caller asserts `send.success`. */
@@ -848,6 +885,7 @@ export async function runJourneyBScenario(scenario: JourneyBScenario, opts: Jour
             sweep: false,
         });
         cards = ctx.cards = importRun.cards;
+        if (run.attempt > 0) await removeEarlierAttemptCards(run.scenario, run.attempt, office, sessionApi, testInfo);
         after = run.scenario.hooks?.afterImport === 'codeHistoryDelta' ? await codeHistorySnapshot() : null;
         if (!pages) throw new Error(`${run.scenario.label}: the Import Log is read on screen — destructure { pages } in the spec`);
         await assertDelivery(pages, deliveries[0], run.scenario.expected, run.scenario.label);
