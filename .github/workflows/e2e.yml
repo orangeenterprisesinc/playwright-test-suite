@@ -21,7 +21,7 @@ on:
     # - cron: '28 10 * * *'  # 16:00
     # - cron: '43 10 * * *'  # 16:15
     # - cron: '58 10 * * *'  # 16:30
-    - cron: '13 11 * * *'    # 16:45 IST — the daily run
+    - cron: '28 14 * * *'    # 20:00 IST — TEMPORARY for 2026-11-04 (Gukan); back to '13 11 * * *' (16:45 IST) after the run
     # - cron: '28 11 * * *'  # 17:00
     # - cron: '43 11 * * *'  # 17:15
     # - cron: '58 11 * * *'  # 17:30

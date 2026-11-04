@@ -1,7 +1,8 @@
 {
   "_notes": [
     "CF CREW D owns day -11. Seeds both employees 07:00-11:00, transfers (2 job cards), opens Export to Accounting scoped to the day and crew, Refresh; grants clipboard access, arms the save-picker stand-in, Export > confirm > Export up to the Save export file dialog, copies the file name, Discard, Refresh. Nothing is exported. Every run id is dropped inside the export-draft lock; teardown deletes the own job cards and time cards by id.",
-    "Walked on dev 2026-11-02 (day 10-24, one pair for 3931/3938/3464): Test File 2 ready / 0 cannot export, PET20261102100108188.txt, 2 records written; Save export file dialog, copy, 'Copied.', Discard x2 and Save As against the stand-in all confirmed live; nothing exported (draft 142 stayed draft)."
+    "Walked on dev 2026-11-02 (day 10-24, one pair for 3931/3938/3464): Test File 2 ready / 0 cannot export, PET20261102100108188.txt, 2 records written; Save export file dialog, copy, 'Copied.', Discard x2 and Save As against the stand-in all confirmed live; nothing exported (draft 142 stayed draft).",
+    "Since web-pet #1559 (PET-12958, merged 2026-11-04 10:29 UTC) payroll file names follow legacy and the fixed PET<stamp> name is gone: the name is the su preference prefAccountingExportFileName 'PPE' + a 17-digit stamp (useDateInFileName = true), and the Test File is ExportToAcc{format}-{base}-{stamp}. Measured in nightly 41819805080: PPE20261104112043253.txt and ExportToAccFamous120-PPE20261104112323803-20261104112323803.txt."
   ],
   "ticket": "WEBPET-3938",
   "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
@@ -15,7 +16,7 @@
   },
   "expected": {
     "jobCards": 2,
-    "fileName": "^PET\\d{17}\\.txt$",
+    "fileName": "^PPE\\d{17}\\.txt$",
     "copyLabel": "Copy file name",
     "copied": "Copied.",
     "discardConfirm": "Discard file",

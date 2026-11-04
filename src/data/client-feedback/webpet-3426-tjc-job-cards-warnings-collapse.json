@@ -1,7 +1,7 @@
 {
   "_notes": [
     "Bucket B: CF CREW B owns day -2 in this suite. Analyze only; nothing committed.",
-    "Seed = piece job (5 cards): every piece-job time-in and the piece-out raise 'No hourly rate available' because CF PIECE JOB has no hourly rate, which gives the 4 warnings the banner counts (walk 2026-10-31).",
+    "Seed = piece job (5 cards): every piece-job time-in and the piece-out raise 'No hourly rate available' because CF PIECE JOB has no hourly rate, which gave 4 warnings (walk 2026-10-31). web-pet #1558 (PET-12960, merged 2026-11-03) dropped that web-only warning, so the banner counts 2 (nightly 41819805080, 2026-11-04). The list groups identical messages: both remaining warnings are 'This record has 240 minutes of worked time on job … but its calculated amount is zero … (seen 2 times)', one list item (walk 2026-11-04).",
     "The ticket's 1366 x 674 viewport is set with page.setViewportSize; the config runs viewport:null + maximize, so the innerHeight precondition is asserted. Measured at 674: table min-height 376px, scroll body 330px = 10 x 33px rows."
   ],
   "ticket": "WEBPET-3426",
@@ -17,7 +17,7 @@
   },
   "viewport": { "width": 1366, "height": 674 },
   "expected": {
-    "bannerText": "4 warnings in this Job Cards preview",
+    "bannerText": "2 warnings in this Job Cards preview",
     "showLabel": "Show details",
     "hideLabel": "Hide details",
     "tableMinHeight": "376px",
@@ -25,7 +25,7 @@
     "rowHeightPx": 33,
     "listOverflowY": "auto",
     "listMaxHeight": "192px",
-    "listItems": 2
+    "listItems": 1
   },
   "annotations": [],
   "cleanup": []

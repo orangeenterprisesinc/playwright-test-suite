@@ -71,13 +71,19 @@ export class LeftNavigationPage extends BasePage {
      * Scripts (3817, full runs 2026-11-02 and 11-03).
      */
     private async childInGroup(groupButton: Locator, child: string, childIsLeaf: boolean, pageWide: Locator): Promise<Locator> {
-        const panelId = await groupButton.getAttribute('aria-controls');
-        if (!panelId) return pageWide;
-        const panel = this.page.locator(`[id="${panelId}"]`);
-        const shown = await panel.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
-        if (!shown) return pageWide;
+        const panel = await this.panelOf(groupButton);
+        if (!panel) return pageWide;
         const items = childIsLeaf ? panel.getByRole('link', { name: child, exact: true }) : this.menuItems(child, panel);
         return (await items.count()) > 0 ? items.filter({ visible: true }).first() : pageWide;
+    }
+
+    /** The rendered panel a group button controls (base-ui `aria-controls`), if it has one. */
+    private async panelOf(groupButton: Locator): Promise<Locator | undefined> {
+        const panelId = await groupButton.getAttribute('aria-controls');
+        if (!panelId) return undefined;
+        const panel = this.page.locator(`[id="${panelId}"]`);
+        const shown = await panel.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+        return shown ? panel : undefined;
     }
 
     /**
@@ -86,36 +92,43 @@ export class LeftNavigationPage extends BasePage {
      * PET Tiger collapses it, so this only clicks when the target child is
      * hidden — keeping the walkthrough idempotent regardless of the sidebar's
      * starting state.
+     *
+     * `scope` is the panel the previous group opened; the return value is this group's panel, for the next step.
      */
-    async expandGroup(group: string, child: string, childIsLeaf = false, topLevel = false): Promise<void> {
+    async expandGroup(group: string, child: string, childIsLeaf = false, topLevel = false, scope: Page | Locator = this.page): Promise<Page | Locator> {
         const childItem = childIsLeaf ? this.leafLink(child) : this.menuItem(child);
         // `.all()` below does not wait, and right after a goto('/') the dashboard has not rendered the
         // sidebar yet: it would see no candidates, click nothing, and hang on the final wait (2026-10-13).
         await this.menuItems(group).filter({ visible: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
+        // Inside the parent's panel the group is unique. Page-wide, Reports left open adds its own "Administration",
+        // so the walk fell back below and never opened File ▸ Administration (3817, CI 2026-11-03 and 11-04).
+        const inScope = scope !== this.page && (await this.menuItems(group, scope).filter({ visible: true }).count()) > 0;
+        const root = inScope ? scope : this.page;
         // A unique group button says whether it is open. The child's visibility cannot: "Setup" is also a top-level
         // group, so with Administration still shut, File ▸ Administration ▸ Setup looked open (E13, 2026-10-26).
-        const groupButtons = this.page.getByRole('button', { name: group, exact: true }).filter({ visible: true });
+        const groupButtons = root.getByRole('button', { name: group, exact: true }).filter({ visible: true });
         if ((await groupButtons.count()) === 1) {
             const expanded = await groupButtons.first().getAttribute('aria-expanded');
             if (expanded === 'true' || expanded === 'false') {
                 if (expanded === 'false') await groupButtons.first().click();
                 const inGroup = await this.childInGroup(groupButtons.first(), child, childIsLeaf, childItem);
                 const shown = await inGroup.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
-                if (shown) return;
-                // The group opened but never rendered its children (B8, 2026-10-29, slow dev): fold it and open it once more.
-                await groupButtons.first().click();
-                await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'false', { timeout: 5_000 });
-                await groupButtons.first().click();
-                await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
-                await inGroup.waitFor({ state: 'visible', timeout: 15_000 });
-                return;
+                if (!shown) {
+                    // The group opened but never rendered its children (B8, 2026-10-29, slow dev): fold it and open it once more.
+                    await groupButtons.first().click();
+                    await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'false', { timeout: 5_000 });
+                    await groupButtons.first().click();
+                    await expect(groupButtons.first()).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
+                    await inGroup.waitFor({ state: 'visible', timeout: 15_000 });
+                }
+                return (await this.panelOf(groupButtons.first())) ?? this.page;
             }
         }
         // Re-checked after the render: the group may already be open, and a click would collapse it.
-        if (await childItem.isVisible().catch(() => false)) return;
+        if (await childItem.isVisible().catch(() => false)) return this.page;
         // "Setup" is both a top-level group and File ▸ Administration ▸ Setup, and the nested one comes first
         // in the DOM once Administration is open (e.g. after Preferences) — try each until the child shows.
-        let candidates = await this.menuItems(group).all();
+        let candidates = await this.menuItems(group, root).all();
         if (topLevel) {
             // Shallowest first: a nested namesake ("Setup" under Administration) otherwise costs the 3 s probe.
             const ranked: { candidate: Locator; depth: number }[] = [];
@@ -134,9 +147,19 @@ export class LeftNavigationPage extends BasePage {
             if (!(await candidate.isVisible())) continue;
             await candidate.click();
             const shown = await childItem.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false);
-            if (shown) return;
+            if (shown) return this.page;
         }
         await childItem.waitFor({ state: 'visible', timeout: 10_000 });
+        return this.page;
+    }
+
+    /** Expand every group of `menuPath` in turn, each looked up inside the panel the one before it opened. */
+    private async expandPath(menuPath: string[]): Promise<Page | Locator> {
+        let scope: Page | Locator = this.page;
+        for (let i = 0; i < menuPath.length - 1; i++) {
+            scope = await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1, i === 0, scope);
+        }
+        return scope;
     }
 
     /**
@@ -152,13 +175,13 @@ export class LeftNavigationPage extends BasePage {
         this.logger.info(`Navigating via menu: ${menuPath.join(' ▸ ')}`);
 
         // Expand each group using the next label as the "is it open?" probe.
-        for (let i = 0; i < menuPath.length - 1; i++) {
-            await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1, i === 0);
-        }
+        const scope = await this.expandPath(menuPath);
 
         const leaf = menuPath[menuPath.length - 1];
+        // The leaf inside the last group's panel; else page-wide (File ▸ Export to Accounting is a top-level link).
+        const scoped = scope === this.page ? undefined : scope.getByRole('link', { name: leaf, exact: true }).filter({ visible: true }).first();
+        const link = scoped && (await scoped.count()) > 0 ? scoped : this.leafLink(leaf);
         // A top-level entry has no expand step to wait for the sidebar; fall back to the generic match then.
-        const link = this.leafLink(leaf);
         const target = (await link.count()) > 0 ? link : this.menuItem(leaf);
         // Tolerate a query string (the app can carry grid state in the URL).
         const landed = new RegExp(`${expectedUrl.replace(/\//g, '\\/')}(\\?|$)`);
@@ -171,9 +194,7 @@ export class LeftNavigationPage extends BasePage {
             if (stayed) return;
             if (attempt >= 2) throw new Error(`Menu ${menuPath.join(' ▸ ')} did not land on ${expectedUrl}; the app is at ${this.page.url()}`);
             this.logger.warn(`Menu ${menuPath.join(' ▸ ')} did not stick (app at ${this.page.url()}); walking it once more`);
-            for (let i = 0; i < menuPath.length - 1; i++) {
-                await this.expandGroup(menuPath[i], menuPath[i + 1], i + 1 === menuPath.length - 1, i === 0);
-            }
+            await this.expandPath(menuPath);
         }
     }
 
