@@ -21,7 +21,7 @@ on:
     # - cron: '28 10 * * *'  # 16:00
     # - cron: '43 10 * * *'  # 16:15
     # - cron: '58 10 * * *'  # 16:30
-    - cron: '28 14 * * *'    # 20:00 IST — TEMPORARY for 2026-11-04 (Gukan); back to '13 11 * * *' (16:45 IST) after the run
+    - cron: '13 11 * * *'    # 16:45 IST — the daily run
     # - cron: '28 11 * * *'  # 17:00
     # - cron: '43 11 * * *'  # 17:15
     # - cron: '58 11 * * *'  # 17:30
@@ -208,8 +208,9 @@ jobs:
       # Dev's import worker claims files 3–7 min after upload, sometimes 40.
       IMPORT_POLL_TIMEOUT_MS: '1200000'
       IMPORT_STALL_MS: '480000'
-      # Journey only: stop once a dev-wide outage has failed 6 tests instead of riding out all 44.
-      MAX_FAILURES: ${{ matrix.suite == 'journey' && '6' || matrix.suite == 'client-feedback' && '15' || '' }}
+      # Stop a leg once a dev-wide outage has failed this many tests. Repo variables JOURNEY_MAX_FAILURES / CF_MAX_FAILURES
+      # change it without a PR; webpet has no limit.
+      MAX_FAILURES: ${{ matrix.suite == 'journey' && (vars.JOURNEY_MAX_FAILURES || '15') || matrix.suite == 'client-feedback' && (vars.CF_MAX_FAILURES || '15') || '' }}
       # OFFICE_TRANSPORT_SUBSTITUTE stays unset: it would turn a broken import green.
       # Email reporting is off (Slack is primary), but SMTP_* / EMAIL_* also feed UI-005
       # (tests/web/system/notification-email.spec.ts), so the secrets stay.
