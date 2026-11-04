@@ -732,8 +732,8 @@
             "id": "WEBPET-3931",
             "category": "ui",
             "testName": "cf3931TheDefaultExportFileNameOnExport",
-            "testTitle": "The default export file name on Export to Accounting follows the legacy format PET + date and time",
-            "testDescription": "Client feedback: The default export file name on Export to Accounting follows the legacy format PET + date and time. Steps and expected result: Client Feedback Happy Path tab.",
+            "testTitle": "The default export file name on Export to Accounting follows the legacy format",
+            "testDescription": "Client feedback: The default export file name on Export to Accounting follows the legacy format. Steps and expected result: Client Feedback Happy Path tab.",
             "tags": [
                 "regression"
             ],

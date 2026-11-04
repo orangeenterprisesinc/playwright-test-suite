@@ -312,11 +312,11 @@ WEBPET-3930,The totals on Export to Accounting sit above the Candidates grid.,"1
 2. Set a past date range for CF CREW and wait for rows to load.
 3. Look above the Candidates heading.","- The strip 'Job-cards N of N / Employees N of N / Pieces ...' and the 'Totals Gross ... Net ... Amount ...' row are shown above the Candidates grid.
 - Nothing needs scrolling past the grid to see them.","CF CREW job cards on a past date; none created, nothing is exported",Feasible - full,,Automated 2026-11-02,
-WEBPET-3931,The default export file name on Export to Accounting follows the legacy format PET + date and time.,"1. Open Export to Accounting and stay on Payroll.
+WEBPET-3931,The default export file name on Export to Accounting follows the legacy format.,"1. Open Export to Accounting and stay on Payroll.
 2. Set a past date range for CF CREW with at least one Ready job card.
 3. Click Test File.
-4. Look at the 'Export file' line in the Test File panel.","- The file name reads PET followed by 17 digits and .txt (for example PET20261027000847700.txt), not 'famous-120-3-payroll-<date>.txt'.
-- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,,Automated 2026-11-02,Gukan / dev: the file name's timestamp is UTC (PET20261102100108188 was generated at 15:31 IST = 10:01:08.188Z). Legacy PET probably used local time. Not asserted; the ticket asks only for PET + date/time.
+4. Look at the 'Export file' line in the Test File panel.","- The file name follows legacy: ExportToAcc<format>-<file-name preference><date and time>-<date and time>.txt (on su: ExportToAccFamous120-PPE20261104112323803-20261104112323803.txt), not 'famous-120-3-payroll-<date>.txt'.
+- The panel shows the number of records written.",CF CREW job card in Ready state on a past date; Test File changes no data,Feasible - full,Reworded 2026-11-04: web-pet #1559 (PET-12958) made payroll file names follow legacy and reversed the earlier fixed PET<date and time> name. PPE is su's Accounting Export File Name preference.,Automated 2026-11-02,Gukan / dev: the timestamp is still UTC on dev (…PPE20261104112323803 generated at 11:23 UTC); #1559 says it uses the client zone. Not asserted.
 WEBPET-3858,Choosing In range on a Reports date filter defaults From to 12:00 AM and To to 11:59 PM.,"1. Open Reports > Input > Time In.
 2. Set Search by to Date In.
 3. Set Match to In range.
@@ -465,7 +465,7 @@ WEBPET-3938,A copy button next to the export file name copies the name and shows
 2. Set a past date range for CF CREW with at least one Ready job card.
 3. Click 'Export N JobCards' (bottom right) to open the Save export file dialog.
 4. Click the copy icon next to the file name.
-5. Click Discard.","- The dialog shows the file name (PET...txt) with an icon-only copy button beside it.
+5. Click Discard.","- The dialog shows the file name (legacy name: the file-name preference + date and time, PPE...txt on su) with an icon-only copy button beside it.
 - A 'Copied.' message appears after clicking the copy icon.
 - After Discard nothing is saved or marked as exported.","CF CREW job card in Ready state on a past date; none created, Discard keeps it unexported",Feasible - full,,Automated 2026-11-02 (Chromium: reads the clipboard back),
 PET-12942,Editing the time of an existing Time In on Transfer to Job Cards saves.,"1. Open Transfer to Job Cards from the left menu.
