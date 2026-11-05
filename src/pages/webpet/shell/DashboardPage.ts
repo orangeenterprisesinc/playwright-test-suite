@@ -20,7 +20,7 @@
  * `DashboardTabs` is no longer mounted — so the canvas and its widget cells are
  * the render signals.
  */
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
 
 /** LocalStorage key holding the persisted board documents. */
@@ -46,6 +46,7 @@ export class DashboardPage extends BasePage {
     readonly greeting: Locator;
     /** Opens the palette. Its label flips to Done while open. */
     readonly editWidgetsButton: Locator;
+    readonly addWidgetsButton: Locator;
     /** Closes the palette. */
     readonly doneButton: Locator;
     /** The palette aside. Present even when closed — see the class note. */
@@ -59,10 +60,38 @@ export class DashboardPage extends BasePage {
         this.canvas = page.locator('[data-slot="dashboard-canvas"]');
         this.widgetCells = page.locator('[data-slot="widget-cell"]');
         this.greeting = page.getByRole('heading', { level: 2 });
-        this.editWidgetsButton = page.getByRole('button', { name: 'Edit Widgets' });
+        this.editWidgetsButton = page.getByRole('button', { name: 'Edit dashboard' });
+        this.addWidgetsButton = page.getByRole('button', { name: 'Add Widgets' });
         this.doneButton = page.getByRole('button', { name: 'Done' });
-        this.palette = page.getByLabel('Widget palette');
-        this.paletteItems = page.locator('[data-slot="palette-item"]');
+        this.palette = page.getByRole('dialog', { name: 'Add Widgets' });
+        this.paletteItems = page.locator('[data-slot="picker-card"]');
+    }
+
+    async closePalette(): Promise<void> {
+        await this.page.getByRole('button', { name: 'Close palette' }).click();
+    }
+
+    // The board hydrates from the server after the first cell paints; count only once it stops changing.
+    async settledCellCount(): Promise<number> {
+        let previous = -1;
+        await expect
+            .poll(
+                async () => {
+                    const current = await this.widgetCells.count();
+                    const stable = current === previous;
+                    previous = current;
+                    return stable;
+                },
+                { intervals: [500], timeout: 15_000 },
+            )
+            .toBe(true);
+        return previous;
+    }
+
+    // New shell: the palette is a dialog behind Edit dashboard, then Add Widgets.
+    async openPalette(): Promise<void> {
+        await this.editWidgetsButton.click();
+        await this.addWidgetsButton.click();
     }
 
     /**
@@ -74,6 +103,7 @@ export class DashboardPage extends BasePage {
      * is what separates the two.
      */
     get firstAddWidgetButton(): Locator {
+        // Each picker card's button is named 'Add <widget title>' (aria-label); its visible text is just 'Add'.
         return this.palette.getByRole('button', { name: /^Add / }).first();
     }
 

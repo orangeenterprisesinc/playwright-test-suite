@@ -346,7 +346,7 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         // preference instead would just make it assert *absence* forever here, leaving
         // the positive branch untested. The file-level beforeEach has already registered
         // the handler at `true`; this test just drives its setter.
-        await pages.shell.gotoRoot();
+        await pages.shell.gotoHub('Transfer & Reconcile');
         await page.waitForLoadState('networkidle');
 
         const hasPermission = await hasExportPermission(page);
@@ -367,7 +367,7 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         // vacuously against a sidebar that has not rendered yet.
         setIncludeReconcileJCs(false);
         await page.reload();
-        await expect(pages.shell.navLink('Export to Accounting')).toBeAttached();
+        await expect(pages.shell.navLink('Transfer to Job Cards')).toBeAttached();
         await expect(sidebarLink).toHaveCount(0);
     });
 

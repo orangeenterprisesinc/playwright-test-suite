@@ -68,7 +68,7 @@ test.describe('Setup > TimeSheet Validation — list page', { tag: ['@WebPet', '
         const list = pages.timeSheetValidationList;
         if (!(await list.gotoOrForbidden())) {
             // Module off: the sidebar link must not be visible either.
-            await pages.shell.gotoDashboard();
+            await pages.shell.gotoHub('Setup');
             await expect(pages.shell.navLinkMatching(/timesheet setup/i)).toHaveCount(0);
             return;
         }

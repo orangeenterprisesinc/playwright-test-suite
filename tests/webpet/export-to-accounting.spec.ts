@@ -290,10 +290,10 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
             await route.fulfill({ response, json: body });
         });
 
-        await pages.shell.gotoRoot();
+        await pages.shell.gotoHub('Export');
         await page.waitForLoadState('networkidle');
 
-        // The sidebar entry should not be visible.
+        // The hub card should not be visible.
         await expect(pages.shell.sidebarNavText('Export to Accounting')).toHaveCount(0);
     });
 

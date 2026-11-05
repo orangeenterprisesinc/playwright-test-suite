@@ -45,6 +45,7 @@ test.describe('Dashboard shell — route + bootstrap', { tag: ['@WebPet', '@wp-s
         tag: ['@wp-ui', '@wp-smoke'],
         annotation: { type: 'testCaseId', description: 'WP-0127' },
     }, async ({ pages }) => {
+        test.skip(true, 'new shell: dashboard header has no greeting (date label + Edit dashboard); classic suite on main covers WP-0127');
         const dashboard = pages.dashboard;
         await dashboard.clearStoredBoards();
         await dashboard.gotoDashboard();
@@ -76,12 +77,12 @@ test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shel
         // so its children are not visible.
         await expect(firstPaletteItem).not.toBeVisible();
 
-        await dashboard.editWidgetsButton.click();
+        await dashboard.openPalette();
         await expect(dashboard.palette).toBeVisible();
         await expect(firstPaletteItem).toBeVisible({ timeout: 5_000 });
 
-        // The header button label flips Add Widgets → Hide Widgets when open.
-        await dashboard.doneButton.click();
+        // The palette is a modal dialog, so it closes through its own button.
+        await dashboard.closePalette();
         await expect(firstPaletteItem).not.toBeVisible();
     });
 
@@ -94,9 +95,9 @@ test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shel
         await dashboard.gotoDashboard();
 
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
-        const initialCount = await dashboard.widgetCells.count();
+        const initialCount = await dashboard.settledCellCount();
 
-        await dashboard.editWidgetsButton.click();
+        await dashboard.openPalette();
         await expect(dashboard.palette).toBeVisible();
 
         // Each palette item exposes a per-item plus button whose accessible name
@@ -123,9 +124,10 @@ test.describe('Dashboard shell — persistence + reload', { tag: ['@WebPet', '@w
         await dashboard.gotoDashboard();
 
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
+        await dashboard.settledCellCount();
         const typesBefore = await dashboard.widgetTypes();
 
-        await dashboard.editWidgetsButton.click();
+        await dashboard.openPalette();
 
         // Wait for the layout PUT, so the reload below cannot race the write this test
         // exists to prove. The add is optimistic on the canvas and the save is debounced,
