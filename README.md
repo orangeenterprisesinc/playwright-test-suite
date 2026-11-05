@@ -942,7 +942,7 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 ```yaml
 on:
   schedule:
-    - cron: '43 10 * * *'   # 16:30 IST — the one daily run (the 15-minute grid
+    - cron: '58 10 * * *'   # 16:30 IST — the one daily run (the 15-minute grid
                             #   around it is commented out: one entry a day)
   workflow_dispatch:                     # always allowed; costs nothing until clicked
     inputs: [suite, grep, scope, batch, workers, run_label]
