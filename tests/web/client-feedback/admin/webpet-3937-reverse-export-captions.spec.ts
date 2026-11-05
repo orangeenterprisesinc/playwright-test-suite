@@ -11,6 +11,9 @@ test.describe('WEBPET-3937 · File ▸ Restore or Reverse: legacy reverse-export
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3937' }],
     }, async ({ pages }, testInfo) => {
+        // The new shell (web-pet #1569) has no File ▸ Restore or Reverse group: its entries are cards on the View and
+        // Export hubs, so there is no menu to list. The classic-shell suite on main still covers this.
+        test.skip(true, 'File ▸ Restore or Reverse group has no new-shell equivalent (web-pet #1569)');
         const s = await loadScenario(RestoreReverseCaptionsCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
 
