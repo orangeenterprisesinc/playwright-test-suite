@@ -1,18 +1,30 @@
 /**
- * @fileoverview Page Object for the PET Tiger left navigation sidebar.
+ * @fileoverview Page Object for the PET Tiger app shell's navigation.
  *
- * The sidebar landmarks below confirm that the authenticated app shell has
- * rendered — used as the post-login success signal — and expose the real
- * click-through menu path (File ▸ Administration ▸ Users) so tests can navigate
- * the way a human does instead of jumping straight to a URL with `page.goto`.
- * Driving the actual menu is what lets the recorded video capture the
- * navigation steps (see the journey specs under tests/web/).
+ * Since web-pet #1569 ("PET Tiger Cloud new experience", dev 2026-11-05) the sidebar is ten hub links
+ * (Home, Input, View, Transfer & Reconcile, Bonus, Export, Employees, Setup, Devices, Reports, Admin);
+ * each opens a hub page of cards, and a card opens the screen. The screen routes did not change.
+ * `src/data/static/shell/navigation.json` (generated from a walk of that shell) maps every route to
+ * its hub and card, so `openViaMenu` walks sidebar → hub card → screen the way a person does, and
+ * the recorded video shows it. The old group walk (File ▸ Administration ▸ …) stays as the fallback
+ * for a route the table does not know.
  */
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 import { BasePage } from '../BasePage';
+import shellNavigation from '../../data/static/shell/navigation.json';
+
+interface ShellNavigation {
+    /** Sidebar link name → the hub route it opens. */
+    sidebar: Record<string, string>;
+    /** Screen route → the hub that holds its card. */
+    screens: Record<string, { group: string; card: string }>;
+    /** Screen route → why the new shell offers no card for it (a product gap the spec records as a deep link). */
+    noMenuEntry: Record<string, string>;
+}
+const SHELL = shellNavigation as ShellNavigation;
 
 /**
- * Page Object representing the authenticated shell's left navigation.
+ * Page Object representing the authenticated shell's navigation.
  *
  * @extends BasePage
  */
@@ -22,15 +34,25 @@ export class LeftNavigationPage extends BasePage {
     /** Title assertion is not used by the login suite; match anything. */
     readonly pageTitle: string | RegExp = /.*/;
 
-    /** Sidebar menu search box — visible only when logged in. */
+    /** The header's global search (Ctrl+K) — visible only when logged in; the post-login landmark. */
     readonly searchMenu: Locator;
-    /** "Welcome back" greeting — visible only when logged in. */
+    /** The sidebar's Home link — visible only when logged in (the old shell's "Welcome back" greeting is gone). */
     readonly welcomeBack: Locator;
 
     constructor(page: Page) {
         super(page);
-        this.searchMenu = page.getByPlaceholder('Search menu');
-        this.welcomeBack = page.getByText('Welcome back');
+        this.searchMenu = page.getByRole('button', { name: /^Search people, crews, jobs, pages/ });
+        this.welcomeBack = page.getByRole('link', { name: 'Home', exact: true }).first();
+    }
+
+    /** A sidebar hub link ("Setup", "Admin"), matched exactly: the hub page repeats the name as a heading, not a link. */
+    sidebarLink(group: string): Locator {
+        return this.page.getByRole('link', { name: group, exact: true }).first();
+    }
+
+    /** The hub card that opens `route`; matched by href, because a card's accessible name is its title plus its description. */
+    hubCard(route: string): Locator {
+        return this.page.locator(`a[href="${route}"]`).first();
     }
 
     /**
@@ -163,15 +185,40 @@ export class LeftNavigationPage extends BasePage {
     }
 
     /**
-     * Walk an arbitrary sidebar path the way a person does, expanding each group
-     * in turn and clicking the leaf. Every PET Tiger screen is reached this way —
-     * `['File', 'Administration', 'Users']`, `['Input', 'Setup', 'Ranch']`,
-     * `['Input', 'Transfer to Job Card']` — so the whole catalog navigates through
-     * this one method.
+     * Open a screen the way a person does in the new shell: sidebar hub link → hub card → screen. Every PET
+     * Tiger screen is reached through this one method. `menuPath` is the caller's old label path; it is logged,
+     * and walked as groups only when `expectedUrl` is not in the navigation table.
      */
     async openViaMenu(menuPath: string[], expectedUrl: string): Promise<void> {
         if (menuPath.length < 1) throw new Error('openViaMenu needs at least a leaf label');
+        const route = expectedUrl.split('?')[0];
+        const entry = SHELL.screens[route];
+        if (!entry) {
+            const gap = SHELL.noMenuEntry[route];
+            if (gap) return this.openDeepLink(route, gap);
+            this.logger.warn(`No hub card for ${route} in shell/navigation.json; walking the old groups ${menuPath.join(' ▸ ')}`);
+            return this.openViaGroups(menuPath, expectedUrl);
+        }
+        const hubRoute = SHELL.sidebar[entry.group];
+        this.logger.info(`Navigating via menu: ${entry.group} ▸ ${entry.card.split(/(?<=[a-z0-9.])(?=[A-Z])/)[0]} (was ${menuPath.join(' ▸ ')})`);
+        const landed = new RegExp(`${route.replace(/\//g, '\\/')}(\\?|$)`);
+        const onHub = new RegExp(`${hubRoute.replace(/\//g, '\\/')}(\\?|$)`);
+        for (let attempt = 1; ; attempt += 1) {
+            await this.sidebarLink(entry.group).click();
+            await this.page.waitForURL(onHub, { timeout: 30_000 });
+            await this.hubCard(route).click();
+            const arrived = await this.page.waitForURL(landed, { timeout: 30_000 }).then(() => true, () => false);
+            // The route changed and the app still bounced back a moment later (dev, 2026-10-22), so the URL
+            // has to stay put before the caller waits on the screen.
+            const stayed = arrived && (await this.page.waitForURL((u) => !landed.test(u.href), { timeout: 1_500 }).then(() => false, () => true));
+            if (stayed) return;
+            if (attempt >= 2) throw new Error(`${entry.group} ▸ ${route} did not land on ${expectedUrl}; the app is at ${this.page.url()}`);
+            this.logger.warn(`${entry.group} ▸ ${route} did not stick (app at ${this.page.url()}); walking it once more`);
+        }
+    }
 
+    /** The pre-#1569 walk: expand each group of `menuPath` in turn and click the leaf. Kept for routes the table lacks. */
+    private async openViaGroups(menuPath: string[], expectedUrl: string): Promise<void> {
         this.logger.info(`Navigating via menu: ${menuPath.join(' ▸ ')}`);
 
         // Expand each group using the next label as the "is it open?" probe.
@@ -196,6 +243,22 @@ export class LeftNavigationPage extends BasePage {
             this.logger.warn(`Menu ${menuPath.join(' ▸ ')} did not stick (app at ${this.page.url()}); walking it once more`);
             await this.expandPath(menuPath);
         }
+    }
+
+    /**
+     * A screen the new shell offers no menu entry for (`noMenuEntry` in shell/navigation.json): the only way a
+     * person reaches it is by address, so the test does the same and says so in its annotations. The precedent is
+     * CrewPunchPage's Crew Piece Out (product gap 2026-10-16).
+     */
+    async openDeepLink(route: string, gap: string): Promise<void> {
+        this.logger.warn(`Deep link ${route}: ${gap}`);
+        try {
+            test.info().annotations.push({ type: 'deep-link', description: `${route} has no menu entry: ${gap}` });
+        } catch {
+            // Outside a test context — nothing to annotate.
+        }
+        await this.page.goto(route, { waitUntil: 'domcontentloaded' });
+        await this.page.waitForURL((u) => u.pathname === route, { timeout: 30_000 });
     }
 
     /** The app's front door: the one place a journey types an address, as a person opens the app. */
