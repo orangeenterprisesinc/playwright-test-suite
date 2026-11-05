@@ -33,7 +33,8 @@ export class LoginPage extends BasePage {
         // also matched the button's aria-label and failed every auth-setup with a strict-mode violation.
         this.passwordInput = page.getByRole('textbox', { name: /^Password/ });
         this.loginButton = page.getByRole('button', { name: 'Login' });
-        this.invalidCredentialsErrorMessage = page.getByText('Invalid username or password.');
+        // Copy changed with the 2026-11-05 dev deploy (web-pet #1569): was 'Invalid username or password.'
+        this.invalidCredentialsErrorMessage = page.getByText('Incorrect email or password.');
     }
 
     /**

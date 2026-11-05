@@ -31,6 +31,7 @@ import { guardApiContext } from '../utils/api/writeGuard';
 import type { TestCaseData } from '../types';
 import { applyAllureLabels, resolveCaseId } from '../reporting/generate/allure/labels';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
+import { pinShellExperience } from '../config/shellPreference';
 import {
     actionShotsEnabled,
     beginSession,
@@ -201,6 +202,13 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         },
         { auto: true },
     ],
+
+    // The app's shell choice lives in localStorage, so it is pinned before any page in the context loads
+    // (src/config/shellPreference.ts); auth.setup's saved state and every test context get it the same way.
+    context: async ({ context }, use) => {
+        await pinShellExperience(context);
+        await use(context);
+    },
 
     // Playwright's stock `page` with the assertion hook patched for the test. An override, not an
     // auto fixture, so browserless specs still never open a browser; `actionShots` is listed only so
