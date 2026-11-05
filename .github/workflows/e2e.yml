@@ -20,7 +20,8 @@ on:
     # - cron: '13 10 * * *'  # 15:45
     # - cron: '28 10 * * *'  # 16:00
     # - cron: '43 10 * * *'  # 16:15
-    - cron: '58 10 * * *'    # 16:30 IST — the daily run
+    - cron: '58 10 * * *'    # 16:30 IST — the daily run (classic shell, main)
+    - cron: '28 5 * * *'     # 11:00 IST — the new-shell run (checks out feat/new-shell; see `route`)
     # - cron: '13 11 * * *'  # 16:45
     # - cron: '28 11 * * *'  # 17:00
     # - cron: '43 11 * * *'  # 17:15
@@ -63,6 +64,12 @@ on:
         required: false
         default: chromium
         options: [chromium, webkit, msedge, cross-browser]
+      shell:
+        description: 'App shell: `classic` runs this branch against the old experience; `new` checks out feat/new-shell and runs it against the PET Tiger Cloud new experience (web-pet #1569).'
+        type: choice
+        required: false
+        default: classic
+        options: [classic, new]
   # Nothing calls this today; a caller would inherit its triggering event, which the Slack gate reads.
   workflow_call:
     inputs:
@@ -102,6 +109,11 @@ on:
         type: string
         required: false
         default: chromium
+      shell:
+        description: '`classic` (default) or `new` — see the workflow_dispatch input of the same name.'
+        type: string
+        required: false
+        default: classic
   # Must match the event_type web-pet posts; a mismatch is accepted by GitHub and fires nothing.
   repository_dispatch:
     types:
@@ -120,6 +132,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.decide.outputs.skip }}
+      # 'classic' or 'new': the 11:00 IST cron and the `shell` input pick the new shell; everything else is classic.
+      shell: ${{ steps.decide.outputs.shell }}
     steps:
       - id: decide
         env:
@@ -128,9 +142,15 @@ jobs:
           RUN_LABEL: ${{ inputs.run_label || github.event.client_payload.run_label }}
           RUN_TIME_IST: ${{ vars.E2E_RUN_TIME_IST }}
           SCHEDULE: ${{ github.event.schedule }}
+          SHELL_INPUT: ${{ inputs.shell }}
           # 'on' only while the cron grid is uncommented, or a set E2E_RUN_TIME_IST would skip the only run.
           SLOT_GRID: 'off'
         run: |
+          if [[ "$EVENT" == "schedule" && "$SCHEDULE" == "28 5 * * *" ]]; then
+            echo "shell=new" >> "$GITHUB_OUTPUT"
+          else
+            echo "shell=${SHELL_INPUT:-classic}" >> "$GITHUB_OUTPUT"
+          fi
           if [[ "$EVENT" == "schedule" && "$SLOT_GRID" != "on" && -n "$RUN_TIME_IST" ]]; then
             echo "::warning::E2E_RUN_TIME_IST='$RUN_TIME_IST' is ignored while the cron grid is parked — the time is the one cron line in e2e.yml."
           fi
@@ -181,6 +201,10 @@ jobs:
 
     env:
       TEST_ENV: dev
+      # The new-shell run executes the feat/new-shell branch (checked out below); BRANCH_OVERRIDE labels it so
+      # (src/context/executionContext.ts), since GITHUB_REF_NAME still says main.
+      E2E_SHELL: ${{ needs.route.outputs.shell }}
+      BRANCH_OVERRIDE: ${{ needs.route.outputs.shell == 'new' && 'feat/new-shell' || '' }}
       # 5 min under timeout-minutes, so Playwright ends a slow run and still reports;
       # a runner cancel produces no report, Slack post or upload.
       PW_GLOBAL_TIMEOUT_MS: '5100000'
@@ -229,7 +253,7 @@ jobs:
       SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
       SLACK_ATTACH_ALLURE: ${{ vars.SLACK_ATTACH_ALLURE }}
       SLACK_NOTIFY_EVENTS: ${{ vars.SLACK_NOTIFY_EVENTS }}
-      SLACK_SUITE_NAME: ${{ inputs.suite_name || (matrix.suite == 'webpet' && 'WebPet' || matrix.suite == 'client-feedback' && 'Client Feedback' || 'User Journey') }}
+      SLACK_SUITE_NAME: ${{ inputs.suite_name || format('{0}{1}', (matrix.suite == 'webpet' && 'WebPet' || matrix.suite == 'client-feedback' && 'Client Feedback' || 'User Journey'), (needs.route.outputs.shell == 'new' && ' · new shell' || '')) }}
       # SLACK_EXECUTION_LABEL is exported by a step below; a job-level entry would shadow it.
       # src/utils/cleanup/residueSweep.ts: 0 disables, dry reports only. The age gate protects runs in progress.
       RESIDUE_SWEEP: ${{ vars.RESIDUE_SWEEP || '' }}
@@ -247,6 +271,8 @@ jobs:
       - name: Checkout test suite
         uses: actions/checkout@v7
         with:
+          # The new-shell suite lives on its own branch while both shells are in play (web-pet #1569).
+          ref: ${{ needs.route.outputs.shell == 'new' && 'feat/new-shell' || github.ref }}
           # webpet needs full history for the webpet-lift-v1 tag. Inverted on purpose:
           # `== 'webpet' && 0 || 1` always yields 1 because 0 is falsy.
           fetch-depth: ${{ matrix.suite != 'webpet' && 1 || 0 }}
@@ -410,9 +436,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: artifacts/allure/report/history
-          key: allure-history-${{ matrix.suite || 'journey' }}-${{ github.ref_name }}-${{ github.run_id }}
+          key: allure-history-${{ matrix.suite || 'journey' }}-${{ needs.route.outputs.shell }}-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            allure-history-${{ matrix.suite || 'journey' }}-${{ github.ref_name }}-
+            allure-history-${{ matrix.suite || 'journey' }}-${{ needs.route.outputs.shell }}-${{ github.ref_name }}-
 
       - name: Generate Allure report
         if: always()
@@ -422,14 +448,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-playwright-report' || matrix.suite == 'client-feedback' && 'cf-playwright-report' || 'playwright-report' }}
+          name: ${{ format('{0}{1}', (matrix.suite == 'webpet' && 'webpet-playwright-report' || matrix.suite == 'client-feedback' && 'cf-playwright-report' || 'playwright-report'), (needs.route.outputs.shell == 'new' && '-new-shell' || '')) }}
           path: artifacts/html
 
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-allure-report' || matrix.suite == 'client-feedback' && 'cf-allure-report' || 'allure-report' }}
+          name: ${{ format('{0}{1}', (matrix.suite == 'webpet' && 'webpet-allure-report' || matrix.suite == 'client-feedback' && 'cf-allure-report' || 'allure-report'), (needs.route.outputs.shell == 'new' && '-new-shell' || '')) }}
           path: artifacts/allure/report
 
       # Fails when the sweeps found residue and deleted none (run 35589360814 went green on that).
@@ -446,7 +472,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.suite == 'webpet' && 'webpet-residue-sweep' || matrix.suite == 'client-feedback' && 'cf-residue-sweep' || 'residue-sweep' }}
+          name: ${{ format('{0}{1}', (matrix.suite == 'webpet' && 'webpet-residue-sweep' || matrix.suite == 'client-feedback' && 'cf-residue-sweep' || 'residue-sweep'), (needs.route.outputs.shell == 'new' && '-new-shell' || '')) }}
           path: |
             artifacts/results/residue-sweep-*.json
             artifacts/results/fixture-reconcile-*.json
