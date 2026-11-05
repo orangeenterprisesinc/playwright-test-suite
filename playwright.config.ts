@@ -316,6 +316,13 @@ export default defineConfig({
         // Base URL so tests and page objects can navigate with relative paths.
         baseURL: BASE_URL,
 
+        // The app registers a Workbox service worker (sw.js). Behind it, every response body Playwright reads
+        // (the trace recorder reads them all) went back to the server as a second GET ~60-110 ms after the page's
+        // own request. The Transfer analyze result is read-once on the server, so that second GET consumed it and
+        // the page's next poll 404'd: "analyze job lost" (CI 2026-11-04, run 41851435820; su only, never a human
+        // user). The worker only precaches assets and routes /api/* NetworkOnly, so the screens are unchanged.
+        serviceWorkers: 'block',
+
         // Kept for failed tests only, CI included: a green test leaves its assertion
         // screenshots (src/fixtures/instrumentation/actionShots.ts) and nothing else.
         screenshot: 'only-on-failure',

@@ -709,9 +709,17 @@ export async function assertTransferGrid(input: TransferGridInput): Promise<Tran
             }
             await transferPage.cancelPanel();
 
-            // ── Every row is a Time-In-only punch, so each carries the same warning ──
+            // ── Only an employee's LAST Time-In is open. Legacy ends the previous card at the next Time-In (a job
+            // switch splits the day: pet-knowledge-base 03-time-capture.md), so the earlier rows are Ready. Until
+            // web-pet #1558 (2026-11-03) they also carried the web-only "No hourly rate" warning, which hid this.
+            const latestPerEmployee = new Map<number, string>();
             for (const card of cards) {
-                await expect(transferPage.rowStatus(card.timeCardCounter)).toHaveText(statusPattern);
+                const key = Number(card.employeeCounter);
+                if ((card.dateTime ?? '') >= (latestPerEmployee.get(key) ?? '')) latestPerEmployee.set(key, card.dateTime ?? '');
+            }
+            for (const card of cards) {
+                const open = latestPerEmployee.get(Number(card.employeeCounter)) === (card.dateTime ?? '');
+                await expect(transferPage.rowStatus(card.timeCardCounter)).toHaveText(open ? statusPattern : /Ready/i);
             }
             // The group carries the exception resolver's short title (the legacy
             // "No corresponding Time-Out/Piece-Out…" text is now the detail message).

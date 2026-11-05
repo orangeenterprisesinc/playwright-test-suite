@@ -568,8 +568,12 @@ export class TransferToJobCardsPage extends BasePage {
                 return { ok: false, reason: 'timeout', count: await count(), sawAnalyze404: this.analyzeSaw404 };
             }
 
-            const knownSignature = this.analyzeResponses.some((r) => r.status === 404 && r.code === 'not_found');
-            const otherFailure = this.analyzeResponses.find((r) => !(r.status === 404 && r.code === 'not_found'));
+            // The lost-job shape is a 404 not_found, or the app parking on "Try again" after its own restarts while
+            // every poll it saw answered 202/200 (B4, run 41851435820: the restart's 404s went to the app, not to us).
+            const knownSignature =
+                this.analyzeResponses.some((r) => r.status === 404 && r.code === 'not_found') ||
+                this.analyzeResponses.every((r) => r.status === 202 || r.status === 200);
+            const otherFailure = this.analyzeResponses.find((r) => !(r.status === 404 && r.code === 'not_found') && r.status !== 202 && r.status !== 200);
             if (otherFailure || !knownSignature) {
                 this.detachAnalyzeResponseListener();
                 throw new Error(
@@ -1047,12 +1051,10 @@ export class TransferToJobCardsPage extends BasePage {
         );
         posted.catch(() => undefined);
         // A 202 hands back a job the screen then polls; a 200 is already settled, so this may never fire.
+        // Status only: a poll answers 202 while the job runs and anything else once it is settled. The result is
+        // read-once on the server, so a body read here would be a second reader (see watchAnalyzeResponses).
         const settled = this.page.waitForResponse(
-            async (r) => {
-                if (r.request().method() !== 'GET' || !/\/transfer-to-job-cards\/analyze\/[^/]+$/.test(new URL(r.url()).pathname)) return false;
-                const state = String(((await r.json().catch(() => ({}))) as { status?: string }).status ?? '');
-                return !['pending', 'running', 'queued'].includes(state);
-            },
+            (r) => r.request().method() === 'GET' && /\/transfer-to-job-cards\/analyze\/[^/]+$/.test(new URL(r.url()).pathname) && r.status() !== 202,
             { timeout: 60_000 },
         );
         settled.catch(() => undefined);
