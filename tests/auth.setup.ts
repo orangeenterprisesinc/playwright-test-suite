@@ -108,7 +108,7 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
         .then(() => {
             throw new Error(
                 `Login rejected by the app for user "${userName}" (TEST_ENV=${process.env.TEST_ENV || 'local'}): ` +
-                    `it displayed "Invalid username or password.". The app is reachable — this is a credential ` +
+                    `it displayed "Incorrect email or password.". The app is reachable — this is a credential ` +
                     `problem, so check USER_NAME/PASSWORD in your .env or the CI secrets for this environment.`,
             );
         });

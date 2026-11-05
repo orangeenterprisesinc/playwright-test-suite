@@ -5,7 +5,7 @@
     "shared.invalidCredentialsErrorMessage is deliberately the same string for a bad username, a bad password, or both: the app must not reveal which field was wrong, and UI-002/003/004 collectively prove UI-R3 by asserting exactly this text. They stay three test() calls rather than a loop because runner:check binds a spec to a row by a LITERAL testCaseId annotation."
   ],
   "shared": {
-    "invalidCredentialsErrorMessage": "Invalid username or password."
+    "invalidCredentialsErrorMessage": "Incorrect email or password."
   },
   "cases": {
     "UI-002": { "wrongPassword": "wrong-password-123" },
