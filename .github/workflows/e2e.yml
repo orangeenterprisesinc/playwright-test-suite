@@ -19,8 +19,8 @@ on:
     # - cron: '58 9 * * *'   # 15:30
     # - cron: '13 10 * * *'  # 15:45
     # - cron: '28 10 * * *'  # 16:00
-    - cron: '43 10 * * *'    # 16:15 IST — the daily run
-    # - cron: '58 10 * * *'  # 16:30
+    # - cron: '43 10 * * *'  # 16:15
+    - cron: '58 10 * * *'    # 16:30 IST — the daily run
     # - cron: '13 11 * * *'  # 16:45
     # - cron: '28 11 * * *'  # 17:00
     # - cron: '43 11 * * *'  # 17:15
@@ -135,14 +135,14 @@ jobs:
             echo "::warning::E2E_RUN_TIME_IST='$RUN_TIME_IST' is ignored while the cron grid is parked — the time is the one cron line in e2e.yml."
           fi
           if [[ "$EVENT" == "schedule" && "$SLOT_GRID" == "on" ]]; then
-            # '43 10 * * *' -> 10:43 UTC -> +2 min early offset, +5:30 -> 16:15 IST.
+            # '43 10 * * *' -> 10:58 UTC -> +2 min early offset, +5:30 -> 16:30 IST.
             read -r m h _ <<< "$SCHEDULE"
             total=$(( (10#$h * 60 + 10#$m + 2 + 330) % 1440 ))
             slot=$(printf '%02d:%02d' $(( total / 60 )) $(( total % 60 )))
-            wanted="${RUN_TIME_IST:-16:15}"
+            wanted="${RUN_TIME_IST:-16:30}"
             if ! [[ "$wanted" =~ ^1[5-8]:(00|15|30|45)$ ]] || [[ "$wanted" > "18:00" ]]; then
-              echo "::warning::E2E_RUN_TIME_IST='$wanted' is not a 15-minute slot between 15:00 and 18:00 IST — running at 16:15 instead."
-              wanted="16:15"
+              echo "::warning::E2E_RUN_TIME_IST='$wanted' is not a 15-minute slot between 15:00 and 18:00 IST — running at 16:30 instead."
+              wanted="16:30"
             fi
             if [[ "$slot" != "$wanted" ]]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"

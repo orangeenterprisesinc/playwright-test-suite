@@ -434,7 +434,7 @@ import { getDataSourceConfig } from '@config/dataSource.config';
 ### Execution Workflow
 
 ```
-Schedule (4:15 PM IST) / manual dispatch → GitHub Actions
+Schedule (4:30 PM IST) / manual dispatch → GitHub Actions
   → npm ci → npx playwright install chromium
     → npx playwright test
       → Global Setup (auth dir, results dirs)
@@ -907,7 +907,7 @@ gh workflow run e2e.yml -f suite=journey
 gh workflow run e2e.yml -f suite=webpet -f batch=01
 ```
 
-**The daily dry run is `e2e.yml`'s own cron** — one line, 16:15 IST. It runs **both** suites one after the other via a serialised matrix:
+**The daily dry run is `e2e.yml`'s own cron** — one line, 16:30 IST. It runs **both** suites one after the other via a serialised matrix:
 
 ```
 ~4:43 PM IST  e2e.yml  →  matrix suite=journey  →  its own Slack report
@@ -924,7 +924,7 @@ Two mechanisms arrange this, because GitHub offers no single one that does both 
 - **`push: branches: [main]` is commented out** in `e2e.yml`. A declared trigger always *starts* a run entry before any job-level gate can stop it (`vars` is not readable in `on:`), and even a 9-second skipped entry per merge was unwanted. Re-enabling merge runs = uncomment those two lines **and** set the variable below.
 - **`repository_dispatch` and `workflow_call` stay declared but gated**: the `route` job refuses them unless the **`CI_AUTO_TRIGGERS`** repo variable is `yes` (Settings ▸ Secrets and variables ▸ Actions ▸ Variables — it is unset). Declared, they cost nothing: neither fires on a merge or a PR, and a dispatch can only arrive if web-pet sends one (its `RUN_E2E` variable is `no`).
 
-`schedule` and `workflow_dispatch` are never gated and always run. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4:15 PM only — a PR is not checked.
+`schedule` and `workflow_dispatch` are never gated and always run. The five static gates (typecheck, lint, runner and id checks) still run inside the `e2e` job, so with the triggers off they execute at 4:30 PM only — a PR is not checked.
 
 Four things to know about the schedule:
 
@@ -942,7 +942,7 @@ Credentials are split by sensitivity: the password is the **`DEV_PASSWORD` secre
 ```yaml
 on:
   schedule:
-    - cron: '43 10 * * *'   # 16:15 IST — the one daily run (the 15-minute grid
+    - cron: '43 10 * * *'   # 16:30 IST — the one daily run (the 15-minute grid
                             #   around it is commented out: one entry a day)
   workflow_dispatch:                     # always allowed; costs nothing until clicked
     inputs: [suite, grep, scope, batch, workers, run_label]
@@ -953,7 +953,7 @@ on:
   repository_dispatch:                   #  │ the suite unless CI_AUTO_TRIGGERS
     types: [run-playwright]              # ─┘ is `yes`
 
-# github.event_name is in the group so a manual dispatch cannot cancel the 4:15 PM
+# github.event_name is in the group so a manual dispatch cannot cancel the 4:30 PM
 # run mid-suite — both fire from refs/heads/main. github.event.schedule keeps
 # each cron slot apart, so the next slot's skip-tick cannot cancel the real run.
 concurrency:
