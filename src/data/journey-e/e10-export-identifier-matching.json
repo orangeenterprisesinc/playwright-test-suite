@@ -41,6 +41,6 @@
         "runCreatedToast": "Export run created",
         "nothingToExport": "Nothing to export"
     },
-    "reverse": { "type": "Payroll", "performedBy": "Su", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
+    "reverse": { "type": "Payroll", "performedBy": "Automation su", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
     "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -15, "cardTypes": [0, 1] }]
 }
