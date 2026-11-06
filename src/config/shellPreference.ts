@@ -14,13 +14,18 @@ export const SHELL_UX_VERSION = 'classic';
 export async function pinShellExperience(target: BrowserContext | Page): Promise<void> {
     await target.addInitScript(
         ({ key, uxVersion }) => {
-            let prefs: Record<string, unknown> = {};
+            // Opaque-origin documents (about:blank, sandboxed frames) throw on any localStorage access; nothing to pin there.
             try {
-                prefs = (JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>) ?? {};
+                let prefs: Record<string, unknown> = {};
+                try {
+                    prefs = (JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>) ?? {};
+                } catch {
+                    prefs = {};
+                }
+                window.localStorage.setItem(key, JSON.stringify({ ...prefs, uxVersion, uxVersionChosen: true }));
             } catch {
-                prefs = {};
+                /* no storage in this document */
             }
-            window.localStorage.setItem(key, JSON.stringify({ ...prefs, uxVersion, uxVersionChosen: true }));
         },
         { key: SHELL_PREFERENCE_KEY, uxVersion: SHELL_UX_VERSION },
     );
