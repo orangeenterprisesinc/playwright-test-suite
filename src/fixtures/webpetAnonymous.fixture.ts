@@ -19,10 +19,17 @@ import { expect, test as base } from '@playwright/test';
 import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
 import { onTestStart, onTestEnd } from './lifecycle/testLifecycleManager';
+import { pinShellExperience } from '../config/shellPreference';
 
 export { expect };
 
 export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
+    // A fresh browser opens the new shell; pin the branch's shell like the other fixtures (no session involved).
+    context: async ({ context }, use) => {
+        await pinShellExperience(context);
+        await use(context);
+    },
+
     /**
      * The same page-object registry the authenticated fixture exposes.
      *
