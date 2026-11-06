@@ -230,7 +230,10 @@ async function main() {
         const reqs = [];
         const cons = new Map();
         const pErr = new Map();
-        for (const file of t.traces) {
+        for (const recorded of t.traces) {
+            // Attachment paths are absolute; when the results folder was moved, find the trace under resultsDir instead.
+            const rel = recorded.split(/[\\/]+/);
+            const file = fs.existsSync(recorded) ? recorded : path.join(resultsDir, ...rel.slice(rel.lastIndexOf('results') + 1));
             if (!fs.existsSync(file)) continue;
             let a;
             try {
