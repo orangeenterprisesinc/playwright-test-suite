@@ -250,12 +250,10 @@ export class ExportDispatchWorkspacePage extends BasePage {
             .filter({ has: this.page.locator(`[data-select-row-id="${jobCardCounter}"]`) });
     }
 
-    /** Expand the legend if it renders as a collapsed `<details>` (UNVERIFIED-LIVE). */
+    /** The new shell renders the legend as a collapsed `<details>`; classic as a plain `<div>`. */
     async openLegend(): Promise<void> {
-        const summary = this.legend.locator('summary');
-        if ((await summary.count()) === 0) return;
-        const open = await this.legend.locator('details').first().evaluate((d) => (d as HTMLDetailsElement).open).catch(() => true);
-        if (!open) await summary.first().click();
+        const closed = await this.legend.evaluate((el) => el instanceof HTMLDetailsElement && !el.open);
+        if (closed) await this.legend.locator('summary').click();
     }
 
     /** Retired v1 helper; only the disabled specs use it. */
