@@ -237,12 +237,19 @@ export class DataGridComponent extends BaseComponent {
 
     /**
      * Shows or hides a column. The layout is per user and server-side (`/api/user/grid-layouts/<grid>…`), so any
-     * test that hides a column shows it again in teardown.
+     * test that hides a column shows it again in teardown. The app debounces that PUT by 500 ms, so the click waits
+     * for it: a test that ended inside the window lost its restore and left the column hidden for the suite user.
      */
     async toggleColumn(label: string, visible: boolean, trigger?: Locator): Promise<void> {
         const picker = await this.openColumnsPicker(trigger);
         const box = picker.getByRole('checkbox', { name: label, exact: true });
-        if ((await box.isChecked()) !== visible) await box.click();
+        if ((await box.isChecked()) !== visible) {
+            const saved = this.page.waitForResponse(
+                (r) => r.request().method() === 'PUT' && r.url().includes('/api/user/grid-layouts/'),
+            );
+            await box.click();
+            expect((await saved).ok(), 'the column layout save succeeds').toBe(true);
+        }
         if (visible) await expect(box).toBeChecked();
         else await expect(box).not.toBeChecked();
         await this.page.keyboard.press('Escape');
