@@ -17,7 +17,8 @@ interface ShellNavigation {
     /** Sidebar link name → the hub route it opens. */
     sidebar: Record<string, string>;
     /** Screen route → the hub that holds its card. */
-    screens: Record<string, { group: string; card: string }>;
+    /** `hubView`: test id of the hub button that reveals the card (Reports lists screen reports only under "By screen"). */
+    screens: Record<string, { group: string; card: string; hubView?: string }>;
     /** Screen route → why the new shell offers no card for it (a product gap the spec records as a deep link). */
     noMenuEntry: Record<string, string>;
 }
@@ -206,6 +207,7 @@ export class LeftNavigationPage extends BasePage {
         for (let attempt = 1; ; attempt += 1) {
             await this.sidebarLink(entry.group).click();
             await this.page.waitForURL(onHub, { timeout: 30_000 });
+            if (entry.hubView) await this.page.getByTestId(entry.hubView).click();
             await this.hubCard(route).click();
             const arrived = await this.page.waitForURL(landed, { timeout: 30_000 }).then(() => true, () => false);
             // The route changed and the app still bounced back a moment later (dev, 2026-10-22), so the URL
