@@ -1,20 +1,10 @@
 /**
- * @fileoverview Export to Accounting — the v1 filter surface (`/export-to-accounting`).
+ * @fileoverview Export to Accounting — the page header and export-type tabs (`/export-to-accounting`).
  *
- * A filter form over two export types (Payroll, Cost Accounting) that POSTs to
- * `/api/job-cards/export-to-accounting/candidates` and renders the matched rows
- * plus a payment-type colour legend.
- *
- * ## Why this is separate from {@link ExportDispatchWorkspacePage}
- *
- * Both surfaces answer on the same route, and they share three testids
- * (`export-filter-from`, `export-filter-to`, `export-page-description`). They are
- * still two page objects because everything else differs: v1 submits through
- * `export-find-candidates` and renders tabs, a legend and per-row testids, while
- * v2 submits through `export-analyze` and renders the dispatch spine, readiness
- * counters and review-queue buckets. Merging them would produce one class where
- * half the members are dead on any given page — the exact failure mode that makes
- * a relocated locator silently match nothing.
+ * The v1 filter surface is gone; the route always serves the v2 workspace now
+ * (see {@link ExportDispatchWorkspacePage} for the date scope, grid and legend).
+ * This class keeps the header, the Payroll / Cost Accounting tabs and the
+ * `module.not_licensed` banner, which v2 still renders.
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
@@ -28,15 +18,11 @@ export class ExportToAccountingPage extends BasePage {
 
     /** The page header. All text assertions run against the pinned `en` locale. */
     readonly heading: Locator;
-    readonly pageDescription: Locator;
 
-    // ── Filter ──────────────────────────────────────────────────────
-    /** Pre-populated with a 7-day lookback ending today. */
+    // ── Filter (retired v1 form — only the disabled WP-0191 still uses these) ──
     readonly filterFrom: Locator;
     readonly filterTo: Locator;
-    /** Submits the filter. Disabled while the range is inverted. */
     readonly findCandidatesButton: Locator;
-    /** The inverted-range message, which also blocks submit. */
     readonly dateOrderError: Locator;
 
     // ── Export-type tabs ────────────────────────────────────────────
@@ -54,10 +40,6 @@ export class ExportToAccountingPage extends BasePage {
     readonly costAccountingTooltipWrapper: Locator;
     readonly costAccountingTooltip: Locator;
 
-    // ── Results ─────────────────────────────────────────────────────
-    readonly candidatesCount: Locator;
-    /** The payment-type colour legend, rendered below the table once rows exist. */
-    readonly legend: Locator;
     /** The `module.not_licensed` inline banner — asserted *instead of* an error toast. */
     readonly moduleNotLicensedBanner: Locator;
 
@@ -65,7 +47,6 @@ export class ExportToAccountingPage extends BasePage {
         super(page);
 
         this.heading = page.getByRole('heading', { name: 'Export to Accounting' });
-        this.pageDescription = page.getByTestId('export-page-description');
 
         this.filterFrom = page.getByTestId('export-filter-from');
         this.filterTo = page.getByTestId('export-filter-to');
@@ -79,8 +60,6 @@ export class ExportToAccountingPage extends BasePage {
         );
         this.costAccountingTooltip = page.getByTestId('export-tab-cost-accounting-tooltip');
 
-        this.candidatesCount = page.getByTestId('export-candidates-count');
-        this.legend = page.getByTestId('export-legend');
         this.moduleNotLicensedBanner = page.getByTestId('export-module-not-licensed-banner');
     }
 
@@ -101,19 +80,7 @@ export class ExportToAccountingPage extends BasePage {
         await this.page.goto(`${this.pageUrl}${query}`);
     }
 
-    // ── Parameterised surfaces ──────────────────────────────────────
-
-    /** One legend swatch by payment-type key, e.g. `'time'` or `'bonus'`. */
-    legendItem(key: string): Locator {
-        return this.page.getByTestId(`export-legend-item-${key}`);
-    }
-
-    /** A result row by its JobCard counter — the rows are id-keyed, not positional. */
-    candidateRow(jobCardCounter: number): Locator {
-        return this.page.getByTestId(`export-candidate-row-${jobCardCounter}`);
-    }
-
-    /** Fill both ends of the range in one step. */
+    /** Retired v1 helper (WEBPET-3342); only the disabled WP-0191 uses it. */
     async fillDateRange(from: string, to: string): Promise<void> {
         await this.filterFrom.fill(from);
         await this.filterTo.fill(to);
