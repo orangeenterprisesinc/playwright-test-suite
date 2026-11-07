@@ -78,6 +78,12 @@ export class EmployeeQuickAddPage extends BasePage {
     async open(): Promise<void> {
         await this.leftNav.openScreen(EmployeeQuickAddPage.MENU_PATH, this.pageUrl);
         await this.firstNameInput.waitFor({ state: 'visible', timeout: 30_000 });
+        // Everything past First/Last Name sits in collapsed <details> groups; Crew, Middle and the defaults are unreachable until opened.
+        for (const title of ['More details', 'Time Card Defaults']) {
+            const group = this.page.getByRole('main').locator('details').filter({ has: this.page.locator('summary', { hasText: title }) });
+            if (!(await group.evaluate((d) => (d as HTMLDetailsElement).open))) await group.locator('summary').click();
+            await expect(group).toHaveAttribute('open', '');
+        }
     }
 
     currentPath(): string {
@@ -98,7 +104,8 @@ export class EmployeeQuickAddPage extends BasePage {
     /** Empties the preference-filled Crew; the default lands a beat after the form, an unset default leaves it empty. */
     async clearCrew(): Promise<void> {
         await expect(this.crewCombobox).not.toHaveValue('', { timeout: 10_000 }).catch(() => undefined);
-        if ((await this.crewCombobox.inputValue()) !== '') {
+        // No actionTimeout is configured, so an unbounded inputValue() hangs to the 10-min test timeout when the field is absent.
+        if ((await this.crewCombobox.inputValue({ timeout: 10_000 })) !== '') {
             // Default Field and Default Job grow their own "Clear" once set, so scope to the Crew control.
             await this.crewCombobox.locator('xpath=ancestor::*[.//button[@aria-label="Clear"]][1]').getByRole('button', { name: 'Clear', exact: true }).click();
         }
