@@ -10,6 +10,7 @@
  */
 import { expect, test as setup } from '@fixtures/base.fixture';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
+import { apiRootFrom, assertExpectedClient } from '@utils/api/apiLogin';
 
 /**
  * How long to wait for the post-login redirect. Generous on purpose: this is
@@ -125,6 +126,13 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
     // Confirm a post-login landmark before persisting the session, so a session
     // that redirected but never actually rendered the shell is not saved.
     await expect(leftNavigationPage.searchMenu).toBeVisible({ timeout: 30000 });
+
+    // Absolute API URL: a relative /api path would hit the SPA and return index.html.
+    const apiRoot = apiRootFrom(process.env)?.replace(/\/+$/, '');
+    if (!apiRoot) {
+        throw new Error('Cannot verify the tenant: set API_URL, WEBPET_API_ORIGIN or BASE_URL in the environment.');
+    }
+    await assertExpectedClient(page.request, `${apiRoot}/session/me`, userName, new URL(page.url()).origin);
 
     await page.context().storageState({ path: '.auth/user.json' });
 });

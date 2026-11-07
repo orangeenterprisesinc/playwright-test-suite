@@ -197,7 +197,12 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         //   });
         // BEFORE the first page.goto() in that test, to shadow this default.
         await ctx.addInitScript(() => {
-            window.localStorage.setItem('pt.locale', 'en');
+            // Opaque-origin documents (about:blank) throw on any localStorage access; nothing to pin there.
+            try {
+                window.localStorage.setItem('pt.locale', 'en');
+            } catch {
+                /* no storage in this document */
+            }
         });
         // Classic shell (src/config/shellPreference.ts): a fresh context would open the new experience.
         await pinShellExperience(ctx);

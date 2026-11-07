@@ -78,10 +78,40 @@ export interface LoginContextOptions {
 }
 
 /** Strip a trailing `/api` or `/api/` so the two URL styles in .env resolve alike. */
-function apiRootFrom(env: NodeJS.ProcessEnv): string | undefined {
+export function apiRootFrom(env: NodeJS.ProcessEnv): string | undefined {
     if (env.API_URL) return env.API_URL;
     const origin = env.WEBPET_API_ORIGIN ?? env.BASE_URL ?? env.APP_URL;
     return origin ? `${origin.replace(/\/+$/, '')}/api` : undefined;
+}
+
+/**
+ * Fail fast when the login landed on a different tenant than E2E_CLIENT_ID.
+ * No-op when the variable is unset. `meUrl` must be absolute, or relative to the
+ * context's baseURL, and must hit the API (a relative /api path from a page hits the SPA).
+ */
+export async function assertExpectedClient(
+    ctx: APIRequestContext,
+    meUrl: string,
+    user: string,
+    origin?: string,
+): Promise<void> {
+    const expected = process.env.E2E_CLIENT_ID;
+    if (!expected) return;
+
+    const res = await ctx.get(meUrl, origin ? { headers: { Origin: origin } } : undefined);
+    if (!res.ok()) {
+        throw new Error(
+            `environment-gate: GET session/me returned HTTP ${String(res.status())} for "${user}"; ` +
+                `cannot confirm the tenant (E2E_CLIENT_ID=${expected}).`,
+        );
+    }
+    const { clientId } = (await res.json()) as { clientId?: number | string };
+    if (Number(clientId) !== Number(expected)) {
+        throw new Error(
+            `environment-gate: "${user}" logged in to client ${String(clientId)}, expected client ${expected} ` +
+                `(E2E_CLIENT_ID). Automation runs on client ${expected} only; fix the login user, never the gate.`,
+        );
+    }
 }
 
 /**
