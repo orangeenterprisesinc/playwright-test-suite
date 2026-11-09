@@ -42,11 +42,55 @@ export async function loginWithBackoff(
 
     let res = await send();
     for (const delay of [2_000, 5_000, 10_000]) {
-        if (res.ok()) return res;
+        if (res.ok()) return completeClientChoice(ctx, res, { label });
         if (res.status() !== 429 && res.status() < 500) return res;
         logger.warn(`${label} login got HTTP ${String(res.status())}; retrying in ${String(delay / 1000)}s`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         res = await send();
+    }
+    return completeClientChoice(ctx, res, { label });
+}
+
+/** The tenant the suite must run on: E2E_CLIENT_ID, else client 1. */
+export function expectedClientId(): number {
+    return Number(process.env.E2E_CLIENT_ID || 1);
+}
+
+interface ClientChoiceBody {
+    clientChoice?: { token: string; choices?: { clientId: number; expired?: boolean }[] };
+}
+
+/**
+ * A multi-client user's login answers 202 with a single-use choice token instead of a session.
+ * Pick E2E_CLIENT_ID and post it once (never retried: the token is spent) — the answer is the
+ * normal login response and sets the session + CSRF cookies. Any other status passes through untouched.
+ */
+export async function completeClientChoice(
+    ctx: APIRequestContext,
+    loginRes: APIResponse,
+    opts: { label: string; url?: string; headers?: Record<string, string> },
+): Promise<APIResponse> {
+    if (loginRes.status() !== 202) return loginRes;
+
+    const expected = expectedClientId();
+    const { clientChoice } = (await loginRes.json()) as ClientChoiceBody;
+    const choices = clientChoice?.choices ?? [];
+    const offered = choices.map((c) => c.clientId).join(', ') || 'none';
+    const pick = choices.find((c) => Number(c.clientId) === expected);
+    if (!clientChoice?.token || !pick || pick.expired) {
+        throw new Error(
+            `environment-gate: ${opts.label} login asked for a client choice but client ${String(expected)} ` +
+                `(E2E_CLIENT_ID) is ${pick?.expired ? 'expired' : 'not offered'}; offered client ids: ${offered}.`,
+        );
+    }
+
+    const res = await ctx.post(opts.url ?? '/api/auth/login/choose-client', {
+        data: { token: clientChoice.token, clientId: expected },
+        headers: { 'Content-Type': 'application/json', ...opts.headers },
+    });
+    if (!res.ok()) {
+        const body = (await res.text().catch(() => '')).trim().slice(0, 300);
+        throw new Error(`${opts.label} choose-client returned HTTP ${String(res.status())}: ${body}`);
     }
     return res;
 }

@@ -37,6 +37,7 @@ test.describe('Login', { tag: ['@System'] }, () => {
         ],
     }, async ({ gotoUrl: _gotoUrl, loginPage, leftNavigationPage }) => {
         await loginPage.loginPetTiger(validUserName(), validPassword());
+        await loginPage.chooseClientIfShown();
         await expect(leftNavigationPage.searchMenu).toBeVisible();
         await expect(leftNavigationPage.welcomeBack).toBeVisible();
     });

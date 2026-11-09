@@ -28,6 +28,7 @@ import { expect, test } from '@fixtures/webpet.fixture';
 import { test as cleanTest, expect as cleanExpect } from '@fixtures/webpetAnonymous.fixture';
 import { ADMIN_PASSWORD, ADMIN_USER, apiUrl } from '@config/webpetEnv';
 import type { Page } from '@playwright/test';
+import { completeClientChoice, expectedClientId } from '@utils/api/apiLogin';
 import {
     ensureCrew,
     deleteCrew,
@@ -288,10 +289,20 @@ cleanTest.describe('Auth event toasts', { tag: ['@WebPet', '@wp-notifications', 
             data: { username: ADMIN_USER, password: ADMIN_PASSWORD },
             headers: baseURL ? { Origin: baseURL } : undefined,
         });
-        const body = (await res.json()) as { user: unknown };
+        const origin = baseURL ? { Origin: baseURL } : undefined;
+        const final = await completeClientChoice(page.request, res, {
+            label: 'seedSession',
+            url: apiUrl('/api/auth/login/choose-client'),
+            headers: origin,
+        });
+        let { user } = (await final.json()) as { user?: unknown };
+        if (user === undefined) {
+            const me = await page.request.get(apiUrl('/api/session/me'), { headers: origin });
+            user = await me.json();
+        }
         await page.addInitScript((u) => {
             sessionStorage.setItem('pt_user', JSON.stringify(u));
-        }, body.user);
+        }, user);
     }
 
     cleanTest('[Notifications] Verify that logging out emits a signed-out toast and redirects to login.', {
@@ -315,6 +326,7 @@ cleanTest.describe('Auth event toasts', { tag: ['@WebPet', '@wp-notifications', 
     }, async ({ pages }) => {
         await pages.login.gotoLogin();
         await pages.login.signIn(ADMIN_USER, ADMIN_PASSWORD);
+        await pages.login.chooseClientIfShown(expectedClientId(), 30_000);
         // Don't hardcode the interpolated name — it's whatever displayName the
         // logged-in user carries (e.g. "Su" under E2E_ADMIN_USER=su), not
         // necessarily "Admin". The toast's message format is what's under test.
