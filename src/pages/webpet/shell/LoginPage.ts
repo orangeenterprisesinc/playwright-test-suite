@@ -12,6 +12,7 @@
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
+import { ClientChooserComponent } from '../../../components/ClientChooserComponent';
 
 /**
  * @extends BasePage
@@ -24,9 +25,12 @@ export class LoginPage extends BasePage {
     readonly passwordInput: Locator;
     /** Addressed by type — the label is locale-dependent. */
     readonly submitButton: Locator;
+    /** Shown instead of a redirect when the user belongs to several clients. */
+    readonly clientChooser: ClientChooserComponent;
 
     constructor(page: Page) {
         super(page);
+        this.clientChooser = new ClientChooserComponent(page);
 
         this.usernameInput = page.locator('input#username');
         this.passwordInput = page.locator('input#password');
@@ -43,6 +47,15 @@ export class LoginPage extends BasePage {
         await this.usernameInput.fill(username);
         await this.passwordInput.fill(password);
         await this.submitButton.click();
+    }
+
+    /** After a successful sign-in: pick the client if the chooser appears, no-op if the app redirects straight in. */
+    async chooseClientIfShown(clientId: number, timeout: number): Promise<void> {
+        const chooserShown = this.clientChooser.getRoot().waitFor({ state: 'visible', timeout }).then(() => true);
+        const left = this.page.waitForURL((url) => !url.pathname.includes('/login'), { timeout }).then(() => false);
+        chooserShown.catch(() => {});
+        left.catch(() => {});
+        if (await Promise.race([chooserShown, left])) await this.clientChooser.choose(clientId);
     }
 }
 
