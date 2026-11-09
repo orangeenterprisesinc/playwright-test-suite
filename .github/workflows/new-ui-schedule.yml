@@ -1,0 +1,20 @@
+name: New UI schedule
+
+# GitHub fires `schedule` only from main. This only starts feat/new-shell's own E2E workflow on that branch,
+# so the new-UI run uses that branch's workflow and test code; main carries no new-UI test code.
+on:
+  schedule:
+    - cron: '28 5 * * *'   # 11:00 IST
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run E2E on feat/new-shell (journey, client feedback, WebPet)
+        run: gh workflow run e2e.yml --repo "$GITHUB_REPOSITORY" --ref feat/new-shell -f suite=both
+        env:
+          GH_TOKEN: ${{ github.token }}
