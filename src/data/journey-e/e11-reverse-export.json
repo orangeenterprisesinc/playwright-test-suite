@@ -44,7 +44,7 @@
     },
     "reverse": {
         "type": "Payroll",
-        "performedBy": "Su",
+        "performedBy": "Automation su",
         "prompt": "This will flip {n} Job Card(s) back to not-exported",
         "confirmButton": "Reverse run"
     },

@@ -44,6 +44,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { API_BASE_URL } from '../config/webpetEnv';
 import { WEBPET_ADMIN_STORAGE, WEBPET_RESTRICTED_STORAGE } from '../config/webpetPaths';
+import { pinShellExperience } from '../config/shellPreference';
 import { healAdminSession } from '../../tests/webpet/support/provision';
 import { applyWebpetGate } from './gate/webpetGate';
 import { createWebpetPages, type WebpetPages } from './webpetPages.fixture';
@@ -196,8 +197,15 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
         //   });
         // BEFORE the first page.goto() in that test, to shadow this default.
         await ctx.addInitScript(() => {
-            window.localStorage.setItem('pt.locale', 'en');
+            // Opaque-origin documents (about:blank) throw on any localStorage access; nothing to pin there.
+            try {
+                window.localStorage.setItem('pt.locale', 'en');
+            } catch {
+                /* no storage in this document */
+            }
         });
+        // Classic shell (src/config/shellPreference.ts): a fresh context would open the new experience.
+        await pinShellExperience(ctx);
 
         // Intercept the session bootstrap and rewrite user.language to 'en' so
         // the AuthProvider's hydration effect cannot override the pin above when

@@ -291,10 +291,10 @@ test.describe('Scan Mode — deferred surfaces (WEBPET-908)', { tag: ['@WebPet',
     }, () => {});
 
     // Fingerprint capture (WEBPET-905) closed as Done 2026-08, but what shipped is the
-    // device/server-side verification — checked 2026-08-23: the deployed web bundle carries
-    // no capture/verify surface (every "fingerprint" hit is the Sentry SDK), and
-    // scanRoutes.ts records it has no scan-entry card. Stays deferred until a web-reachable
-    // surface exists.
+    // device/server-side verification. Rechecked 2026-11-07: the employee form now shows the
+    // stored enrollment ("Fingerprint enrolled" / "Not enrolled") and can clear it, and says
+    // fingerprints are enrolled at the device and arrive by import. There is still no web
+    // capture surface and no scan-entry card (scanRoutes.ts), so this stays deferred.
     test.skip('[Scan] Verify fingerprint capture — deferred (WEBPET-905).', {
         tag: ['@wp-ui', '@wp-deferred'],
         annotation: { type: 'testCaseId', description: 'WP-0366' },

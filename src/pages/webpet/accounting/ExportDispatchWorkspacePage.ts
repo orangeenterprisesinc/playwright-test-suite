@@ -1,10 +1,10 @@
 /**
  * @fileoverview Export to Accounting v2 — the dispatch workspace (PET-487…492).
  *
- * Answers on `/export-to-accounting` behind `?pt-export-new-ia=true`. Lifecycle:
- * Prepare upserts an ExportRun draft (`POST /runs`) while Analyze fetches
- * candidates (`POST /candidates`); toggles and per-row include/exclude PATCH the
- * draft; Clear filters DELETEs it; Recent Exports drills into finalized runs and
+ * Answers on `/export-to-accounting`. Lifecycle: picking a date range fetches
+ * nothing; the grid's Refresh commits it (`POST /candidates`) and loading
+ * candidates triggers the automatic draft upsert (`POST /runs`); switching the
+ * export-type tab DELETEs the draft; Recent Exports drills into finalized runs and
  * can retry their failed outcomes.
  *
  * ## The two chrome generations
@@ -39,10 +39,17 @@ export class ExportDispatchWorkspacePage extends BasePage {
     readonly grid: Locator;
     /** The grid's pre-analyze empty state. */
     readonly gridEmptyPickRange: Locator;
+    /** Commits the date range and fetches candidates (replaces `analyzeButton`). */
+    readonly refreshButton: Locator;
+    readonly gridTable: Locator;
+    readonly gridCount: Locator;
+    readonly gridError: Locator;
+    readonly gridExplainer: Locator;
+    readonly legend: Locator;
     /** Sticky bottom action region — mobile asserts its positioning classes. */
     readonly ctaRegion: Locator;
 
-    // ── Prepare / filter ────────────────────────────────────────────
+    // ── Retired v1 chrome (WEBPET-3342) — only the disabled WP-0180/0181/0185 use these ──
     readonly filterFrom: Locator;
     readonly filterTo: Locator;
     /** Prepare: upserts the draft and fetches candidates. v1's button is `export-find-candidates`. */
@@ -78,6 +85,12 @@ export class ExportDispatchWorkspacePage extends BasePage {
         this.grid = page.getByTestId('export-v2-grid');
         this.gridEmptyPickRange = page.getByTestId('export-v2-grid-empty-pick-range');
         this.ctaRegion = page.getByTestId('export-v2-cta-region');
+        this.refreshButton = page.getByTestId('export-v2-grid-refresh');
+        this.gridTable = page.getByTestId('export-v2-grid-table');
+        this.gridCount = page.getByTestId('export-v2-grid-count');
+        this.gridError = page.getByTestId('export-v2-grid-error');
+        this.gridExplainer = page.getByTestId('export-v2-grid-explainer');
+        this.legend = page.getByTestId('export-v2-grid-legend');
 
         this.filterFrom = page.getByTestId('export-filter-from');
         this.filterTo = page.getByTestId('export-filter-to');
@@ -143,8 +156,8 @@ export class ExportDispatchWorkspacePage extends BasePage {
      * is not a counter: the exported state shows as a per-row grid flag plus the
      * include-reexport scope toggle.
      *
-     * Driven by the run-draft (`POST /runs`), not the `/candidates` response — so
-     * mocking fixed candidate rows does not move these numbers.
+     * Read from the `/candidates` response summary (`pendingCount`,
+     * `needsReexportCount`, `modifiedAfterExportCount`), not from `POST /runs`.
      */
     counter(key: string): Locator {
         return this.page.getByTestId(`export-v2-counter-${key}`);
@@ -219,7 +232,31 @@ export class ExportDispatchWorkspacePage extends BasePage {
 
     // ── Actions ─────────────────────────────────────────────────────
 
-    /** Fill both ends of the range in one step. */
+    /** Pick a range preset, then press Refresh — the range alone fetches nothing. */
+    async loadCandidates(preset = 'Last 30 days'): Promise<void> {
+        await this.dateRange.applyPreset(preset);
+        await this.refreshButton.click();
+    }
+
+    /** A legend item by exact label ("Time" must not match "Time and Piece"). */
+    legendItem(label: string): Locator {
+        return this.legend.getByText(label, { exact: true });
+    }
+
+    /** A grid row by JobCard counter, found through its select checkbox. */
+    candidateRow(jobCardCounter: number): Locator {
+        return this.gridTable
+            .getByRole('row')
+            .filter({ has: this.page.locator(`[data-select-row-id="${jobCardCounter}"]`) });
+    }
+
+    /** The new shell renders the legend as a collapsed `<details>`; classic as a plain `<div>`. */
+    async openLegend(): Promise<void> {
+        const closed = await this.legend.evaluate((el) => el instanceof HTMLDetailsElement && !el.open);
+        if (closed) await this.legend.locator('summary').click();
+    }
+
+    /** Retired v1 helper; only the disabled specs use it. */
     async fillDateRange(from: string, to: string): Promise<void> {
         await this.filterFrom.fill(from);
         await this.filterTo.fill(to);

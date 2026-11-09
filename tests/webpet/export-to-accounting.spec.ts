@@ -17,10 +17,62 @@
  * unified them would change what the app receives on some callsites. Route mocks
  * and their payloads stay in the spec; only the locators moved.
  */
+import type { Page } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
 
 /** The candidates endpoint, used both as a route glob and in response predicates. */
 const CANDIDATES = '/api/job-cards/export-to-accounting/candidates';
+const RUNS_RE = /\/api\/job-cards\/export-to-accounting\/runs(?:\/(\d+))?$/;
+const FAKE_RUN_ID = 990042;
+
+function makeDraft(exportRunCounter: number) {
+    return {
+        exportRunCounter,
+        ownerUsersCounter: 1,
+        exportType: 'payroll',
+        status: 'draft',
+        preparedAt: '2026-05-18T12:00:00.000Z',
+        finalizedAt: null,
+        providerSnapshot: null,
+        deliverySnapshot: null,
+        filterProvenance: null,
+        readinessCounts: null,
+        includedRecordIds: null,
+        excludedRecordIds: null,
+        parentRunCounter: null,
+        ttlAt: null,
+        createdAt: '2026-05-18T12:00:00.000Z',
+        updatedAt: '2026-05-18T12:00:00.000Z',
+    };
+}
+
+// Loading candidates auto-POSTs a draft run; keep it off the real tenant.
+async function mockDraftRuns(page: Page): Promise<void> {
+    await page.route(RUNS_RE, async (route) => {
+        const method = route.request().method();
+        const id = RUNS_RE.exec(route.request().url())?.[1];
+        if (method === 'POST' && !id) {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(makeDraft(FAKE_RUN_ID)) });
+        } else if (id === String(FAKE_RUN_ID) && method === 'DELETE') {
+            await route.fulfill({ status: 204 });
+        } else if (id === String(FAKE_RUN_ID) && method === 'GET') {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(makeDraft(FAKE_RUN_ID)) });
+        } else {
+            await route.fallback();
+        }
+    });
+}
+
+function makeSummary(o: { matchedCount: number; pendingCount: number; needsReexportCount: number; modifiedAfterExportCount: number }) {
+    return {
+        regularHours: 0,
+        overtimeHours: 0,
+        doubleHours: 0,
+        timeDecimalRounding: 2,
+        showMonetaryColumns: false,
+        ...o,
+    };
+}
 
 test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-accounting', '@WPBatch12'] }, () => {
 
@@ -29,18 +81,22 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
         annotation: { type: 'testCaseId', description: 'WP-0188' },
     }, async ({ pages }) => {
         const exportPage = pages.exportToAccounting;
+        const ws = pages.exportWorkspace;
         await exportPage.gotoFilter();
+        await ws.waitForWorkspaceReady();
         await expect(exportPage.heading).toBeVisible();
 
-        // Page description renders.
-        await expect(exportPage.pageDescription).toBeVisible();
+        // The "no exports are written on this page" rule now lives in the grid explainer.
+        await expect(ws.gridExplainer).toContainText('No exports are written on this page');
 
-        // Default dates pre-populate (7-day lookback ending today).
-        await expect(exportPage.filterFrom).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
-        await expect(exportPage.filterTo).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+        // The 7-day prefill is gone (WEBPET-3342/3493): the range starts empty,
+        // so the picker is visible and the grid shows its pick-a-range state.
+        await expect(ws.dateRange.trigger).toBeVisible();
+        await expect(ws.gridEmptyPickRange).toBeVisible();
 
         // Payroll tab is active by default.
         await expect(exportPage.payrollTab).toBeVisible();
+        await expect(exportPage.payrollTab).toHaveAttribute('aria-selected', 'true');
         await expect(exportPage.costAccountingTab).toBeVisible();
     });
 
@@ -49,18 +105,19 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
         annotation: { type: 'testCaseId', description: 'WP-0189' },
     }, async ({ page, pages }) => {
         const exportPage = pages.exportToAccounting;
+        const ws = pages.exportWorkspace;
+        // Real candidates read; /runs is mocked so no draft lands on the tenant.
+        await mockDraftRuns(page);
         await exportPage.gotoFilter();
+        await ws.waitForWorkspaceReady();
         await expect(exportPage.heading).toBeVisible();
-
-        // Widen date range to maximize the chance of matching rows.
-        await exportPage.fillDateRange('1900-01-01', '2100-01-01');
 
         // Intercept the candidates POST so we can assert on the request.
         const responsePromise = page.waitForResponse(
             (res) => res.url().includes(CANDIDATES) && res.request().method() === 'POST',
         );
 
-        await exportPage.findCandidatesButton.click();
+        await ws.loadCandidates('Last 30 days');
 
         const response = await responsePromise;
         // 200 or 403 (if the seeded user lacks accounting.export) are both acceptable
@@ -70,14 +127,18 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
         if (response.status() === 200) {
             const body = (await response.json()) as {
                 summary: { matchedCount: number };
-                preview: { rows: unknown[]; truncated: boolean; cap: number };
+                preview: { rows: unknown[]; nextCursor?: number };
             };
-            expect(typeof body.summary.matchedCount).toBe('number');
-            expect(Array.isArray(body.preview.rows)).toBe(true);
-            expect(body.preview.cap).toBe(200);
+            const { matchedCount } = body.summary;
+            const { rows } = body.preview;
+            expect(typeof matchedCount).toBe('number');
+            expect(Array.isArray(rows)).toBe(true);
+            // The server caps a page at 200 rows.
+            expect(rows.length).toBe(Math.min(matchedCount, 200));
+            expect(body.preview.nextCursor ?? null).toBe(matchedCount > rows.length ? rows.length : null);
 
             // Matched count label renders.
-            await expect(exportPage.candidatesCount).not.toHaveText('');
+            await expect(ws.gridCount).not.toHaveText('');
         }
     });
 
@@ -94,7 +155,7 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
                     status: 200,
                     contentType: 'application/json',
                     body: JSON.stringify({
-                        summary: { matchedCount: 2 },
+                        summary: makeSummary({ matchedCount: 2, pendingCount: 2, needsReexportCount: 0, modifiedAfterExportCount: 0 }),
                         preview: {
                             rows: [
                                 {
@@ -115,6 +176,7 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
                                     exportedToCostAccounting: false,
                                     modifiedAfterExport: false,
                                     paymentType: 6,
+                                    agType: false,
                                 },
                                 {
                                     jobCardCounter: 2,
@@ -134,10 +196,9 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
                                     exportedToCostAccounting: false,
                                     modifiedAfterExport: false,
                                     paymentType: 1,
+                                    agType: false,
                                 },
                             ],
-                            truncated: false,
-                            cap: 200,
                         },
                     }),
                 });
@@ -146,16 +207,19 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
             }
         });
 
+        const ws = pages.exportWorkspace;
+        await mockDraftRuns(page);
         await exportPage.gotoFilter();
-        await exportPage.fillDateRange('2026-01-01', '2026-01-31');
-        await exportPage.findCandidatesButton.click();
+        await ws.waitForWorkspaceReady();
+        await ws.loadCandidates();
+        await ws.openLegend();
 
-        await expect(exportPage.legend).toBeVisible();
-        await expect(exportPage.candidateRow(1)).toBeVisible();
-        await expect(exportPage.candidateRow(2)).toBeVisible();
-        // Legend has all 7 paymentType swatches.
-        await expect(exportPage.legendItem('time')).toBeVisible();
-        await expect(exportPage.legendItem('bonus')).toBeVisible();
+        await expect(ws.legend).toBeVisible();
+        await expect(ws.candidateRow(1)).toBeVisible();
+        await expect(ws.candidateRow(2)).toBeVisible();
+        // The legend lists every paymentType whatever the rows contain.
+        await expect(ws.legendItem('Time')).toBeVisible();
+        await expect(ws.legendItem('Bonus / Extra Wages')).toBeVisible();
     });
 
     test('[Export] Verify that an inverted date range is rejected without firing a request.', {
@@ -254,17 +318,17 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
             await route.fulfill({ response, json: body });
         });
 
+        const ws = pages.exportWorkspace;
         await exportPage.gotoFilter();
-        await page.waitForLoadState('networkidle');
+        await ws.waitForWorkspaceReady();
 
-        // Switch to Cost Accounting tab.
+        // Switch to Cost Accounting first: the tab switch resets the range.
         await exportPage.costAccountingTab.click();
 
-        // Submit with Cost Accounting selected.
-        await exportPage.fillDateRange('2026-01-01', '2026-01-31');
-        await exportPage.findCandidatesButton.click();
+        // Load candidates with Cost Accounting selected. No draft exists yet, so no DELETE fires.
+        await ws.loadCandidates();
 
-        // Banner should render; global error toast should NOT fire.
+        // Banner should render (after the one 403 retry); global error toast should NOT fire.
         await expect(exportPage.moduleNotLicensedBanner).toBeVisible();
         await expect(pages.toasts.errorToasts).toHaveCount(0);
     });
@@ -315,15 +379,20 @@ test.describe('Export to Accounting — Filter', { tag: ['@WebPet', '@wp-account
             }
         });
 
+        const ws = pages.exportWorkspace;
         await exportPage.gotoFilter();
-        await exportPage.fillDateRange('2026-01-01', '2026-01-31');
+        await ws.waitForWorkspaceReady();
 
         const responsePromise = page.waitForResponse(
             (res) => res.url().includes(CANDIDATES) && res.request().method() === 'POST',
         );
-        await exportPage.findCandidatesButton.click();
+        await ws.loadCandidates();
         const response = await responsePromise;
         expect(response.status()).toBe(403);
+
+        // Inline error first, so the no-toast check below can actually fail.
+        await expect(ws.gridError).toBeVisible();
+        await expect(pages.toasts.errorToasts).toHaveCount(0);
     });
 
 });

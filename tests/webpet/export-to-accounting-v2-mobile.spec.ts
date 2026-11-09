@@ -16,9 +16,61 @@
  * `viewport` is a context option and a per-test override cannot resize a context
  * that has already been built.
  */
+import type { Page } from '@playwright/test';
 import { expect, test } from '@fixtures/webpet.fixture';
 
 const CANDIDATES = '/api/job-cards/export-to-accounting/candidates';
+const RUNS_RE = /\/api\/job-cards\/export-to-accounting\/runs(?:\/(\d+))?$/;
+const FAKE_RUN_ID = 990042;
+
+function makeDraft(exportRunCounter: number) {
+    return {
+        exportRunCounter,
+        ownerUsersCounter: 1,
+        exportType: 'payroll',
+        status: 'draft',
+        preparedAt: '2026-05-18T12:00:00.000Z',
+        finalizedAt: null,
+        providerSnapshot: null,
+        deliverySnapshot: null,
+        filterProvenance: null,
+        readinessCounts: null,
+        includedRecordIds: null,
+        excludedRecordIds: null,
+        parentRunCounter: null,
+        ttlAt: null,
+        createdAt: '2026-05-18T12:00:00.000Z',
+        updatedAt: '2026-05-18T12:00:00.000Z',
+    };
+}
+
+// Loading candidates auto-POSTs a draft run; keep it off the real tenant.
+async function mockDraftRuns(page: Page): Promise<void> {
+    await page.route(RUNS_RE, async (route) => {
+        const method = route.request().method();
+        const id = RUNS_RE.exec(route.request().url())?.[1];
+        if (method === 'POST' && !id) {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(makeDraft(FAKE_RUN_ID)) });
+        } else if (id === String(FAKE_RUN_ID) && method === 'DELETE') {
+            await route.fulfill({ status: 204 });
+        } else if (id === String(FAKE_RUN_ID) && method === 'GET') {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(makeDraft(FAKE_RUN_ID)) });
+        } else {
+            await route.fallback();
+        }
+    });
+}
+
+function makeSummary(o: { matchedCount: number; pendingCount: number; needsReexportCount: number; modifiedAfterExportCount: number }) {
+    return {
+        regularHours: 0,
+        overtimeHours: 0,
+        doubleHours: 0,
+        timeDecimalRounding: 2,
+        showMonetaryColumns: false,
+        ...o,
+    };
+}
 
 test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@WebPet', '@wp-accounting', '@WPBatch12'] }, () => {
     test.use({ viewport: { width: 375, height: 800 } });
@@ -109,7 +161,7 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
                     status: 200,
                     contentType: 'application/json',
                     body: JSON.stringify({
-                        summary: { matchedCount: 2 },
+                        summary: makeSummary({ matchedCount: 12, pendingCount: 9, needsReexportCount: 3, modifiedAfterExportCount: 4 }),
                         preview: {
                             rows: [
                                 {
@@ -118,6 +170,7 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
                                     weekStart: '2026-01-12',
                                     dayStart: '2026-01-15',
                                     employeeName: 'Pending Row',
+                                    agType: false,
                                     crewName: 'Crew A',
                                     departmentName: '',
                                     ranchName: '',
@@ -145,6 +198,7 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
                                     weekStart: '2026-01-12',
                                     dayStart: '2026-01-15',
                                     employeeName: 'Exported Row',
+                                    agType: false,
                                     crewName: 'Crew B',
                                     departmentName: '',
                                     ranchName: '',
@@ -167,8 +221,6 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
                                     pieceRate: 0,
                                 },
                             ],
-                            truncated: false,
-                            cap: 200,
                         },
                     }),
                 });
@@ -177,20 +229,26 @@ test.describe('Export to Accounting — v2 mobile-optimized layout', { tag: ['@W
             }
         });
 
+        await mockDraftRuns(page);
         await workspace.gotoWorkspace();
 
-        // Readiness strip's four cards still render in the 2-col mobile grid.
-        await expect(workspace.readiness('ready')).toBeVisible();
-        await expect(workspace.readiness('needs-reexport')).toBeVisible();
-        await expect(workspace.readiness('already-exported')).toBeVisible();
-        await expect(workspace.readiness('warnings')).toBeVisible();
+        // Three readiness counters render at 375px; "already exported" is a row
+        // flag now, not a counter.
+        await expect(workspace.counter('pending')).toBeVisible();
+        await expect(workspace.counter('needsReexport')).toBeVisible();
+        await expect(workspace.counter('warnings')).toBeVisible();
+        await expect(workspace.counter('alreadyExported')).toHaveCount(0);
 
-        // Fire Prepare so the Review Queue populates.
-        await workspace.prepare('2026-01-01', '2026-01-31');
+        // Refresh commits the range and loads the mocked candidates.
+        await workspace.loadCandidates();
 
-        // Review Queue buckets render below the readiness strip.
-        await expect(workspace.bucket('pending')).toBeVisible();
-        await expect(workspace.bucket('already-exported')).toBeVisible();
+        await expect(workspace.counter('pending')).toContainText('9');
+        await expect(workspace.counter('needsReexport')).toContainText('3');
+        await expect(workspace.counter('warnings')).toContainText('4');
+
+        await expect(workspace.candidateRow(1)).toContainText('Pending');
+        // The exported state is the Flags badge on the row.
+        await expect(workspace.candidateRow(2).getByTitle('Exported to accounting')).toBeVisible();
     });
 
 });

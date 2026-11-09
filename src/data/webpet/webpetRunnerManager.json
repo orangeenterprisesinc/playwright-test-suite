@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-09-25T11:28:46.974Z",
+    "generatedAt": "2026-11-07T15:04:01.326Z",
     "total": 411,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -73,12 +73,12 @@
     {
       "id": "WP-0005",
       "file": "billing-center.spec.ts",
-      "titlePath": "Setup > Billing Center — edit form > [Billing Center] Verify that the name is read-only on an existing record.",
+      "titlePath": "Setup > Billing Center — edit form > [Billing Center] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "billing-center",
       "category": "ui",
       "testName": "nameReadOnlyOnExistingRecord",
-      "testTitle": "[Billing Center] Verify that the name is read-only on an existing record.",
+      "testTitle": "[Billing Center] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name is readonly once the billing centre exists. Skips when the record created by WP-0004 is not present.",
       "tags": "@WebPet|@wp-setup|@wp-billing-center|@WPBatch04|@wp-ui|@wp-regression",
       "jira": "",
@@ -1449,12 +1449,12 @@
     {
       "id": "WP-0091",
       "file": "crew.spec.ts",
-      "titlePath": "Edit crew form > [Crew] Verify that the name, barcode and export identifier are read-only.",
+      "titlePath": "Edit crew form > [Crew] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "crew",
       "category": "ui",
       "testName": "nameCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Crew] Verify that the name, barcode and export identifier are read-only.",
+      "testTitle": "[Crew] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name, Code and Export Identifier are readonly once the crew exists.",
       "tags": "@WebPet|@wp-setup|@wp-crew|@WPBatch01|@wp-ui|@wp-regression",
       "jira": "",
@@ -1673,12 +1673,12 @@
     {
       "id": "WP-0105",
       "file": "crop.spec.ts",
-      "titlePath": "Edit crop form > [Crop] Verify that the name and export identifier are read-only on an existing crop.",
+      "titlePath": "Edit crop form > [Crop] Verify that the name and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "crop",
       "category": "ui",
       "testName": "nameAndExportIdentifierReadOnly",
-      "testTitle": "[Crop] Verify that the name and export identifier are read-only on an existing crop.",
+      "testTitle": "[Crop] Verify that the name and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name and Export Identifier are readonly once the crop exists.",
       "tags": "@WebPet|@wp-setup|@wp-crop|@WPBatch01|@wp-ui|@wp-regression",
       "jira": "",
@@ -1865,12 +1865,12 @@
     {
       "id": "WP-0117",
       "file": "customer.spec.ts",
-      "titlePath": "Edit customer form > [Customer] Verify that the name is read-only while barcode and export identifier stay editable.",
+      "titlePath": "Edit customer form > [Customer] Verify that the name locks under the WEBPET-2006 gate for a non-SU user while barcode and export identifier stay editable.",
       "caseKey": "",
       "module": "customer",
       "category": "ui",
       "testName": "nameReadOnlyCodeAndExportIdentifierEditable",
-      "testTitle": "[Customer] Verify that the name is read-only while barcode and export identifier stay editable.",
+      "testTitle": "[Customer] Verify that the name locks under the WEBPET-2006 gate for a non-SU user while barcode and export identifier stay editable.",
       "testDescription": "Only Name locks after save on this screen; Code and Export Identifier stay editable. Logged for SME review in OPEN_QUESTIONS.md (WEBPET-831) — the test asserts current behaviour deliberately.",
       "tags": "@WebPet|@wp-setup|@wp-customer|@WPBatch02|@wp-ui|@wp-regression",
       "jira": "",
@@ -2233,12 +2233,12 @@
     {
       "id": "WP-0140",
       "file": "department.spec.ts",
-      "titlePath": "Edit department form > [Department] Verify that the name, barcode and export identifier are read-only.",
+      "titlePath": "Edit department form > [Department] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "department",
       "category": "ui",
       "testName": "nameCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Department] Verify that the name, barcode and export identifier are read-only.",
+      "testTitle": "[Department] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name, Code and Export Identifier are readonly once the department exists.",
       "tags": "@WebPet|@wp-setup|@wp-department|@WPBatch01|@wp-ui|@wp-regression",
       "jira": "",
@@ -2681,12 +2681,12 @@
     {
       "id": "WP-0166",
       "file": "equipment.spec.ts",
-      "titlePath": "Edit equipment form > [Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.",
+      "titlePath": "Edit equipment form > [Equipment] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user and the type is disabled.",
       "caseKey": "",
       "module": "equipment",
       "category": "ui",
       "testName": "nameCodeExportIdentifierReadOnlyTypeDisabled",
-      "testTitle": "[Equipment] Verify that the name, barcode and export identifier are read-only and the type is disabled.",
+      "testTitle": "[Equipment] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user and the type is disabled.",
       "testDescription": "Name, Code and Export Identifier are readonly; the Equipment Type picker is disabled rather than readonly, because it is a combobox.",
       "tags": "@WebPet|@wp-setup|@wp-equipment|@WPBatch03|@wp-ui|@wp-regression",
       "jira": "",
@@ -2884,7 +2884,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): draft-lifecycle testid present but not rendering under this flow. Export-UI rework pending a product decision, see BUG-18."
+      "notes": "Stays off (rechecked 2026-11-07, bundle ExportToAccountingPageV2-Cr_3U8jd.js + web-pet source): no screen action PATCHes /runs/{id} any more. Grid ticks work only in Multi Edit and save through PATCH /job-cards/bulk (multiEdit.test.tsx:249); the include-reexport toggle is hard-coded false. POST on Refresh and DELETE on tab switch still exist, but dropping the PATCH step would weaken the test."
     },
     {
       "id": "WP-0181",
@@ -2900,7 +2900,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): destination-chip/bottom-sheet testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
+      "notes": "Stays off (rechecked 2026-11-07, bundle ExportToAccountingPageV2-Cr_3U8jd.js + web-pet source): the destination chip, bottom sheet and sticky CTA region were removed; none of their testids exist."
     },
     {
       "id": "WP-0182",
@@ -2915,8 +2915,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-visual",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): readiness-strip testid absent from deployed source. Export-UI rework pending a product decision, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. The four readiness cards are now three counters fed by the candidates summary (alreadyExported retired, asserted absent); buckets are the grid status column and the Exported flag."
     },
     {
       "id": "WP-0183",
@@ -2964,7 +2964,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): same cause as WP-0180. Export-UI rework pending a product decision, see BUG-18."
+      "notes": "Stays off (rechecked 2026-11-07, bundle ExportToAccountingPageV2-Cr_3U8jd.js + web-pet source): a row tick never PATCHes excludedRecordIds (ExportCandidatesGrid.tsx:500-505, ExportToAccountingPageV2.tsx:1270-1273) and bulk exclude is no longer wired."
     },
     {
       "id": "WP-0186",
@@ -3011,8 +3011,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-smoke",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): header/date-inputs testid drives the retired v1 IA (WP-0187 proves the flag no longer falls back). Rework pending, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. The description testid and the 7-day date prefill are gone (the range starts empty, WEBPET-3342/3493); replaced by the explainer text, the range trigger, the empty-range state and Payroll selected by default."
     },
     {
       "id": "WP-0189",
@@ -3027,8 +3027,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): Find Candidates flow against the retired v1 IA. Rework pending, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. preview.cap is gone (the server caps a page at 200 and pages with nextCursor); asserts rows = min(matched, 200) and the cursor. /runs is mocked so the automatic draft POST never writes to the tenant."
     },
     {
       "id": "WP-0190",
@@ -3043,8 +3043,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): color legend against the retired v1 IA. Rework pending, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. Legend is export-v2-grid-legend; rows are found by data-select-row-id."
     },
     {
       "id": "WP-0191",
@@ -3060,7 +3060,7 @@
       "jira": "WEBPET-1797",
       "status": "automated",
       "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): inverted-date-range guard against the retired v1 IA. Rework pending, see BUG-18."
+      "notes": "Stays off (rechecked 2026-11-07, bundle ExportToAccountingPageV2-Cr_3U8jd.js + web-pet source): the range picker cannot produce from > to, and there is no order error or submit button."
     },
     {
       "id": "WP-0192",
@@ -3107,8 +3107,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): module.not_licensed banner against the retired v1 IA. Rework pending, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. The tab switch resets the range, so the Cost Accounting tab is selected first, then range + Refresh."
     },
     {
       "id": "WP-0195",
@@ -3139,8 +3139,8 @@
       "tags": "@WebPet|@wp-accounting|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "WEBPET-1797",
       "status": "automated",
-      "enabled": false,
-      "notes": "Reconfirmed failing in CI dry run 2026-08-06 (dry-run@6799293, run 31089496460): 403 direct-nav against the retired v1 IA. Rework pending, see BUG-18."
+      "enabled": true,
+      "notes": "Re-pointed 2026-11-07 to the v2 workspace (bundle ExportToAccountingPageV2-Cr_3U8jd.js): a date-range preset plus Refresh replaces Find Candidates/Prepare. Same rule; no check removed without an equal or stronger replacement. Adds the grid error state and no error toast after the 403."
     },
     {
       "id": "WP-0197",
@@ -3609,12 +3609,12 @@
     {
       "id": "WP-0225",
       "file": "job-group.spec.ts",
-      "titlePath": "Edit job group form > [Job Group] Verify that name and code are read-only while export identifier stays editable.",
+      "titlePath": "Edit job group form > [Job Group] Verify that name and code lock under the WEBPET-2006 gate for a non-SU user, while export identifier stays editable.",
       "caseKey": "",
       "module": "job-group",
       "category": "ui",
       "testName": "nameAndCodeReadOnlyExportIdentifierEditable",
-      "testTitle": "[Job Group] Verify that name and code are read-only while export identifier stays editable.",
+      "testTitle": "[Job Group] Verify that name and code lock under the WEBPET-2006 gate for a non-SU user, while export identifier stays editable.",
       "testDescription": "Name and Code both lock after save; Export Identifier stays editable. Code is the Job Group barcode, auto-generated on create since WEBPET-2682, so it is read-only on edit to stop the generated value being overwritten — matching crew, department, employee, equipment, job and variety.",
       "tags": "@WebPet|@wp-setup|@wp-job-group|@WPBatch01|@wp-ui|@wp-regression",
       "jira": "",
@@ -5156,7 +5156,7 @@
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": ""
+      "notes": "Kept as fixme (rechecked 2026-11-07): web-pet 219d5ac83 removed widgets from the editor; the filter-summary half is covered by WP-0310. Description still names the old Widgets rule on purpose."
     },
     {
       "id": "WP-0320",
@@ -6217,12 +6217,12 @@
     {
       "id": "WP-0386",
       "file": "timesheet_validation.spec.ts",
-      "titlePath": "Setup > TimeSheet Validation — edit form > [Validation] Verify that the name is read-only on an existing record.",
+      "titlePath": "Setup > TimeSheet Validation — edit form > [Validation] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "timesheet_validation",
       "category": "ui",
       "testName": "nameReadOnlyOnExistingRecord",
-      "testTitle": "[Validation] Verify that the name is read-only on an existing record.",
+      "testTitle": "[Validation] Verify that the name locks under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name is readonly once the validation exists. Reads the record created by WP-0385 and skips if it is absent.",
       "tags": "@WebPet|@wp-setup|@wp-validation|@WPBatch09|@wp-ui|@wp-regression",
       "jira": "",
@@ -6521,12 +6521,12 @@
     {
       "id": "WP-0403",
       "file": "variety.spec.ts",
-      "titlePath": "Edit variety form > [Variety] Verify that the name, barcode and export identifier are read-only.",
+      "titlePath": "Edit variety form > [Variety] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "caseKey": "",
       "module": "variety",
       "category": "ui",
       "testName": "nameCodeAndExportIdentifierReadOnly",
-      "testTitle": "[Variety] Verify that the name, barcode and export identifier are read-only.",
+      "testTitle": "[Variety] Verify that the name, barcode and export identifier lock under the WEBPET-2006 gate for a non-SU user.",
       "testDescription": "Name, Code and Export Identifier are readonly once the variety exists.",
       "tags": "@WebPet|@wp-setup|@wp-variety|@WPBatch02|@wp-ui|@wp-regression",
       "jira": "",

@@ -4,7 +4,7 @@ import { join } from 'path';
 import { WEBPET_ADMIN_STORAGE, WEBPET_AUTH_DIR } from '@config/webpetPaths';
 import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/webpetEnv';
 // Shared with the residue sweep, which logs in the same way before any project runs.
-import { csrfTokenFromContext, loginWithBackoff } from '@utils/api/apiLogin';
+import { assertExpectedClient, csrfTokenFromContext, loginWithBackoff } from '@utils/api/apiLogin';
 
 /**
  * Port of the source repo's e2e/global-setup.ts (apps/web/e2e), invoked by the
@@ -55,9 +55,13 @@ export async function healAdminSession(): Promise<void> {
         );
     }
 
-    mkdirSync(WEBPET_AUTH_DIR, { recursive: true });
-    await adminCtx.storageState({ path: WEBPET_ADMIN_STORAGE });
-    await adminCtx.dispose();
+    try {
+        await assertExpectedClient(adminCtx, '/api/session/me', ADMIN_USER);
+        mkdirSync(WEBPET_AUTH_DIR, { recursive: true });
+        await adminCtx.storageState({ path: WEBPET_ADMIN_STORAGE });
+    } finally {
+        await adminCtx.dispose();
+    }
 }
 
 export async function provisionWebpetAuth(): Promise<void> {
