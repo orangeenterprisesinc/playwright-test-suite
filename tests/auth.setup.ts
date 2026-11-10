@@ -10,7 +10,7 @@
  */
 import { expect, test as setup } from '@fixtures/base.fixture';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
-import { apiRootFrom, assertExpectedClient } from '@utils/api/apiLogin';
+import { apiRootFrom, assertExpectedClient, expectedClientId } from '@utils/api/apiLogin';
 
 /**
  * How long to wait for the post-login redirect. Generous on purpose: this is
@@ -118,7 +118,16 @@ setup('Global setup for Auto Login', async ({ page, loginPage, leftNavigationPag
     // reject later (on their own timeout, or when the context closes), so give
     // each a no-op handler — Promise.race leaves a loser's rejection unhandled,
     // which crashes the worker.
-    const outcomes = [redirected, apiRejected, uiRejected];
+    // A multi-client user gets the client chooser instead of a redirect: pick E2E_CLIENT_ID, then wait for the redirect.
+    const chooserShown = loginPage.clientChooser
+        .getRoot()
+        .waitFor({ state: 'visible', timeout: REDIRECT_TIMEOUT_MS })
+        .then(async () => {
+            await loginPage.clientChooser.choose(expectedClientId());
+            await page.waitForURL((url) => !url.toString().includes('/login'), { timeout: REDIRECT_TIMEOUT_MS });
+        });
+
+    const outcomes = [redirected, apiRejected, uiRejected, chooserShown];
     for (const outcome of outcomes) outcome.catch(() => {});
 
     await Promise.race(outcomes);
