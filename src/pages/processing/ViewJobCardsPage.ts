@@ -390,31 +390,38 @@ export class ViewJobCardsPage extends BasePage {
         if ((await this.multiEditToggle.getAttribute('aria-pressed')) !== want) await this.multiEditToggle.click();
         await expect(this.multiEditToggle).toHaveAttribute('aria-pressed', want);
     }
-    async meFieldLabels(): Promise<string[]> {
-        await this.meField.click();
-        const opts = this.page.getByRole('listbox').getByRole('option');
+    /** Any open picker popup. A closing popup stays in the tree through its exit animation. */
+    private get openListbox(): Locator { return this.page.getByRole('listbox'); }
+    /** Reads one picker's options. Waits for the previous popup to unmount first, or its options are read too (CI run 42799637131). */
+    private async optionLabels(trigger: Locator): Promise<string[]> {
+        await expect(this.openListbox).toHaveCount(0);
+        await trigger.click();
+        await expect(this.openListbox).toHaveCount(1);
+        const opts = this.openListbox.getByRole('option');
         await expect(opts.first()).toBeVisible();
         const labels = (await opts.allInnerTexts()).map((t) => t.trim());
         await this.page.keyboard.press('Escape');
+        await expect(this.openListbox).toHaveCount(0);
         return labels;
+    }
+    private async chooseOption(trigger: Locator, label: string): Promise<void> {
+        await expect(this.openListbox).toHaveCount(0);
+        await trigger.click();
+        await this.openListbox.getByRole('option', { name: label, exact: true }).click();
+        await expect(trigger).toHaveText(label);
+        await expect(this.openListbox).toHaveCount(0);
+    }
+    async meFieldLabels(): Promise<string[]> {
+        return this.optionLabels(this.meField);
     }
     async chooseMeField(label: string): Promise<void> {
-        await this.meField.click();
-        await this.page.getByRole('option', { name: label, exact: true }).click();
-        await expect(this.meField).toHaveText(label);
+        await this.chooseOption(this.meField, label);
     }
     async meValueOptions(field: string): Promise<string[]> {
-        await this.meValue(field).click();
-        const opts = this.page.getByRole('listbox').getByRole('option');
-        await expect(opts.first()).toBeVisible();
-        const labels = (await opts.allInnerTexts()).map((t) => t.trim());
-        await this.page.keyboard.press('Escape');
-        return labels;
+        return this.optionLabels(this.meValue(field));
     }
     async chooseMeValue(field: string, value: string): Promise<void> {
-        await this.meValue(field).click();
-        await this.page.getByRole('option', { name: value, exact: true }).click();
-        await expect(this.meValue(field)).toHaveText(value);
+        await this.chooseOption(this.meValue(field), value);
     }
     /** Ticks exactly `refs` (never Select all: the day carries other crews' cards). */
     async tickOwn(refs: string[]): Promise<void> {

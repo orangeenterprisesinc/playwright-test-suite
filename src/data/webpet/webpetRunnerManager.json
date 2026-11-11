@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-11-07T15:04:01.326Z",
+    "generatedAt": "2026-11-11T10:01:55.788Z",
     "total": 411,
     "generator": "scripts/webpet-runner-sync.js",
     "authoredFile": "webpetRunnerManager.csv"
@@ -4873,18 +4873,18 @@
     {
       "id": "WP-0302",
       "file": "reconcile-job-cards.spec.ts",
-      "titlePath": "Reconcile Job Cards > [Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.",
+      "titlePath": "Reconcile Job Cards > [Reconcile] Verify that a direct URL shows the Not-authorized page when accounting.export is absent.",
       "caseKey": "",
       "module": "reconcile-job-cards",
       "category": "ui",
-      "testName": "directUrlRedirectsWithoutPermission",
-      "testTitle": "[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.",
-      "testDescription": "Without accounting.export a direct /reconcile-job-cards URL redirects off the guarded route to the app landing page. The permission is stripped in-test via a session/me rewrite, so the branch runs on every environment rather than depending on the seeded account.",
+      "testName": "directUrlNotAuthorizedWithoutPermission",
+      "testTitle": "[Reconcile] Verify that a direct URL shows the Not-authorized page when accounting.export is absent.",
+      "testDescription": "Without accounting.export a direct /reconcile-job-cards URL keeps its URL and renders the Not-authorized page (web-pet #1584 replaced the redirect). The permission is stripped in-test via a session/me rewrite, so the branch runs on every environment rather than depending on the seeded account.",
       "tags": "@WebPet|@wp-reconcile|@WPBatch12|@wp-ui|@wp-regression|@wp-negative",
       "jira": "",
       "status": "automated",
       "enabled": true,
-      "notes": "Recovered 2026-09-05: had skipped on every run since it was written because the su account always holds accounting.export, so the redirect branch was unreachable. It now strips the grant from the session/me payload - the same rewrite WP-0195 uses - instead of reading it and skipping. All three carriers must be cleared (legacyPermissions.enableExportToAccounting, the derivedPermissions string and capabilities.actions), because the guard and hasExportPermission do not read the same one. The redirect target also drifted: the app settles on /dashboard, not bare /."
+      "notes": "Recovered 2026-09-05: had skipped on every run since it was written because the su account always holds accounting.export, so the redirect branch was unreachable. It now strips the grant from the session/me payload - the same rewrite WP-0195 uses - instead of reading it and skipping. All three carriers must be cleared (legacyPermissions.enableExportToAccounting, the derivedPermissions string and capabilities.actions), because the guard and hasExportPermission do not read the same one. The redirect target also drifted: the app settles on /dashboard, not bare /. 2026-11-11: web-pet #1584 dropped the redirect; the guard renders the Not-authorized page in place, so the assertion follows (CI run 42799637131)."
     },
     {
       "id": "WP-0303",

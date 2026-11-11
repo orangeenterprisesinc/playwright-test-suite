@@ -371,7 +371,7 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
         await expect(sidebarLink).toHaveCount(0);
     });
 
-    test('[Reconcile] Verify that a direct URL redirects to the root when accounting.export is absent.', {
+    test('[Reconcile] Verify that a direct URL shows the Not-authorized page when accounting.export is absent.', {
         tag: ['@wp-ui', '@wp-regression', '@wp-negative'],
         annotation: { type: 'testCaseId', description: 'WP-0302' },
     }, async ({ context, page, pages }) => {
@@ -411,11 +411,14 @@ test.describe('Reconcile Job Cards', { tag: ['@WebPet', '@wp-reconcile', '@WPBat
 
         await reconcile.gotoReconcile();
         await page.waitForLoadState('networkidle');
-        // Off the guarded route, onto the app's landing page. The old assertion was a
-        // bare `/`; the app settles the URL on /dashboard, so match either rather than
-        // pinning the landing route this test does not own.
-        await expect(page).not.toHaveURL(/\/reconcile-job-cards/);
-        await expect(page).toHaveURL(/\/(dashboard)?$/);
+        // Since web-pet #1584 the guard no longer redirects: it keeps the URL and renders
+        // the Not-authorized page in place of the screen.
+        await expect(page).toHaveURL(/\/reconcile-job-cards/);
+        await expect(
+            page.getByRole('alert').filter({ hasText: 'You do not have permission to open this page.' }),
+        ).toBeVisible();
+        // base-ui renders the Back to Dashboard link with role=button, so its test id is the stable hook.
+        await expect(page.getByTestId('not-authorized-dashboard-link')).toBeVisible();
     });
 
     test('[Reconcile] Verify that with the preference off the URL stays stable and the banner shows.', {

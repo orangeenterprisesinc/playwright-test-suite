@@ -60,7 +60,8 @@ export class EmployeeDocumentsComponent extends BaseComponent {
     constructor(page: Page) {
         super(page, page.locator('section#documents'));
 
-        this.tab = page.getByRole('button', { name: 'Documents' });
+        // Form side-nav entry; an in-page link since web-pet #1605 (was a button).
+        this.tab = page.locator('[data-slot="form-side-nav-item"]').and(page.getByRole('link', { name: 'Documents' }));
         this.typeSelectTrigger = this.locator('[data-slot="select-trigger"]');
         this.fileInput = this.locator('input[type="file"]');
         this.uploadButton = this.getByRole('button', { name: /upload/i });

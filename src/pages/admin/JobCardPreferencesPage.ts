@@ -34,9 +34,9 @@ export class JobCardPreferencesPage extends BasePage {
         await expect(this.page.getByRole('spinbutton').first(), 'Job Card Preferences never hydrated').not.toHaveValue('', { timeout: 30_000 });
     }
 
-    /** The left-nav button; the same text is also the section's own heading. */
+    /** The left-nav entry, an in-page link since web-pet #1605; the same text is also the section's own heading. */
     async gotoSection(name: string): Promise<void> {
-        await this.page.getByRole('button', { name, exact: true }).click();
+        await this.page.getByRole('link', { name, exact: true }).click();
         await this.page.getByRole('heading', { name, exact: true }).first().scrollIntoViewIfNeeded();
     }
 
