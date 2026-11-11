@@ -62,6 +62,11 @@
       "match": "widgets removed from the editor flow",
       "reason": "WP-0319 only: web-pet 219d5ac83 deliberately removed widgets from the editor flow (reconfirmed live 2026-08-23 — no Widgets entry anywhere); the filter-summary half of the old assertion moved into WP-0310. The other 12 report-editor tests were realigned to the rebuilt ReportCanvas UI and run green.",
       "ticket": "WEBPET-1797"
+    },
+    {
+      "match": "WP-0240",
+      "reason": "The suite signs in as a super user, which acts as the client's PET Tiger Support row (web-pet #1580). web-pet #1589 moved the language save to PUT /users/{id}/profile behind RefuseSupportUserWrites, so that row gets 403 by design (CI run 42799637131). Re-enable when the suite has a non-super automation user.",
+      "ticket": "WORK-ITEM: non-super automation users (qa-auto-1/2)"
     }
   ]
 }

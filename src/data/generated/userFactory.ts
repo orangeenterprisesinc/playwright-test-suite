@@ -1,6 +1,7 @@
 import type { NewUserData } from '../../pages/admin/UsersPage';
 import { cleanupTarget } from '../static/shared/cleanupTargets';
 import { randomInitials, uid } from './random';
+import { testUserEmail } from './testEmail';
 
 // The name prefix is the residue sweep's own `uid` prefix for users (cleanupTargets.ts), so what
 // the factory names, the sweep can always find — one source, no drift.
@@ -15,7 +16,7 @@ export function makeUser(overrides: Partial<NewUserData> = {}): NewUserData {
         password: DEFAULTS.password,
         role: DEFAULTS.role,
         initials: randomInitials(),
-        email: `qa.${token}@example.com`,
+        email: testUserEmail(token),
         ...overrides,
     };
 }

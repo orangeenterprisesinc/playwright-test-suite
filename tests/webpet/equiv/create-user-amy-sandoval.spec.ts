@@ -28,11 +28,13 @@ import { apiUrl } from '@config/webpetEnv';
 import { expect, test } from '@fixtures/webpet.fixture';
 import type { Page } from '@playwright/test';
 import { sixCharRunToken } from '@utils/cleanup/runToken';
+import { testUserEmail } from '@data/generated/testEmail';
 
 // Shared token so the residue sweep can date the record from its name.
 const RUN_TOKEN = sixCharRunToken();
 const SAFE_NAME = `ZZTEST_USR_${RUN_TOKEN}`;
-const SAFE_EMAIL = `zztest_${RUN_TOKEN.toLowerCase()}@example.com`;
+// Resolved at use, not at load: an unset E2E_USER_EMAIL must fail this test, not `playwright --list`.
+const safeEmail = (): string => testUserEmail(`zztest${RUN_TOKEN}`);
 const TEST_PASSWORD = 'Test@12345';
 
 // UserInitials is unique-constrained. The legacy scenario used 'AS', but a real
@@ -80,7 +82,7 @@ test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@WebPet', '@wp-e
         // and must be unique in TigerMaster). The legacy scenario left this blank;
         // the web app now requires it, so we fill a unique per-run email. This is a
         // deliberate, documented divergence from the legacy scenario.
-        await form.emailAddressInput.fill(SAFE_EMAIL);
+        await form.emailAddressInput.fill(safeEmail());
 
         // Language — shadcn Select, enteredId: en
         await form.chooseFromSelect(form.languageSelect, 'en');
@@ -139,7 +141,7 @@ test.describe('Equivalence: create-user-amy-sandoval', { tag: ['@WebPet', '@wp-e
         expect(row.userRole).toBe(1);
 
         // assert: equals — EmailAddress (required since WEBPET-776; see note above)
-        expect(row.emailAddress).toBe(SAFE_EMAIL);
+        expect(row.emailAddress).toBe(safeEmail());
 
         // assert: equals — Language
         expect(row.language).toBe('en');

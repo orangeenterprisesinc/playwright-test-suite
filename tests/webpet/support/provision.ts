@@ -5,6 +5,7 @@ import { WEBPET_ADMIN_STORAGE, WEBPET_AUTH_DIR } from '@config/webpetPaths';
 import { ADMIN_PASSWORD, ADMIN_USER, API_BASE_URL, WEB_BASE_URL } from '@config/webpetEnv';
 // Shared with the residue sweep, which logs in the same way before any project runs.
 import { assertExpectedClient, csrfTokenFromContext, loginWithBackoff } from '@utils/api/apiLogin';
+import { testUserEmail } from '@data/generated/testEmail';
 
 /**
  * Port of the source repo's e2e/global-setup.ts (apps/web/e2e), invoked by the
@@ -234,7 +235,7 @@ async function provisionRestrictedUser(
         // this create only fires when none is active — mint a fresh unique one.
         const token = Date.now().toString(36).slice(-5).toUpperCase();
         restrictedName = `${RESTRICTED_USERNAME}_${token}`;
-        const restrictedEmail = `restrictedtest_${token.toLowerCase()}@example.com`;
+        const restrictedEmail = testUserEmail(`restrictedtest${token}`);
 
         // POST /api/users is a mutating request — RequireCSRF rejects it (403)
         // unless we echo the session's CSRF token in the X-CSRF-Token header.

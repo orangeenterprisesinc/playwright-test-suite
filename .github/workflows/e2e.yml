@@ -196,6 +196,8 @@ jobs:
       WEBPET_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
       WEBPET_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
       # WP-0178 self-skips when unset (allowlisted); keeps employee barcodes out of the repo.
+      # Mailbox the suite plus-addresses for users it creates (web-pet #1583 refuses placeholder domains).
+      E2E_USER_EMAIL: ${{ vars.E2E_USER_EMAIL }}
       SCAN_TIME_IN_EQUIV: ${{ vars.SCAN_TIME_IN_EQUIV }}
       SCAN_EMPLOYEE_BARCODE: ${{ vars.SCAN_EMPLOYEE_BARCODE }}
       WEBPET: ${{ matrix.suite == 'webpet' && '1' || '' }}
