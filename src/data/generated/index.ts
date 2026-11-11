@@ -6,6 +6,7 @@
  */
 export * from './random';
 export * from './userFactory';
+export * from './testEmail';
 export * from './scanDeviceFactory';
 export * from './crewTableFactory';
 export * from './crewFactory';

@@ -366,11 +366,14 @@ async function sweepWindow(
             });
         }
 
-        const matched = cards.filter(
-            (c) =>
-                ids.has(Number(c.employeeCounter)) ||
-                (undefinedId !== null && Number(c.employeeCounter) === undefinedId && SUITE_REFERENCE.test(String(c.reference ?? ''))),
-        );
+        // A suite-shaped card can also import with no employee at all (run 42799637131: B6b's
+        // 0000003-261019-PO-WIDR-ui on B1 CREW, employeeCounter null), which neither id rule reaches.
+        const matched = cards.filter((c) => {
+            const suiteShaped = SUITE_REFERENCE.test(String(c.reference ?? ''));
+            if (ids.has(Number(c.employeeCounter))) return true;
+            if (c.employeeCounter === null || c.employeeCounter === undefined) return suiteShaped;
+            return undefinedId !== null && Number(c.employeeCounter) === undefinedId && suiteShaped;
+        });
         out.matched += matched.length;
         for (const card of matched.slice(0, Math.max(0, 3 - out.samples.length))) {
             out.samples.push(String(card.reference ?? ''));

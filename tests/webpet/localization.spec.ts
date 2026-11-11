@@ -44,12 +44,16 @@ test.describe('Language picker — Header', { tag: ['@WebPet', '@wp-shell', '@wp
         tag: ['@wp-ui', '@wp-regression'],
         annotation: { type: 'testCaseId', description: 'WP-0240' },
     }, async ({ page, pages }) => {
+        test.fixme(
+            true,
+            'support account cannot save its own language: web-pet #1589 PUT /users/{id}/profile is behind RefuseSupportUserWrites (403), and super users act as PET Tiger Support since #1580 — re-enable under a non-super automation user',
+        );
         const shell = pages.shell;
         await shell.gotoRoot();
 
-        // Capture the next PUT /api/users/{id} so we can assert the payload.
+        // Since web-pet #1589 the user menu saves the language through the self-service route.
         const putResponse = page.waitForRequest(
-            (req) => /\/api\/users\/\d+$/.test(req.url()) && req.method() === 'PUT',
+            (req) => /\/api\/users\/\d+\/profile$/.test(req.url()) && req.method() === 'PUT',
             { timeout: 10_000 },
         );
 
