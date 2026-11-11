@@ -165,9 +165,9 @@ export abstract class WebpetFormPage extends BasePage {
         return this.page.getByText(text, { exact: true });
     }
 
-    /** A FormTabs scroll-anchor tab, e.g. `'Crops'`. */
+    /** A form side-nav entry, e.g. `'Crops'` — an in-page link since web-pet #1605 (was a button). */
     formTab(name: string): Locator {
-        return this.page.getByRole('button', { name });
+        return this.page.locator('[data-slot="form-side-nav-item"]').and(this.page.getByRole('link', { name }));
     }
 
     /**
