@@ -1,0 +1,727 @@
+{
+  "_notes": [
+    "Generated from a read-only walk of the new app shell on dev (web-pet #1569 'PET Tiger Cloud new experience', 2026-11-05).",
+    "sidebar: the top-level links and the hub page each opens. screens: every screen reachable from a hub card, keyed by its route; 'card' is the card's full text (title + description).",
+    "LeftNavigationPage.openViaMenu resolves a screen route here: sidebar link -> hub card with that href -> screen. A route in noMenuEntry is opened by address with a deep-link annotation; any other absent route falls back to the old group walk."
+  ],
+  "noMenuEntry": {
+    "/input/crew-piece-out": "no Input hub card (product gap since 2026-10-16; the new shell did not add one)",
+    "/reports/scripts": "the Reports hub is a report catalogue since web-pet #1569 (2026-11-05); Report Scripts is a category there, the screen itself has no card",
+    "/reports/input/job-card": "the Reports hub runs reports directly since web-pet #1569 (2026-11-05); the Job Card Report Selection screen has no card"
+  },
+  "sidebar": {
+    "Input": "/menu/input",
+    "View": "/menu/view",
+    "Transfer & Reconcile": "/menu/transfer",
+    "Bonus": "/bonus",
+    "Export": "/menu/export",
+    "Employees": "/menu/employees",
+    "Setup": "/menu/setup",
+    "Devices": "/menu/devices",
+    "Reports": "/reports",
+    "Admin": "/menu/admin"
+  },
+  "screens": {
+    "/reports/screen/time-in": {
+      "group": "Reports",
+      "card": "Time In",
+      "hubView": "hub-group-screens"
+    },
+    "/bonus/crew": {
+      "group": "Bonus",
+      "card": "Crew Bonus PaymentOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/daily-by-employee": {
+      "group": "Bonus",
+      "card": "Daily Bonus by EmployeeOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/daily-by-job": {
+      "group": "Bonus",
+      "card": "Daily Bonus by JobOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/employee": {
+      "group": "Bonus",
+      "card": "Employee Bonus PaymentOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/fair-food-premium": {
+      "group": "Bonus",
+      "card": "Fair Food PremiumOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/holiday-pay": {
+      "group": "Bonus",
+      "card": "Holiday PayOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/piece-incentive-bonus": {
+      "group": "Bonus",
+      "card": "Piece Incentive BonusOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/piece-productivity-hourly-bonus": {
+      "group": "Bonus",
+      "card": "Piece Productivity Hourly BonusOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/piece-weekly-incentive-bonus": {
+      "group": "Bonus",
+      "card": "Piece Weekly IncentiveOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/quality-incentive-bonus": {
+      "group": "Bonus",
+      "card": "Quality IncentiveOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/supervisor": {
+      "group": "Bonus",
+      "card": "Supervisor Bonus PaymentOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/supervisor-average-crew-hourly": {
+      "group": "Bonus",
+      "card": "Supervisor by Crew Average Hourly RateOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/supervisor-bonus-extra-pieces": {
+      "group": "Bonus",
+      "card": "Supervisor Bonus for Extra PiecesOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/supervisor-crew-size": {
+      "group": "Bonus",
+      "card": "Foreman Crew Size IncentiveOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/supervisor-piece-incentive": {
+      "group": "Bonus",
+      "card": "Supervisor Piece IncentiveOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/support-crew-bonus": {
+      "group": "Bonus",
+      "card": "Support Crew BonusOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/tier-hourly-piece-incentive": {
+      "group": "Bonus",
+      "card": "Tier Schedule Hourly Piece Incentive BonusOpen the wizard to select records and review the bonus payment."
+    },
+    "/bonus/tier-piece-incentive": {
+      "group": "Bonus",
+      "card": "Tier Schedule Piece Incentive BonusOpen the wizard to select records and review the bonus payment."
+    },
+    "/connectivity/biometric-devices": {
+      "group": "Devices",
+      "card": "Biometric DevicesFinger and face devices and their status."
+    },
+    "/connectivity/export/data": {
+      "group": "Devices",
+      "card": "Export DataSend setup data to a file."
+    },
+    "/connectivity/export/log": {
+      "group": "Devices",
+      "card": "Internet Export LogWhat was sent to devices, and when."
+    },
+    "/connectivity/export/scan-devices": {
+      "group": "Devices",
+      "card": "Export to Scan DevicesPush setup to scan devices."
+    },
+    "/connectivity/export/time-cards": {
+      "group": "Devices",
+      "card": "Time-cards to Scan DevicesPush time cards to scan devices."
+    },
+    "/connectivity/import/biometric-device-folders": {
+      "group": "Devices",
+      "card": "From Biometric Device FoldersPull punches from biometric device folders."
+    },
+    "/connectivity/import/convert-lookups": {
+      "group": "Devices",
+      "card": "Replace Barcodes with Names in XML fileReplace barcodes with names in an XML file."
+    },
+    "/connectivity/import/internet": {
+      "group": "Devices",
+      "card": "From InternetPull punches sent over the internet."
+    },
+    "/connectivity/import/log": {
+      "group": "Devices",
+      "card": "Internet Import LogWhat came in from devices, and when."
+    },
+    "/connectivity/import/permanent-badge-assignments": {
+      "group": "Devices",
+      "card": "Permanent Employee Badge AssignmentsImport permanent badge assignments."
+    },
+    "/connectivity/import/scan-devices": {
+      "group": "Devices",
+      "card": "From Scan DevicesPull punches from connected scan devices."
+    },
+    "/connectivity/import/single-folder": {
+      "group": "Devices",
+      "card": "From Single FolderPull punches from one folder."
+    },
+    "/connectivity/manage-scan-devices": {
+      "group": "Devices",
+      "card": "Manage Scan DevicesRegister and configure scan devices."
+    },
+    "/connectivity/text-file-structure": {
+      "group": "Devices",
+      "card": "Connectivity Text File StructureLayout of the text files devices exchange."
+    },
+    "/export-to-accounting": {
+      "group": "Export",
+      "card": "Export to AccountingSend job cards to payroll or cost accounting."
+    },
+    "/export-to-accounting/reverse": {
+      "group": "Export",
+      "card": "Reverse Export to Accounting (Payroll / Cost Accounting)Undo a payroll or cost accounting export."
+    },
+    "/input/breaks": {
+      "group": "Input",
+      "card": "Meal or BreakMeal and rest breaks taken."
+    },
+    "/input/case-loads": {
+      "group": "Input",
+      "card": "Case LoadCases loaded against a run."
+    },
+    "/input/contract-labors": {
+      "group": "Setup",
+      "card": "Contract LaborContract labor agreements and rates."
+    },
+    "/input/crew-break": {
+      "group": "Input",
+      "card": "Crew BreakOne break for a whole crew."
+    },
+    "/input/crew-time-in": {
+      "group": "Input",
+      "card": "Crew Time InOne clock-in for a whole crew."
+    },
+    "/input/crew-time-out": {
+      "group": "Input",
+      "card": "Crew Time OutOne clock-out for a whole crew."
+    },
+    "/input/irrigation-bills": {
+      "group": "Input",
+      "card": "Irrigation BillBills for irrigation water."
+    },
+    "/input/irrigations": {
+      "group": "Input",
+      "card": "IrrigationIrrigation runs and water applied."
+    },
+    "/input/item-traceability": {
+      "group": "Input",
+      "card": "Item TraceabilityTrace items from field to case."
+    },
+    "/input/job-cards": {
+      "group": "Input",
+      "card": "Job CardDaily job cards: hours, pieces and pay."
+    },
+    "/input/job-cards/bulk": {
+      "group": "Input",
+      "card": "Job Card Bulk EntryType job cards into a grid."
+    },
+    "/input/loads": {
+      "group": "Input",
+      "card": "LoadLoads brought in from the field."
+    },
+    "/input/multi-new-cards": {
+      "group": "Input",
+      "card": "Multi New CardsEnter many cards for one day at once."
+    },
+    "/input/non-labor": {
+      "group": "Input",
+      "card": "Non Labor Time CardHours that are not labor, such as travel."
+    },
+    "/input/runs": {
+      "group": "Input",
+      "card": "RunPacking runs and their counts."
+    },
+    "/input/runs/supervisor-allocation": {
+      "group": "Input",
+      "card": "Supervisor Run AllocationShare a run's pieces among supervisors."
+    },
+    "/input/signatures": {
+      "group": "Input",
+      "card": "SignatureEmployee signatures captured on the device."
+    },
+    "/input/time-cards": {
+      "group": "Input",
+      "card": "Time CardA complete card: in, out, breaks and pieces."
+    },
+    "/input/time-in": {
+      "group": "Input",
+      "card": "Time InClock-in punches, one per employee."
+    },
+    "/input/time-out": {
+      "group": "Input",
+      "card": "Time OutClock-out punches, one per employee."
+    },
+    "/input/verifications": {
+      "group": "Input",
+      "card": "VerificationChecks recorded against cards."
+    },
+    "/input/work-orders": {
+      "group": "Input",
+      "card": "Work OrderWork orders and their progress."
+    },
+    "/job-cards/recalc-runs/reverse": {
+      "group": "View",
+      "card": "Reverse RecalculateUndo a recalculation of job cards."
+    },
+    "/restore-or-reverse/bulk-delete-history": {
+      "group": "View",
+      "card": "Reverse Multi DeleteRestore records removed by a multi delete."
+    },
+    "/restore-or-reverse/bulk-update-history": {
+      "group": "View",
+      "card": "Reverse Multi EditUndo a multi edit made from a grid."
+    },
+    "/restore-or-reverse/employee-export": {
+      "group": "Export",
+      "card": "Reverse Export to Accounting (Employee)Undo an employee export to accounting."
+    },
+    "/restore-or-reverse/permanent-badge": {
+      "group": "Employees",
+      "card": "Reverse Assign Permanent BadgeUndo a permanent badge assignment."
+    },
+    "/scan": {
+      "group": "Devices",
+      "card": "Scan ModeFull-screen scanning for a kiosk or wedge scanner."
+    },
+    "/settings/alias-fields": {
+      "group": "Admin",
+      "card": "Add Missing Alias FieldsAdd alias fields the database is missing."
+    },
+    "/settings/archived-database": {
+      "group": "Admin",
+      "card": "Open Archived DatabaseOpen a previous year's archived data."
+    },
+    "/settings/audit-trail/combined": {
+      "group": "Admin",
+      "card": "Audit Trail (Combined Reports)Who changed what, across all records."
+    },
+    "/settings/audit-trail/login-activity": {
+      "group": "Admin",
+      "card": "Login Activity ReportSign-ins by user and time."
+    },
+    "/settings/badges": {
+      "group": "Admin",
+      "card": "Badges & LabelsBadge layouts and printing options."
+    },
+    "/settings/barcode-counters": {
+      "group": "Employees",
+      "card": "Change next Barcode numberSet the next barcode number to issue."
+    },
+    "/settings/deleted-records": {
+      "group": "Admin",
+      "card": "Deleted RecordsFind and restore deleted records."
+    },
+    "/settings/employee/add-extra-piece": {
+      "group": "Employees",
+      "card": "Add Extra Piece EmployeeAdd the employee that carries extra pieces."
+    },
+    "/settings/employee/add-multiple-temp-badges": {
+      "group": "Employees",
+      "card": "Add Multiple Temporary BadgesIssue a batch of temporary badges."
+    },
+    "/settings/employee/find-duplicate-export-ids": {
+      "group": "Employees",
+      "card": "Find Employees with Duplicate Export IdentifiersFind employees sharing an export identifier."
+    },
+    "/settings/employee/generate-barcodes": {
+      "group": "Employees",
+      "card": "Generate Employee BarcodesCreate barcodes for employees without one."
+    },
+    "/settings/employee/regenerate-barcodes": {
+      "group": "Employees",
+      "card": "Regenerate Employee BarcodesReplace existing employee barcodes."
+    },
+    "/settings/employee/send-roll-assignments": {
+      "group": "Devices",
+      "card": "Send Roll Assignments to Scan DevicesPush roll assignments to scan devices."
+    },
+    "/settings/employee/set-last-working-date": {
+      "group": "Employees",
+      "card": "Set Employees Last Working DateSet the last working date for many employees."
+    },
+    "/settings/employee/update-rate": {
+      "group": "Employees",
+      "card": "Update RateChange pay rates for many employees at once."
+    },
+    "/settings/export-to-accounting": {
+      "group": "Admin",
+      "card": "Accounting PreferencesFormats and defaults for accounting exports."
+    },
+    "/settings/headers": {
+      "group": "Admin",
+      "card": "Headers or FootersLogo, header and footer text for printed output."
+    },
+    "/settings/ibuttons/assign-codes-to-command": {
+      "group": "Devices",
+      "card": "Assign iButton Codes to CommandMap iButton codes to device commands."
+    },
+    "/settings/ibuttons/read-new-buttons": {
+      "group": "Devices",
+      "card": "Read New iButtonsRegister newly read iButtons."
+    },
+    "/settings/job-card-preferences": {
+      "group": "Admin",
+      "card": "Job Card PreferencesHow job cards compute hours, breaks and pay."
+    },
+    "/settings/logged-in-users": {
+      "group": "Admin",
+      "card": "Show Logged-in usersWho is signed in right now."
+    },
+    "/settings/multiple-delete/crew-time-cards-no-time-ins": {
+      "group": "Admin",
+      "card": "Delete Crew Time Cards without Time InsRemove crew cards that have no time-in."
+    },
+    "/settings/multiple-delete/empty-name-change": {
+      "group": "Admin",
+      "card": "Delete Empty Name Change RecordsRemove empty name-change records."
+    },
+    "/settings/preferences": {
+      "group": "Admin",
+      "card": "PreferencesCompany-wide settings for every screen."
+    },
+    "/settings/rebuild/job-card-piece-grid": {
+      "group": "Admin",
+      "card": "Rebuild Job Card Piece GridRebuild the piece grid on job cards."
+    },
+    "/settings/rebuild/meal-penalty": {
+      "group": "Admin",
+      "card": "Rebuild Meal PenaltyRecompute meal penalties on job cards."
+    },
+    "/settings/reports": {
+      "group": "Admin",
+      "card": "Report SettingsWhich reports are available and how they run."
+    },
+    "/settings/standard-records": {
+      "group": "Admin",
+      "card": "Add Standard Records to DatabaseAdd the standard records a database needs."
+    },
+    "/settings/time-card/assign-employee-undefined-piece-outs": {
+      "group": "Admin",
+      "card": "Assign Employee to Piece-outs of UndefinedAttach an employee to piece-outs with none."
+    },
+    "/settings/time-card/convert-time-in-to-piece-out": {
+      "group": "Admin",
+      "card": "Convert Time In records to Piece Out recordsTurn time-in records into piece-outs."
+    },
+    "/settings/time-card/convert-time-in-to-time-out": {
+      "group": "Admin",
+      "card": "Convert Time In records to Time Out recordsTurn time-in records into time-outs."
+    },
+    "/settings/time-card/set-crew-finger-scanner": {
+      "group": "Admin",
+      "card": "Set Crew for Finger Scanner Time CardsSet the crew on finger scanner punches."
+    },
+    "/settings/time-card/set-crew-from-time-in": {
+      "group": "Admin",
+      "card": "Set Crew for Time Out from Time InCopy the crew from time-in to time-out."
+    },
+    "/settings/time-card/set-crew-from-traceability": {
+      "group": "Admin",
+      "card": "Set Crew for Time Out from Time In using Traceability CodeSet the crew from the traceability code."
+    },
+    "/settings/user-permission-details": {
+      "group": "Admin",
+      "card": "User Permission DetailsEvery permission each user holds."
+    },
+    "/settings/users": {
+      "group": "Admin",
+      "card": "UsersUser accounts, roles and permissions."
+    },
+    "/setup/alias-fields": {
+      "group": "Setup",
+      "card": "Alias FieldRename fields to your company's own terms."
+    },
+    "/setup/alias-sets": {
+      "group": "Setup",
+      "card": "Alias SetNamed sets of field aliases."
+    },
+    "/setup/batch-file-formats": {
+      "group": "Setup",
+      "card": "Batch File FormatFile layouts for batch imports."
+    },
+    "/setup/billing-centers": {
+      "group": "Setup",
+      "card": "Billing CentersWhere billing is charged."
+    },
+    "/setup/boards": {
+      "group": "Setup",
+      "card": "BoardBoards shown on scan devices."
+    },
+    "/setup/create-fields-from-equipment": {
+      "group": "Setup",
+      "card": "Create Fields from EquipmentCreate fields from equipment records."
+    },
+    "/setup/crew-tables": {
+      "group": "Setup",
+      "card": "Crew TableCrew tables used by scan devices."
+    },
+    "/setup/crews": {
+      "group": "Setup",
+      "card": "CrewCrews, supervisors and defaults."
+    },
+    "/setup/crops": {
+      "group": "Setup",
+      "card": "CropCrops you grow."
+    },
+    "/setup/customers": {
+      "group": "Setup",
+      "card": "CustomerCustomers you bill or harvest for."
+    },
+    "/setup/customers/types": {
+      "group": "Setup",
+      "card": "Customer TypeCategories for customers."
+    },
+    "/setup/departments": {
+      "group": "Setup",
+      "card": "DepartmentDepartments, payroll weeks and record locking."
+    },
+    "/setup/document-types": {
+      "group": "Setup",
+      "card": "Document TypeKinds of employee documents you keep."
+    },
+    "/setup/employee-classes": {
+      "group": "Setup",
+      "card": "Employee ClassClasses that group employees for pay rules."
+    },
+    "/setup/employees": {
+      "group": "Employees",
+      "card": "Employee SetupEvery employee record, in full."
+    },
+    "/setup/employees/electronic-tokens/send": {
+      "group": "Devices",
+      "card": "Send Electronic Tokens to EmployeesSend electronic tokens to employees."
+    },
+    "/setup/employees/electronic-tokens/send-totals": {
+      "group": "Devices",
+      "card": "Send Token Totals to Scan DevicesSend token totals to scan devices."
+    },
+    "/setup/employees/quick-add": {
+      "group": "Employees",
+      "card": "Quick Add EmployeeAdd a new hire with only the required fields."
+    },
+    "/setup/employees/wizard": {
+      "group": "Employees",
+      "card": "Add Employee WizardStep-by-step onboarding for a new employee."
+    },
+    "/setup/employment-types": {
+      "group": "Setup",
+      "card": "Employment TypeFull time, seasonal, contract and similar."
+    },
+    "/setup/equipments": {
+      "group": "Setup",
+      "card": "EquipmentEquipment and its costs."
+    },
+    "/setup/ethnicities": {
+      "group": "Setup",
+      "card": "EthnicityEthnicity values for employee records."
+    },
+    "/setup/fields": {
+      "group": "Setup",
+      "card": "FieldFields, their acreage and crop."
+    },
+    "/setup/filter-scripts": {
+      "group": "Setup",
+      "card": "Filter ScriptsSaved filters for grids and reports."
+    },
+    "/setup/inventory/centers": {
+      "group": "Setup",
+      "card": "Inventory CenterWhere inventory is held."
+    },
+    "/setup/inventory/item-types": {
+      "group": "Setup",
+      "card": "Inventory Item TypeKinds of inventory items."
+    },
+    "/setup/inventory/items": {
+      "group": "Setup",
+      "card": "Inventory ItemItems you keep in inventory."
+    },
+    "/setup/inventory/unit-types": {
+      "group": "Setup",
+      "card": "Unit TypeKinds of inventory units."
+    },
+    "/setup/inventory/units": {
+      "group": "Setup",
+      "card": "UnitUnits of measure for inventory."
+    },
+    "/setup/irrigation-bill-centers": {
+      "group": "Setup",
+      "card": "Irrigation Bill CenterWho is billed for irrigation."
+    },
+    "/setup/job-categories": {
+      "group": "Setup",
+      "card": "Job CategoryCategories that group jobs."
+    },
+    "/setup/jobs": {
+      "group": "Setup",
+      "card": "JobJobs, their rates and pay type."
+    },
+    "/setup/jobs/groups": {
+      "group": "Setup",
+      "card": "Job GroupGroups of related jobs."
+    },
+    "/setup/measurement-items": {
+      "group": "Setup",
+      "card": "Measurement ItemItems measured for traceability."
+    },
+    "/setup/measurement-types": {
+      "group": "Setup",
+      "card": "Measurement TypeTypes of measurement for traceability."
+    },
+    "/setup/minimum-wages": {
+      "group": "Setup",
+      "card": "Minimum WageMinimum wage rates and their history."
+    },
+    "/setup/mobile-phone-carriers": {
+      "group": "Setup",
+      "card": "Mobile Phone CarrierCarriers used for text notifications."
+    },
+    "/setup/needed-employees": {
+      "group": "Setup",
+      "card": "Needed EmployeesScripts that compute needed headcount."
+    },
+    "/setup/notifications": {
+      "group": "Setup",
+      "card": "NotificationsWho is notified of what, and how."
+    },
+    "/setup/overtime-rules": {
+      "group": "Setup",
+      "card": "Over-Time-RuleDaily and weekly overtime thresholds."
+    },
+    "/setup/paid-off-work-rules": {
+      "group": "Setup",
+      "card": "Paid Off-work RulesHow paid time off accrues and is used."
+    },
+    "/setup/paid-off-work-types": {
+      "group": "Setup",
+      "card": "Paid Off-work TypeKinds of paid time off."
+    },
+    "/setup/pallet-stages": {
+      "group": "Setup",
+      "card": "Pallet StageStages a pallet passes through."
+    },
+    "/setup/penalty-rules": {
+      "group": "Setup",
+      "card": "Penalty RulesMeal and rest penalty rules."
+    },
+    "/setup/question-sets": {
+      "group": "Setup",
+      "card": "Question SetGroups of questions assigned to crews."
+    },
+    "/setup/questions": {
+      "group": "Setup",
+      "card": "QuestionQuestions asked at the scan device."
+    },
+    "/setup/ranches": {
+      "group": "Setup",
+      "card": "RanchRanches and their settings."
+    },
+    "/setup/scan-device-groups": {
+      "group": "Setup",
+      "card": "Scan Device GroupGroups of scan devices that share setup."
+    },
+    "/setup/scan-devices": {
+      "group": "Devices",
+      "card": "Scan Devices & BoardsHandheld scanners and boards that collect punches."
+    },
+    "/setup/shifts": {
+      "group": "Setup",
+      "card": "ShiftShift schedules and their hours."
+    },
+    "/setup/shortcuts": {
+      "group": "Setup",
+      "card": "ShortcutsShortcut panels assigned to users."
+    },
+    "/setup/sick-pay-plans": {
+      "group": "Setup",
+      "card": "Sick Pay PlanSick pay accrual plans."
+    },
+    "/setup/states": {
+      "group": "Setup",
+      "card": "StateStates and their tax settings."
+    },
+    "/setup/tax-tables": {
+      "group": "Setup",
+      "card": "Tax TableTax tables used in pay calculation."
+    },
+    "/setup/terms": {
+      "group": "Setup",
+      "card": "TermsPayment terms."
+    },
+    "/setup/tier-schedules": {
+      "group": "Setup",
+      "card": "Tier SchedulesTiered piece-rate schedules."
+    },
+    "/setup/timesheet/validations": {
+      "group": "Setup",
+      "card": "TimeSheet SetupRules that timesheet entries must pass."
+    },
+    "/setup/traceability/colors": {
+      "group": "Setup",
+      "card": "ColorColors used in traceability labels."
+    },
+    "/setup/traceability/grades": {
+      "group": "Setup",
+      "card": "GradeGrades used in traceability labels."
+    },
+    "/setup/traceability/methods": {
+      "group": "Setup",
+      "card": "MethodHarvest or pack methods."
+    },
+    "/setup/traceability/packaging-styles": {
+      "group": "Setup",
+      "card": "Packaging StylePackaging styles."
+    },
+    "/setup/traceability/pools": {
+      "group": "Setup",
+      "card": "PoolPools that group product."
+    },
+    "/setup/traceability/product-codes": {
+      "group": "Setup",
+      "card": "Product CodeProduct codes on labels."
+    },
+    "/setup/traceability/regions": {
+      "group": "Setup",
+      "card": "RegionGrowing regions."
+    },
+    "/setup/traceability/sizes": {
+      "group": "Setup",
+      "card": "SizeProduct sizes."
+    },
+    "/setup/traceability/storages": {
+      "group": "Setup",
+      "card": "StorageStorage locations."
+    },
+    "/setup/traceability/warehouses": {
+      "group": "Setup",
+      "card": "WarehouseWarehouses."
+    },
+    "/setup/varieties": {
+      "group": "Setup",
+      "card": "VarietyVarieties of each crop."
+    },
+    "/transfer-to-job-cards": {
+      "group": "Transfer & Reconcile",
+      "card": "Transfer to Job CardsTurn time cards into priced job cards."
+    },
+    "/transfer-to-job-cards/reverse": {
+      "group": "Transfer & Reconcile",
+      "card": "Reverse Transfer to Job CardsUndo a transfer run and restore its time cards."
+    },
+    "/view/job-cards": {
+      "group": "View",
+      "card": "Job CardsReview job cards, pay and exceptions."
+    },
+    "/view/pieces": {
+      "group": "View",
+      "card": "PiecesPieces by employee, job and day."
+    },
+    "/view/record-locking-dates": {
+      "group": "Transfer & Reconcile",
+      "card": "Reverse Record Locking DatesLock or unlock dates against new entries."
+    },
+    "/view/time-cards": {
+      "group": "View",
+      "card": "Time CardsReview, edit and hold time cards."
+    },
+    "/view/traceability-cards": {
+      "group": "View",
+      "card": "Traceability CardsCards carrying traceability codes."
+    },
+    "/view/work-orders": {
+      "group": "View",
+      "card": "Work OrdersWork orders and what has been done."
+    }
+  }
+}

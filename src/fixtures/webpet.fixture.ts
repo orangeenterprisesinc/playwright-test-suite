@@ -204,7 +204,7 @@ export const test = base.extend<{ _webpetGate: void; pages: WebpetPages }>({
                 /* no storage in this document */
             }
         });
-        // Classic shell (src/config/shellPreference.ts): a fresh context would open the new experience.
+        // New shell (src/config/shellPreference.ts): pinned so a replayed state can never flip it to classic.
         await pinShellExperience(ctx);
 
         // Intercept the session bootstrap and rewrite user.language to 'en' so

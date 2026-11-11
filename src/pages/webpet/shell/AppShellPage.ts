@@ -8,6 +8,10 @@
  */
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from '../../BasePage';
+import shellNavigation from '../../../data/static/shell/navigation.json';
+
+// Inventory Setup is a card on the Setup hub in the new shell, not its own sidebar group.
+const NAV_GROUP_LABEL: Record<string, string> = { 'Inventory Setup': 'Setup' };
 
 /**
  * @extends BasePage
@@ -42,11 +46,24 @@ export class AppShellPage extends BasePage {
         super(page);
 
         this.sidebarNav = page.locator('[data-testid="sidebar-nav"]');
-        this.userMenuTrigger = page.locator('[data-slot="dropdown-menu-trigger"]').first();
-        this.languageSubTrigger = page
-            .locator('[data-slot="dropdown-menu-sub-trigger"]')
-            .filter({ hasText: 'Language' });
+        this.userMenuTrigger = page.getByRole('button', { name: 'Open menu', exact: true });
+        this.languageSubTrigger = page.getByRole('menuitem', { name: 'Language', exact: true });
         this.logOutMenuItem = page.getByRole('menuitem', { name: /log out/i });
+    }
+
+    // The new shell nests a second <main>; hub pages render in the inner one.
+    get hubContent(): Locator {
+        return this.page.getByRole('main').last();
+    }
+
+    hubCard(title: string | RegExp): Locator {
+        return this.hubContent
+            .getByRole('link')
+            .filter({ has: this.page.getByText(title, { exact: true }) });
+    }
+
+    async gotoHub(group: string): Promise<void> {
+        await this.page.goto(shellNavigation.sidebar[group as keyof typeof shellNavigation.sidebar]);
     }
 
     /** A locale choice in the open Language submenu, e.g. `'Spanish (es)'` or `'System'`. */
@@ -88,7 +105,7 @@ export class AppShellPage extends BasePage {
      * report a link that is not the one under test.
      */
     navLink(name: string): Locator {
-        return this.page.getByRole('link', { name: new RegExp(`^${name}$`, 'i') });
+        return this.hubCard(new RegExp(`^${name}$`, 'i'));
     }
 
     /**
@@ -100,7 +117,7 @@ export class AppShellPage extends BasePage {
      * mode once every link in the group is live.
      */
     navLinkExact(name: string): Locator {
-        return this.page.getByRole('link', { name, exact: true });
+        return this.hubCard(name);
     }
 
     /**
@@ -119,7 +136,7 @@ export class AppShellPage extends BasePage {
 
     /** Sidebar text matched inside the nav container — see {@link sidebarNav}. */
     sidebarNavText(text: string): Locator {
-        return this.sidebarNav.getByText(text);
+        return this.hubContent.getByText(text, { exact: true });
     }
 
     /**
@@ -130,7 +147,7 @@ export class AppShellPage extends BasePage {
      * wording.
      */
     navLinkMatching(pattern: RegExp): Locator {
-        return this.page.getByRole('link', { name: pattern });
+        return this.hubCard(pattern);
     }
 
     /**
@@ -138,12 +155,13 @@ export class AppShellPage extends BasePage {
      * the button text.
      */
     navGroup(name: string): Locator {
-        return this.page.getByRole('button', { name });
+        return this.page.getByRole('link', { name: NAV_GROUP_LABEL[name] ?? name, exact: true });
     }
 
-    /** Expand a collapsible sidebar group. */
     async openNavGroup(name: string): Promise<void> {
+        const hub = shellNavigation.sidebar[(NAV_GROUP_LABEL[name] ?? name) as keyof typeof shellNavigation.sidebar];
         await this.navGroup(name).click();
+        await this.page.waitForURL(hub);
     }
 }
 

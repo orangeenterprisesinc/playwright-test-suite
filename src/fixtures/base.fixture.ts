@@ -203,7 +203,7 @@ export const test = base.extend<CustomFixtures, WorkerFixtures>({
         { auto: true },
     ],
 
-    // The app's shell choice lives in localStorage, so it is pinned before any page in the context loads
+    // The app's shell choice (new experience) lives in localStorage, so it is pinned before any page in the context loads
     // (src/config/shellPreference.ts); auth.setup's saved state and every test context get it the same way.
     context: async ({ context }, use) => {
         await pinShellExperience(context);

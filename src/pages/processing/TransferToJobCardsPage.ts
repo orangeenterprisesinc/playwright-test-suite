@@ -986,7 +986,15 @@ export class TransferToJobCardsPage extends BasePage {
         this.page.on('request', onRequest);
         this.watchAnalyzeResponses();
         try {
-            await this.analyzeCandidatesButton.click();
+            // No actionTimeout is configured, so an unbounded click() on a covered button hangs to the 10-min test
+            // timeout. At a short viewport (WEBPET-3426, 674 px) the new shell's top section pushes the toolbar under
+            // the sticky transfer bar; a user collapses the top section, so do the same.
+            await this.analyzeCandidatesButton.click({ timeout: 15_000 }).catch(async (err: unknown) => {
+                const hide = this.page.getByRole('button', { name: 'Hide top section' });
+                if (!(await hide.isVisible())) throw err;
+                await hide.click({ timeout: 10_000 });
+                await this.analyzeCandidatesButton.click({ timeout: 15_000 });
+            });
             const wanted = opts.expected ?? 1;
             const retryUntil = Date.now() + 90_000;
             const seen: { state: 'loaded' | 'retry' | 'loading' } = { state: 'loading' };

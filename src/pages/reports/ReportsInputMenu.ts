@@ -12,7 +12,7 @@ export class ReportsInputMenu {
     private readonly inputButton: Locator;
     private readonly leftNav: LeftNavigationPage;
 
-    constructor(private readonly page: Page) {
+    constructor(page: Page) {
         this.leftNav = new LeftNavigationPage(page);
         const reportsItem = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Reports', exact: true }) });
         this.reportsButton = reportsItem.getByRole('button', { name: 'Reports', exact: true });
@@ -28,15 +28,12 @@ export class ReportsInputMenu {
         await expect(this.inputItem.getByRole('link').first()).toBeVisible({ timeout: 15_000 });
     }
 
-    /** Already on the screen: reload, the user's F5 (as LeftNavigationPage.openScreen does). */
+    /**
+     * Since web-pet #1569 (2026-11-05) the Reports hub is a report catalogue with no Input group, so the
+     * report-selection screens are deep links (shell/navigation.json `noMenuEntry`); LeftNavigationPage.openScreen
+     * records that on the test. The old sidebar walk (`expand`) is kept for a shell that still has the group.
+     */
     async open(leaf: string, url: string): Promise<void> {
-        await this.leftNav.openApp();
-        if (new URL(this.page.url()).pathname === url) {
-            await this.page.reload({ waitUntil: 'domcontentloaded' });
-            return;
-        }
-        await this.expand();
-        await this.inputItem.getByRole('link', { name: leaf, exact: true }).click();
-        await this.page.waitForURL((u) => u.pathname === url, { timeout: 30_000 });
+        await this.leftNav.openScreen(['Reports', 'Input', leaf], url);
     }
 }

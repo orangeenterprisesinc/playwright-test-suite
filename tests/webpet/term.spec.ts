@@ -20,7 +20,7 @@ test.describe('Setup > Terms (Grower Billing)', { tag: ['@WebPet', '@wp-setup', 
         if (resp && resp.status() === 403) {
             // GrowerBilling module not in PT_MODULES — acceptable in dev env.
             // Sidebar entry is also hidden in this case (verified by adjacent assertion below).
-            await pages.shell.gotoDashboard();
+            await pages.shell.gotoHub('Setup');
             await expect(pages.shell.navLink('terms')).toHaveCount(0);
             return;
         }

@@ -59,6 +59,11 @@
       "ticket": "WORK-ITEM: ensureTimeIn data factory"
     },
     {
+      "match": "WP-0127",
+      "reason": "New shell dashboard header is a date label plus Edit dashboard, with no time-of-day greeting; the classic suite on main still covers the greeting.",
+      "ticket": "WORK-ITEM: new-shell webpet shell variants"
+    },
+    {
       "match": "widgets removed from the editor flow",
       "reason": "WP-0319 only: web-pet 219d5ac83 deliberately removed widgets from the editor flow (reconfirmed live 2026-08-23 — no Widgets entry anywhere); the filter-summary half of the old assertion moved into WP-0310. The other 12 report-editor tests were realigned to the rebuilt ReportCanvas UI and run green.",
       "ticket": "WEBPET-1797"
