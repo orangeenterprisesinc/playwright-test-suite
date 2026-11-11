@@ -348,7 +348,8 @@ export class ExportToAccountingPage extends BasePage {
         await criteria.getByTestId('view-job-cards-criteria-search-by').click();
         await this.page.getByRole('option', { name: 'Job Card Crew', exact: true }).click();
         await criteria.getByTestId('view-job-cards-criteria-match').click();
-        await this.page.getByRole('option', { name: 'Contains', exact: true }).click();
+        // Match labels follow legacy since web-pet #1603: the text match is "Like" (was "Contains").
+        await this.page.getByRole('option', { name: 'Like', exact: true }).click();
         await criteria.getByTestId('view-job-cards-criteria-jobCardCrew-like-location').click();
         await this.page.getByRole('option', { name: 'Is Value', exact: true }).click();
         await criteria.getByTestId('view-job-cards-criteria-jobCardCrew-text').fill(crewName);
