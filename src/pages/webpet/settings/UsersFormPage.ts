@@ -142,9 +142,9 @@ export class UsersFormPage extends BasePage {
         await this.page.goto(`${this.pageUrl}/new`);
     }
 
-    /** A form tab. Ordinary buttons, not ARIA tabs. */
+    /** A form side-nav entry — an in-page link since web-pet #1605 (was a button), not an ARIA tab. */
     tab(name: string): Locator {
-        return this.page.getByRole('button', { name });
+        return this.page.locator('[data-slot="form-side-nav-item"]').and(this.page.getByRole('link', { name }));
     }
 
     /** Switch to the Time Card Defaults tab. */
