@@ -63,11 +63,11 @@ export class PreferencesPage extends BasePage {
     /**
      * The left-hand subnav entry for a section.
      *
-     * Scoped to `button` because the same text appears again as the section's own
-     * `<h2>`, which would otherwise be a strict-mode collision.
+     * Scoped to `link` (an in-page `<a href="#id">` since web-pet #1605; it was a button)
+     * because the same text appears again as the section's own `<h2>`.
      */
     sectionLink(section: PreferencesSection): Locator {
-        return this.page.getByRole('button', { name: section, exact: true });
+        return this.page.getByRole('link', { name: section, exact: true });
     }
 
     /** The section's `<h2>` heading — the assertion target for "the section exists". */

@@ -215,7 +215,8 @@ export class JobCardsPage extends BasePage {
         await this.searchByField.click();
         await this.page.getByRole('option', { name: 'Job Card Crew', exact: true }).click();
         await this.matchSelect.click();
-        await this.page.getByRole('option', { name: 'Contains', exact: true }).click();
+        // Match labels follow legacy since web-pet #1603: the text match is "Like" (was "Contains").
+        await this.page.getByRole('option', { name: 'Like', exact: true }).click();
         await this.positionSelect.click();
         await this.page.getByRole('option', { name: 'Is Value', exact: true }).click();
         await this.crewTextInput.fill(crewName);
