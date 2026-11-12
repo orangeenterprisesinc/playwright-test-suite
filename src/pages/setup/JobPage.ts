@@ -16,7 +16,7 @@ import { SetupScreenPage, type FormOutcome } from '../SetupScreenPage';
 import { PickerComponent } from '../../components/PickerComponent';
 
 /** `#paymentType`'s wire values. The full enum runs to 16; a journey needs these two. */
-export const PAYMENT_TYPE = { Time: '0', Piece: '1' } as const;
+export const PAYMENT_TYPE = { Time: '0', Piece: '1', TimeAndPiece: '3' } as const;
 
 export type PaymentType = keyof typeof PAYMENT_TYPE;
 
@@ -97,11 +97,8 @@ export class JobPage extends SetupScreenPage {
         await this.pickFirstOvertimeRule();
         // Both rate fields are always in the DOM — presence is not the signal, the
         // payment type is. Writing the wrong one leaves Save disabled with no message.
-        if (data.paymentType === 'Piece') {
-            await this.pieceRateInput.fill(String(data.pieceRate ?? 0));
-        } else {
-            await this.hourlyRateInput.fill(String(data.hourlyRate ?? 0));
-        }
+        if (data.paymentType !== 'Time') await this.pieceRateInput.fill(String(data.pieceRate ?? 0));
+        if (data.paymentType !== 'Piece') await this.hourlyRateInput.fill(String(data.hourlyRate ?? 0));
         await this.nameInput.fill(data.name);
     }
 

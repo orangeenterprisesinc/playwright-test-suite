@@ -7,7 +7,8 @@
   "noMenuEntry": {
     "/input/crew-piece-out": "no Input hub card (product gap since 2026-10-16; the new shell did not add one)",
     "/reports/scripts": "the Reports hub is a report catalogue since web-pet #1569 (2026-11-05); Report Scripts is a category there, the screen itself has no card",
-    "/reports/input/job-card": "the Reports hub runs reports directly since web-pet #1569 (2026-11-05); the Job Card Report Selection screen has no card"
+    "/reports/input/job-card": "the Reports hub runs reports directly since web-pet #1569 (2026-11-05); the Job Card Report Selection screen has no card",
+    "/reports/screen/time-in": "the Reports hub is a report catalogue since web-pet #1569; the Time In Report Selection screen has no card (measured 2026-11-11)"
   },
   "sidebar": {
     "Input": "/menu/input",
@@ -22,11 +23,6 @@
     "Admin": "/menu/admin"
   },
   "screens": {
-    "/reports/screen/time-in": {
-      "group": "Reports",
-      "card": "Time In",
-      "hubView": "hub-group-screens"
-    },
     "/bonus/crew": {
       "group": "Bonus",
       "card": "Crew Bonus PaymentOpen the wizard to select records and review the bonus payment."

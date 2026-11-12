@@ -1,0 +1,29 @@
+{
+  "_notes": [
+    "CF CREW B owns day -19. CF B ONE: Time In CF JOB 07:00, Time In CF MEAL JOB 11:00, Time Out 11:30 = 3 time cards, 2 job cards; the meal card has Net Time 0. Fix web-pet #1535: a zero-net card on the PREFERENCE's Meal Job is refused ('Does not need Exporting') and counted Correct.",
+    "Precondition: su has mealJob null, so '0 - Lunch' is an ordinary job and the card the ticket is about never exists. The test designates CF MEAL JOB (9073) on Preferences > Job > Job Assignments > Meal Job on screen, restores '— None —' on screen at the end; a cleanup PUT {mealJob: 0} is the backstop. Another person's non-CF meal job is never overwritten.",
+    "The log is the client-side file the Analyze Results alert's Yes downloads; teardown deletes own cards by id (stands in for the TC's Reverse)."
+  ],
+  "ticket": "WEBPET-3491",
+  "screen": { "menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting" },
+  "fixtureCrew": "B",
+  "dayOffset": -19,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } },
+    { "employees": ["one"], "job": "meal", "timeIn": { "hour": 11, "minute": 0 }, "timeOut": { "hour": 11, "minute": 30 } }
+  ],
+  "expected": {
+    "jobCards": 2,
+    "correct": 2,
+    "incorrect": 0,
+    "absentException": "Meal job with no net time",
+    "correctSection": "Exported correct job-cards",
+    "lunchLine": "- CF MEAL JOB\\s+Does not need Exporting",
+    "sections": ["Job-cards", "Employees", "Pieces", "Totals"]
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The TC's Reverse step: teardown deletes the own job cards and time cards by id." },
+    { "type": "not-asserted", "description": "The Meal Job preference is shared tenant state: set on screen for this run and restored to '— None —' on screen; the cleanup PUT is only the kill-safety backstop." }
+  ],
+  "cleanup": []
+}

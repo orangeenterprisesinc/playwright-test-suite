@@ -1,0 +1,16 @@
+{
+  "_notes": [
+    "Revised TC (Gukan agreed 2026-11-11): the list is Male, Female, Non-Binary (measured on dev 2026-11-11); empty comes back through 'Clear selection' once a value is set. Walk 11-02: Male saves (stored 0) and reopens as Male.",
+    "CF D TWO is a fixture employee with no Gender; resetCfEmployeeGender clears a killed run's value before the test and again in teardown (cleanup PUT). An unset Gender trigger shows empty text and has no data-placeholder attribute. No (crew, day) pair: fixtureCrew without dayOffset."
+  ],
+  "ticket": "WEBPET-3610",
+  "screen": { "menuPath": ["Setup", "Employee"], "url": "/setup/employees" },
+  "fixtureCrew": "D",
+  "employee": "two",
+  "pick": "Male",
+  "expected": { "options": ["Male", "Female", "Non-Binary"], "absent": "Unspecified" },
+  "annotations": [
+    { "type": "not-asserted", "description": "The stored Gender wire value; the reopened screen is the proof." }
+  ],
+  "cleanup": []
+}

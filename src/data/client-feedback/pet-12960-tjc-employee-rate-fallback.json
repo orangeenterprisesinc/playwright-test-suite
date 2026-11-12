@@ -1,0 +1,28 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW C owns day -7 (C, not the TC's B: B specs 3426/2906/3184 read piece-job warnings/amounts that an employee rate would move). Analyze only.",
+    "4 cards = CF C TWO Time In 07:00, piece-outs 09:00 x3 and 10:00 x2 (Transfer > New record > Add Piece-out), Time Out 11:00, on CF PIECE JOB (no hourly rate; read-only on a Piece job's form).",
+    "warn.zero_rate fires only when Job.HourlyRate and Employee.Rate are both 0. The rate is set on Setup > Employee (input#rate) only when missing and restored on screen at the end; the teardown PUT is the backstop."
+  ],
+  "ticket": "PET-12960",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -7,
+  "seed": {
+    "employees": ["two"],
+    "job": "piece",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "employeePieceOut": [
+      { "employee": "two", "at": { "hour": 9, "minute": 0 }, "pieces": 3 },
+      { "employee": "two", "at": { "hour": 10, "minute": 0 }, "pieces": 2 }
+    ],
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "rate": { "employee": "two", "ifMissing": 15 },
+  "expected": { "analyzed": 4, "absentIssue": "No hourly rate available", "warnings": 0, "absentStatus": "Warning", "netColumn": "Net Time", "amountColumn": "Amount","employeeTail": "CF C TWO" },
+  "annotations": [
+    { "type": "not-asserted", "description": "The preview grid has no Hourly Rate column (measured 2026-11-11, fixed headers, no column picker). The rate is proven as Amount / Net Time = the employee's rate on a piece job whose pieces (5 x 1) cannot reach that pay on their own (dev showed Net 4, Amount 60.00 at rate 15)." },
+    { "type": "not-asserted", "description": "Job Cards preview banner warnings (e.g. a zero-amount 10:00-11:00 segment) are not the TC's Warnings count." }
+  ],
+  "cleanup": []
+}

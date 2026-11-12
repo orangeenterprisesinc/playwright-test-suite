@@ -1,0 +1,33 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW B owns day -15 (seeded) and day -14 (claimed via extraCrews, swept before, no own seed). Analyze only; nothing committed.",
+    "Fixes web-pet 57c683e25 / #1128 (an overnight shift day1 22:00 to day2 06:00 is filed under day1; a crew piece-out inside it on day2 was stranded) and aca9858dc / #1136 (a prior-day card's first crew piece-out after its close is admitted).",
+    "Gukan 11-11: precondition creates a run-tagged Time & Piece job on Setup > Job (hourly rate: no zero-rate warning; piece rate: no enrich_piece_rate_null). Its delete-by-name is registered before prepareCfRun so it runs after the time cards are gone.",
+    "6 cards: CF B ONE + CF B TWO Time In day -15 22:00; crew piece-out day -14 01:00 x5; CF B ONE individual piece-out day -14 02:00 x3 (Transfer > New record > Add Piece-out); both Time Out day -14 06:00."
+  ],
+  "ticket": "WEBPET-3314",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "B",
+  "dayOffset": -15,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "own",
+    "timeIn": { "hour": 22, "minute": 0 },
+    "pieceOut": { "at": { "hour": 1, "minute": 0, "nextDay": true }, "pieces": 5 },
+    "employeePieceOut": { "employee": "one", "at": { "hour": 2, "minute": 0, "nextDay": true }, "pieces": 3 },
+    "timeOut": { "hour": 6, "minute": 0, "nextDay": true }
+  },
+  "extraCrews": [{ "fixtureCrew": "B", "dayOffset": -14 }],
+  "ownJob": { "noun": "JOB", "paymentType": "TimeAndPiece", "hourlyRate": 15, "pieceRate": 1 },
+  "expected": {
+    "analyzed": 6,
+    "analyzedCaption": "Includes 6 Time Cards of 6 initial selection",
+    "ready": 6,
+    "blocking": 0,
+    "warnings": 0,
+    "status": "Ready",
+    "footer": "Transferring all 6 eligible records. → 2 job cards."
+  },
+  "annotations": [],
+  "cleanup": []
+}

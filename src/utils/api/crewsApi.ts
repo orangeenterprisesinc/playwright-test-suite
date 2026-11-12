@@ -28,6 +28,19 @@ export interface CrewRecord {
     [key: string]: unknown;
 }
 
+/** Read-modify-write of `fields` onto the current record (carries `version`); teardown restores only. */
+export async function updateCrewFields(request: APIRequestContext, id: number, fields: Record<string, unknown>): Promise<void> {
+    const crew = await getCrew(request, id);
+    const { crewCounter: _drop, ...body } = crew;
+    const res = await request.put(`crews/${id}`, {
+        data: { ...body, ...fields },
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok()) {
+        throw new Error(`PUT crews/${id} (${Object.keys(fields).join(', ')}) failed with ${res.status()}: ${(await res.text()).slice(0, 400)}`);
+    }
+}
+
 export async function getCrew(request: APIRequestContext, id: number): Promise<CrewRecord> {
     const res = await request.get(`crews/${id}`);
     if (!res.ok()) {
