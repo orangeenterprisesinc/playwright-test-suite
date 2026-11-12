@@ -271,10 +271,11 @@ export abstract class SetupScreenPage extends BasePage {
         const barWasVisible = await this.unsavedChangesBar.isVisible().catch(() => false);
 
         await this.blurForValidation();
-        await expect(
-            this.saveButton,
-            `Save stayed disabled on ${this.config.entity} ${String(id)} — the form is rejecting a value`,
-        ).toBeEnabled({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
+        // Since web-pet #1631 Save can render disabled on a valid, dirty form (isValid is not recomputed after a Switch
+        // or Select changes), and a click on it validates and then submits. That click lands on its wrapper, as a
+        // person's does; a form that really rejects a value shows its errors and sends no PUT, which fails below.
+        const viaWrapper = !(await this.saveButton.isEnabled());
+        const saveTarget = viaWrapper ? this.saveButton.locator('xpath=..') : this.saveButton;
 
         const committed = this.page
             .waitForResponse(
@@ -285,8 +286,11 @@ export abstract class SetupScreenPage extends BasePage {
             )
             .catch(() => null);
 
-        await this.saveButton.click();
-        await committed;
+        await saveTarget.click();
+        const put = await committed;
+        if (viaWrapper && !put) {
+            throw new Error(`Save on ${this.config.entity} ${String(id)} sent no PUT — the form is rejecting a value`);
+        }
         if (barWasVisible) await expect(this.unsavedChangesBar).toBeHidden({ timeout: SetupScreenPage.SETTLE_TIMEOUT });
 
         // Always re-open: a form left in place re-hydrates asynchronously after the save and wipes whatever

@@ -3,6 +3,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { DataGridComponent } from '../../components/DataGridComponent';
 import { ReportDialog } from './ReportDialog';
+import { collapseRangeOnDay } from './dateRangePopup';
 
 export interface TimeCardQuestionAnswer {
     question: string;
@@ -91,13 +92,7 @@ export class ViewTimeCardsPage extends BasePage {
         const previousMonth = popup.getByRole('button', { name: /go to the previous month/i });
         for (let i = 0; i < 12 && (await dayCell.count()) === 0; i += 1) await previousMonth.click();
         await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
-        await dayCell.first().click();
-
-        // A third click would toggle the range back off, so this reads state rather than clicking blindly.
-        const daySegments = popup.getByRole('textbox', { name: 'Day' });
-        const collapsed = async () =>
-            (await daySegments.nth(0).inputValue()) === String(target.getDate()) && (await daySegments.nth(1).inputValue()) === String(target.getDate());
-        if (!(await collapsed())) await dayCell.first().click();
+        await collapseRangeOnDay(popup, dayCell.first(), target);
         await popup.getByRole('button', { name: /^apply$/i }).click();
 
         // The bar reads "10/13/26 12:00 AM – 10/13/26 11:59 PM" once collapsed; the year may be 2 or 4 digits.
@@ -314,10 +309,13 @@ export class ViewTimeCardsPage extends BasePage {
     toast(text: string): Locator { return this.page.locator('[data-sonner-toast]').filter({ hasText: text }); }
     textOnScreen(text: string): Locator { return this.page.getByText(text); }
 
-    /** Search by ▸ Time Card Crew ▸ Match Contains: the selection that survives leaving the screen (the grid Work Crew chip does not). */
+    /**
+     * Search by ▸ Time Card Crew ▸ Match Like: the selection that survives leaving the screen (the grid Work Crew chip does not).
+     * Like defaults to the legacy "starts with" position since web-pet #1603; the full crew name keeps the selection the same.
+     */
     async scopeToTimeCardCrew(name: string): Promise<void> {
         await this.expandFilter();
-        const want = `Time Card Crew contains "${name}"`;
+        const want = `Time Card Crew starts with "${name}"`;
         const line = this.criterionLine('workCrew');
         if ((await line.count()) > 0 && (await line.innerText()).trim() === want) return;
         await this.page.getByTestId('view-time-cards-criteria-search-by').click();

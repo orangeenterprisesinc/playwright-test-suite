@@ -16,7 +16,8 @@ import { deleteScanDevice } from '../data-factory';
  *                      SELECT 1 FROM Device WHERE Device.DeviceCounter = DeviceCrew.DeviceCounter)
  *
  * Two-step save: General fields (name, deviceType, referencePrefix,
- * connectivityMethod, webMailAddress) are available on the New form.
+ * webMailAddress) are available on the New form. Connectivity Method left the
+ * form in web-pet #1619; the server always stores WebMail (4).
  * Crew assignment and Preferences (barcodeScannerType, cameraPositionIsBack)
  * are only shown after the first save (Edit form), so a second save is needed.
  *
@@ -25,7 +26,6 @@ import { deleteScanDevice } from '../data-factory';
  *   - UseEmployeesAlternateCode: DB column present, no form field
  *   - ExportTraceabilitySetupRecords (DB: ExportTraceabilitySetup): no form field
  *   - DefaultScanMode (DB: DefaultScreenCode): no form field
- *   - DeviceType "Pocket PDA": no such label in web enum; using iPhone (1) as substitute
  *   - AliasSet "iPhone": no AliasSet with that name in DB; left as null
  *   - Crew "Crew 04": no crew named 'Crew 04' in DB; testing with Crew 02 + Crew 03 only
  *
@@ -76,18 +76,13 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         // Name (substituted)
         await form.nameInput.fill(SAFE_NAME);
 
-        // DeviceType — the SelectTrigger has no id; find by position in section#general.
-        // "Pocket PDA" has no exact equivalent; substitute iPhone (1).
-        // section#general has exactly 2 Selects: [0]=deviceType, [1]=connectivityMethod.
+        // DeviceType "Pocket PDA" (0) — the SelectTrigger has no id; [0] in section#general.
+        // web-pet #1619 made Pocket PDA creatable and iPhone (1) not, so the scenario's own type is used.
         await form.generalSelect(0).click();
-        await form.selectOption('1').click();
+        await form.selectOption('0').click();
 
         // ReferencePrefix (substituted — 'D14' already exists in DB)
         await form.referencePrefixInput.fill(SAFE_PREFIX);
-
-        // ConnectivityMethod — "Web" = 4
-        await form.generalSelect(1).click();
-        await form.selectOption('4').click();
 
         // WebMailAddress
         await form.webMailAddressInput.fill(SAFE_WEBMAIL);
@@ -161,9 +156,9 @@ test.describe('Equivalence: scan-device-create-de15-pocket-pda', { tag: ['@WebPe
         // General
         expect(row.name).toBe(SAFE_NAME);
         expect(row.active).toBe(true);
-        expect(row.deviceType).toBe(1);               // iPhone (substitute for Pocket PDA)
+        expect(row.deviceType).toBe(0);               // Pocket PDA
         expect(row.referencePrefix).toBe(SAFE_PREFIX);  // substituted — original was 'D14'
-        expect(row.connectivityMethod).toBe(4);        // Web
+        expect(row.connectivityMethod).toBe(4);        // Web — stored by the server since web-pet #1619
         expect(row.webMailAddress).toBe(SAFE_WEBMAIL);  // substituted — original was 'DE14@silo'
         expect(row.syncFolder ?? null).toBeNull();     // leaveBlank
         expect(row.supervisorCounter ?? null).toBeNull(); // leaveBlank

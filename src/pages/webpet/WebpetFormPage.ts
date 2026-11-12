@@ -308,12 +308,14 @@ export abstract class WebpetFormPage extends BasePage {
     }
 
     /**
-     * Leave a dirty form without saving: click "Discard changes", then "Don't
-     * Save" in the guard.
+     * Leave a dirty form without saving. Since web-pet #1630 "Discard changes" resets the form before it
+     * navigates, so the unsaved-changes guard no longer asks; a guard that still blocks the navigation fails here.
      */
     async discardChanges(): Promise<void> {
+        const formUrl = this.page.url();
         await this.footer.discardChangesButton.click();
-        await this.unsavedChanges.discard();
+        await expect(this.page, 'Discard changes leaves the form without the unsaved-changes guard').not.toHaveURL(formUrl);
+        await expect(this.unsavedChanges.dontSaveButton).toHaveCount(0);
     }
 
 }

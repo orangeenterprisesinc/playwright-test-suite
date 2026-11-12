@@ -5,6 +5,7 @@ import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { ExportSaveDialog } from './ExportSaveDialog';
 import { TestFileSheet } from './TestFileSheet';
 import { ordinal } from './ViewJobCardsPage';
+import { collapseRangeOnDay } from './dateRangePopup';
 
 export type ExportType = 'Payroll' | 'Cost Accounting';
 
@@ -112,12 +113,7 @@ export class ExportToAccountingPage extends BasePage {
         const previousMonth = popup.getByRole('button', { name: /go to the previous month/i });
         for (let i = 0; i < 12 && (await dayCell.count()) === 0; i += 1) await previousMonth.click();
         await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
-        await dayCell.first().click();
-
-        const daySegments = popup.getByRole('textbox', { name: 'Day' });
-        const collapsed = async () =>
-            (await daySegments.nth(0).inputValue()) === String(target.getDate()) && (await daySegments.nth(1).inputValue()) === String(target.getDate());
-        if (!(await collapsed())) await dayCell.first().click();
+        await collapseRangeOnDay(popup, dayCell.first(), target);
         await popup.getByRole('button', { name: /^apply$/i }).click();
         await expect(this.pickPrompt, `the Dates button must leave "Pick a date range" after scoping to ${day}`).toBeHidden({ timeout: 20_000 });
     }
@@ -257,15 +253,19 @@ export class ExportToAccountingPage extends BasePage {
         await this.page.mouse.wheel(0, 2_000);
     }
 
-    /** Visible leaf texts between the step bar and the Candidates section, top-to-bottom then left-to-right. */
+    /**
+     * Visible leaf texts between the top strip (readiness counters + step bar) and the Candidates section, top-to-bottom
+     * then left-to-right. Anchored on the strip, not the step bar: the new shell hides the step bar (`[data-ux='v2']
+     * [data-slot='workflow-spine'] { display: none }`), which left a zero-height anchor above the counters.
+     */
     async labelsUnderStepBar(): Promise<string[]> {
         return this.page.getByTestId('export-v2-page').evaluate((root) => {
-            const spine = root.querySelector('[data-testid="export-v2-spine"]')!.getBoundingClientRect().bottom;
+            const strip = root.querySelector('[data-testid="export-v2-top-strip"]')!.getBoundingClientRect().bottom;
             const grid = root.querySelector('[data-testid="export-v2-grid"]')!.getBoundingClientRect().top;
             return Array.from(root.querySelectorAll<HTMLElement>('*'))
                 .filter((e) => e.children.length === 0 && e.offsetParent !== null && (e.innerText ?? '').trim() !== '')
                 .map((e) => ({ t: e.innerText.trim(), r: e.getBoundingClientRect() }))
-                .filter(({ r }) => r.top >= spine - 1 && r.bottom <= grid + 1)
+                .filter(({ r }) => r.top >= strip - 1 && r.bottom <= grid + 1)
                 .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
                 .map(({ t }) => t);
         });

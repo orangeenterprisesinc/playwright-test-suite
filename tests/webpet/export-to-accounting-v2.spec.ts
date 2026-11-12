@@ -55,7 +55,8 @@ test.describe('Export to Accounting — v2 dispatch workspace', { tag: ['@WebPet
         // readiness counters + the candidates grid. Assert the current chrome.
         await expect(workspace.pageRoot).toBeVisible();
         await expect(workspace.topStrip).toBeVisible();
-        await expect(workspace.spine).toBeVisible();
+        // The new shell hides the step spine by design (web-pet index.css: `[data-ux='v2'] [data-slot='workflow-spine']`).
+        await expect(workspace.spine).toBeHidden();
         await expect(workspace.grid).toBeVisible();
 
         // Pre-analyze: the grid shows its pick-a-date-range empty state.

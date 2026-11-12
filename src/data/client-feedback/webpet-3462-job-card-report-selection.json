@@ -1,5 +1,6 @@
 {
   "_notes": [
+    "web-pet #1603 (11-10): Match Like defaults to the legacy Start position, so the crew line now reads 'Job Card Crew starts with \"9011\"'.",
     "Walked on dev 2026-11-02 (su): Reports > Input > Job Card opens 'Job Card Report Selection' on the current week (11/02/2026 – 11/08/2026), Start time 12:00 AM, End time 11:59 PM; Search by Job Card Crew, Match Contains (Position stays Contains), text 9011 gives 'Date In is between 11/2/2026, 12:00 AM and 11/8/2026, 11:59 PM' and 'Job Card Crew contains \"9011\"'; Execute opens 'Report: All Data — 11/2/2026'; PDF answered 200.",
     "9011 is CF CREW A's code (fixture.json, exists on su), typed as text; nothing is created. Two past days keep the run small. The date line is built in the browser (en-US m/d in Docker, d/m locally); the time pickers and the date chip use a fixed US format."
   ],
@@ -13,7 +14,7 @@
     "endTime": "11:59 PM",
     "buttons": ["Execute", "Load", "Save"],
     "dateLineTemplate": "Date In is between {from} and {to}",
-    "crewLineTemplate": "Job Card Crew contains \"{text}\"",
+    "crewLineTemplate": "Job Card Crew starts with \"{text}\"",
     "dialogTitlePrefix": "Report: All Data — "
   },
   "annotations": [],
