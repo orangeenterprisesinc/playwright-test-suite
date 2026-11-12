@@ -19,6 +19,7 @@ export class ScreenReportSelectionPage extends BasePage {
     readonly searchBy: Locator;
     readonly match: Locator;
     readonly summaryRegion: Locator;
+    readonly breadcrumb: Locator;
     readonly executeButton: Locator;
     readonly saveButton: Locator;
     readonly report: ReportDialog;
@@ -33,6 +34,7 @@ export class ScreenReportSelectionPage extends BasePage {
         this.searchBy = page.getByTestId('screen-report-selection-search-by');
         this.match = page.getByTestId('screen-report-selection-match');
         this.summaryRegion = page.getByRole('region', { name: 'Filter description' });
+        this.breadcrumb = page.getByRole('navigation', { name: /breadcrumb/i });
         this.executeButton = page.getByTestId('screen-report-open');
         this.saveButton = page.getByTestId('screen-report-save');
         this.report = new ReportDialog(page, this.executeButton);
@@ -42,6 +44,15 @@ export class ScreenReportSelectionPage extends BasePage {
     async openFromMenu(): Promise<void> {
         await this.menu.open(this.leaf, this.pageUrl);
         await expect(this.executeButton).toBeVisible({ timeout: 30_000 });
+    }
+
+    /** The trail's labels, split on lines and chevrons so it reads the same whether items are list entries or one text run. */
+    async breadcrumbTrail(): Promise<string[]> {
+        return (await this.breadcrumb.innerText()).split(/[\n›>/]+/).map((t) => t.trim()).filter(Boolean);
+    }
+
+    button(label: string): Locator {
+        return this.page.getByRole('main').getByRole('button', { name: label, exact: true });
     }
 
     from(key: string): Locator {

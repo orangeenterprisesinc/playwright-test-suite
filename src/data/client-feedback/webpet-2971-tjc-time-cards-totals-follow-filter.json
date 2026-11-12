@@ -1,0 +1,30 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -12. Analyze only.",
+    "8 cards: per employee Time In 07:00 CF JOB, Time In 11:00 CF MEAL JOB, Time In back on CF JOB, Time Out. ONE: lunch 30 min, out 15:00; TWO: lunch 60 min, out 16:00, so ONE's figures are strictly below the total.",
+    "su has no Meal Job preference (mealJob null), so '0 - Lunch' was an ordinary job: Net = Gross 17, Meals 0 (measured 2026-11-11). The spec designates CF MEAL JOB (9073) as the Meal Job under the cross-worker meal-job lock (shared with WEBPET-3491) and clears it at the end.",
+    "Figures measured on dev 2026-11-11: all = Gross 17, Net 16 (Meals 1): su caps the meal deduction at 30 min (DefaultUnpaidBreakLength 30 / employeeMealTime 0.5), so CF A TWO's 60-min lunch deducts 0.5 h like CF A ONE's 30-min one; CF A ONE alone = Gross 8, Net 7.5, Meals 0.5."
+  ],
+  "ticket": "WEBPET-2971",
+  "customer": "Anthony",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -12,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "lunch": { "job": "CF MEAL JOB", "at": { "hour": 11, "minute": 0 }, "backAt": { "hour": 11, "minute": 30 } }, "timeOut": { "hour": 15, "minute": 0 } },
+    { "employees": ["two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "lunch": { "job": "CF MEAL JOB", "at": { "hour": 11, "minute": 0 }, "backAt": { "hour": 12, "minute": 0 } }, "timeOut": { "hour": 16, "minute": 0 } }
+  ],
+  "filter": { "label": ": CF A ONE" },
+  "expected": {
+    "analyzed": 8,
+    "labels": ["Gross", "Net", "Meals"],
+    "all": { "Gross": 17, "Net": 16, "Meals": 1 },
+    "filtered": { "Gross": 8, "Net": 7.5, "Meals": 0.5 },
+    "decimals": 2,
+    "allEmployees": "All employees",
+    "ticked": [{ "employee": "one", "kind": "timeIn" }, { "employee": "one", "kind": "timeOut" }],
+    "absentBanner": "still cover the whole transfer"
+  },
+  "annotations": [],
+  "cleanup": []
+}

@@ -7,21 +7,28 @@ const Text = z.string().min(1);
 const Annotation = z.object({ type: Text, description: Text }).strict();
 
 const Clock = z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59) }).strict();
+// A card after midnight of the shift that starts on the step's day (WEBPET-3314's overnight shape); seedCrewDay files it on day + 1.
+const SeedClock = z.object({ hour: z.number().int().min(0).max(23), minute: z.number().int().min(0).max(59), nextDay: z.boolean().optional() }).strict();
+const CfEmployeePieceOut = z.object({ employee: z.enum(['one', 'two']), at: SeedClock, pieces: z.number().int().positive().max(5) }).strict();
 const CfCrew = z.enum(['A', 'B', 'C', 'D']);
 const CfDayOffset = z.number().int().min(-21).max(0); // maximumDaysForTransferExport = 21 on dev
 const CfSeed = z.object({
     employees: z.array(z.enum(['one', 'two'])).min(1),
-    job: z.enum(['hourly', 'piece']).default('hourly'),
+    job: z.enum(['hourly', 'piece', 'paidBreak', 'meal', 'own']).default('hourly'), // 'own' = the job the spec created on screen (run.ownJob)
+    phase: Text.optional(), // a tenant Phase by name instead of run.jobs[job] (WEBPET-3491's '0 - Lunch')
     timeIn: Clock,
-    timeOut: Clock.optional(),
-    pieceOut: z.object({ at: Clock, pieces: z.number().int().positive().max(5) }).strict().optional(), // maximumNumberOfPieces 5 on dev
-    employeePieceOut: z.object({ employee: z.enum(['one', 'two']), at: Clock, pieces: z.number().int().positive().max(5) }).strict().optional(), // Transfer ▸ New record ▸ Add Piece-out
+    timeOut: SeedClock.optional(),
+    pieceOut: z.object({ at: SeedClock, pieces: z.number().int().positive().max(5) }).strict().optional(), // maximumNumberOfPieces 5 on dev
+    lunch: z.object({ job: Text, at: Clock, backAt: Clock }).strict().optional(), // meal punch: Time In on the lunch job, then back on the step's job
+    employeePieceOut: z.union([CfEmployeePieceOut, z.array(CfEmployeePieceOut).min(1)]).optional(), // Transfer ▸ New record ▸ Add Piece-out
 }).strict();
 export type CfSeedSpec = z.infer<typeof CfSeed>;
 // One seed step, or several applied in order (a second employee left open, a second crew-day).
 const CfSeedSteps = z.union([CfSeed, z.array(CfSeed).min(1)]);
 export type CfSeedInput = z.infer<typeof CfSeedSteps>;
 const CfExtraCrew = z.object({ fixtureCrew: CfCrew, dayOffset: CfDayOffset, seed: CfSeedSteps }).strict();
+// A day the scenario claims for isolation and the before-sweep, with nothing seeded on it of its own.
+const CfClaimedDay = z.object({ fixtureCrew: CfCrew, dayOffset: CfDayOffset }).strict();
 const HhMm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 export const ClientFeedbackBase = z.object({
@@ -587,3 +594,182 @@ export const TimeInDateTimeRangeCaseSchema = ClientFeedbackBase.extend({
     expected: z.object({ title: Text, inside: CfWho, insideAt: HhMm, outside: CfWho, maxRows: z.number().int().positive() }).strict(),
 }).strict();
 export type TimeInDateTimeRangeCase = z.infer<typeof TimeInDateTimeRangeCaseSchema>;
+
+// ── Batch 3: Test File content, Time In selection, User alias set, Employee gender (PET-12958 / 3491 / 3781 / 3888 / 3610) ──
+
+export const EtaTestFileLegacyCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12958'),
+    ...TjcScoped,
+    expected: z.object({
+        jobCards: Rows,
+        fileName: Text,
+        recordsWritten: Text,
+        lineLength: Rows,
+        employeeIdColumn: z.object({ start: z.number().int().nonnegative(), length: Rows }).strict(),
+        employees: Rows,
+    }).strict(),
+}).strict();
+export type EtaTestFileLegacyCase = z.infer<typeof EtaTestFileLegacyCaseSchema>;
+
+export const EtaTestFileLunchCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3491'),
+    ...TjcScoped,
+    expected: z.object({
+        jobCards: Rows,
+        correct: Rows,
+        incorrect: z.number().int().min(0),
+        absentException: Text,
+        correctSection: Text,
+        lunchLine: Text,
+        sections: z.array(Text).min(1),
+    }).strict(),
+}).strict();
+export type EtaTestFileLunchCase = z.infer<typeof EtaTestFileLunchCaseSchema>;
+
+export const TimeInReportSelectionCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3781'),
+    expected: z.object({
+        breadcrumb: z.array(Text).length(3),
+        title: Text,
+        searchByPlaceholder: Text,
+        clearAll: Text,
+        noFilters: Text,
+        buttons: SelectionButtons,
+        dialogTitlePrefix: Text,
+    }).strict(),
+}).strict();
+export type TimeInReportSelectionCase = z.infer<typeof TimeInReportSelectionCaseSchema>;
+
+export const UserAliasSetCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3888'),
+    aliasType: Text,
+    expected: z.object({ dialogTitle: Text, aliasFieldColumn: Text, aliasFields: Rows }).strict(),
+}).strict();
+export type UserAliasSetCase = z.infer<typeof UserAliasSetCaseSchema>;
+
+export const EmployeeGenderCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3610'),
+    fixtureCrew: CfCrew,
+    employee: CfWho,
+    pick: Text,
+    expected: z.object({ options: z.array(Text).min(1), absent: Text }).strict(),
+}).strict();
+export type EmployeeGenderCase = z.infer<typeof EmployeeGenderCaseSchema>;
+
+// ── Batch 2: Crew In ALL EMPLOYEES, Break Preparation Job, Setup hub admin cards (3893 / 3941 / 3788) ──
+
+export const TjcCrewInAllEmployeesCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3893'),
+    ...TjcScoped,
+    extraCrews: z.array(CfExtraCrew).length(1),
+    preference: z.object({ section: z.literal('Defaults'), fieldId: Text, label: Text, noneLabel: Text }).strict(),
+    crewIn: z.object({ at: HhMm }).strict(),
+    expected: z.object({
+        employees: z.number().int().positive(),
+        labels: z.array(Text).min(2),
+        rosterStatus: Text,
+        toggleAll: Text,
+        status: Text,
+        errorText: Text,
+        created: z.number().int().positive(),
+    }).strict(),
+}).strict();
+export type TjcCrewInAllEmployeesCase = z.infer<typeof TjcCrewInAllEmployeesCaseSchema>;
+
+const PreviewSegment = z.object({ job: z.enum(['hourly', 'paidBreak', 'breakPrep']), start: HhMm, end: HhMm, minutes: z.number().int().positive() }).strict();
+
+export const TjcBreakPreparationCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3941'),
+    ...TjcScoped,
+    breakPreparation: z.object({ lengthMinutes: z.number().int().positive(), onlyPieceJobs: z.literal(false) }).strict(),
+    expected: z.object({
+        timeCards: z.number().int().positive(),
+        jobCards: z.number().int().positive(),
+        employees: z.number().int().positive(),
+        pieces: z.number().int().nonnegative(),
+        breakPunch: HhMm,
+        totalMinutes: z.number().int().positive(),
+        segments: z.array(PreviewSegment).min(4),
+    }).strict(),
+}).strict();
+export type TjcBreakPreparationCase = z.infer<typeof TjcBreakPreparationCaseSchema>;
+
+const HubCard = z.object({ route: z.string().regex(/^\/setup\//), title: Text }).strict();
+
+export const SetupHubAdminCardsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3788'),
+    hub: Text,
+    hidden: z.array(HubCard).length(2),
+    visible: z.array(HubCard).min(1),
+    deepLinkReason: Text,
+    expected: z.object({ notAuthorized: Text, permissionText: Text, backLink: Text }).strict(),
+}).strict();
+export type SetupHubAdminCardsCase = z.infer<typeof SetupHubAdminCardsCaseSchema>;
+
+// ── Batch 1: Transfer to Job Cards (PET-12959 / 12960 / 12961, WEBPET-2971 / 3314) ──
+
+export const TjcJobCardsFiltersCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12959'),
+    ...TjcScoped,
+    filter: z.object({ label: Text }).strict(),
+    expected: z.object({ analyzed: Rows, jobCardsBefore: Rows, jobCardsAfter: Rows, jobCardsCaption: Text, employeeTail: Text }).strict(),
+}).strict();
+export type TjcJobCardsFiltersCase = z.infer<typeof TjcJobCardsFiltersCaseSchema>;
+
+export const TjcRateFallbackCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12960'),
+    ...TjcScoped,
+    rate: z.object({ employee: CfWho, ifMissing: z.number().positive() }).strict(),
+    expected: z.object({ analyzed: Rows, absentIssue: Text, warnings: z.literal(0), absentStatus: Text, netColumn: Text, amountColumn: Text, employeeTail: Text }).strict(),
+}).strict();
+export type TjcRateFallbackCase = z.infer<typeof TjcRateFallbackCaseSchema>;
+
+const RunEmployee = z.object({ firstName: z.string().min(1).max(20), exportIdentifier: Text }).strict();
+
+export const TjcExportIdOrderCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12961'),
+    ...TjcScoped,
+    // 'one' sorts first as text (38161); 'two' (4243) punches first and would lead under time order or a numeric collator.
+    employees: z.object({ one: RunEmployee, two: RunEmployee }).strict(),
+    expected: z.object({
+        analyzed: Rows,
+        exportIdColumn: Text,
+        labelTemplate: Text,
+        rows: z.array(z.object({ employee: CfWho, time: Text }).strict()).length(4),
+        filterOrder: z.array(CfWho).length(2),
+    }).strict(),
+}).strict();
+export type TjcExportIdOrderCase = z.infer<typeof TjcExportIdOrderCaseSchema>;
+
+const Figures = z.object({ Gross: z.number(), Net: z.number(), Meals: z.number() }).strict();
+
+export const TjcTotalsFollowFilterCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-2971'),
+    ...TjcScoped,
+    filter: z.object({ label: Text }).strict(),
+    expected: z.object({
+        analyzed: Rows,
+        labels: z.array(z.enum(['Gross', 'Net', 'Meals'])).length(3),
+        all: Figures,
+        filtered: Figures,
+        decimals: z.number().int().min(0).max(4),
+        allEmployees: Text,
+        ticked: z.array(z.object({ employee: CfWho, kind: z.enum(['timeIn', 'timeOut']) }).strict()).length(2),
+        absentBanner: Text,
+    }).strict(),
+}).strict();
+export type TjcTotalsFollowFilterCase = z.infer<typeof TjcTotalsFollowFilterCaseSchema>;
+
+export const TjcTwoDayPieceOutsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3314'),
+    ...TjcScoped,
+    extraCrews: z.array(CfClaimedDay).length(1),
+    ownJob: z.object({ noun: z.string().regex(/^[A-Z]+( [A-Z]+)*$/), paymentType: z.literal('TimeAndPiece'), hourlyRate: z.number().positive(), pieceRate: z.number().positive() }).strict(),
+    expected: z.object({ analyzed: Rows, analyzedCaption: Text, ready: Rows, blocking: z.literal(0), warnings: z.literal(0), status: Text, footer: Text }).strict(),
+}).strict().superRefine((s, ctx) => {
+    const [x] = s.extraCrews;
+    if (x.fixtureCrew !== s.fixtureCrew || x.dayOffset !== s.dayOffset + 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['extraCrews', 0], message: 'the overnight day must be the same crew on dayOffset + 1' });
+    }
+});
+export type TjcTwoDayPieceOutsCase = z.infer<typeof TjcTwoDayPieceOutsCaseSchema>;

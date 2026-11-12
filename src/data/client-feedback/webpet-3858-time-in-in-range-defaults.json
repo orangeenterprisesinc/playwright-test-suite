@@ -1,11 +1,12 @@
 {
   "_notes": [
+    "Dev 2026-11-11 (new shell): the screen is /reports/screen/time-in (no Reports hub card, deep link) and the Match option reads 'In-Range' (was 'In range').",
     "Walked on dev 2026-11-02 (su): Reports > Input > Time In, Search by Date In, Match In range fills From '2026-11-02T00:00' and To '2026-11-02T23:59' (datetime-local values, locale-free) and the Filter description reads \"Date In is between '11/2/2026, 12:00 AM' AND '11/2/2026, 11:59 PM'\".",
     "Today and the summary stamps are built in the browser (en-US in Docker, d/m locally)."
   ],
   "ticket": "WEBPET-3858",
   "screen": { "menuPath": ["Reports", "Input", "Time In"], "url": "/reports/screen/time-in" },
-  "criterion": { "field": "Date In", "key": "dateIn", "match": "In range" },
+  "criterion": { "field": "Date In", "key": "dateIn", "match": "In-Range" },
   "expected": {
     "fromTime": "00:00",
     "toTime": "23:59",

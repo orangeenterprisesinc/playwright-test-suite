@@ -166,8 +166,60 @@
                 "regression"
             ],
             "jira": "WEBPET-3314",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12959",
+            "category": "ui",
+            "testName": "cf12959OnTransferToJobCardsTheWorkCrew",
+            "testTitle": "On Transfer to Job Cards the Work Crew and Employee filters stay visible and work on the Job Cards tab",
+            "testDescription": "Client feedback: On Transfer to Job Cards the Work Crew and Employee filters stay visible and work on the Job Cards tab. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12959",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12960",
+            "category": "ui",
+            "testName": "cf12960TransferToJobCardsUsesLegacysRateLookup",
+            "testTitle": "Transfer to Job Cards uses legacy's rate lookup, so a card on a job with no hourly rate raises no 'No hourly rate available' warning when the employee has a rate",
+            "testDescription": "Client feedback: Transfer to Job Cards uses legacy's rate lookup, so a card on a job with no hourly rate raises no 'No hourly rate available' warning when the employee has a rate. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12960",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12961",
+            "category": "ui",
+            "testName": "cf12961TheTransferToJobCardsGridIsSorted",
+            "testTitle": "The Transfer to Job Cards grid is sorted by Export ID by default, then by date and time, like legacy and the Employee dropdown",
+            "testDescription": "Client feedback: The Transfer to Job Cards grid is sorted by Export ID by default, then by date and time, like legacy and the Employee dropdown. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12961",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-2971",
+            "category": "ui",
+            "testName": "cf2971OnTransferToJobCardsTheTimeCards",
+            "testTitle": "On Transfer to Job Cards the Time Cards tab totals (Gross, Net, Meals) follow the Work Crew / Employee filter instead of covering the whole transfer",
+            "testDescription": "Client feedback: On Transfer to Job Cards the Time Cards tab totals (Gross, Net, Meals) follow the Work Crew / Employee filter instead of covering the whole transfer. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-2971",
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3462",
@@ -231,8 +283,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3781",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3819",
@@ -667,14 +719,14 @@
             "id": "WEBPET-3893",
             "category": "ui",
             "testName": "cf3893CrewInWithCrewAllEmployeesLists",
-            "testTitle": "Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves",
-            "testDescription": "Client feedback: Crew In with Crew = ALL EMPLOYEES lists every employee, all ticked, and saves. Steps and expected result: Client Feedback Happy Path tab.",
+            "testTitle": "Crew In with Crew = ALL EMPLOYEES lists every timed-in employee, all ticked, and saves",
+            "testDescription": "Client feedback: Crew In with Crew = ALL EMPLOYEES (the crew Preferences > Defaults names) lists every timed-in employee, all ticked, and saves. Steps and expected result: Client Feedback Happy Path tab.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3893",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3895",
@@ -738,6 +790,32 @@
                 "regression"
             ],
             "jira": "WEBPET-3931",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12958",
+            "category": "ui",
+            "testName": "cf12958ThePayrollTestFileDownloadMatchesLegacy",
+            "testTitle": "The Payroll Test File download matches legacy: file name, extension and CRLF line endings",
+            "testDescription": "Client feedback: The Payroll Test File download matches legacy: file name, extension and CRLF line endings. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12958",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-3491",
+            "category": "ui",
+            "testName": "cf3491ThePayrollTestFileAnalyzeLogCounts",
+            "testTitle": "The Payroll Test File analyze log counts a zero-net lunch card as correct and shows the Totals section",
+            "testDescription": "Client feedback: The Payroll Test File analyze log counts a zero-net lunch card as correct and shows the Totals section. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3491",
             "status": "automated",
             "enabled": true
         },
@@ -881,8 +959,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3610",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3164",
@@ -979,14 +1057,14 @@
             "id": "WEBPET-3788",
             "category": "ui",
             "testName": "cf3788AUserWhoIsNeitherSuperUser",
-            "testTitle": "A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Adminis",
-            "testDescription": "Client feedback: A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier under File > Administration > Setup. Steps and expected result: Client Feedback Happy Path tab.",
+            "testTitle": "A Clerk (neither super user nor Administrator) does not see Alias Field or Mobile Phone Carrier on the Setup hub and is not authorized on their pages",
+            "testDescription": "Client feedback: A user who is neither super user nor Administrator does not see Alias Field or Mobile Phone Carrier on the Setup hub (new shell; was File > Administration > Setup) and is not authorized on their pages. Steps and expected result: Client Feedback Happy Path tab.",
             "tags": [
                 "regression"
             ],
             "jira": "WEBPET-3788",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3789",
@@ -1011,8 +1089,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3888",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3932",
@@ -1115,6 +1193,19 @@
                 "regression"
             ],
             "jira": "PET-12942",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-3941",
+            "category": "ui",
+            "testName": "cf3941TransferInsertsBreakPreparationJob",
+            "testTitle": "Transfer inserts the crew's Break Preparation Job before a paid break, as legacy does",
+            "testDescription": "Client feedback: Transfer inserts the crew's Break Preparation Job before a paid break, as legacy does. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3941",
             "status": "automated",
             "enabled": true
         }

@@ -46,6 +46,20 @@ export class LeftNavigationPage extends BasePage {
         this.welcomeBack = page.getByRole('link', { name: 'Home', exact: true }).first();
     }
 
+    /** Sidebar link → its hub page; the hub's cards are then reachable by hubCard(route). */
+    async openHub(group: string): Promise<void> {
+        const hubRoute = SHELL.sidebar[group];
+        if (!hubRoute) throw new Error(`openHub: '${group}' is not a sidebar hub in shell/navigation.json`);
+        await this.openApp();
+        await this.sidebarLink(group).click();
+        await this.page.waitForURL(new RegExp(`${hubRoute.replace(/\//g, '\\/')}(\\?|$)`), { timeout: 30_000 });
+    }
+
+    /** Text of the in-place "Not authorized" page; heading vs paragraph is unmeasured, so matched by text. */
+    notAuthorized(text: string): Locator {
+        return this.page.getByText(text, { exact: true });
+    }
+
     /** A sidebar hub link ("Setup", "Admin"), matched exactly: the hub page repeats the name as a heading, not a link. */
     sidebarLink(group: string): Locator {
         return this.page.getByRole('link', { name: group, exact: true }).first();

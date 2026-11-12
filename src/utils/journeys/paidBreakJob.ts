@@ -8,7 +8,7 @@ import { currentScope, type ScopeRegistration } from '@utils/cleanup/cleanupScop
 import { acquirePaidBreakJobLock, withPreferencesLock } from '@utils/sync/preferencesLock';
 
 // A designation another person made (not a B/D suite job) is never overwritten; suite residue is.
-const SUITE_JOB = /^[BD]\d{1,2} /;
+const SUITE_JOB = /^(?:[BD]\d{1,2}|CF) /;
 
 export interface PaidBreakDesignation {
     /** Clears the designation and frees the lock; idempotent. `api` is the scope's untraced context when called from teardown. */

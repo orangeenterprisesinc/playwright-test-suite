@@ -1,0 +1,34 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A and CF CREW D both own day -20 (two crews, one day). Seed = 07:00 Time In on CF JOB for ONE and TWO of each crew, no Time Out: 4 open Time Ins.",
+    "ALL EMPLOYEES is not a crew name: it is the crew Preferences > Defaults > 'Crew of All the Employees Currently on the Job' (crewEmpCurrentOnJob) points at. su has it unset; the spec points it at CF ALL EMPLOYEES (9061, no members) on screen and sets it back to '— None —' on screen.",
+    "The roster lists employees with an open Time In on the day on any crew, limited to the analyzed Transfer grid (limitEmployeeIds), so the grid (A + D) is analyzed first and its footer Employees count is N.",
+    "Use Employee Crew and Based on Later are unticked (3575 path): CF ALL EMPLOYEES has no home members; the 07:00 cards give the new Time Ins their Job, Ranch and Field.",
+    "Amy 2026-10-27 (client 3): footer Employees 46 -> 'Created 46 Time-In records.', no 'employeeIds: Select at least 1'."
+  ],
+  "ticket": "WEBPET-3893",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -20,
+  "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } },
+  "extraCrews": [
+    { "fixtureCrew": "D", "dayOffset": -20, "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } } }
+  ],
+  "preference": { "section": "Defaults", "fieldId": "crewEmpCurrentOnJob", "label": "Crew of All the Employees Currently on the Job", "noneLabel": "— None —" },
+  "crewIn": { "at": "08:30" },
+  "expected": {
+    "employees": 4,
+    "labels": [": CF A ONE", ": CF A TWO", ": CF D ONE", ": CF D TWO"],
+    "rosterStatus": "4 of 4 selected",
+    "toggleAll": "Deselect All",
+    "status": "Created 4 Time-In records.",
+    "errorText": "Select at least 1",
+    "created": 4
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Tenant-wide roster size (Amy's 46 on client 3): the roster is limited to the analyzed grid, so the run proves it with 4 employees on two home crews." }
+  ],
+  "cleanup": [
+    { "kind": "unremovable", "entity": "crewEmpCurrentOnJob", "reason": "Tenant preference: restored on screen to '— None —' as the last step; teardown PUT {crewEmpCurrentOnJob: 0} only when the on-screen restore did not run." }
+  ]
+}

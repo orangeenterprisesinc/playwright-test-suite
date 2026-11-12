@@ -23,6 +23,8 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { SetupScreenPage } from '../SetupScreenPage';
 import { randomInitials } from '../../data/generated';
+import { PickerComponent } from '../../components/PickerComponent';
+import { AliasSetDialog } from './AliasSetDialog';
 
 /** Values used to fill the New User form. */
 export interface NewUserData {
@@ -72,6 +74,12 @@ export class UsersPage extends SetupScreenPage {
     readonly middleNameInput: Locator;
     readonly lastNameInput: Locator;
     readonly titleInput: Locator;
+    readonly shortcutCombobox: Locator;
+    readonly aliasSetCombobox: Locator;
+    readonly addAliasSetButton: Locator;
+    readonly editAliasSetButton: Locator;
+    readonly aliasSetDialog: AliasSetDialog;
+    private readonly pickers: PickerComponent;
 
     /** "Already in use" message shown under a duplicate Initials value. */
     readonly initialsAlreadyInUseError: Locator;
@@ -109,6 +117,14 @@ export class UsersPage extends SetupScreenPage {
         // and the generic rejection message; this is the Users-specific alias.
         this.initialsAlreadyInUseError = this.rejectionMessage;
         this.userCreatedToast = page.getByText('User created');
+
+        // Form — Shortcut and Alias Set (WEBPET-3888)
+        this.shortcutCombobox = page.getByRole('combobox', { name: 'Shortcut' });
+        this.aliasSetCombobox = page.getByRole('combobox', { name: 'Alias Set' });
+        this.addAliasSetButton = page.getByRole('button', { name: 'Add Alias Set' });
+        this.editAliasSetButton = page.getByRole('button', { name: 'Edit Alias Set' });
+        this.aliasSetDialog = new AliasSetDialog(page);
+        this.pickers = new PickerComponent(page);
     }
 
     /** The form is interactive once Name has rendered. */
@@ -218,6 +234,45 @@ export class UsersPage extends SetupScreenPage {
             if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
             await expect(toggle).toHaveAttribute('aria-checked', 'true');
         }
+    }
+
+    // ── Shortcut and Alias Set (WEBPET-3888) ────────────────────────
+
+    /** The Shortcut options as offered (a typeable combobox), then closed again. */
+    async shortcutOptions(): Promise<string[]> {
+        await this.shortcutCombobox.click();
+        const listbox = await this.pickers.listboxOf(this.shortcutCombobox);
+        await listbox.waitFor({ state: 'visible', timeout: 15_000 });
+        const texts = (await listbox.getByRole('option').allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        await expect(listbox).toBeHidden({ timeout: 15_000 });
+        return texts;
+    }
+
+    async pickShortcut(label: string): Promise<void> {
+        await this.pickers.pickCombobox(this.shortcutCombobox, label);
+    }
+
+    /** What a combobox shows: the input's value, or the trigger's text. */
+    async comboValue(control: Locator): Promise<string> {
+        return control.evaluate((el) => (el instanceof HTMLInputElement ? el.value : (el.textContent ?? '')).trim());
+    }
+
+    /** Double-clicking the Alias Set field opens the "Add Alias Set" form. */
+    async openNewAliasSetByDoubleClick(): Promise<void> {
+        await this.aliasSetCombobox.dblclick();
+        await expect(this.aliasSetDialog.root).toBeVisible({ timeout: 15_000 });
+    }
+
+    /** A dirty form's Cancel reads "Discard changes" and raises "Save changes before leaving?"; Don't Save returns to the list. */
+    async leaveWithoutSaving(): Promise<void> {
+        await this.page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+        // Discard sometimes asks "Save changes before leaving?" and sometimes leaves at once (dev 2026-11-12).
+        const dontSave = this.page.getByRole('alertdialog', { name: 'Save changes before leaving?' }).getByRole('button', { name: "Don't Save", exact: true });
+        const onList = (url: URL): boolean => url.pathname === '/settings/users';
+        await expect(dontSave.or(this.page.getByRole('heading', { name: 'Users', exact: true }))).toBeVisible({ timeout: 15_000 });
+        if (await dontSave.isVisible()) await dontSave.click();
+        await this.page.waitForURL(onList, { timeout: 15_000 });
     }
 
     /** Pick an "Access to Reverse" option ('All' | 'None' | 'User'). */
