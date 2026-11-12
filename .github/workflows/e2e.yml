@@ -186,7 +186,9 @@ jobs:
       PW_GLOBAL_TIMEOUT_MS: '5100000'
       # A variable, not a secret: Actions masks every occurrence of a secret's value, and 'su'
       # mangled the whole log. The default is required — envLoader treats '' as set.
-      USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}
+      # Journey + CF log in as the non-super "QA Automation" (client 1); E2E_ADMIN_USER stays the super user
+      # for WebPet and cleanup. Both share the DEV_PASSWORD secret.
+      USER_NAME: ${{ vars.DEV_AUTOMATION_USER || 'QA Automation' }}
       # No fallback on purpose: a stale PASSWORD secret once logged in to the wrong environment.
       PASSWORD: ${{ secrets.DEV_PASSWORD }}
       E2E_ADMIN_USER: ${{ vars.DEV_USER_NAME || 'su' }}
@@ -242,7 +244,7 @@ jobs:
       - name: "Guard: login password secret present"
         run: |
           if [ -z "$PASSWORD" ]; then
-            echo "::error::No login password configured — add a DEV_PASSWORD repository secret holding the dev-staging 'su' password. Settings > Secrets and variables > Actions."
+            echo "::error::No login password configured — add a DEV_PASSWORD repository secret holding the dev-staging automation password. Settings > Secrets and variables > Actions."
             exit 1
           fi
 

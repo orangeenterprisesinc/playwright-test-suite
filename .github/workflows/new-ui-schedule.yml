@@ -1,7 +1,7 @@
 name: New UI schedule
 
-# GitHub fires `schedule` only from main. This only starts feat/new-shell's own E2E workflow on that branch,
-# so the new-UI run uses that branch's workflow and test code; main carries no new-UI test code.
+# A second daily run of main's E2E workflow (main has run the new UI since #159 merged feat/new-shell, 2026-11-11).
+# It dispatches rather than declaring a second cron in e2e.yml, so the 16:00 IST run keeps its own entry.
 on:
   schedule:
     - cron: '28 5 * * *'   # 11:00 IST
@@ -14,7 +14,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-24.04
     steps:
-      - name: Run E2E on feat/new-shell (journey, client feedback, WebPet)
-        run: gh workflow run e2e.yml --repo "$GITHUB_REPOSITORY" --ref feat/new-shell -f suite=both
+      - name: Run E2E on main (journey, client feedback, WebPet)
+        run: gh workflow run e2e.yml --repo "$GITHUB_REPOSITORY" --ref main -f suite=both
         env:
           GH_TOKEN: ${{ github.token }}
