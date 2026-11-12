@@ -41,6 +41,6 @@
         "runCreatedToast": "Export run created",
         "nothingToExport": "Nothing to export"
     },
-    "reverse": { "type": "Payroll", "performedBy": "PET Tiger Support", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
+    "reverse": { "type": "Payroll", "performedBy": "QA Automation", "prompt": "This will flip {n} Job Card(s) back to not-exported", "confirmButton": "Reverse run" },
     "cleanup": [{ "kind": "timeCards", "employeeCodes": ["8017"], "dayOffset": -15, "cardTypes": [0, 1] }]
 }

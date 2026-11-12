@@ -17,7 +17,7 @@
     "bulkToast": "Records deleted",
     "recordType": "Crop",
     "field": "deleted",
-    "performedBy": "PET Tiger Support",
+    "performedBy": "QA Automation",
     "undoDialogText": "This restores 3 record(s)",
     "undoneToast": "Bulk update undone.",
     "statusBefore": "Active",

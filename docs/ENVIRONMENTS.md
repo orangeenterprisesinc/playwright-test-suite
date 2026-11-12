@@ -23,8 +23,14 @@ Because of (1), CI can inject `BASE_URL` / `USER_NAME` / `PASSWORD` without
 touching the committed files. Note the empty-string trap: envLoader only defers to
 a file value when the OS variable is **undefined**, not when it is `''` — GitHub
 Actions exports a job-level `env:` key even when its expression resolves empty,
-which is why `e2e.yml` sets `USER_NAME: ${{ vars.DEV_USER_NAME || 'su' }}` with a
+which is why `e2e.yml` sets `USER_NAME: ${{ vars.DEV_AUTOMATION_USER || 'QA Automation' }}` with a
 literal default rather than relying on `.env.dev`.
+
+**Two identities on dev client 1 (since 2026-11-12).** Journey and Client Feedback log in as
+`QA Automation`, a non-super Administrator (users row 1879) whose rights were copied from the `Su` row.
+The super user `Automation su` (`E2E_ADMIN_USER`) stays for the WebPet suite and the run-start/run-end
+cleanup. A super user acts as the shared, write-protected "PET Tiger Support" row (web-pet #1580/#1589),
+so test runs no longer share that row's per-user state. Both use the `DEV_PASSWORD` secret.
 
 Sensitive values may be stored as `ENC(...)` ciphertext in any of these files; see
 [STRUCTURE.md § Secrets](STRUCTURE.md#secrets) and
@@ -86,7 +92,8 @@ Only relevant to the opt-in `webpet` project (see
   those calls go through the Vite proxy exactly as they do in the source repo —
   adding it breaks parity with the frozen 362-pass baseline.
 - **`E2E_ADMIN_USER` / `E2E_ADMIN_PASSWORD`** — the source repo's own variables,
-  read by `tests/webpet/support/provision.ts` and `notifications.spec.ts`. They win
+  read by `tests/webpet/support/provision.ts`, `notifications.spec.ts` and the cleanup login
+  (`createLoginRequestContext`). On dev this is the super user `Automation su`. They win
   over `USER_NAME`/`PASSWORD` when set; see
   [src/config/webpetEnv.ts](../src/config/webpetEnv.ts) for the fallback chain.
   Absent on dev by design, so a dev run reuses the framework credentials rather
