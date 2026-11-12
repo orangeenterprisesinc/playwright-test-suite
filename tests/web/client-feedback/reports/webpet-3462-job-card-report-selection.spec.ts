@@ -33,7 +33,7 @@ test.describe('WEBPET-3462 · Reports Input Job Card: selection and Execute', { 
             to: await jc.stamp(to, s.range.end),
         });
 
-        // 3. Search by Job Card Crew, Match Contains, the CF crew's code.
+        // 3. Search by Job Card Crew, Match Like, the CF crew's code.
         const code = cfCrewCode(s.fixtureCrew);
         await jc.crewContains(code);
 

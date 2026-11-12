@@ -91,8 +91,7 @@ test.describe('New crop form', { tag: ['@WebPet', '@wp-setup', '@wp-crop', '@WPB
         const form = pages.cropForm;
         await form.gotoNew();
         await form.nameInput.fill('ShouldNotBeSaved');
-        // Once dirty, FormFooter relabels "Cancel" → "Discard changes"; clicking it
-        // triggers the UnsavedChangesModal guard, and "Don't Save" abandons edits.
+        // Once dirty, FormFooter relabels "Cancel" → "Discard changes", which leaves without the unsaved-changes guard (web-pet #1630).
         await form.discardChanges();
         await page.waitForURL('**/setup/crops');
         // List page is now DataGrid (role=grid); no <td> elements.

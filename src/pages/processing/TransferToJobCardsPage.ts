@@ -4,7 +4,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { WebpetMultiEditDialogComponent } from '../../components/webpet/WebpetMultiEditDialogComponent';
 import { DataGridComponent } from '../../components/DataGridComponent';
-import { pickRangeInPopup, usDate } from './dateRangePopup';
+import { collapseRangeOnDay, pickRangeInPopup, usDate } from './dateRangePopup';
 import { ReportDialog } from './ReportDialog';
 import { PdfViewerDialog } from '../reports/PdfViewerDialog';
 
@@ -407,20 +407,7 @@ export class TransferToJobCardsPage extends BasePage {
                 await prevMonthButton.click();
             }
             await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
-            await dayCell.first().click();
-
-            // Confirm both ends of the range collapsed onto the target day —
-            // a stale range (e.g. a multi-day preset applied by an earlier
-            // test) can need a second click to close onto a single day.
-            // Clicking a third time would toggle it back off, so this reads
-            // state rather than clicking blindly.
-            const daySegments = popup.getByRole('textbox', { name: 'Day' });
-            const collapsed = async () =>
-                (await daySegments.nth(0).inputValue()) === String(date.getDate()) &&
-                (await daySegments.nth(1).inputValue()) === String(date.getDate());
-            if (!(await collapsed())) {
-                await dayCell.first().click();
-            }
+            await collapseRangeOnDay(popup, dayCell.first(), date);
         }
         await this.page.getByRole('button', { name: /^apply$/i }).click();
 
@@ -1654,8 +1641,13 @@ export class TransferToJobCardsPage extends BasePage {
         return out;
     }
 
-    usDay(day: string): string {
-        return usDate(day);
+    /** Each loaded row's Date cell as `YYYY-MM-DD`. The cell is month-first and no longer zero-padded on the new shell (`11/2/2026`). */
+    async candidateDays(): Promise<string[]> {
+        return (await this.candidateDates()).map((text) => {
+            const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text.trim());
+            if (!m) throw new Error(`Transfer row date '${text}' is not M/D/YYYY`);
+            return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+        });
     }
 
     // ── Client feedback: grid filters, status pills, Single select, issue click (WEBPET-3433/3834/2986/3831) ──
