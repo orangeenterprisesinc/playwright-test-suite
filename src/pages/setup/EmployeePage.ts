@@ -313,13 +313,16 @@ export class EmployeePage extends SetupScreenPage {
         return Object.fromEntries(rows);
     }
 
-    /** Code Badge History rows as the editable inputs hold them. Read-only: never Save, leave through Cancel/back. */
+    /**
+     * Code Badge History rows. Read-only: never Save, leave through Cancel/back. Rows are editable inputs only for a
+     * super user (legacy parity, WEBPET-3764); anyone else gets plain cells, where a missing Start Date/Time shows "—".
+     */
     async readCodeHistory(): Promise<CodeHistoryRow[]> {
         const section = this.codeHistorySection;
         await expect(section, 'the employee form has no Code Badge History section').toBeVisible({ timeout: 30_000 });
         const empty = section.getByText('No code history records.');
-        // `has` is resolved inside each row, so it must not be rooted at `section` (that matched no row at all).
-        const rows = section.getByRole('row').filter({ has: this.page.getByRole('textbox', { name: 'Alternate Code', exact: true }) });
+        // Data rows carry cells; the header row only column headers. `has` is resolved inside each row.
+        const rows = section.getByRole('row').filter({ has: this.page.getByRole('cell') });
         await expect(empty.or(rows.first()), 'Code Badge History shows neither rows nor "No code history records."').toBeVisible({ timeout: 30_000 });
         if (await empty.isVisible()) return [];
         const total = Number(/(\d+)/.exec((await section.getByTestId('code-history-count').innerText()) ?? '')?.[1] ?? NaN);
@@ -328,12 +331,18 @@ export class EmployeePage extends SetupScreenPage {
         const out: CodeHistoryRow[] = [];
         for (let i = 0; i < count; i += 1) {
             const row = rows.nth(i);
-            out.push({
-                alternateCode: await row.getByRole('textbox', { name: 'Alternate Code', exact: true }).inputValue(),
-                firstCode: await row.getByRole('textbox', { name: 'First Code', exact: true }).inputValue(),
-                codeType: (((await row.getByRole('combobox').first().textContent()) ?? '')).trim(),
-                startDateTime: await row.getByLabel('Start Date/Time').inputValue(),
-            });
+            const alternateCode = row.getByRole('textbox', { name: 'Alternate Code', exact: true });
+            if ((await alternateCode.count()) > 0) {
+                out.push({
+                    alternateCode: await alternateCode.inputValue(),
+                    firstCode: await row.getByRole('textbox', { name: 'First Code', exact: true }).inputValue(),
+                    codeType: ((await row.getByRole('combobox').first().textContent()) ?? '').trim(),
+                    startDateTime: await row.getByLabel('Start Date/Time').inputValue(),
+                });
+                continue;
+            }
+            const [alt, first, type, start] = (await row.getByRole('cell').allInnerTexts()).map((t) => t.trim());
+            out.push({ alternateCode: alt, firstCode: first, codeType: type, startDateTime: start === '—' ? '' : start });
         }
         return out;
     }

@@ -44,7 +44,7 @@
     },
     "reverse": {
         "type": "Payroll",
-        "performedBy": "PET Tiger Support",
+        "performedBy": "QA Automation",
         "prompt": "This will flip {n} Job Card(s) back to not-exported",
         "confirmButton": "Reverse run"
     },
