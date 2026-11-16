@@ -3,7 +3,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { ReportDialog, type ReportOutput } from './ReportDialog';
 import { TestFileSheet } from './TestFileSheet';
-import { pickRangeInPopup, usDate } from './dateRangePopup';
+import { collapseRangeOnDay, pickRangeInPopup, usDate } from './dateRangePopup';
 
 /** The Totals bar, read by label. Numbers are NaN while a value is empty. */
 export interface JobCardTotals {
@@ -134,13 +134,7 @@ export class ViewJobCardsPage extends BasePage {
         const previousMonth = popup.getByRole('button', { name: /go to the previous month/i });
         for (let i = 0; i < 12 && (await dayCell.count()) === 0; i += 1) await previousMonth.click();
         await dayCell.first().waitFor({ state: 'visible', timeout: 10_000 });
-        await dayCell.first().click();
-
-        // A third click would toggle the range back off, so this reads state rather than clicking blindly.
-        const daySegments = popup.getByRole('textbox', { name: 'Day' });
-        const collapsed = async () =>
-            (await daySegments.nth(0).inputValue()) === String(target.getDate()) && (await daySegments.nth(1).inputValue()) === String(target.getDate());
-        if (!(await collapsed())) await dayCell.first().click();
+        await collapseRangeOnDay(popup, dayCell.first(), target);
         await popup.getByRole('button', { name: /^apply$/i }).click();
 
         const end = `${month}/${date}/${year}`;

@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 
 const ordinal = (n: number): string => {
     if (n % 10 === 1 && n % 100 !== 11) return 'st';
@@ -98,4 +98,28 @@ export async function pickRangeInPopup(popup: Locator, from: string, to: string)
                 'refusing a third click, which would toggle the range.',
         );
     }
+}
+
+/**
+ * Make the open range popup read `target` at both ends, clicking its day cell only as often as needed. Apply is the caller's.
+ *
+ * The popup toggles: a click on a day that is already the whole range resets it to today. So the Month/Day segments are
+ * read before any click (a popup reopened on the same day needs none), and after a click the segments are given time to
+ * change before deciding on a second one — read too early they still hold the old range (B7/E10/CF 3830, 11-12 nightly).
+ */
+export async function collapseRangeOnDay(popup: Locator, dayCell: Locator, target: Date): Promise<void> {
+    const months = popup.getByRole('textbox', { name: 'Month' });
+    const days = popup.getByRole('textbox', { name: 'Day' });
+    const read = async (): Promise<string> =>
+        `${Number(await months.nth(0).inputValue())}/${Number(await days.nth(0).inputValue())} – ${Number(await months.nth(1).inputValue())}/${Number(await days.nth(1).inputValue())}`;
+    const one = `${target.getMonth() + 1}/${target.getDate()}`;
+    const want = `${one} – ${one}`;
+
+    const before = await read();
+    if (before === want) return;
+    await dayCell.click();
+    await expect.poll(read, { message: `the date popup still read ${before} after clicking ${one}` }).not.toBe(before);
+    if ((await read()) === want) return;
+    await dayCell.click();
+    await expect.poll(read, { message: `the date popup did not collapse onto ${one}` }).toBe(want);
 }

@@ -152,9 +152,7 @@ test.describe('New employee form', { tag: ['@WebPet', '@wp-setup', '@wp-employee
         const form = pages.employeeForm;
         await form.gotoNew();
         await form.nameInput.fill('ShouldNotBeSaved');
-        // Once the form is dirty the footer's cancel button relabels to "Discard
-        // changes"; clicking it triggers the UnsavedChangesModal navigation guard,
-        // and "Don't Save" abandons edits and proceeds to the list.
+        // Once dirty, FormFooter relabels "Cancel" → "Discard changes", which leaves without the unsaved-changes guard (web-pet #1630).
         await form.discardChanges();
         await page.waitForURL('**/setup/employees');
         // List page is now DataGrid (role=grid); no <td> elements.

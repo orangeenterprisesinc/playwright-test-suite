@@ -16,7 +16,6 @@ import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /** Only the pocket-class type gets a Crew section; immutable after create. 18 is "IrisID IT100". */
 export const DEVICE_TYPE = { generic: '0', irisId: '18' } as const;
-export const CONNECTIVITY_METHOD = { web: '4' } as const;
 
 /** `savedToast` is verified on dev; the rest are sourced from the B15 recording only. */
 export const SCAN_DEVICE_STRINGS = {
@@ -144,7 +143,7 @@ export class ScanDevicePage extends BasePage {
         await this.page.reload({ waitUntil: 'domcontentloaded' });
     }
 
-    /** General Selects carry no ids: [0] = Device Type, [1] = Connectivity Method. */
+    /** General Selects carry no ids: [0] = Device Type. Connectivity Method left the form in web-pet #1619 (the server always stores WebMail). */
     generalSelect(index: number): Locator {
         return this.generalSection.locator('[data-slot="select-trigger"]').nth(index);
     }
@@ -176,9 +175,6 @@ export class ScanDevicePage extends BasePage {
         await this.selectOption(deviceType).click();
 
         await this.referencePrefixInput.fill(general.referencePrefix);
-
-        await this.generalSelect(1).click();
-        await this.selectOption(CONNECTIVITY_METHOD.web).click();
 
         await this.webMailAddressInput.fill(general.webMailAddress);
 

@@ -212,7 +212,7 @@ jobs:
       IMPORT_STALL_MS: '480000'
       # Stop a leg once a dev-wide outage has failed this many tests. Repo variables JOURNEY_MAX_FAILURES / CF_MAX_FAILURES
       # change it without a PR; webpet has no limit.
-      MAX_FAILURES: ${{ matrix.suite == 'journey' && (vars.JOURNEY_MAX_FAILURES || '15') || matrix.suite == 'client-feedback' && (vars.CF_MAX_FAILURES || '15') || '' }}
+      MAX_FAILURES: ${{ matrix.suite == 'journey' && (vars.JOURNEY_MAX_FAILURES || '25') || matrix.suite == 'client-feedback' && (vars.CF_MAX_FAILURES || '25') || '' }}
       # OFFICE_TRANSPORT_SUBSTITUTE stays unset: it would turn a broken import green.
       # Email reporting is off (Slack is primary), but SMTP_* / EMAIL_* also feed UI-005
       # (tests/web/system/notification-email.spec.ts), so the secrets stay.

@@ -54,10 +54,12 @@ export class JobGroupFormPage extends WebpetFormPage {
      *
      * The picker is the same portaled combobox `ParentPickerComponent` drives,
      * so the popup is page-scoped, not inside {@link jobsSection}. Add stays
-     * disabled until an option is chosen, hence the ordering.
+     * disabled until an option is chosen, hence the ordering. The name is typed first because the picker mounts at
+     * most 100 options for an unfiltered query (web-pet `AssignmentTab` ADD_PICKER_LIMIT) and dev has more jobs.
      */
     async addJob(name: string): Promise<void> {
         await this.addJobInput.click();
+        await this.addJobInput.fill(name);
         const popup = this.page.locator('[data-slot="combobox-popup"]');
         await expect(popup).toBeVisible();
         await popup.locator('[data-slot="combobox-item"]', { hasText: name }).first().click();

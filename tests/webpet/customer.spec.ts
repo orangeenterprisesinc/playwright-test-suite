@@ -111,8 +111,7 @@ test.describe('New customer form', { tag: ['@WebPet', '@wp-setup', '@wp-customer
         const form = pages.customerForm;
         await form.gotoNew();
         await form.nameInput.fill('ShouldNotBeSaved');
-        // Once dirty, FormFooter relabels "Cancel" → "Discard changes"; "Don't Save"
-        // in the UnsavedChangesModal abandons edits.
+        // Once dirty, FormFooter relabels "Cancel" → "Discard changes", which leaves without the unsaved-changes guard (web-pet #1630).
         await form.discardChanges();
         await page.waitForURL('**/setup/customers');
         // List page is now DataGrid (role=grid); no <td> elements.

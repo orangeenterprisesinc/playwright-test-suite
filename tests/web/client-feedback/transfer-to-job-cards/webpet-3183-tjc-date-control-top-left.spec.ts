@@ -42,6 +42,6 @@ test.describe('WEBPET-3183 · Transfer to Job Cards: date range picker top-left'
         await expect(await tjc.gridFilterControls(s.expected.dateColumn), 'the date column has no range filter').toHaveCount(0);
 
         // 6. Every loaded row is on the picked day.
-        expect(await tjc.candidateDates(), 'every loaded row is on the picked day').toEqual(Array(seed.timeCardCounters.length).fill(tjc.usDay(run.day)));
+        expect(await tjc.candidateDays(), 'every loaded row is on the picked day').toEqual(Array(seed.timeCardCounters.length).fill(run.day));
     });
 });

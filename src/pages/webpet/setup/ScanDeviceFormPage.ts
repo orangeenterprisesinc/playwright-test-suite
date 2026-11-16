@@ -14,7 +14,7 @@
  * ## Four option-locating quirks, all load-bearing
  *
  * 1. **No id on the triggers.** The General section's two Selects are positional:
- *    `[0]` = Device Type, `[1]` = Connectivity Method. {@link generalSelect}
+ *    `[0]` = Device Type (Connectivity Method left the form in web-pet #1619). {@link generalSelect}
  *    encodes that, so the ordering assumption lives in one place.
  * 2. **`[data-open]`, not `data-state="open"`.** Base UI keeps closed portals
  *    mounted for exit animations, so an unscoped `[data-value="2"]` matches items

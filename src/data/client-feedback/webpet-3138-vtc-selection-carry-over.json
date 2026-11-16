@@ -16,7 +16,7 @@
   },
   "expected": {
     "rows": 4,
-    "criterionLine": "Time Card Crew contains \"CF CREW C\"",
+    "criterionLine": "Time Card Crew starts with \"CF CREW C\"",
     "hideLabel": "Hide top section",
     "showLabel": "Show top section",
     "pickerColumns": ["Work Crew", "Employee", "Reference", "Memo"],
