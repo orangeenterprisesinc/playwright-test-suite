@@ -1,0 +1,14 @@
+{
+  "_notes": [
+    "Revised per Jira comment 103183 (QA PASS 2026-11-02, web-pet #1547). Measured 11-11: New User form has combobox 'Shortcut' (an input; its only option on dev is 'Field Clerk Shortcuts'), combobox 'Alias Set', buttons 'Add Alias Set' and 'Edit Alias Set' (disabled). Walk 11-02: double-click opens 'Add Alias Set', the Alias Fields header and table are shown, Type blank, Windows fills 74 Alias Fields.",
+    "Shortcut takes the first option it offers (tenant data, not pinned). The alias set name is minted per run (W3888 NEW ALIAS SET <stamp>-W<n>); alias sets soft-delete with no purge, so teardown deletes it by name. No user is saved."
+  ],
+  "ticket": "WEBPET-3888",
+  "screen": { "menuPath": ["File", "Administration", "Users"], "url": "/settings/users" },
+  "aliasType": "Windows",
+  "expected": { "dialogTitle": "Add Alias Set", "aliasFieldColumn": "Alias Field", "aliasFields": 74 },
+  "annotations": [
+    { "type": "not-asserted", "description": "Whether the saved set keeps its Alias Fields (ticket open question: the deleted-set list showed aliasFields []); the revised TC ends at the set being selected on the user." }
+  ],
+  "cleanup": []
+}

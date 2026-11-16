@@ -33,7 +33,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /** The section headings this page object knows how to scroll to. */
-export type PreferencesSection = 'Pocket' | 'Traceability - Stickers' | 'Connectivity' | 'Job';
+export type PreferencesSection = 'Pocket' | 'Traceability - Stickers' | 'Connectivity' | 'Job' | 'Defaults';
 
 /**
  * @extends BasePage
@@ -57,6 +57,12 @@ export class PreferencesPage extends BasePage {
 
     async gotoPreferences(): Promise<void> {
         await this.leftNav.openScreen(['File', 'Administration', 'Preferences'], this.pageUrl);
+        await this.saveButton.waitFor({ state: 'visible' });
+    }
+
+    /** A real reload: after an out-of-form change the SPA keeps showing its cached preferences until the page reloads. */
+    async reloadPreferences(): Promise<void> {
+        await this.page.reload();
         await this.saveButton.waitFor({ state: 'visible' });
     }
 

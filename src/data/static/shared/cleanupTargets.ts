@@ -106,7 +106,7 @@ const TARGETS: readonly CleanupTarget[] = [
         listPath: 'jobs',
         idKey: 'jobCounter',
         order: 50,
-        prefixes: [factory('E2EJob_'), factory('E2EJobIdle_'), factory('E2EJobActAs_'), factory('E2EReconJob_')],
+        prefixes: [factory('E2EJob_'), factory('E2EJobIdle_'), factory('E2EJobActAs_'), factory('E2EReconJob_'), readable('NEW JOB')],
     },
     { entity: 'jobGroup', listPath: 'job-groups', idKey: 'jobGroupCounter', order: 51, prefixes: [factory('E2EJG_'), factory('WP2682JG_')] },
     { entity: 'equipment', listPath: 'equipments', idKey: 'equipmentCounter', order: 52, prefixes: [factory('E2EEquip_')] },
@@ -132,6 +132,7 @@ const TARGETS: readonly CleanupTarget[] = [
     },
     { entity: 'notification', listPath: 'notifications', idKey: 'notificationCounter', order: 59, prefixes: [uid('ZZ NOTIF CHECK ')] },
     { entity: 'user', listPath: 'users', idKey: 'usersCounter', order: 60, prefixes: [uid('QA User '), six('ZZTEST_USR_'), readable('USER')] },
+    { entity: 'aliasSet', listPath: 'alias-sets', idKey: 'aliasSetCounter', order: 61, prefixes: [readable('NEW ALIAS SET')], note: 'soft-delete only, no purge' },
     // Report scripts saved from a report dialog (WEBPET-3817); soft delete, a deleted name stays reserved.
     { entity: 'filterScript', listPath: 'filter-scripts', idKey: 'filterScriptCounter', order: 62, prefixes: [readable('NEW REPORT SCRIPT')], note: 'soft-delete only; a deleted name stays reserved (from-report 500 on reuse)' },
 ];

@@ -31,6 +31,12 @@ export function acquirePaidBreakJobLock(): Promise<() => void> {
     return acquireFileLock('paid-break-job', 600_000);
 }
 
+// The tenant's Meal Job is one value that every CF spec needing a meal (3491, 2971) points at the same CF MEAL JOB; held from
+// the designation until the restore so a spec never clears it while another is mid-test (they run one after the other).
+export function acquireMealJobLock(): Promise<() => void> {
+    return acquireFileLock('meal-job', 600_000);
+}
+
 // The Transfer screen keeps one analyze job per user: every new analyze (Analyze, Try again, Re-analyze, the Job
 // Cards preview) supersedes the user's previous job, which then answers 404 (tigerden "transfer: load job
 // superseded"). Two workers on one login kill each other's jobs, so a worker holds this while it is on the screen.

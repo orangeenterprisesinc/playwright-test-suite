@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "Revised TC (Gukan 2026-11-11). Measured on dev 11-11 (new shell): /reports/input/time-in is 'Page not found'; the screen is /reports/screen/time-in, breadcrumb 'Reports › Input › Time In', heading 'Time In Report Selection', Search by 'Select a field', Clear All, Filter description 'No filters selected.', Execute / Load / Save; no date range.",
+    "The Reports hub has no card for this screen (web-pet #1569; 'Time In 73' is a category button), so shell/navigation.json lists it under noMenuEntry and openFromMenu deep-links with the annotation."
+  ],
+  "ticket": "WEBPET-3781",
+  "screen": { "menuPath": ["Reports", "Input", "Time In"], "url": "/reports/screen/time-in" },
+  "expected": {
+    "breadcrumb": ["Reports", "Input", "Time In"],
+    "title": "Time In Report Selection",
+    "searchByPlaceholder": "Select a field",
+    "clearAll": "Clear All",
+    "noFilters": "No filters selected.",
+    "buttons": ["Execute", "Load", "Save"],
+    "dialogTitlePrefix": "Report: All Data — "
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The Reports > Input item list and a date range with Start 12:00 AM / End 11:59 PM: dropped by the revised TC (2026-11-11); the screen has no date range." }
+  ],
+  "cleanup": []
+}

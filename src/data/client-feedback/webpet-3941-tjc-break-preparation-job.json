@@ -1,0 +1,39 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW C owns day -13. Seed (CF C ONE only, on screen): Crew Time In 07:00 CF JOB, 09:00 CF BREAK JOB, 09:10 CF JOB, Crew Time Out 11:00 = 4 time cards. Preview only, nothing is transferred.",
+    "The break card counts only when its job is the tenant's Paid Break Job (or in the PaidBreakJobGroup). su has paidBreakJob null, so CF BREAK JOB is designated on Preferences > Job under the paid-break-job lock shared with B9/D10 and restored to null.",
+    "CF CREW C: Preparation Job = CF NPT JOB, 5 min, 'Only Piece Jobs Require Break Preparation' off (CF JOB is a Time job; on would skip it). Stored before: job null, length null, flag false. Set on screen and restored on screen to the value read before; teardown PUT only as kill-safety.",
+    "Expected per web-pet origin/main compute/transfer/break_preparation.go:99-110 (legacy CreatePreparationJobCardForPaidBreak): the NPT card takes the first 5 min after the break punch and the break starts at its end; a break CLOSED BY A REAL PUNCH (this seed's 09:10 return) keeps that punch as its end and the next card is not moved, so NPT 9:00-9:05, Break 9:05-9:10, CF JOB 9:10-11:00, total 240 unchanged (measured on dev 2026-11-11). Amy's 11-02 9:05-9:15 / 9:15 shape is a break bounded at its default length (auto-return), where the end shifts too; paidBreakLength is never set in production."
+  ],
+  "ticket": "WEBPET-3941",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Job Cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -13,
+  "seed": [
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 } },
+    { "employees": ["one"], "job": "paidBreak", "timeIn": { "hour": 9, "minute": 0 } },
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 9, "minute": 10 }, "timeOut": { "hour": 11, "minute": 0 } }
+  ],
+  "breakPreparation": { "lengthMinutes": 5, "onlyPieceJobs": false },
+  "expected": {
+    "timeCards": 4,
+    "jobCards": 4,
+    "employees": 1,
+    "pieces": 0,
+    "breakPunch": "09:00",
+    "totalMinutes": 240,
+    "segments": [
+      { "job": "hourly", "start": "07:00", "end": "09:00", "minutes": 120 },
+      { "job": "breakPrep", "start": "09:00", "end": "09:05", "minutes": 5 },
+      { "job": "paidBreak", "start": "09:05", "end": "09:10", "minutes": 5 },
+      { "job": "hourly", "start": "09:10", "end": "11:00", "minutes": 110 }
+    ]
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Per-row Amount: paid-break pricing (average rate) is E4's rule; this ticket is the card sequence and times." }
+  ],
+  "cleanup": [
+    { "kind": "unremovable", "entity": "paidBreakJob", "reason": "Shared tenant preference, restored with PUT preferences {paidBreakJob: 0} by paidBreakJob.ts's restore (cleanup scope)." },
+    { "kind": "unremovable", "entity": "crewBreakPreparation", "reason": "CF CREW C's Preparation Job/Length/Only-Piece flag, restored on screen to the value read before; PUT crews/{id} only when the on-screen restore did not run." }
+  ]
+}

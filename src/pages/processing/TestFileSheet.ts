@@ -1,10 +1,11 @@
+import { readFile } from 'node:fs/promises';
 import { Locator, Page, expect } from '@playwright/test';
 
 export type TestFileState = 'not-configured' | 'empty' | 'named' | 'error';
 
 /**
- * View > Job Cards ▸ Test File: the read-only "can these cards be exported?" sheet. No member exists for the
- * results alert's Yes, `export-test-file-download` or Export to Accounting. Locators measured live 2026-10-22.
+ * View > Job Cards ▸ Test File: the read-only "can these cards be exported?" sheet. It exports nothing:
+ * no member drives Export to Accounting. Locators measured live 2026-10-22.
  */
 export class TestFileSheet {
     readonly trigger: Locator;
@@ -107,6 +108,28 @@ export class TestFileSheet {
         await expect(this.resultsAlert).toBeVisible({ timeout: 30_000 });
         await this.page.getByTestId('export-analyze-results-no').click();
         await expect(this.resultsAlert).toBeHidden({ timeout: 15_000 });
+    }
+
+    /** The generated file through its Download button, bytes kept as latin1 so line endings survive (WEBPET PET-12958). */
+    async downloadFile(saveTo: string): Promise<{ suggestedFilename: string; content: string }> {
+        // The SPA reads showSaveFilePicker at click time; undefined makes it fall back to an anchor download Playwright can capture.
+        await this.page.evaluate(() => Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true }));
+        const download = this.page.waitForEvent('download', { timeout: 30_000 });
+        await this.page.getByTestId('export-test-file-download').click();
+        const file = await download;
+        await file.saveAs(saveTo);
+        return { suggestedFilename: file.suggestedFilename(), content: await readFile(saveTo, 'latin1') };
+    }
+
+    /** Results alert ▸ Yes: downloads the client-side analyze log (WEBPET-3491). */
+    async saveLog(saveTo: string): Promise<{ suggestedFilename: string; text: string }> {
+        await expect(this.resultsAlert).toBeVisible({ timeout: 30_000 });
+        const download = this.page.waitForEvent('download', { timeout: 30_000 });
+        await this.page.getByTestId('export-analyze-results-yes').click();
+        const file = await download;
+        await file.saveAs(saveTo);
+        await expect(this.resultsAlert).toBeHidden({ timeout: 15_000 });
+        return { suggestedFilename: file.suggestedFilename(), text: await readFile(saveTo, 'utf8') };
     }
 
     async close(): Promise<void> {

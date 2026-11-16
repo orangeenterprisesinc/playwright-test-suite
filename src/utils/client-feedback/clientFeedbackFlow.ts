@@ -2,19 +2,22 @@ import { expect } from '@playwright/test';
 import type { APIRequestContext, Browser, Page, TestInfo } from '@playwright/test';
 import { createPageObjects, type PageObjects } from '@fixtures/pages.fixture';
 import { ConfigProperties, getConfigValue } from '@config/configProperties';
+import { pinShellExperience } from '@config/shellPreference';
 import { CF_FIXTURE, cfCrew } from '@data/client-feedback/fixture';
 import type { CfCrewKey } from '@data/schemas/clientFeedbackFixture';
 import type { CfSeedInput } from '@data/schemas/clientFeedbackScenario';
 import { punchDay } from '@data/journey-b/fixture';
 import { deleteJobCard, getJobCard, listJobCards } from '@utils/api/jobCardsApi';
-import { getPreferences } from '@utils/api/preferencesApi';
+import { getEmployee, setEmployeeFields } from '@utils/api/employeesApi';
+import { getCrew, updateCrewFields } from '@utils/api/crewsApi';
+import { getPreferences, putPreferences } from '@utils/api/preferencesApi';
 import { cleanupExportRuns, healExportResidue, runIdOf } from '@utils/api/exportToAccountingApi';
-import { withExportDraftLock } from '@utils/sync/preferencesLock';
-import type { EnsuredRecord } from '@utils/api/setupEntitiesApi';
+import { acquireMealJobLock, withExportDraftLock, withPreferencesLock } from '@utils/sync/preferencesLock';
+import { getJob, type EnsuredRecord } from '@utils/api/setupEntitiesApi';
 import { CARD_TYPE, deleteTimeCard, isoDay, listTimeCards, sweepFixtureCards, type OfficeTimeCard } from '@utils/api/timeCardsApi';
 import { listBulkHistory } from '@utils/api/recycleBinApi';
 import { allowApiWrites } from '@utils/api/writeGuard';
-import { register } from '@utils/cleanup/cleanupScope';
+import { currentScope, register } from '@utils/cleanup/cleanupScope';
 import { ownerForTicket, readableName } from '@utils/cleanup/runToken';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { makeEmployeeName } from '@data/generated';
@@ -42,7 +45,9 @@ export interface CfRun {
     picker: EnsuredRecord;
     ranch: EnsuredRecord;
     field: EnsuredRecord;
-    jobs: { hourly: EnsuredRecord; piece: EnsuredRecord };
+    jobs: { hourly: EnsuredRecord; piece: EnsuredRecord; paidBreak?: EnsuredRecord; breakPrep?: EnsuredRecord; meal?: EnsuredRecord };
+    /** The run-minted job a spec created on screen (createOwnJob); seed steps reach it as job 'own'. */
+    ownJob?: EnsuredRecord;
     /** `YYYY-MM-DD` of the fixture day. */
     day: string;
     startedAt: Date;
@@ -196,12 +201,28 @@ export async function seedCrewDay(run: CfRun, deps: CfDeps, seed: CfSeedInput, t
         return own;
     };
 
+    // A nextDay card files on the day after the step's; recordOwn lists claimed days only, so that day must be claimed (extraCrews).
+    const claimed = new Set(crewDays(run).map((cd) => cd.day));
+    const dayOf = (c: { nextDay?: boolean }): string => {
+        if (!c.nextDay) return target.day;
+        const d = new Date(`${target.day}T00:00:00`);
+        d.setDate(d.getDate() + 1);
+        const next = isoDay(d);
+        if (!claimed.has(next)) throw new Error(`${run.label}: a nextDay card falls on ${next}, which the scenario does not claim (add it to extraCrews)`);
+        return next;
+    };
+
     for (const step of Array.isArray(seed) ? seed : [seed]) {
         const names = step.employees.map((k) => target.employees[WHICH[k]].name);
-        const where = { day: target.day, crew: target.crew.name, ranch: run.ranch.name, field: run.field.name, job: run.jobs[step.job].name };
+        const job = step.job === 'own' ? run.ownJob : run.jobs[step.job];
+        if (!job) throw new Error(`${run.label}: seed step uses '${step.job}', which this run did not ensure (ensureCfBreakJobs)`);
+        const where = { day: target.day, crew: target.crew.name, ranch: run.ranch.name, field: run.field.name, job: step.phase ?? job.name };
 
         await pages.crewTimeIn.punchIn({ ...where, ...step.timeIn, employees: names });
-        if (step.pieceOut) await pages.crewPieceOut.pieceOut({ ...where, ...step.pieceOut.at, pieces: step.pieceOut.pieces });
+        if (step.pieceOut) {
+            const { at, pieces } = step.pieceOut;
+            await pages.crewPieceOut.pieceOut({ ...where, day: dayOf(at), hour: at.hour, minute: at.minute, pieces });
+        }
         run.seeded.timeIns += names.length;
 
         // The time-out form only offers employees with an open time-in, so wait until it is readable.
@@ -209,24 +230,38 @@ export async function seedCrewDay(run: CfRun, deps: CfDeps, seed: CfSeedInput, t
             expect((await recordOwn()).filter((c) => Number(c.cardType) === CARD_TYPE.timeIn)).toHaveLength(run.seeded.timeIns);
         }).toPass({ timeout: 60_000 });
 
-        if (step.timeOut) await pages.crewTimeOut.punchOut({ day: target.day, crew: target.crew.name, employees: names, ...step.timeOut });
-
-        if (step.employeePieceOut) {
-            const p = step.employeePieceOut;
-            await pages.transferToJobCards.openFromMenu();
-            await pages.transferToJobCards.addPieceOut({
-                day: target.day,
-                time: `${String(p.at.hour).padStart(2, '0')}:${String(p.at.minute).padStart(2, '0')}`,
-                employee: target.employees[WHICH[p.employee]].name,
-                crew: target.crew.name,
-                job: run.jobs[step.job].name,
-                ranch: run.ranch.name,
-                field: run.field.name,
-                pieces: p.pieces,
-            });
+        if (step.lunch) {
+            await pages.crewTimeIn.punchIn({ ...where, job: step.lunch.job, ...step.lunch.at, employees: names });
+            await pages.crewTimeIn.punchIn({ ...where, ...step.lunch.backAt, employees: names });
+            run.seeded.timeIns += names.length * 2;
+            await expect(async () => {
+                expect((await recordOwn()).filter((c) => Number(c.cardType) === CARD_TYPE.timeIn)).toHaveLength(run.seeded.timeIns);
+            }).toPass({ timeout: 60_000 });
         }
 
-        run.seeded.cards += names.length * (step.timeOut ? 2 : 1) + (step.pieceOut ? 1 : 0) + (step.employeePieceOut ? 1 : 0);
+        if (step.timeOut) {
+            const { hour, minute } = step.timeOut;
+            await pages.crewTimeOut.punchOut({ day: dayOf(step.timeOut), crew: target.crew.name, employees: names, hour, minute });
+        }
+
+        const pieceOuts = step.employeePieceOut === undefined ? [] : [step.employeePieceOut].flat();
+        if (pieceOuts.length > 0) {
+            await pages.transferToJobCards.openFromMenu();
+            for (const p of pieceOuts) {
+                await pages.transferToJobCards.addPieceOut({
+                    day: dayOf(p.at),
+                    time: `${String(p.at.hour).padStart(2, '0')}:${String(p.at.minute).padStart(2, '0')}`,
+                    employee: target.employees[WHICH[p.employee]].name,
+                    crew: target.crew.name,
+                    job: job.name,
+                    ranch: run.ranch.name,
+                    field: run.field.name,
+                    pieces: p.pieces,
+                });
+            }
+        }
+
+        run.seeded.cards += names.length * (step.timeOut ? 2 : 1) + (step.lunch ? names.length * 2 : 0) + (step.pieceOut ? 1 : 0) + pieceOuts.length;
         await expect(async () => {
             expect(await recordOwn()).toHaveLength(run.seeded.cards);
         }).toPass({ timeout: 60_000 });
@@ -299,6 +334,8 @@ export async function loginAsNonSu(browser: Browser): Promise<{ page: Page; page
     const password = getConfigValue(ConfigProperties.CF_NONSU_PASSWORD);
     if (!user || !password) throw new Error('environment-gate: CF_NONSU_USER / CF_NONSU_PASSWORD are not set; this ticket needs the non-SU login.');
     const context = await browser.newContext({ baseURL: getConfigValue(ConfigProperties.APP_URL), storageState: { cookies: [], origins: [] } });
+    // A context made here skips the fixtures' shell pin, so the app may open either shell (classic seen 2026-11-12).
+    await pinShellExperience(context);
     const page = await context.newPage();
     const pages = createPageObjects(page);
     await pages.login.gotoPetTiger();
@@ -468,7 +505,7 @@ export async function ensureCfTimeCardDefaults(deps: CfDeps): Promise<{ ranch: E
  * Teardown for rows a spec creates and then deletes on screen: a by-name soft delete (cleanup allowance) that survives a
  * timeout and finds nothing once the screen delete ran. Employee and Validation have no purge (WEBPET-1798).
  */
-function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation' | 'filterScript', names: string[]): void {
+function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation' | 'filterScript' | 'aliasSet' | 'job', names: string[]): void {
     const steps = names.map((name) => ({ kind: 'delete' as const, entity, name }));
     register(deps.testInfo, `${label} delete own ${entity} rows`, (api) => runCleanup(steps, api, deps.testInfo, { phase: 'after' }));
 }
@@ -495,6 +532,250 @@ export function mintValidationNames(deps: CfDeps, ticket: string, count: number)
     return names;
 }
 
+// ── Batch 2: Crew In ALL EMPLOYEES (3893), Break Preparation Job (3941) ──
+
+export async function ensureCfAllEmployeesCrew(deps: CfDeps): Promise<EnsuredRecord> {
+    return ensureCrewOnScreen(CF_FIXTURE.allEmployeesCrew, onScreenDeps(deps));
+}
+
+/** WEBPET-3941: CF BREAK JOB (the Paid Break Job) and CF NPT JOB (the crew's Break Preparation Job), recorded on the run so seed steps can use them. */
+export async function ensureCfBreakJobs(run: CfRun, deps: CfDeps): Promise<{ paidBreak: EnsuredRecord; breakPrep: EnsuredRecord }> {
+    const paidBreak = await ensureJobOnScreen(CF_FIXTURE.jobs.paidBreak, onScreenDeps(deps));
+    const breakPrep = await ensureJobOnScreen(CF_FIXTURE.jobs.breakPrep, onScreenDeps(deps));
+    run.jobs.paidBreak = paidBreak;
+    run.jobs.breakPrep = breakPrep;
+    return { paidBreak, breakPrep };
+}
+
+/** WEBPET-3491: CF MEAL JOB, recorded on the run so seed steps (job: 'meal') can punch on it. */
+export async function ensureCfMealJob(run: CfRun, deps: CfDeps): Promise<EnsuredRecord> {
+    const meal = await ensureJobOnScreen(CF_FIXTURE.jobs.meal, onScreenDeps(deps));
+    run.jobs.meal = meal;
+    return meal;
+}
+
+const prefUnset = (value: unknown): boolean => !Number(value);
+// The Preferences selects offer no '— None —' option once a value is set (dev 2026-11-11: the Defaults listbox
+// lists only the crews), so the clear is the cleanup PUT, as designatePaidBreakJob does; the fresh screen load is the proof.
+const MEAL_JOB_NONE = '— None —';
+
+/**
+ * WEBPET-3491: sets Preferences ▸ Job ▸ Job Assignments ▸ "Meal Job" (`mealJob`) to `job` on screen; su has none, so
+ * without it a zero-net card on a meal job never exists. The lock is held only around each set / restore; the cleanup
+ * PUT {mealJob: 0} is a kill-safety backstop. Another person's meal job (not a CF fixture) is never overwritten.
+ */
+export async function designateMealJob(
+    run: CfRun,
+    deps: CfDeps,
+    job: EnsuredRecord,
+): Promise<{ restore(): Promise<void> }> {
+    const { sessionApi, pages, testInfo } = deps;
+    const prefs = pages.preferences;
+
+    // Held until restore(): the next spec that needs a meal job waits here instead of racing this one's set/clear.
+    const release = await acquireMealJobLock();
+    let held = true;
+    const free = (): void => {
+        if (!held) return;
+        held = false;
+        release();
+    };
+
+    const current = Number((await getPreferences(sessionApi).catch((error: unknown) => {
+        free();
+        throw error;
+    })).mealJob ?? 0);
+    if (current > 0 && current !== job.id) {
+        const name = String((await getJob(sessionApi, current).catch(() => ({ name: '' }))).name ?? '');
+        if (!/^CF /.test(name)) {
+            free();
+            throw new Error(`${run.label}: Meal Job is already set to '${name}' (id ${current}), which is not a CF fixture; refusing to overwrite someone else's configuration.`);
+        }
+    }
+
+    let restored = false;
+    const registration = currentScope(testInfo)?.add(`${run.label} meal job`, async (api) => {
+        if (restored) return;
+        try {
+            await withPreferencesLock(async () => {
+                // 0 clears the FK back to null; null would be ignored by the partial PUT.
+                await allowApiWrites('cleanup', `${run.label} teardown: clear mealJob`, () => putPreferences(api, { mealJob: 0 }));
+                const after = await getPreferences(api);
+                if (!prefUnset(after.mealJob)) throw new Error(`mealJob still reads ${String(after.mealJob)}`);
+            });
+            free();
+        } catch (error) {
+            await testInfo.attach('cleanup-warning-mealJob', { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' });
+        }
+    });
+
+    await withPreferencesLock(async () => {
+        await prefs.gotoPreferences();
+        await prefs.gotoSection('Job');
+        if ((await prefs.displayedValue('mealJob').catch(() => '')) !== job.name) {
+            await prefs.choose('mealJob', job.name);
+            await prefs.saveIfDirty();
+        }
+        await expect
+            .poll(async () => Number((await getPreferences(sessionApi)).mealJob), {
+                message: `${run.label}: Preferences ▸ Job ▸ Meal Job must store ${job.name} (id ${job.id})`,
+                timeout: 30_000,
+            })
+            .toBe(job.id);
+        await prefs.gotoPreferences();
+        await prefs.gotoSection('Job');
+        expect(await prefs.displayedValue('mealJob'), `${run.label}: a fresh load shows the meal job after the save`).toBe(job.name);
+    });
+
+    return {
+        restore: async () => {
+            await withPreferencesLock(async () => {
+                await allowApiWrites('cleanup', `${run.label}: clear mealJob`, () => putPreferences(sessionApi, { mealJob: 0 }));
+                await expect
+                    .poll(async () => (await getPreferences(sessionApi)).mealJob ?? null, {
+                        message: `${run.label}: Preferences ▸ Job ▸ Meal Job must store no job again`,
+                        timeout: 30_000,
+                    })
+                    .toBeNull();
+                await prefs.gotoPreferences();
+                await prefs.reloadPreferences();
+                await prefs.gotoSection('Job');
+                expect(await prefs.displayedValue('mealJob'), `${run.label}: a fresh load shows ${MEAL_JOB_NONE} after the restore`).toBe(MEAL_JOB_NONE);
+            });
+            restored = true;
+            free();
+            registration?.complete();
+        },
+    };
+}
+
+/**
+ * WEBPET-3893: points Preferences ▸ Defaults ▸ "Crew of All the Employees Currently on the Job" at `crew` on screen.
+ * The lock is held only around each set / restore (the spec's body outlives its 120 s staleness); the cleanup PUT is
+ * a kill-safety backstop for when the on-screen restore did not run. Another person's crew is never overwritten.
+ */
+export async function designateAllEmployeesCrew(
+    run: CfRun,
+    deps: CfDeps,
+    crew: EnsuredRecord,
+    pref: { section: Parameters<PageObjects['preferences']['gotoSection']>[0]; fieldId: string; noneLabel: string },
+): Promise<{ restore(): Promise<void> }> {
+    const { sessionApi, pages, testInfo } = deps;
+    const prefs = pages.preferences;
+
+    const current = (await getPreferences(sessionApi)).crewEmpCurrentOnJob;
+    if (!prefUnset(current) && Number(current) !== crew.id) {
+        throw new Error(`${run.label}: Crew of All the Employees Currently on the Job is already set to crew ${String(current)}, not a CF fixture; refusing to overwrite someone else's configuration.`);
+    }
+
+    let restored = false;
+    const registration = currentScope(testInfo)?.add(`${run.label} crew of all employees`, async (api) => {
+        if (restored) return;
+        try {
+            await withPreferencesLock(async () => {
+                await allowApiWrites('cleanup', `${run.label} teardown: clear crewEmpCurrentOnJob`, () => putPreferences(api, { crewEmpCurrentOnJob: 0 }));
+                const after = await getPreferences(api);
+                if (!prefUnset(after.crewEmpCurrentOnJob)) throw new Error(`crewEmpCurrentOnJob still reads ${String(after.crewEmpCurrentOnJob)}`);
+            });
+        } catch (error) {
+            await testInfo.attach('cleanup-warning-crewEmpCurrentOnJob', { body: error instanceof Error ? error.message : String(error), contentType: 'text/plain' });
+        }
+    });
+
+    await withPreferencesLock(async () => {
+        await prefs.gotoPreferences();
+        await prefs.gotoSection(pref.section);
+        if ((await prefs.displayedValue(pref.fieldId).catch(() => '')) !== crew.name) {
+            await prefs.choose(pref.fieldId, crew.name);
+            await prefs.saveIfDirty();
+        }
+        await expect
+            .poll(async () => Number((await getPreferences(sessionApi)).crewEmpCurrentOnJob), {
+                message: `${run.label}: Preferences ▸ Defaults must store ${crew.name} (id ${crew.id})`,
+                timeout: 30_000,
+            })
+            .toBe(crew.id);
+        await prefs.gotoPreferences();
+        await prefs.gotoSection(pref.section);
+        expect(await prefs.displayedValue(pref.fieldId), `${run.label}: a fresh load shows the crew after the save`).toBe(crew.name);
+    });
+
+    return {
+        restore: async () => {
+            await withPreferencesLock(async () => {
+                await allowApiWrites('cleanup', `${run.label}: clear crewEmpCurrentOnJob`, () => putPreferences(sessionApi, { crewEmpCurrentOnJob: 0 }));
+                await expect
+                    .poll(async () => prefUnset((await getPreferences(sessionApi)).crewEmpCurrentOnJob), {
+                        message: `${run.label}: Preferences ▸ Defaults must store no crew again`,
+                        timeout: 30_000,
+                    })
+                    .toBe(true);
+                await prefs.gotoPreferences();
+                await prefs.reloadPreferences();
+                await prefs.gotoSection(pref.section);
+                expect(await prefs.displayedValue(pref.fieldId), `${run.label}: a fresh load shows ${pref.noneLabel} after the restore`).toBe(pref.noneLabel);
+            });
+            restored = true;
+            registration?.complete();
+        },
+    };
+}
+
+/**
+ * WEBPET-3941: sets the run crew's Break Preparation (job, length, only-piece flag) on its Edit form and proves it on a fresh load.
+ * `restoreOnScreen` puts back what the form showed before; the cleanup PUT of the stored values runs only if that did not.
+ */
+export async function setCrewBreakPreparation(
+    run: CfRun,
+    deps: CfDeps,
+    rule: { job: EnsuredRecord; lengthMinutes: number; onlyPieceJobs: boolean },
+): Promise<{ restoreOnScreen(): Promise<void> }> {
+    const { sessionApi, pages, testInfo } = deps;
+    const { crew } = run;
+    const toNumber = (v: unknown): number | null => (v == null ? null : Number(v));
+    const stored = async () => {
+        const c = await getCrew(sessionApi, crew.id);
+        return { job: toNumber(c.preparationJobCounter), length: toNumber(c.preparationJobLengthMinutes), onlyPieceJobs: Boolean(c.onlyPieceJobRequireBreakPreparation) };
+    };
+
+    const snapshot = await stored();
+    let restored = false;
+    const registration = currentScope(testInfo)?.add(`${run.label} crew break preparation`, async (api) => {
+        if (restored) return;
+        await allowApiWrites('cleanup', `${run.label} teardown: ${crew.name} break preparation`, () =>
+            updateCrewFields(api, crew.id, {
+                preparationJobCounter: snapshot.job,
+                preparationJobLengthMinutes: snapshot.length,
+                onlyPieceJobRequireBreakPreparation: snapshot.onlyPieceJobs,
+            }),
+        );
+    });
+
+    await pages.crew.gotoEditById(crew.id, crew.name);
+    const before = await pages.crew.readBreakPreparation();
+    await pages.crew.setBreakPreparation({ job: rule.job.name, lengthMinutes: rule.lengthMinutes, onlyPieceJobs: rule.onlyPieceJobs });
+    await expect
+        .poll(stored, { message: `${run.label}: ${crew.name} must store the Break Preparation Job (id ${rule.job.id}), ${rule.lengthMinutes} min`, timeout: 30_000 })
+        .toEqual({ job: rule.job.id, length: rule.lengthMinutes, onlyPieceJobs: rule.onlyPieceJobs });
+    await pages.crew.gotoEditById(crew.id, crew.name);
+    expect(await pages.crew.readBreakPreparation(), `${run.label}: a fresh load of ${crew.name} shows the Break Preparation`).toEqual({
+        job: rule.job.name,
+        lengthMinutes: rule.lengthMinutes,
+        onlyPieceJobs: rule.onlyPieceJobs,
+    });
+
+    return {
+        restoreOnScreen: async () => {
+            await pages.crew.gotoEditById(crew.id, crew.name);
+            await pages.crew.setBreakPreparation(before);
+            await pages.crew.gotoEditById(crew.id, crew.name);
+            expect(await pages.crew.readBreakPreparation(), `${run.label}: a fresh load of ${crew.name} shows the Break Preparation as it was`).toEqual(before);
+            restored = true;
+            registration?.complete();
+        },
+    };
+}
+
 // ── Cluster 6A: Reports screens ──
 
 /** A CF crew's code (fixture.json), typed into a report criterion as text; nothing is ensured or created. */
@@ -509,12 +790,109 @@ export function mintReportScriptName(deps: CfDeps, ticket: string): string {
     return name;
 }
 
+/** WEBPET-3888: a run-minted Alias Set name; alias sets soft-delete and are never purged, so teardown is registered before Save. */
+export function mintAliasSetName(deps: CfDeps, ticket: string): string {
+    const name = mintName(ticket, 'ALIAS SET');
+    registerDeleteByName(deps, ticket, 'aliasSet', [name]);
+    return name;
+}
+
+/** WEBPET-3610: CF fixture employees carry no Gender; clears a killed run's leftover now, and again in teardown (cleanup PUT). */
+export async function resetCfEmployeeGender(deps: CfDeps, employee: EnsuredRecord, label: string): Promise<void> {
+    const clear = async (api: APIRequestContext): Promise<void> => {
+        await allowApiWrites('cleanup', `${label} gender reset: ${employee.name}`, async () => {
+            if ((await getEmployee(api, employee.id)).gender != null) await setEmployeeFields(api, employee.id, { gender: null });
+        });
+    };
+    register(deps.testInfo, `${label} reset employee gender`, clear);
+    await clear(deps.sessionApi);
+}
+
 /** `{key}` placeholders in a scenario's expected text, filled from values the run computes (dates, minted names). */
 export function fillTemplate(template: string, values: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (_, key: string) => {
         if (!(key in values)) throw new Error(`fillTemplate: no value for {${key}} in '${template}'`);
         return values[key];
     });
+}
+
+// ── Batch 1: Transfer to Job Cards pairs (PET-12960 / 12961, WEBPET-3314) ──
+
+/** WEBPET-3314: a run-minted job. Call before prepareCfRun: teardown is last-in first-out, so the job's delete runs after the time cards are gone. */
+export function mintOwnJob(deps: CfDeps, ticket: string, noun: string): { name: string; code: string } {
+    const name = mintName(ticket, noun);
+    registerDeleteByName(deps, ticket, 'job', [name]);
+    return { name, code: name.replace(/ /g, '-') };
+}
+
+/** WEBPET-3314: creates the minted job on Setup ▸ Job, records it as run.ownJob, and returns both rates as a fresh load of the record shows them. */
+export async function createOwnJob(
+    run: CfRun,
+    deps: CfDeps,
+    minted: { name: string; code: string },
+    spec: { paymentType: 'TimeAndPiece'; hourlyRate: number; pieceRate: number },
+): Promise<{ hourlyRate: string; pieceRate: string }> {
+    const { job } = deps.pages;
+    const outcome = await job.createJob({ name: minted.name, code: minted.code, paymentType: spec.paymentType, hourlyRate: spec.hourlyRate, pieceRate: spec.pieceRate });
+    if (outcome !== 'created') throw new Error(`${run.label}: the New Job form rejected '${minted.name}'`);
+    const id = job.savedJobId();
+    run.ownJob = { id, code: minted.code, name: minted.name, created: true };
+    await job.gotoEditById(id, minted.name);
+    await expect(job.hourlyRateInput).not.toHaveValue('', { timeout: 30_000 });
+    await expect(job.pieceRateInput).not.toHaveValue('', { timeout: 30_000 });
+    return { hourlyRate: await job.hourlyRateInput.inputValue(), pieceRate: await job.pieceRateInput.inputValue() };
+}
+
+/** PET-12960: reads the employee's Hourly Rate and, only when it is missing, sets `ifMissing` on screen; the teardown PUT is the backstop for the restore. */
+export async function ensureCfEmployeeRate(run: CfRun, deps: CfDeps, who: 'one' | 'two', ifMissing: number): Promise<{ before: string; shown: string }> {
+    const emp = run.employees[WHICH[who]];
+    const { employee } = deps.pages;
+    await employee.gotoEditById(emp.id, emp.name);
+    const before = await employee.readHourlyRate();
+    if (Number(before) > 0) return { before, shown: before };
+    register(deps.testInfo, `${run.label} restore ${emp.name} hourly rate`, async (api) => {
+        await allowApiWrites('cleanup', `${run.label} teardown: ${emp.name} hourly rate back to '${before}'`, async () => {
+            const was = before === '' ? null : Number(before);
+            const stored = (await getEmployee(api, emp.id)).rate;
+            if ((stored == null ? null : Number(stored)) !== was) await setEmployeeFields(api, emp.id, { rate: was });
+        });
+    });
+    return { before, shown: await employee.setHourlyRate(String(ifMissing)) };
+}
+
+/** PET-12960: puts the employee's Hourly Rate back on screen and returns what a fresh load shows. */
+export async function restoreCfEmployeeRate(run: CfRun, deps: CfDeps, who: 'one' | 'two', before: string): Promise<string> {
+    const emp = run.employees[WHICH[who]];
+    await deps.pages.employee.gotoEditById(emp.id, emp.name);
+    return deps.pages.employee.setHourlyRate(before);
+}
+
+/** PET-12961: a run-minted employee created on Setup ▸ Employee in the run's crew; its teardown came from mintQuickAddEmployee. */
+export async function createCfEmployeeOnScreen(
+    run: CfRun,
+    deps: CfDeps,
+    minted: QuickAddEmployeeName,
+    spec: { firstName: string; exportIdentifier: string },
+): Promise<EnsuredRecord & { rosterName: string; exportIdentifier: string; crew: string }> {
+    const { employee } = deps.pages;
+    // Barcode must be numeric ("barcode is not a valid numeric", 2026-11-11): day-of-month + HHmmss + worker (+ the
+    // readableName same-second suffix, `-W2-2`) from the name's `MMDD-HHmmss-Wn[-k]` tail.
+    const stamp = /(\d{2})(\d{2})-(\d{6})-W(\d+)(?:-(\d+))?$/.exec(minted.name);
+    if (!stamp) throw new Error(`${run.label}: cannot derive a numeric barcode from '${minted.name}'`);
+    const code = `${stamp[2]}${stamp[3]}${stamp[4]}${stamp[5] ?? ''}`;
+    const outcome = await employee.createEmployee({
+        name: minted.name,
+        code,
+        firstName: spec.firstName,
+        lastName: minted.lastName,
+        crew: run.crew.name,
+        exportIdentifier: spec.exportIdentifier,
+    });
+    if (outcome !== 'created') throw new Error(`${run.label}: the New Employee form rejected '${minted.name}' (Export Identifier ${spec.exportIdentifier})`);
+    const id = employee.savedIdFromUrl();
+    const summary = await employee.readProfileSummary();
+    // Crew Time In's roster labels an employee by First + Last name, the Transfer grid and filters by the Name field (dev 2026-11-11).
+    return { id, code, name: minted.name, rosterName: `${spec.firstName} ${minted.lastName}`, created: true, exportIdentifier: summary.exportIdentifier, crew: summary.crew };
 }
 
 /** `YYYY-MM-DD` of today + offset on prepareCfRun's clock: a range end that is never seeded (WEBPET-3932). */
