@@ -1401,6 +1401,52 @@ export class TransferToJobCardsPage extends BasePage {
         return Number(((await this.totalsValue(label).textContent()) ?? '').replace(/,/g, ''));
     }
 
+    // ── Batch 1: Job Cards tab totals bar, warnings pill, footer, preview columns (PET-12959/12960, WEBPET-2971/3314) ──
+
+    get jobCardsTotalsBar(): Locator {
+        return this.page.getByTestId('jobcards-totals-bar');
+    }
+
+    /** The value span after a label span in the Job Cards totals bar. */
+    jobCardsTotalsValue(label: string): Locator {
+        return this.jobCardsTotalsBar.getByText(label, { exact: true }).locator('xpath=following-sibling::span[1]');
+    }
+
+    /** Digits only; NaN until rendered, so a poll keeps waiting. */
+    async jobCardsTotalsNumber(label: string): Promise<number> {
+        const text = (await this.jobCardsTotalsValue(label).textContent({ timeout: 1_000 }).catch(() => '')) ?? '';
+        return Number(text.replace(/[^0-9.-]/g, '') || 'NaN');
+    }
+
+    async warningsPillCount(): Promise<number> {
+        return this.pillCount('v2-progress-pill-warnings');
+    }
+
+    /** The footer: "Transferring all {n} eligible records." */
+    get scopeHint(): Locator {
+        return this.page.getByTestId('v2-progress-scope-hint');
+    }
+
+    get filterDisplayedRowsLabel(): Locator {
+        return this.pageRoot.getByText('Filter displayed rows', { exact: true });
+    }
+
+    /** Un-tick one candidate row by its Reference — the counterpart of selectCandidate. */
+    async deselectCandidate(reference: string): Promise<void> {
+        await this.enterMultiUpdateMode();
+        const checkbox = this.page.getByRole('checkbox', { name: `Select ${reference}` });
+        await checkbox.waitFor({ state: 'visible', timeout: 30_000 });
+        await checkbox.uncheck();
+    }
+
+    /** One Job Cards preview column's text for every rendered `Row N` row. */
+    async previewColumn(name: string): Promise<string[]> {
+        const at = (await this.previewColumnIndexes([name]))[name];
+        return this.previewGrid
+            .getByRole('row', { name: /^Row \d+$/ })
+            .evaluateAll((rows, i) => rows.map((row) => (row.querySelectorAll('[role="cell"]')[i]?.textContent ?? '').trim()), at);
+    }
+
     async rowPieces(reference: string): Promise<Locator> {
         return this.cellByHeader(this.rowByReference(reference), 'Pieces');
     }
@@ -1722,6 +1768,13 @@ export class TransferToJobCardsPage extends BasePage {
     async pickGridFilter(kind: GridFilterKind, label: string): Promise<void> {
         await this.gridFilterTrigger(kind).click();
         await this.gridFilterPopover(kind).getByRole('button', { name: label, exact: true }).click();
+        // With Single select off the popover stays open after a pick; dismiss it as a user would. A no-op in Single mode.
+        await expect(this.gridFilterValue(kind)).toContainText(label);
+        const popover = this.gridFilterPopover(kind);
+        if (await popover.isVisible()) {
+            await this.page.keyboard.press('Escape');
+            await expect(popover).toBeHidden({ timeout: 10_000 });
+        }
         await expect(this.gridFilterValue(kind)).toContainText(label);
     }
 
@@ -1888,6 +1941,11 @@ export class TransferToJobCardsPage extends BasePage {
     /** Roster rows are named "<Export ID> : <Name>", trimmed — ": CF B ONE" when the export id is empty. */
     crewInEmployee(label: string): Locator {
         return this.crewInSheet.getByRole('checkbox', { name: label, exact: true });
+    }
+
+    /** The roster's select-all / deselect-all toggle; role-agnostic, as link vs button is unmeasured. */
+    crewInToggleAll(label: string): Locator {
+        return this.crewInSheet.getByText(label, { exact: true });
     }
 
     pageText(text: string): Locator {

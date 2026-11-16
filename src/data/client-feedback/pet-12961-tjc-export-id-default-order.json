@@ -1,0 +1,34 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW D owns day -8. Analyze only; nothing committed.",
+    "Fix web-pet 800bc12be / #1563: the default cascade sorts Export Identifier as text, nulls last (nullsLastTextSortingFn). A numeric-aware collator put 4243 before 38161; text order (legacy, Employee dropdown) puts 38161 first.",
+    "CF employees have no Export ID, so the spec creates two run-tagged employees on Setup > Employee (home crew CF CREW D, Export IDs 38161 / 4243; allowDuplicateEmployeeExportId is true on su). Delete by name is registered before anything is saved; the residue sweep's 'NEW EMPLOYEE' prefix is the backstop.",
+    "4 cards: the 4243 employee punches FIRST 06:00-10:00, the 38161 employee 07:00-11:00, on CF JOB. Time order and a numeric collator would both put 4243 first."
+  ],
+  "ticket": "PET-12961",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "D",
+  "dayOffset": -8,
+  "employees": {
+    "one": { "firstName": "TEXTSORT", "exportIdentifier": "38161" },
+    "two": { "firstName": "TEXTSORT", "exportIdentifier": "4243" }
+  },
+  "seed": [
+    { "employees": ["two"], "job": "hourly", "timeIn": { "hour": 6, "minute": 0 }, "timeOut": { "hour": 10, "minute": 0 } },
+    { "employees": ["one"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } }
+  ],
+  "expected": {
+    "analyzed": 4,
+    "exportIdColumn": "Export Identifier",
+    "labelTemplate": "{exportId} : {name}",
+    "rows": [
+      { "employee": "one", "time": "7:00:00 AM" },
+      { "employee": "one", "time": "11:00:00 AM" },
+      { "employee": "two", "time": "6:00:00 AM" },
+      { "employee": "two", "time": "10:00:00 AM" }
+    ],
+    "filterOrder": ["one", "two"]
+  },
+  "annotations": [],
+  "cleanup": []
+}

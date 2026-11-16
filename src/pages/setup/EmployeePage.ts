@@ -354,6 +354,23 @@ export class EmployeePage extends SetupScreenPage {
         };
     }
 
+    /** Read once the form has hydrated (Name holds the record's value), or an already-set rate looks empty. */
+    async readHourlyRate(): Promise<string> {
+        await expect(this.nameInput).not.toHaveValue('', { timeout: 30_000 });
+        return this.hourlyRateInput.inputValue();
+    }
+
+    /** Read-first no-op; otherwise types, saves (`saveEdit` re-opens the record) and returns what a fresh load shows. */
+    async setHourlyRate(value: string): Promise<string> {
+        const current = await this.readHourlyRate();
+        if (current === value || (current !== '' && value !== '' && Number(current) === Number(value))) return current;
+        await this.hourlyRateInput.fill(value);
+        await this.hourlyRateInput.blur();
+        await expect(this.unsavedChangesBar).toBeVisible();
+        await this.saveEdit();
+        return this.readHourlyRate();
+    }
+
     /** Identification ▸ Cards ▸ RFID Code; `saveEdit` waits for the PUT and re-opens the record. */
     async setRfidCode(code: string): Promise<void> {
         await this.rfidCodeInput.fill(code);
@@ -383,6 +400,34 @@ export class EmployeePage extends SetupScreenPage {
         const prompt = this.page.getByRole('alertdialog', { name: 'Save changes before leaving?' });
         await prompt.getByRole('button', { name: "Don't Save", exact: true }).click({ timeout: 15_000 });
         await this.page.waitForURL((url) => url.pathname === '/setup/employees', { timeout: 15_000 });
+    }
+
+    // ── Client feedback: Gender select (WEBPET-3610) ──
+
+    /** The Gender list as offered, then closed again. */
+    async genderOptions(): Promise<string[]> {
+        await this.genderSelect.click();
+        const listbox = await this.pickers.listboxOf(this.genderSelect);
+        await listbox.waitFor({ state: 'visible', timeout: 15_000 });
+        const texts = (await listbox.getByRole('option').allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        await expect(listbox).toBeHidden({ timeout: 15_000 });
+        return texts;
+    }
+
+    async chooseGender(label: string): Promise<void> {
+        await this.pickers.pickSelect(this.genderSelect, label);
+    }
+
+    /** The clear X is a sibling of the trigger inside its wrapper (components/ui/select.tsx). */
+    get genderClearButton(): Locator {
+        return this.genderSelect.locator('xpath=..').getByRole('button', { name: 'Clear selection', exact: true });
+    }
+
+    /** An unset Gender trigger shows empty text (measured 2026-11-11), with no placeholder attribute. */
+    async clearGender(): Promise<void> {
+        await this.genderClearButton.click();
+        await expect(this.genderSelect).toHaveText('');
     }
 
     // ── Client feedback 5B: the record a Quick Add saved (WEBPET-3927 / 3929) ──

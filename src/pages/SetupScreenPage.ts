@@ -417,7 +417,9 @@ export abstract class SetupScreenPage extends BasePage {
      * settles it (measured on New Field, 2026-09-30).
      */
     protected async blurForValidation(): Promise<void> {
-        await this.page.locator(':focus').blur().catch(() => {
+        // Bounded: no actionTimeout is configured, and when the last click removed its own button (Gender's
+        // "Clear selection") nothing matches :focus, so an unbounded blur() waits out the whole test (WEBPET-3610).
+        await this.page.locator(':focus').blur({ timeout: 2_000 }).catch(() => {
             // Nothing focused — the caller already blurred, or nothing was edited.
         });
         if (await this.nameInput.isVisible().catch(() => false)) {

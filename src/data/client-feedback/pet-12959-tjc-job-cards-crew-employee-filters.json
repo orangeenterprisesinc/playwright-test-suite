@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW A owns day -11. Analyze only; nothing committed.",
+    "4 cards = 2 Time In 07:00 + 2 Time Out 11:00 on CF JOB; the Job Cards preview = 2 job cards, 1 per employee.",
+    "CF employees have no Export ID, so the option reads ': CF A ONE' (the TC's '9021 : CF A ONE' assumes one)."
+  ],
+  "ticket": "PET-12959",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Job Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -11,
+  "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } },
+  "filter": { "label": ": CF A ONE" },
+  "expected": { "analyzed": 4, "jobCardsBefore": 2, "jobCardsAfter": 1, "jobCardsCaption": "Includes 1 of 2 Job Cards", "employeeTail": "CF A ONE" },
+  "annotations": [
+    { "type": "not-asserted", "description": "The Work Crew filter actually narrowing is deferred: one crew is scoped." }
+  ],
+  "cleanup": []
+}

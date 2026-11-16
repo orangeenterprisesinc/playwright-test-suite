@@ -87,6 +87,13 @@ export interface BreakAutomation {
     breakLengths: string;
 }
 
+/** The crew's Break Preparation rule, as the Edit form shows it (`job` is the picked job's name, no export-id prefix). */
+export interface BreakPreparation {
+    job: string | null;
+    lengthMinutes: number | null;
+    onlyPieceJobs: boolean;
+}
+
 export class CrewPage extends SetupScreenPage {
     readonly nameInput: Locator;
     readonly codeInput: Locator;
@@ -98,6 +105,10 @@ export class CrewPage extends SetupScreenPage {
     readonly exerciseJobCombobox: Locator;
     readonly exerciseJobLengthInput: Locator;
     readonly exerciseJobClearButton: Locator;
+    readonly preparationJobCombobox: Locator;
+    readonly preparationJobLengthInput: Locator;
+    readonly preparationJobClearButton: Locator;
+    readonly onlyPieceJobsBreakPrepSwitch: Locator;
     readonly createBreakCardSelect: Locator;
     readonly autoPaidBreakTypeSelect: Locator;
     readonly autoReturnFromBreakSelect: Locator;
@@ -135,6 +146,10 @@ export class CrewPage extends SetupScreenPage {
         this.exerciseJobCombobox = page.locator('input#exerciseJobCounter');
         this.exerciseJobLengthInput = page.locator('input#exerciseJobLengthMinutes');
         this.exerciseJobClearButton = this.exerciseJobCombobox.locator('xpath=ancestor::div[.//button][1]').getByRole('button', { name: /clear/i });
+        this.preparationJobCombobox = page.locator('input#preparationJobCounter');
+        this.preparationJobLengthInput = page.locator('input#preparationJobLengthMinutes');
+        this.preparationJobClearButton = this.preparationJobCombobox.locator('xpath=ancestor::div[.//button][1]').getByRole('button', { name: /clear/i });
+        this.onlyPieceJobsBreakPrepSwitch = page.getByRole('switch', { name: 'Only Piece Jobs Require Break Preparation' });
         this.createBreakCardSelect = page.locator('button#createBreakCardFromTimeIn');
         this.autoPaidBreakTypeSelect = page.locator('button#autoPaidBreakType');
         this.autoReturnFromBreakSelect = page.locator('button#autoReturnFromBreak');
@@ -298,6 +313,45 @@ export class CrewPage extends SetupScreenPage {
         if (PickerComponent.labelPattern(userName).test(await this.readNotifyUser())) return;
         await this.pickers.pickCombobox(this.notifyUserCombobox, userName);
         await this.saveEdit();
+    }
+
+    /** The Break Preparation fields as displayed; waits for the job list, whose late load otherwise reads as empty. */
+    async readBreakPreparation(): Promise<BreakPreparation> {
+        await expect(this.preparationJobCombobox).not.toHaveAttribute('placeholder', /^Loading/);
+        const length = (await this.preparationJobLengthInput.inputValue()).trim();
+        return {
+            job: (await this.preparationJobCombobox.inputValue()).replace(/^[^:]*: /, '').trim() || null,
+            lengthMinutes: length === '' ? null : Number(length),
+            onlyPieceJobs: await this.onlyPieceJobsBreakPrepSwitch.isChecked(),
+        };
+    }
+
+    /** Diff-only apply on the open Edit form; returns false without touching Save when everything already matches. */
+    async setBreakPreparation(rule: BreakPreparation): Promise<boolean> {
+        const current = await this.readBreakPreparation();
+        const changes: Array<() => Promise<void>> = [];
+        if (rule.job !== current.job) {
+            const job = rule.job;
+            if (job === null) {
+                changes.push(() => this.preparationJobClearButton.click());
+            } else {
+                // A pick straight after a save is cleared by the form's re-hydration; re-pick until it holds.
+                changes.push(() =>
+                    expect(async () => {
+                        await this.page.keyboard.press('Escape');
+                        await this.pickers.pickCombobox(this.preparationJobCombobox, job);
+                    }).toPass({ timeout: 30_000 }),
+                );
+            }
+        }
+        if (rule.lengthMinutes !== current.lengthMinutes) {
+            changes.push(() => this.preparationJobLengthInput.fill(rule.lengthMinutes === null ? '' : String(rule.lengthMinutes)));
+        }
+        if (rule.onlyPieceJobs !== current.onlyPieceJobs) changes.push(() => this.onlyPieceJobsBreakPrepSwitch.click());
+        if (!changes.length) return false;
+        for (const change of changes) await change();
+        await this.saveEdit();
+        return true;
     }
 
     /** Tick or untick "Include in Transfer" on the open Edit form and save; a no-op when it already matches. */
