@@ -1,0 +1,29 @@
+{
+  "_notes": [
+    "No data, no (crew, day) pair. su is the positive control: both cards on the Setup hub (navigation.json). The Clerk is the existing non-SU login (CF_NONSU_USER = E2ENonSU, role Clerk); unset credentials fail by name.",
+    "Gate users.manage (Administrator), web-pet ce9160326. Measured 2026-11-11 new shell: the Clerk's Setup hub has no Alias Field / Mobile Phone Carrier card; both routes render 'Not authorized' in place (no redirect).",
+    "Cards are matched by href: a card's accessible name is title + description."
+  ],
+  "ticket": "WEBPET-3788",
+  "screen": { "menuPath": ["Setup"], "url": "/menu/setup" },
+  "hub": "Setup",
+  "hidden": [
+    { "route": "/setup/alias-fields", "title": "Alias Field" },
+    { "route": "/setup/mobile-phone-carriers", "title": "Mobile Phone Carrier" }
+  ],
+  "visible": [
+    { "route": "/setup/crews", "title": "Crew" },
+    { "route": "/setup/jobs", "title": "Job" },
+    { "route": "/setup/fields", "title": "Field" }
+  ],
+  "deepLinkReason": "the Clerk has no hub card for it; typing the address is the only way to reach it",
+  "expected": {
+    "notAuthorized": "Not authorized",
+    "permissionText": "You do not have permission to open this page. If you need it, ask an administrator to change your access.",
+    "backLink": "Back to Dashboard"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "Setup hub group-heading counts (e.g. 'Operations · 14'): they change with every new screen." }
+  ],
+  "cleanup": []
+}

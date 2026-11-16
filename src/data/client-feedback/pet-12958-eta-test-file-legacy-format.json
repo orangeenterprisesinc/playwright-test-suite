@@ -1,0 +1,22 @@
+{
+  "_notes": [
+    "CF CREW D owns day -19. Both employees: CF JOB 07:00-09:00, then CF PIECE JOB 09:00-12:00 with a crew piece-out of 2 at 10:00 (7 time cards, 4 job cards). Test File inside the export-draft lock, download, read the bytes. Teardown deletes own job cards and time cards by id (stands in for the TC's Reverse; the on-screen Reverse needs the transfer landing URL).",
+    "su payrollExportFormat 53 = Famous 120.03 (provider famous-120-3, extension txt), prefAccountingExportFileName 'PPE' (see webpet-3931). web-pet famous6and120.go: 240-char fixed-width rows, CRLF after every row including the last.",
+    "Line content regexes are deliberately absent (unmeasured). The Employee ID column (offset 9, width 6 per the Famous 120.03 layout) only keys the 'grouped by employee' check. The #1559 job-code ORDER fix is DataTech-only; Famous piece-grid order is a known open follow-up, so no job order is asserted.",
+    "First run 2026-11-11: CF PIECE JOB had no Regular Pieces earning code (2 cards cannot export); fixture.json jobs.piece now carries RH,RP,OT,OP,DT,DP,RDP,,ODT,,DDT. 2026-11-12: Famous 120 wrote the rows ONE, TWO, ONE, TWO."
+  ],
+  "ticket": "PET-12958",
+  "screen": {"menuPath": ["File", "Export to Accounting"], "url": "/export-to-accounting"},
+  "fixtureCrew": "D",
+  "dayOffset": -19,
+  "seed": [
+    {"employees": ["one", "two"], "job": "hourly", "timeIn": {"hour": 7, "minute": 0}},
+    {"employees": ["one", "two"], "job": "piece", "timeIn": {"hour": 9, "minute": 0}, "pieceOut": {"at": {"hour": 10, "minute": 0}, "pieces": 2}, "timeOut": {"hour": 12, "minute": 0}}
+  ],
+  "expected": {"jobCards": 4, "fileName": "^ExportToAccFamous120-PPE\\d{17}-\\d{17}\\.txt$", "recordsWritten": "4 records written", "lineLength": 240, "employeeIdColumn": {"start": 9, "length": 6}, "employees": 2},
+  "annotations": [
+    {"type": "not-asserted", "description": "The TC's Reverse step: teardown deletes the own job cards and time cards by id, as webpet-3931; Test File changes no data."},
+    {"type": "not-asserted", "description": "Legacy job-code order within an employee: the #1559 split-job order fix is DataTech-only and su is Famous 120 (Famous piece-grid order follow-up is open)."}
+  ],
+  "cleanup": []
+}
