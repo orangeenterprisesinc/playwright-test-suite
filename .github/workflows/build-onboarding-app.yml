@@ -1,0 +1,105 @@
+name: Build Onboarding app (QA)
+
+# Builds the PET Onboarding app (orangeenterprisesinc/Onboarding, .NET MAUI) for manual
+# QA of Export to Devices (PET-13029): an Android APK to sideload and/or a Windows build
+# to run on a laptop. Never a gate; artifacts only.
+#
+# The Telerik libraries are committed in the Onboarding repo (dev branch), so no Telerik
+# key is needed. SENDGRID_API_KEY is not set here: the app compiles with a placeholder and
+# only its "send logs" e-mail feature is unavailable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      onboarding_ref:
+        description: 'Onboarding branch/tag/SHA to build'
+        required: false
+        default: 'dev'
+        type: string
+      platform:
+        description: 'Which build'
+        required: false
+        default: 'both'
+        type: choice
+        options: [both, android, windows]
+  # Lets the first run happen from this branch before the file is on main.
+  push:
+    branches: ['chore/build-onboarding-app']
+    paths: ['.github/workflows/build-onboarding-app.yml']
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: onboarding/Onboarding.Maui/Onboarding.Maui.csproj
+
+jobs:
+  android:
+    if: ${{ github.event_name == 'push' || inputs.platform != 'windows' }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/Onboarding
+          token: ${{ secrets.ONBOARDING_TOKEN }}
+          ref: ${{ inputs.onboarding_ref || 'dev' }}
+          path: onboarding
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '17'
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      # Release, not Debug: a Debug MAUI APK relies on fast deployment and does not run
+      # when sideloaded. Release is signed with the default debug keystore.
+      - name: Publish APK
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }} -c Release -f net10.0-android
+          -p:AndroidPackageFormat=apk -o publish/android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-android-apk
+          path: publish/android/*-Signed.apk
+          retention-days: 30
+          if-no-files-found: error
+
+  windows:
+    if: ${{ github.event_name == 'push' || inputs.platform != 'android' }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: orangeenterprisesinc/Onboarding
+          token: ${{ secrets.ONBOARDING_TOKEN }}
+          ref: ${{ inputs.onboarding_ref || 'dev' }}
+          path: onboarding
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install MAUI Windows workload
+        run: dotnet workload install maui-windows
+
+      # Self-contained so the laptop needs neither the .NET 10 runtime nor the Windows App
+      # Runtime installed: unzip and run Onboarding.Maui.exe.
+      - name: Publish Windows
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }} -c Release
+          -f net10.0-windows10.0.19041.0 -r win-x64 -o publish/windows
+          -p:SelfContained=true -p:WindowsAppSDKSelfContained=true -p:PublishReadyToRun=false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-windows
+          path: publish/windows/
+          retention-days: 30
+          if-no-files-found: error
