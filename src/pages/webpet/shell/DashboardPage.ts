@@ -108,6 +108,33 @@ export class DashboardPage extends BasePage {
     }
 
     /**
+     * Arrange for the add tests. A placed widget's palette card shows a disabled "Added" button, and the shared su
+     * board has every canvas widget placed, so the only "Add" buttons left were alerts (they go to the alerts strip,
+     * not the canvas: nightly 44024807721, alerts 7 → 8, canvas stayed 27) or none at all. So: in edit mode remove
+     * the last canvas widget (waiting for its layout save), open the palette and return that widget's own "Add"
+     * button. The test adds it back, so the board is the same size after every run.
+     */
+    async openPaletteWithFreedCanvasWidget(): Promise<{ widgetType: string; addButton: Locator }> {
+        await this.editWidgetsButton.click();
+        const cell = this.widgetCells.last();
+        await expect(cell).toBeVisible();
+        const widgetType = (await cell.getAttribute('data-widget-type')) ?? '';
+        expect(widgetType, 'the last canvas cell names its widget type').not.toBe('');
+        const saved = this.page.waitForResponse(
+            (res) => res.request().method() === 'PUT' && /\/api\/widget-canvases\/\d+\/layout$/.test(new URL(res.url()).pathname),
+            { timeout: 15_000 },
+        );
+        await cell.getByRole('button', { name: 'Remove', exact: true }).click();
+        expect((await saved).ok(), 'removing a canvas widget saves the layout').toBe(true);
+        await this.addWidgetsButton.click();
+        const addButton = this.palette
+            .locator(`[data-slot="picker-card"][data-widget-type="${widgetType}"]`)
+            .getByRole('button', { name: /^Add / });
+        await expect(addButton, `${widgetType} is addable again`).toBeEnabled();
+        return { widgetType, addButton };
+    }
+
+    /**
      * Widget cells of one widget type, e.g. `'dashboard.crop-comparison'`.
      *
      * Every cell carries `data-widget-type`, which is what makes an assertion about a
