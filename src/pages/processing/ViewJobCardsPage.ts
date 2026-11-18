@@ -257,8 +257,12 @@ export class ViewJobCardsPage extends BasePage {
             const num = (value: string) => Number(value.replace(/,/g, ''));
             return { shown: num(match[1]), loaded: match[2] ? num(match[2]) : num(match[1]) };
         };
+        const records = await read('view-job-cards-record-count');
+        // An empty result renders only "0 records": the employee and piece counts are not drawn at all (dev
+        // 2026-11-17), and an innerText() on them waited out the whole test (B8, D3 in nightly 44065342900).
+        if (records.loaded === 0) return { records, employees: { shown: 0, loaded: 0 }, pieces: { shown: 0, loaded: 0 } };
         return {
-            records: await read('view-job-cards-record-count'),
+            records,
             employees: await read('view-job-cards-employee-count'),
             pieces: await read('view-job-cards-piece-count'),
         };

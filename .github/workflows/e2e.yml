@@ -197,6 +197,9 @@ jobs:
       # and webpet:skip-gate fails the leg.
       WEBPET_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
       WEBPET_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
+      # WEBPET-3788 (client feedback) logs in as the same non-SU Clerk (E2ENonSU), so it reuses those secrets.
+      CF_NONSU_USER: ${{ secrets.WEBPET_NONSU_USER }}
+      CF_NONSU_PASSWORD: ${{ secrets.WEBPET_NONSU_PASSWORD }}
       # WP-0178 self-skips when unset (allowlisted); keeps employee barcodes out of the repo.
       # Mailbox the suite plus-addresses for users it creates (web-pet #1583 refuses placeholder domains).
       E2E_USER_EMAIL: ${{ vars.E2E_USER_EMAIL }}
