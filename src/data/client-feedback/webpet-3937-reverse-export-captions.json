@@ -1,14 +1,18 @@
 {
   "_notes": [
-    "Read-only: File ▸ Restore or Reverse captions only; neither screen is opened. Restore or Reverse also sits under File ▸ Administration for su; FileMenu reads the File-level one (last in DOM order).",
-    "Walked on dev 2026-11-02 (su and E2ENonSU): both new captions are links (both href /export-to-accounting/reverse); 'Reverse Export to Inventory Accounting' is a disabled entry; neither old caption is listed."
+    "Read-only: the caption only; the reverse screen is not opened.",
+    "New shell (web-pet #1569): File ▸ Restore or Reverse is gone. Its two reverse-export items are one card on the Export hub, href /export-to-accounting/reverse (navigation.json). The card is matched by href: its accessible name is title + description.",
+    "Classic shell, walked on dev 2026-11-02: the two items read 'Reverse Export to Accounting (Cost Accounting)' and '(Payroll)', both href /export-to-accounting/reverse."
   ],
   "ticket": "WEBPET-3937",
-  "screen": { "menuPath": ["File", "Restore or Reverse"], "url": "/export-to-accounting/reverse" },
+  "screen": { "menuPath": ["Export"], "url": "/menu/export" },
+  "hub": "Export",
+  "card": { "route": "/export-to-accounting/reverse", "title": "Reverse Export to Accounting (Payroll / Cost Accounting)" },
   "expected": {
-    "captions": ["Reverse Export to Accounting (Cost Accounting)", "Reverse Export to Accounting (Payroll)"],
     "oldCaptions": ["Reverse Job Costing Export to Accounting", "Reverse Payroll Export to Accounting"]
   },
-  "annotations": [],
+  "annotations": [
+    { "type": "not-asserted", "description": "The ticket's two separate captions '(Cost Accounting)' and '(Payroll)': the new shell shows them as one card, '(Payroll / Cost Accounting)'." }
+  ],
   "cleanup": []
 }
