@@ -95,16 +95,16 @@ test.describe('Dashboard shell — widget palette', { tag: ['@WebPet', '@wp-shel
         await dashboard.gotoDashboard();
 
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
+        await dashboard.settledCellCount();
+
+        // Arrange: take one widget off the canvas so its palette card is addable again, then count from there.
+        const freed = await dashboard.openPaletteWithFreedCanvasWidget();
+        await expect(dashboard.palette).toBeVisible();
         const initialCount = await dashboard.settledCellCount();
 
-        await dashboard.openPalette();
-        await expect(dashboard.palette).toBeVisible();
-
         // Each palette item exposes a per-item plus button whose accessible name
-        // is "Add <widget title>" (palette.addWidget i18n key, en locale). The
-        // palette aside also contains a single "Close palette" X button; scoping
-        // to /^Add / + .first() picks the first widget's add button.
-        await dashboard.firstAddWidgetButton.click();
+        // is "Add <widget title>" (palette.addWidget i18n key, en locale).
+        await freed.addButton.click();
 
         // The add path flushes the debounced save and fires an immediate
         // mutate, so the new cell mounts synchronously on the canvas.
@@ -125,9 +125,13 @@ test.describe('Dashboard shell — persistence + reload', { tag: ['@WebPet', '@w
 
         await expect(dashboard.widgetCells.first()).toBeVisible({ timeout: 10_000 });
         await dashboard.settledCellCount();
-        const typesBefore = await dashboard.widgetTypes();
 
-        await dashboard.openPalette();
+        // Arrange: take one widget off the canvas so its palette card is addable again; that save
+        // completes before the add below, so the PUT awaited next is the add's.
+        const freed = await dashboard.openPaletteWithFreedCanvasWidget();
+        await dashboard.settledCellCount();
+        const typesBefore = await dashboard.widgetTypes();
+        const addCanvasWidget = freed.addButton;
 
         // Wait for the layout PUT, so the reload below cannot race the write this test
         // exists to prove. The add is optimistic on the canvas and the save is debounced,
@@ -139,14 +143,13 @@ test.describe('Dashboard shell — persistence + reload', { tag: ['@WebPet', '@w
                     /\/api\/widget-canvases\/\d+\/layout$/.test(new URL(res.url()).pathname),
                 { timeout: 15_000 },
             ),
-            dashboard.firstAddWidgetButton.click(),
+            addCanvasWidget.click(),
         ]);
         expect(saved.ok(), 'the canvas layout PUT should persist the added widget').toBe(true);
 
-        // Identify the widget by type rather than by the global cell total. The board is
-        // shared server-side state that neither this test nor WP-0129 cleans up, so the
-        // total climbs every run — it reached 93 in CI run 33860893832, where this test
-        // expected 93 and saw 92 and failed on a number that was never a stable oracle.
+        // Identify the widget by type rather than by the global cell total: the board is
+        // shared server-side state, so the total is not a stable oracle (CI run 33860893832
+        // expected 93 and saw 92).
         const typesAfter = await dashboard.widgetTypes();
         const countOf = (types: string[], t: string) => types.filter((x) => x === t).length;
         const addedType = typesAfter.find((t) => countOf(typesAfter, t) > countOf(typesBefore, t));
