@@ -21,8 +21,10 @@ import { currentScope, register } from '@utils/cleanup/cleanupScope';
 import { ownerForTicket, readableName } from '@utils/cleanup/runToken';
 import { runCleanup, type CleanupContext } from '@utils/cleanup/runCleanup';
 import { makeEmployeeName } from '@data/generated';
+import { isSweepable } from '@data/static/shared/cleanupTargets';
 import {
     ensureCrewOnScreen,
+    ensureDepartmentOnScreen,
     ensureEmployeeOnScreen,
     ensureFieldOnScreen,
     ensureJobOnScreen,
@@ -505,7 +507,7 @@ export async function ensureCfTimeCardDefaults(deps: CfDeps): Promise<{ ranch: E
  * Teardown for rows a spec creates and then deletes on screen: a by-name soft delete (cleanup allowance) that survives a
  * timeout and finds nothing once the screen delete ran. Employee and Validation have no purge (WEBPET-1798).
  */
-function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation' | 'filterScript' | 'aliasSet' | 'job', names: string[]): void {
+function registerDeleteByName(deps: CfDeps, label: string, entity: 'employee' | 'validation' | 'filterScript' | 'aliasSet' | 'job' | 'scanDevice', names: string[]): void {
     const steps = names.map((name) => ({ kind: 'delete' as const, entity, name }));
     register(deps.testInfo, `${label} delete own ${entity} rows`, (api) => runCleanup(steps, api, deps.testInfo, { phase: 'after' }));
 }
@@ -872,8 +874,8 @@ export async function createCfEmployeeOnScreen(
     run: CfRun,
     deps: CfDeps,
     minted: QuickAddEmployeeName,
-    spec: { firstName: string; exportIdentifier: string },
-): Promise<EnsuredRecord & { rosterName: string; exportIdentifier: string; crew: string }> {
+    spec: { firstName: string; exportIdentifier: string; department?: string },
+): Promise<EnsuredRecord & { rosterName: string; exportIdentifier: string; crew: string; department: string }> {
     const { employee } = deps.pages;
     // Barcode must be numeric ("barcode is not a valid numeric", 2026-11-11): day-of-month + HHmmss + worker (+ the
     // readableName same-second suffix, `-W2-2`) from the name's `MMDD-HHmmss-Wn[-k]` tail.
@@ -887,15 +889,41 @@ export async function createCfEmployeeOnScreen(
         lastName: minted.lastName,
         crew: run.crew.name,
         exportIdentifier: spec.exportIdentifier,
+        ...(spec.department ? { department: spec.department } : {}),
     });
     if (outcome !== 'created') throw new Error(`${run.label}: the New Employee form rejected '${minted.name}' (Export Identifier ${spec.exportIdentifier})`);
     const id = employee.savedIdFromUrl();
     const summary = await employee.readProfileSummary();
+    // The Department the saved form shows, so a spec asserts what the record holds rather than what was typed.
+    let department = '';
+    if (spec.department) {
+        await expect(employee.departmentCombobox).not.toHaveValue('', { timeout: 30_000 });
+        department = (await employee.departmentCombobox.inputValue()).replace(/^[^:]*: /, '').trim();
+    }
     // Crew Time In's roster labels an employee by First + Last name, the Transfer grid and filters by the Name field (dev 2026-11-11).
-    return { id, code, name: minted.name, rosterName: `${spec.firstName} ${minted.lastName}`, created: true, exportIdentifier: summary.exportIdentifier, crew: summary.crew };
+    return { id, code, name: minted.name, rosterName: `${spec.firstName} ${minted.lastName}`, created: true, exportIdentifier: summary.exportIdentifier, crew: summary.crew, department };
 }
 
 /** `YYYY-MM-DD` of today + offset on prepareCfRun's clock: a range end that is never seeded (WEBPET-3932). */
 export function cfDay(offset: number): string {
     return isoDay(punchDay(offset));
+}
+
+// ── 2026-11-20: PET-13153 (Search by Department), PET-12987 (scratch scan devices) ──
+
+/** PET-13153: CF DEPARTMENT, created on screen only when missing. Run-minted employees go in it, so no fixture employee's Department changes (WEBPET-3577 needs CF D ONE's to stay empty). */
+export async function ensureCfDepartment(deps: CfDeps): Promise<{ id: number; name: string; source: 'existing' | 'created' }> {
+    return ensureDepartmentOnScreen({ name: CF_FIXTURE.department.name }, onScreenDeps(deps));
+}
+
+/** PET-12987: `count` scan-device names on one stamp (the minted name, then `-2`, `-3`), so one Name filter lists exactly them; teardown is registered before the first create. */
+export function mintScratchDevices(deps: CfDeps, ticket: string, count: number): { stem: string; names: string[] } {
+    const stem = readableName(ownerForTicket(ticket), 'SD');
+    const names = [stem, ...Array.from({ length: count - 1 }, (_, i) => `${stem}-${String(i + 2)}`)];
+    for (const name of names) {
+        if (!isSweepable('scanDevice', name)) throw new Error(`${ticket}: '${name}' is not a name the residue sweep reclaims (cleanupTargets.ts)`);
+        if (name.length > 30) throw new Error(`${ticket}: '${name}' is ${name.length} chars, over the device name limit of 30`);
+    }
+    registerDeleteByName(deps, ticket, 'scanDevice', names);
+    return { stem, names };
 }

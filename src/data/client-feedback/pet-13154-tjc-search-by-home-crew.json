@@ -1,0 +1,27 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW C and CF CREW D both own day -17 (two crews, one day). Analyze only; nothing committed.",
+    "No spec mints employees into CF CREW C, so the home crew C employees on the day are exactly CF C ONE/TWO; CF CREW D on the same day is the control that must drop out. Each crew punches into its own crew, so the control does not separate home crew from time-card crew (Crew Time In lists only a crew's members).",
+    "Server: Home Crew filters on Employee.CrewCounter (candidates.go:883-885); the Time Card Crew is a different column."
+  ],
+  "ticket": "PET-13154",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -17,
+  "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } },
+  "extraCrews": [
+    { "fixtureCrew": "D", "dayOffset": -17, "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 11, "minute": 0 } } }
+  ],
+  "expected": {
+    "option": "Employee Home Crew",
+    "match": "Selected",
+    "sentenceTemplate": "Employee Home Crew is one of: {crew}",
+    "analyzed": 4,
+    "caption": "Includes 4 Time Cards of 4 initial selection",
+    "employees": ["CF C ONE", "CF C TWO"],
+    "absent": ["CF D ONE", "CF D TWO"],
+    "totals": { "Employees": 2 }
+  },
+  "annotations": [],
+  "cleanup": []
+}

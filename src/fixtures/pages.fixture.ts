@@ -60,6 +60,7 @@ import { ScreenReportSelectionPage } from '../pages/reports/ScreenReportSelectio
 import { ReportScriptsPage } from '../pages/reports/ReportScriptsPage';
 import { FileMenu } from '../pages/shell/FileMenu';
 import { TimeInListPage } from '../pages/input/TimeInListPage';
+import { AliasSetPage } from '../pages/setup/AliasSetPage';
 
 /**
  * Every page object, lazily constructed.
@@ -167,6 +168,10 @@ export interface PageObjects {
     readonly fileMenu: FileMenu;
     /** Input ▸ Time In, `/input/time-in` (WEBPET-3932). */
     readonly timeInList: TimeInListPage;
+
+    // ── Client feedback 2026-11-20 ──
+    /** Setup ▸ Alias Set, `/setup/alias-sets` (WEBPET-3826). */
+    readonly aliasSet: AliasSetPage;
 }
 
 /**
@@ -226,5 +231,6 @@ export function createPageObjects(page: Page): PageObjects {
         get reportScripts() { return lazy('reportScripts', () => new ReportScriptsPage(page)); },
         get fileMenu() { return lazy('fileMenu', () => new FileMenu(page)); },
         get timeInList() { return lazy('timeInList', () => new TimeInListPage(page)); },
+        get aliasSet() { return lazy('aliasSet', () => new AliasSetPage(page)); },
     };
 }

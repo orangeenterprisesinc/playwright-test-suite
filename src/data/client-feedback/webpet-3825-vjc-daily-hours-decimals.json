@@ -1,0 +1,25 @@
+{
+  "_notes": [
+    "Measured 11-20: run from the View Job Cards grid the same JobCardDailyHours layout prints its title as \"Job Card Grid: Daily Hours\" (the launching screen sets the prefix); the hour cells printed 4.2500 with Time Decimal Accuracy 4.",
+    "CF CREW C owns day -15. CF C ONE 07:00-11:15 on CF JOB = 255 minutes = 4.25 h, one job card. 15 minutes sits on the usual Time Rounding grid.",
+    "Time Decimal Accuracy (N) is read on File > Administration > Job Card Preferences > Accuracy, never written and never hard-coded (dev 2026-11-20 read 4). E6 changes it temporarily, so a parallel E6 run could move N between the read and the report.",
+    "Report picker label 'Daily Hours'; its PDF title is 'Job Card: Daily Hours', last column 'Total Hours'. 'Show Time in Decimal' defaults to Yes."
+  ],
+  "ticket": "WEBPET-3825",
+  "screen": { "menuPath": ["View", "Job Cards"], "url": "/view/job-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -15,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 15 }
+  },
+  "jobCards": 1,
+  "prefs": { "section": "Accuracy", "label": "Time Decimal Accuracy" },
+  "workedMinutes": 255,
+  "report": "Daily Hours",
+  "expected": { "pdfTitle": "Job Card Grid: Daily Hours", "totalLabel": "Total Hours" },
+  "annotations": [],
+  "cleanup": []
+}

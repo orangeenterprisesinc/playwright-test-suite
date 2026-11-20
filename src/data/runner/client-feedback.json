@@ -855,8 +855,8 @@
                 "regression"
             ],
             "jira": "WEBPET-3805",
-            "status": "draft",
-            "enabled": false
+            "status": "automated",
+            "enabled": true
         },
         {
             "id": "WEBPET-3831",
@@ -1206,6 +1206,136 @@
                 "regression"
             ],
             "jira": "WEBPET-3941",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12951",
+            "category": "ui",
+            "testName": "cf12951ReportLoadOnViewTimeCardsLists",
+            "testTitle": "Report > Load on View Time Cards lists the saved filter scripts and loads the picked one",
+            "testDescription": "Client feedback: Report > Load on View Time Cards lists the saved filter scripts and loads the picked one. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12951",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12985",
+            "category": "ui",
+            "testName": "cf12985ReportLoadOnTransferToJob",
+            "testTitle": "Report > Load on Transfer to Job Cards lists the saved filter scripts and loads the picked one",
+            "testDescription": "Client feedback: Report > Load on Transfer to Job Cards lists the saved filter scripts and loads the picked one. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12985",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12950",
+            "category": "ui",
+            "testName": "cf12950ReportSelectionOnViewTimeCards",
+            "testTitle": "Report Selection on View Time Cards reopens on the last-run report and its answers",
+            "testDescription": "Client feedback: Report Selection on View Time Cards reopens on the last-run report and its answers. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12950",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-3824",
+            "category": "ui",
+            "testName": "cf3824TimeInThePieceSummaryWithRank",
+            "testTitle": "Time In: the Piece Summary with Rank report runs without a 422 and ranks employees",
+            "testDescription": "Client feedback: Smoke: Time In: the Piece Summary with Rank report runs without a 422 and ranks employees. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3824",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-3825",
+            "category": "ui",
+            "testName": "cf3825JobCardDailyHoursPrintsHours",
+            "testTitle": "Job Card: Daily Hours prints hours with the Time Decimal Accuracy decimals",
+            "testDescription": "Client feedback: Smoke: Job Card: Daily Hours prints hours with the Time Decimal Accuracy decimals. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3825",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "WEBPET-3826",
+            "category": "ui",
+            "testName": "cf3826TimeInConsecutiveMissingWorkDays",
+            "testTitle": "Time In: Consecutive Missing Work Days takes its parameters and uses the Alias Set captions",
+            "testDescription": "Client feedback: Smoke: Time In: Consecutive Missing Work Days takes its parameters and uses the Alias Set captions. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3826",
+            "status": "draft",
+            "enabled": false
+        },
+        {
+            "id": "WEBPET-3828",
+            "category": "ui",
+            "testName": "cf3828ViewJobCardsPayrollSummaryByCrew",
+            "testTitle": "View Job Cards: Payroll Summary by Crew opens a PDF with the crew group lines and totals",
+            "testDescription": "Client feedback: Smoke: View Job Cards: Payroll Summary by Crew opens a PDF with the crew group lines and totals. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "WEBPET-3828",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-13153",
+            "category": "ui",
+            "testName": "cf13153SearchByDepartmentScopesTheTransferAnalyze",
+            "testTitle": "Search by Department scopes the Transfer to Job Cards analyze to that department's employees",
+            "testDescription": "Client feedback: Search by Department scopes the Transfer to Job Cards analyze to that department's employees. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-13153",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-13154",
+            "category": "ui",
+            "testName": "cf13154SearchByEmployeeHomeCrewScopesTheTransferAnalyze",
+            "testTitle": "Search by Employee Home Crew scopes the Transfer to Job Cards analyze to that crew's employees",
+            "testDescription": "Client feedback: Search by Employee Home Crew scopes the Transfer to Job Cards analyze to that crew's employees. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-13154",
+            "status": "automated",
+            "enabled": true
+        },
+        {
+            "id": "PET-12987",
+            "category": "ui",
+            "testName": "cf12987ScanDevicesFilterAndMultiUpdateChangeOnlyTheTickedDevices",
+            "testTitle": "The Scan Devices list Filter narrows by Selected, Exclude, Empty and AND, and Multi Update with Undo changes only the ticked devices, until Clear All",
+            "testDescription": "Client feedback: The Scan Devices list Filter narrows by Selected, Exclude, Empty and AND, and Multi Update with Undo changes only the ticked devices, until Clear All. Steps and expected result: Client Feedback Happy Path tab.",
+            "tags": [
+                "regression"
+            ],
+            "jira": "PET-12987",
             "status": "automated",
             "enabled": true
         }

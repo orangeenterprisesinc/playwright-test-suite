@@ -1,0 +1,50 @@
+{
+  "_notes": [
+    "No crew-day: the spec only mints scan devices (fixtureCrew A supplies the Supervisor, CF A ONE). Never touches device 43 (client 3) or a real phone: the dev list holds ids 1002-1342 on client 1, and only the five run-minted devices are ever ticked. Never Select all. Nothing is pushed.",
+    "Names are 'P2987 NEW SD <MMDD-HHmmss>-Wn' (+ -2..-5), one stamp, 29 chars max; the residue prefix is NEW SD (cleanupTargets). Type is set before the name: the Name blur suggests a free Reference Prefix.",
+    "Device Type option values: Pocket PDA 0, Finger Scanner 16 (scanDevice.json:422,435). Selection keys: deviceType, supervisor, useJobAlias; match choices inList, empty, isTrue (web-pet SelectionCriteria testids).",
+    "Step 8 updates the same two devices a second time because the success toast's Undo lives 10 s (MultiUpdatePanel.tsx:119-128), too short for step 7's filter round trip. Undo shows only with Access to Reverse: if QA Automation lacks it the step fails by name.",
+    "Out of scope: ticked-then-hidden selection (the 11-17 FAIL), List, Active Only."
+  ],
+  "ticket": "PET-12987",
+  "screen": { "menuPath": ["File", "Administration", "Scan Devices & Boards"], "url": "/setup/scan-devices" },
+  "fixtureCrew": "A",
+  "webMailDomain": "silo",
+  "devices": [
+    { "key": "A", "type": "Pocket PDA", "supervisor": true },
+    { "key": "B", "type": "Pocket PDA", "supervisor": true },
+    { "key": "C", "type": "Finger Scanner", "supervisor": true },
+    { "key": "D", "type": "Finger Scanner", "supervisor": false },
+    { "key": "E", "type": "Pocket PDA", "supervisor": false }
+  ],
+  "deviceTypeValues": { "Pocket PDA": "0", "Finger Scanner": "16" },
+  "selection": {
+    "filterType": "Pocket PDA",
+    "fields": { "deviceType": "deviceType", "supervisor": "supervisor", "useJobAlias": "useJobAlias" },
+    "match": { "inList": "inList", "empty": "empty", "isTrue": "isTrue" },
+    "columns": { "name": "Name", "deviceType": "Device Type" }
+  },
+  "tick": ["A", "B"],
+  "multiUpdate": { "field": "Use Job Alias", "value": "Yes", "undoValue": "No" },
+  "expected": {
+    "pda": ["A", "B", "E"],
+    "notPda": ["C", "D"],
+    "supEmpty": ["D", "E"],
+    "supSet": ["A", "B", "C"],
+    "both": ["A", "B"],
+    "countSingle": "1",
+    "countBoth": "2",
+    "lines": {
+      "selected": "Device Type is one of: Pocket PDA",
+      "excluded": "Device Type is not one of: Pocket PDA",
+      "empty": "Supervisor is empty",
+      "notEmpty": "Supervisor is not empty",
+      "aliasYes": "Use Job Alias is Yes"
+    },
+    "updateLabel": "Update Records (2)",
+    "updatedToast": "2 records updated",
+    "undoneToast": "Update undone"
+  },
+  "annotations": [],
+  "cleanup": []
+}

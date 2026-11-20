@@ -1,0 +1,31 @@
+{
+  "_notes": [
+    "CF CREW C owns day -14. CF C ONE and CF C TWO on CF PIECE JOB 07:00-11:00, one piece-out each via Transfer > New record > Add Piece-out: ONE 5 pieces at 10:00, TWO 1 piece at 10:30, so ONE ranks above the Average line and TWO below it.",
+    "The range covers the whole tenant on day -14, so the ranking is read only inside the CF crew / CF PIECE JOB section of the PDF. 'Only Piece Jobs Included' defaults to Yes and CF PIECE JOB is a Piece job.",
+    "Layout TimeCardPieceSummaryWithRank.json: 'Average' is printed once, before the first below-average employee; 'Grand Total:' closes the report."
+  ],
+  "ticket": "WEBPET-3824",
+  "screen": { "menuPath": ["Input", "Time In"], "url": "/input/time-in" },
+  "fixtureCrew": "C",
+  "dayOffset": -14,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "piece",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 },
+    "employeePieceOut": [
+      { "employee": "one", "at": { "hour": 10, "minute": 0 }, "pieces": 5 },
+      { "employee": "two", "at": { "hour": 10, "minute": 30 }, "pieces": 1 }
+    ]
+  },
+  "range": { "fromOffset": -15, "toOffset": -14, "start": "00:00", "end": "23:59" },
+  "report": "Piece Summary with Rank",
+  "expected": {
+    "status": 200,
+    "average": "Average",
+    "grandTotal": "Grand Total:",
+    "rejected": "This report cannot be narrowed by the selection criteria"
+  },
+  "annotations": [],
+  "cleanup": []
+}

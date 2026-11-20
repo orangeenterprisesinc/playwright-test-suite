@@ -1,0 +1,21 @@
+{
+  "_notes": [
+    "CF CREW A owns day -15 for this ticket. 2 cards = Time In 07:00 + Time Out 11:00 for CF A ONE on CF JOB.",
+    "Source ReportDialog.tsx: the last pick is kept unless initialReportId is passed, and keepParamsOnReopen keeps the answers. Display Report passes initialReportId and re-seeds every opening, so only the Report button (view-time-cards-report) is used.",
+    "Show Details defaults to No for this report; the run uses Yes."
+  ],
+  "ticket": "PET-12950",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -15,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "report": { "name": "Piece Summary by Packing Types", "param": { "label": "Show Details", "value": "Yes" } },
+  "expected": { "rows": 2, "defaultReport": "All Data" },
+  "annotations": [],
+  "cleanup": []
+}

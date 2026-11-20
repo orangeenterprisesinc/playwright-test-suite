@@ -1,0 +1,31 @@
+{
+  "_notes": [
+    "CF CREW A owns day -13 for this ticket. The screen is scoped to the day with All crews: with a Time Card Crew criterion View Time Cards hides Report Load/Save (ReportDialog scriptsAvailable, measured 11-20). 2 cards = Time In 07:00 + Time Out 11:00 for CF A ONE on CF JOB.",
+    "Before the fix Load on a screen Report was empty and disabled; QA passed 11-16. Report waits for a loaded filter, so the screen is Applied first. Execute report is unticked at Save: it would auto-run the report and close the dialog (PET-13151).",
+    "The Load list holds every Time In script in the tenant, so the script is picked by its exact run-minted name."
+  ],
+  "ticket": "PET-12951",
+  "screen": { "menuPath": ["View", "Time Cards"], "url": "/view/time-cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -13,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "report": { "name": "Piece Summary by Packing Types", "param": { "label": "Show Details", "value": "Yes" } },
+  "resetReport": "All Data",
+  "expected": {
+    "rows": 2,
+    "savedToast": "Filter script \"{name}\" saved.",
+    "loadTitle": "Load Filter Script",
+    "emptyText": "There are no saved filter scripts for this screen yet.",
+    "bannerTemplate": "Using the filters from \"{name}\".",
+    "deletedToast": "Filter script deleted"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "No PDF is run: Execute report is off on purpose (PET-13151 would auto-run it and close the dialog)." }
+  ],
+  "cleanup": []
+}

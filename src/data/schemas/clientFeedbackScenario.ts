@@ -773,3 +773,156 @@ export const TjcTwoDayPieceOutsCaseSchema = ClientFeedbackBase.extend({
     }
 });
 export type TjcTwoDayPieceOutsCase = z.infer<typeof TjcTwoDayPieceOutsCaseSchema>;
+
+// ── Batch 2026-11-20: report scripts and Time In / Job Card reports (PET-12951 / 12985 / 12950, WEBPET-3805 / 3824 / 3825 / 3826 / 3828) ──
+
+const ReportParamPick = z.object({ label: Text, value: Text }).strict();
+const ReportScriptReport = z.object({ name: Text, param: ReportParamPick }).strict();
+const ReportScriptLoadExpected = { savedToast: Text, loadTitle: Text, emptyText: Text, bannerTemplate: Text, deletedToast: Text };
+
+export const VtcReportLoadCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12951'),
+    ...TjcScoped,
+    report: ReportScriptReport,
+    resetReport: Text,
+    expected: z.object({ ...ReportScriptLoadExpected, rows: Rows }).strict(),
+}).strict();
+export type VtcReportLoadCase = z.infer<typeof VtcReportLoadCaseSchema>;
+
+export const TjcReportLoadCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12985'),
+    ...TjcScoped,
+    report: ReportScriptReport,
+    resetReport: Text,
+    expected: z.object({ ...ReportScriptLoadExpected }).strict(),
+}).strict();
+export type TjcReportLoadCase = z.infer<typeof TjcReportLoadCaseSchema>;
+
+export const VtcReportKeepsLastCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12950'),
+    ...TjcScoped,
+    report: ReportScriptReport,
+    expected: z.object({ rows: Rows, defaultReport: Text }).strict(),
+}).strict();
+export type VtcReportKeepsLastCase = z.infer<typeof VtcReportKeepsLastCaseSchema>;
+
+export const JobCardReportLoadCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3805'),
+    expected: z.object({ buttons: SelectionButtons, savedToast: Text, loadTitle: Text, deletedToast: Text }).strict(),
+}).strict();
+export type JobCardReportLoadCase = z.infer<typeof JobCardReportLoadCaseSchema>;
+
+export const TimeInPieceRankCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3824'),
+    ...TjcScoped,
+    range: z.object({ fromOffset: CfDayOffset, toOffset: CfDayOffset, start: HhMm, end: HhMm }).strict(),
+    report: Text,
+    expected: z.object({ status: z.number().int(), average: Text, grandTotal: Text, rejected: Text }).strict(),
+}).strict();
+export type TimeInPieceRankCase = z.infer<typeof TimeInPieceRankCaseSchema>;
+
+export const VjcDailyHoursDecimalsCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3825'),
+    ...TjcScoped,
+    jobCards: Rows,
+    prefs: z.object({ section: Text, label: Text }).strict(),
+    workedMinutes: z.number().int().positive(),
+    report: Text,
+    expected: z.object({ pdfTitle: Text, totalLabel: Text }).strict(),
+}).strict();
+export type VjcDailyHoursDecimalsCase = z.infer<typeof VjcDailyHoursDecimalsCaseSchema>;
+
+export const TimeInMissingDaysCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3826'),
+    ...TjcScoped,
+    extraCrews: z.array(CfExtraCrew).min(1),
+    listRange: z.object({ fromOffset: CfDayOffset, toOffset: CfDayOffset }).strict(),
+    lastWorkOffset: CfDayOffset,
+    aliasSet: z.object({ type: Text, captions: z.record(Text, Text) }).strict(),
+    params: z.object({
+        lastWorkDate: z.object({ id: Text }).strict(),
+        allowed: z.object({ id: Text, value: Text }).strict(),
+        aliasLabel: Text,
+        none: Text,
+    }).strict(),
+    expected: z.object({ title: Text, allowedLine: Text, attendancePattern: Text, dateColumnPattern: Text, absentEmployee: z.enum(['one', 'two']) }).strict(),
+}).strict();
+export type TimeInMissingDaysCase = z.infer<typeof TimeInMissingDaysCaseSchema>;
+
+export const VjcPayrollByCrewCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('WEBPET-3828'),
+    ...TjcScoped,
+    jobCards: Rows,
+    range: z.object({ fromOffset: CfDayOffset, toOffset: CfDayOffset }).strict(),
+    report: Text,
+    expected: z.object({ status: z.number().int(), totals: z.array(Text).min(1) }).strict(),
+}).strict();
+export type VjcPayrollByCrewCase = z.infer<typeof VjcPayrollByCrewCaseSchema>;
+
+// ── 2026-11-20: Transfer Search by Department / Home Crew (PET-13153 / 13154), Scan Devices list Filter (PET-12987) ──
+
+const SearchByCommon = { match: Text, sentenceTemplate: Text, analyzed: Rows, caption: Text };
+
+export const TjcSearchByDepartmentCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-13153'),
+    ...TjcScoped, // seed = the control: the fixture crew's own employees, who have no department
+    employees: z.object({ one: RunEmployee, two: RunEmployee }).strict(),
+    departmentSeed: CfSeedSteps, // the run-minted pair that sit in CF DEPARTMENT
+    expected: z.object({
+        searchByOptions: z.array(Text).length(4),
+        ...SearchByCommon,
+        labelTemplate: Text,
+        totals: z.object({ Employees: Rows, Gross: z.number().positive() }).strict(),
+    }).strict(),
+}).strict();
+export type TjcSearchByDepartmentCase = z.infer<typeof TjcSearchByDepartmentCaseSchema>;
+
+export const TjcSearchByHomeCrewCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-13154'),
+    ...TjcScoped,
+    extraCrews: z.array(CfExtraCrew).length(1), // the control crew, same day
+    expected: z.object({
+        option: Text,
+        ...SearchByCommon,
+        employees: z.array(Text).length(2),
+        absent: z.array(Text).length(2),
+        totals: z.object({ Employees: Rows }).strict(),
+    }).strict(),
+}).strict();
+export type TjcSearchByHomeCrewCase = z.infer<typeof TjcSearchByHomeCrewCaseSchema>;
+
+const ScanDeviceKey = z.enum(['A', 'B', 'C', 'D', 'E']);
+
+export const ScanDeviceSelectionCaseSchema = ClientFeedbackBase.extend({
+    ticket: z.literal('PET-12987'),
+    fixtureCrew: CfCrew, // supplies the Supervisor (employees[0])
+    webMailDomain: Text,
+    devices: z.array(z.object({ key: ScanDeviceKey, type: Text, supervisor: z.boolean() }).strict()).length(5),
+    deviceTypeValues: z.record(Text, Text),
+    selection: z.object({
+        filterType: Text,
+        fields: z.object({ deviceType: Text, supervisor: Text, useJobAlias: Text }).strict(),
+        match: z.object({ inList: Text, empty: Text, isTrue: Text }).strict(),
+        columns: z.object({ name: Text, deviceType: Text }).strict(),
+    }).strict(),
+    tick: z.array(ScanDeviceKey).length(2),
+    multiUpdate: z.object({ field: Text, value: Text, undoValue: Text }).strict(),
+    expected: z.object({
+        pda: z.array(ScanDeviceKey),
+        notPda: z.array(ScanDeviceKey),
+        supEmpty: z.array(ScanDeviceKey),
+        supSet: z.array(ScanDeviceKey),
+        both: z.array(ScanDeviceKey),
+        countSingle: Text,
+        countBoth: Text,
+        lines: z.object({ selected: Text, excluded: Text, empty: Text, notEmpty: Text, aliasYes: Text }).strict(),
+        updateLabel: Text,
+        updatedToast: Text,
+        undoneToast: Text,
+    }).strict(),
+}).strict().superRefine((s, ctx) => {
+    for (const [i, d] of s.devices.entries()) {
+        if (!(d.type in s.deviceTypeValues)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['devices', i, 'type'], message: `no deviceTypeValues entry for '${d.type}'` });
+    }
+});
+export type ScanDeviceSelectionCase = z.infer<typeof ScanDeviceSelectionCaseSchema>;

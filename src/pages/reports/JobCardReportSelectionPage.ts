@@ -21,6 +21,8 @@ export class JobCardReportSelectionPage extends BasePage {
     readonly endTime: Locator;
     readonly summaryRegion: Locator;
     readonly executeButton: Locator;
+    readonly loadButton: Locator;
+    readonly saveButton: Locator;
     readonly report: ReportDialog;
     private readonly menu: ReportsInputMenu;
     private readonly searchBy: Locator;
@@ -38,6 +40,8 @@ export class JobCardReportSelectionPage extends BasePage {
         this.endTime = page.getByTestId('selection-date-range-end-time').locator('[data-slot="time-picker"]');
         this.summaryRegion = page.getByRole('region', { name: 'Filter description' });
         this.executeButton = page.getByTestId('reports-input-job-card-execute');
+        this.loadButton = page.getByTestId('reports-input-job-card-load');
+        this.saveButton = page.getByTestId('reports-input-job-card-save');
         this.searchBy = page.getByTestId('view-job-cards-criteria-search-by');
         this.match = page.getByTestId('view-job-cards-criteria-match');
         this.crewText = page.getByTestId('view-job-cards-criteria-jobCardCrew-text');

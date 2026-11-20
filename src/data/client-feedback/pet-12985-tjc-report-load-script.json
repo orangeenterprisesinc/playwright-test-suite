@@ -1,0 +1,30 @@
+{
+  "_notes": [
+    "CF CREW A owns day -14 for this ticket. 2 cards = Time In 07:00 + Time Out 11:00 for CF A ONE on CF JOB. Analyze only; nothing is transferred.",
+    "Report on this screen opens alertdialog 'Report: All Data — <date>' (probed 2026-11-20); its Load opens 'Load Filter Script' with the combobox 'Select a filter script' and Cancel / Load (disabled until a pick).",
+    "If the transfer report picker does not list 'Piece Summary by Packing Types', swap in another Time In report that has an enum parameter."
+  ],
+  "ticket": "PET-12985",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "A",
+  "dayOffset": -14,
+  "seed": {
+    "employees": ["one"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "report": { "name": "Piece Summary by Packing Types", "param": { "label": "Show Details", "value": "Yes" } },
+  "resetReport": "All Data",
+  "expected": {
+    "savedToast": "Filter script \"{name}\" saved.",
+    "loadTitle": "Load Filter Script",
+    "emptyText": "There are no saved filter scripts for this screen yet.",
+    "bannerTemplate": "Using the filters from \"{name}\".",
+    "deletedToast": "Filter script deleted"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "No transfer and no PDF: Execute report is off on purpose." }
+  ],
+  "cleanup": []
+}

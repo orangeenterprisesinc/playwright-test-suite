@@ -12,6 +12,7 @@
 import { expect, Locator, Page, Response, TestInfo } from '@playwright/test';
 import { BasePage } from '../BasePage';
 import { DataGridComponent } from '../../components/DataGridComponent';
+import { PickerComponent } from '../../components/PickerComponent';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 
 /** Only the pocket-class type gets a Crew section; immutable after create. 18 is "IrisID IT100". */
@@ -178,6 +179,10 @@ export class ScanDevicePage extends BasePage {
 
         await this.webMailAddressInput.fill(general.webMailAddress);
 
+        return this.saveNew();
+    }
+
+    private async saveNew(): Promise<number> {
         const [response] = await Promise.all([
             this.page.waitForResponse(
                 (res) =>
@@ -195,6 +200,144 @@ export class ScanDevicePage extends BasePage {
         const { deviceCounter } = (await response.json()) as { deviceCounter?: number };
         if (!deviceCounter) throw new Error('POST /api/scan-devices response carried no deviceCounter');
         return deviceCounter;
+    }
+
+    get supervisorCombobox(): Locator {
+        return this.page.locator('input#supervisorCounter');
+    }
+
+    /**
+     * PET-12987: no typed Reference Prefix. The type is set before the name because the Name blur suggests a free prefix
+     * for a type that needs one (prefixes are unique per live device); the save waits for that suggestion to land.
+     */
+    async createScratchDevice(d: { name: string; deviceType: string; webMailAddress: string; supervisor?: string }): Promise<number> {
+        await this.gotoNew();
+        await this.generalSelect(0).click();
+        await this.selectOption(d.deviceType).click();
+        await this.nameInput.fill(d.name);
+        await this.webMailAddressInput.fill(d.webMailAddress);
+        if (d.supervisor) await new PickerComponent(this.page).pickCombobox(this.supervisorCombobox, d.supervisor);
+        await expect(this.referencePrefixInput, 'the Name blur suggests a free Reference Prefix').not.toHaveValue('', { timeout: 15_000 });
+        return this.saveNew();
+    }
+
+    // ── List Selection (the Filter popover) and Multi Update, PET-12987; test ids from web-pet-develop (RecordSelection / SelectionCriteria / MultiUpdatePanel) ──
+
+    private selectionPart(id: string): Locator {
+        return this.page.getByTestId(`scan-device-list-selection-builder-${id}`);
+    }
+
+    get selectionTrigger(): Locator {
+        return this.page.getByTestId('scan-device-list-selection-trigger');
+    }
+
+    get selectionCount(): Locator {
+        return this.page.getByTestId('scan-device-list-selection-count');
+    }
+
+    get selectionApply(): Locator {
+        return this.page.getByTestId('scan-device-list-selection-apply');
+    }
+
+    get selectionDescription(): Locator {
+        return this.page.getByTestId('scan-device-list-selection-description');
+    }
+
+    async openSelection(): Promise<void> {
+        if (!(await this.selectionApply.isVisible())) await this.selectionTrigger.click();
+        await expect(this.selectionPart('search-by')).toBeVisible({ timeout: 30_000 });
+    }
+
+    /** Adds the field's criterion, or re-opens it when the Filter already holds it. */
+    async pickSelectionField(key: string): Promise<void> {
+        await this.selectionPart('search-by').click();
+        await this.selectionPart(`search-by-${key}`).click();
+        await expect(this.selectionPart(`${key}-editor`)).toBeVisible({ timeout: 10_000 });
+    }
+
+    async setSelectionMatch(choice: string): Promise<void> {
+        await this.selectionPart('match').click();
+        await this.selectionPart(`match-${choice}`).click();
+        await expect(this.selectionPart(`match-${choice}`)).toBeHidden({ timeout: 10_000 });
+    }
+
+    /** The Values list is a popover nested in the Filter: it closes on its own trigger, since Escape may close the Filter with it. */
+    async pickSelectionValues(key: string, labels: string[]): Promise<void> {
+        const trigger = this.selectionPart(`${key}-values`);
+        await trigger.click();
+        const list = this.page.getByRole('dialog').filter({ has: this.page.getByRole('searchbox') });
+        for (const label of labels) await list.getByRole('button', { name: label, exact: true }).click();
+        await trigger.click();
+        await expect(list).toBeHidden({ timeout: 10_000 });
+        for (const label of labels) await expect(this.selectionPart(`${key}-values-chips`)).toContainText(label);
+    }
+
+    async setSelectionExclude(key: string, on: boolean): Promise<void> {
+        const toggle = this.selectionPart(`${key}-exclude`);
+        if (((await toggle.getAttribute('aria-checked')) === 'true') !== on) await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-checked', String(on));
+    }
+
+    async clearAllSelection(): Promise<void> {
+        await this.selectionPart('clear-all').click();
+        await expect(this.selectionPart('clear-all')).toBeDisabled();
+    }
+
+    /** Apply commits the draft and closes the popover; the list reload is awaited when one is sent (a cleared Filter may be served from cache). */
+    async applySelection(): Promise<void> {
+        const reloaded = this.page
+            .waitForResponse((res) => res.request().method() === 'GET' && /\/api\/scan-devices\/?$/.test(new URL(res.url()).pathname), { timeout: 10_000 })
+            .catch(() => undefined);
+        await this.selectionApply.click();
+        await expect(this.selectionApply).toBeHidden({ timeout: 10_000 });
+        await reloaded;
+    }
+
+    /** One line per applied condition, in the description list next to the Filter button; empty when nothing is applied. */
+    async selectionLines(): Promise<string[]> {
+        return (await this.selectionDescription.locator('li').allInnerTexts()).map((t) => t.trim());
+    }
+
+    get multiUpdateToggle(): Locator {
+        return this.page.getByRole('button', { name: 'Multi Update', exact: true });
+    }
+
+    get muField(): Locator {
+        return this.page.getByTestId('multi-update-field');
+    }
+
+    get muValue(): Locator {
+        return this.page.getByTestId('multi-update-value').getByRole('combobox');
+    }
+
+    get muSubmit(): Locator {
+        return this.page.getByTestId('multi-update-submit');
+    }
+
+    async setMultiUpdate(on: boolean): Promise<void> {
+        if (((await this.multiUpdateToggle.getAttribute('aria-pressed')) === 'true') !== on) await this.multiUpdateToggle.click();
+        await expect(this.multiUpdateToggle).toHaveAttribute('aria-pressed', String(on));
+        if (on) await expect(this.muField).toBeVisible({ timeout: 10_000 });
+    }
+
+    async chooseMuField(label: string): Promise<void> {
+        await this.muField.click();
+        await this.page.getByRole('option', { name: label, exact: true }).click();
+        await expect(this.muField).toHaveText(label);
+    }
+
+    async chooseMuValue(label: string): Promise<void> {
+        await this.muValue.click();
+        await this.page.getByRole('option', { name: label, exact: true }).click();
+        await expect(this.muValue).toHaveText(label);
+    }
+
+    toast(text: string): Locator {
+        return this.page.locator('[data-sonner-toast]').filter({ hasText: text });
+    }
+
+    toastUndo(): Locator {
+        return this.page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo', exact: true });
     }
 
     /** Crew/Preferences render only after the first save. */

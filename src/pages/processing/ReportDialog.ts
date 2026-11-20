@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { Locator, Page, expect } from '@playwright/test';
 import { PdfViewerDialog } from '../reports/PdfViewerDialog';
+import { FilterScriptDialogs } from '../reports/FilterScriptDialogs';
 
 export interface ReportOutput {
     format: 'excel' | 'pdf';
@@ -21,13 +22,17 @@ export interface ReportOutput {
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * The Report dialog opened from a View screen's toolbar. Never touches Save, Load, Edit in Report Editor or
+ * The Report dialog opened from a View screen's toolbar. Never touches the shared layout Save, Edit in Report Editor or
  * Export (CSV/Text/XML): Save writes a shared report layout. Locators measured live 2026-10-22.
  */
 export class ReportDialog {
     readonly trigger: Locator;
     readonly dialog: Locator;
     readonly closeButton: Locator;
+    /** Load (`report-load-trigger`) opens the "Load Filter Script" picker; the banner names the script a load applied. */
+    readonly loadButton: Locator;
+    readonly loadedBanner: Locator;
+    readonly scripts: FilterScriptDialogs;
     private readonly viewer: PdfViewerDialog;
 
     /** The owning screen's Report button (View ▸ Job Cards view-job-cards-print-report, View ▸ Time Cards view-time-cards-report, Transfer v2-toolbar-report). */
@@ -35,6 +40,9 @@ export class ReportDialog {
         this.trigger = trigger;
         this.dialog = page.getByRole('alertdialog', { name: /^Report: / });
         this.closeButton = page.getByTestId('report-close');
+        this.loadButton = page.getByTestId('report-load-trigger');
+        this.loadedBanner = page.getByTestId('report-loaded-banner');
+        this.scripts = new FilterScriptDialogs(page);
         this.viewer = new PdfViewerDialog(page);
     }
 
@@ -69,6 +77,23 @@ export class ReportDialog {
         await this.page.keyboard.press('Escape');
         await expect(listbox).toBeHidden({ timeout: 15_000 });
         return options;
+    }
+
+    /** A report parameter's select, by its label. */
+    paramSelect(label: string): Locator {
+        return this.dialog.getByRole('combobox', { name: label, exact: true });
+    }
+
+    /** A report parameter's input, by its parameter id (`report-param-<id>`). */
+    paramInput(id: string): Locator {
+        return this.page.getByTestId(`report-param-${id}`);
+    }
+
+    async setParam(label: string, value: string): Promise<void> {
+        const select = this.paramSelect(label);
+        await select.click();
+        await this.page.getByRole('option', { name: value, exact: true }).click();
+        await expect(select, `${label} must read ${value}`).toHaveText(value);
     }
 
     async close(): Promise<void> {
