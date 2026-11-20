@@ -583,7 +583,9 @@ export type ReportsHubForFilterCase = z.infer<typeof ReportsHubForFilterCaseSche
 
 export const RestoreReverseCaptionsCaseSchema = ClientFeedbackBase.extend({
     ticket: z.literal('WEBPET-3937'),
-    expected: z.object({ captions: z.array(Text).length(2), oldCaptions: z.array(Text).length(2) }).strict(),
+    hub: Text,
+    card: z.object({ route: z.string().startsWith('/'), title: Text }).strict(),
+    expected: z.object({ oldCaptions: z.array(Text).length(2) }).strict(),
 }).strict();
 export type RestoreReverseCaptionsCase = z.infer<typeof RestoreReverseCaptionsCaseSchema>;
 
