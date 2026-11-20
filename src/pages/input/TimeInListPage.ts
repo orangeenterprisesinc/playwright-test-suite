@@ -3,6 +3,7 @@ import { BasePage } from '../BasePage';
 import { LeftNavigationPage } from '../shell/LeftNavigationPage';
 import { DataGridComponent } from '../../components/DataGridComponent';
 import { ListDateRangeComponent } from '../../components/ListDateRangeComponent';
+import { ReportDialog } from '../processing/ReportDialog';
 
 export interface ShownTimeIn {
     reference: string;
@@ -27,6 +28,9 @@ export class TimeInListPage extends BasePage {
     readonly dates: ListDateRangeComponent;
     readonly grid: DataGridComponent;
     readonly applyButton: Locator;
+    /** Header Report action (`page-header-action-report`); opens the Time In report dialog. */
+    readonly reportButton: Locator;
+    readonly report: ReportDialog;
     private readonly leftNav: LeftNavigationPage;
 
     constructor(page: Page) {
@@ -36,6 +40,8 @@ export class TimeInListPage extends BasePage {
         this.dates = new ListDateRangeComponent(page);
         this.grid = new DataGridComponent(page, 'Time In', 'Time In');
         this.applyButton = page.getByTestId('list-date-range-apply');
+        this.reportButton = page.getByTestId('page-header-action-report');
+        this.report = new ReportDialog(page, this.reportButton);
     }
 
     async openFromMenu(): Promise<void> {

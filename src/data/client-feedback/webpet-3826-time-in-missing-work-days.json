@@ -1,0 +1,126 @@
+{
+  "_notes": [
+    "CF CREW D owns days -18, -16, -15, -14. CF D ONE works -16, -15, -14 (07:00-11:00); CF D TWO works only -18. With Last Work Date -14 and Allowed Missing Days 2, TWO misses 3 consecutive crew work days, so the report must print TWO with -Absent- (measured 11-20: a single seeded day printed only the header, since nobody missed more than the allowed days).",
+    "Last Work Date is day -14 (<input type=date>), Allowed Missing Days 2; the report's own Date range parameter is left blank. The Time In list is loaded over -18..-14 first: Report stays disabled until it has loaded, and the run takes the list's range as its Date criteria.",
+    "Windows alias set measured 2026-11-20: table 'Alias Field | Value | Color'; the rows used are 'Menu: Crew', 'Menu: Employee' and 'Export Identifier'. Alias sets soft-delete and are never purged, so the name is run-minted and its teardown registered before Save.",
+    "Layout: allowed line 'Allowed Number of Missing Work Days: N'; the Attendence row prints -Absent- / -No Work- or a dash run."
+  ],
+  "ticket": "WEBPET-3826",
+  "screen": {
+    "menuPath": [
+      "Input",
+      "Time In"
+    ],
+    "url": "/input/time-in"
+  },
+  "fixtureCrew": "D",
+  "dayOffset": -16,
+  "seed": {
+    "employees": [
+      "one"
+    ],
+    "job": "hourly",
+    "timeIn": {
+      "hour": 7,
+      "minute": 0
+    },
+    "timeOut": {
+      "hour": 11,
+      "minute": 0
+    }
+  },
+  "extraCrews": [
+    {
+      "fixtureCrew": "D",
+      "dayOffset": -15,
+      "seed": {
+        "employees": [
+          "one"
+        ],
+        "job": "hourly",
+        "timeIn": {
+          "hour": 7,
+          "minute": 0
+        },
+        "timeOut": {
+          "hour": 11,
+          "minute": 0
+        }
+      }
+    },
+    {
+      "fixtureCrew": "D",
+      "dayOffset": -14,
+      "seed": {
+        "employees": [
+          "one"
+        ],
+        "job": "hourly",
+        "timeIn": {
+          "hour": 7,
+          "minute": 0
+        },
+        "timeOut": {
+          "hour": 11,
+          "minute": 0
+        }
+      }
+    },
+    {
+      "fixtureCrew": "D",
+      "dayOffset": -18,
+      "seed": {
+        "employees": [
+          "two"
+        ],
+        "job": "hourly",
+        "timeIn": {
+          "hour": 7,
+          "minute": 0
+        },
+        "timeOut": {
+          "hour": 11,
+          "minute": 0
+        }
+      }
+    }
+  ],
+  "listRange": {
+    "fromOffset": -18,
+    "toOffset": -14
+  },
+  "lastWorkOffset": -14,
+  "aliasSet": {
+    "type": "Windows",
+    "captions": {
+      "Menu: Crew": "CF GANG",
+      "Menu: Employee": "CF WORKER",
+      "Export Identifier": "CF BADGE"
+    }
+  },
+  "params": {
+    "lastWorkDate": {
+      "id": "LastWorkDate"
+    },
+    "allowed": {
+      "id": "AllowedMissingDays",
+      "value": "2"
+    },
+    "aliasLabel": "Alias Set",
+    "none": "(none)"
+  },
+  "expected": {
+    "title": "Consecutive Missing Work Days",
+    "allowedLine": "Allowed Number of Missing Work Days: 2",
+    "attendancePattern": "-Absent-",
+    "dateColumnPattern": "\\b\\d{1,2}/\\d{1,2}\\b",
+    "absentEmployee": "two"
+  },
+  "annotations": [
+    {
+      "type": "not-asserted",
+      "description": "Matching the layout to Legacy needs the Legacy PDF; the check is the title, the allowed-days line, dated columns, the Attendence row and the alias captions."
+    }
+  ],
+  "cleanup": []
+}

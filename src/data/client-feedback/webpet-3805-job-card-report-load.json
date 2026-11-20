@@ -1,0 +1,19 @@
+{
+  "_notes": [
+    "No crew or day: no records are read. Save is gated on a valid range; the default is the current week.",
+    "Manual FAIL 11-11: Load opened 'Load Filter Script' UNDER the Report dialog and was not clickable. PET-12951 / 12985 may have fixed it; if the picker is still stacked under the dialog, the run shows it and it stays a finding.",
+    "The script is saved with Execute report on (the default), so loading it would run a PDF; the ticket only asks that Load lists it, so the script is picked but not loaded."
+  ],
+  "ticket": "WEBPET-3805",
+  "screen": { "menuPath": ["Reports", "Input", "Job Card"], "url": "/reports/input/job-card" },
+  "expected": {
+    "buttons": ["Execute", "Load", "Save"],
+    "savedToast": "Filter script \"{name}\" saved.",
+    "loadTitle": "Load Filter Script",
+    "deletedToast": "Filter script deleted"
+  },
+  "annotations": [
+    { "type": "not-asserted", "description": "The picked script is not loaded: its Execute report setting is on, so a Load would run a PDF." }
+  ],
+  "cleanup": []
+}

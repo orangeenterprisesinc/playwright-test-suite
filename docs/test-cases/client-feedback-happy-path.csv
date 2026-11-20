@@ -336,7 +336,7 @@ WEBPET-3864,"The Edit Filter Script screen matches Legacy: Screen label, script 
 WEBPET-3805,Reports > Input > Job Card has Load and Save for report scripts.,"1. Open Reports > Input > Job Card.
 2. Check the buttons under the Filter description.
 3. Click Load.","- Execute, Load and Save buttons are shown.
-- Load lists the saved Job Card report scripts.","At least one saved Job Card script (create it with Save first if none exists, then delete it).",Feasible - full,,"Manual fail, re-checked 2026-11-11 on dev (new shell): Load still opens 'Load Filter Script' under the Report dialog; not automated",Load dialog stacking: should the screen-level Load open on top of (or without) the Report dialog? Screenshot .playwright-mcp/cf-3805-load-dialog-covered.png
+- Load lists the saved Job Card report scripts.","At least one saved Job Card script (create it with Save first if none exists, then delete it).",Feasible - full,,"Re-checked 2026-11-20 on dev (new shell): Load now opens the Load Filter Script picker on its own and lists the saved script - pass. Automated: webpet-3805-job-card-report-load.spec.ts (branch feat/cf-new-1120, PR not opened yet)",Load dialog stacking: should the screen-level Load open on top of (or without) the Report dialog? Screenshot .playwright-mcp/cf-3805-load-dialog-covered.png
 WEBPET-3831,Clicking an exception in the Issues panel selects and scrolls to the affected time card in the grid.,"1. Open Transfer to Job Cards from the left menu.
 2. Pick a past date with at least one issue, filter to CF CREW and click Analyze Transfer Candidates.
 3. In the Issues panel on the right, click an issue (for example Unknown employee or Missing Time-Out at end of the day).
@@ -499,7 +499,7 @@ WEBPET-3491,"The Payroll Test File analyze log counts lunch cards with zero net 
 5. Clean up the cards and clear the Meal Job preference.","- Analysis summary shows every job card as Correct (Incorrect 0).
 - There is no 'Meal job with no net time' exception.
 - The lunch card is listed under 'Exported correct job-cards' as '... - CF MEAL JOB Does not need Exporting'.
-- The log shows the Job-cards, Employees, Pieces and Totals sections.","CF CREW B, CF B ONE (B -19); CF JOB and the fixture meal job CF MEAL JOB (9073); create: job cards by Transfer (deleted after); Meal Job preference set and cleared",Feasible - full,"Final fix web-pet PR #1535 (lunch and other refused cards count as Correct, as in legacy); QA passed 2026-11-04. Its regression test runs with the meal-job preference set; on 11-11 '0 - Lunch' (no preference) gave an Idle card with Net 0.5, not the ticket's case.",Spec written; 11-11 dev run blocked by the su JobCard reference wrap (Transfer refused); rerun 11-12,
+- The log shows the Job-cards, Employees, Pieces and Totals sections.","CF CREW B, CF B ONE (B -19); CF JOB and the fixture meal job CF MEAL JOB (9073); create: job cards by Transfer (deleted after); Meal Job preference set and cleared",Feasible - full,"Final fix web-pet PR #1535 (lunch and other refused cards count as Correct, as in legacy); QA passed 2026-11-04. Its regression test runs with the meal-job preference set; on 11-11 '0 - Lunch' (no preference) gave an Idle card with Net 0.5, not the ticket's case.","Automated 2026-11-12, green on dev (new shell): webpet-3491-eta-test-file-lunch-correct.spec.ts (branch feat/cf-remaining-1111, PR not opened yet)",
 WEBPET-3941,"Transfer inserts the crew's Break Preparation Job before a paid break, as legacy does (NPT, then Break, then work).","1. On Setup > Crew (classic: left menu; new UI: Setup hub > Crew) open CF CREW C, set Break Preparation Job to an NPT job with 5 minutes and save.
 2. For CF C ONE on a past day add Time In 7:00 on CF JOB, a paid Break at 9:00, back to CF JOB at 9:10 and Time Out 11:00.
 3. Open Transfer to Job Cards, pick that date, Time Card Crew = CF CREW C, click Analyze Transfer Candidates and open the Job Cards tab.
@@ -511,8 +511,7 @@ PET-12958,"The Payroll Test File download matches legacy: legacy file name, lega
 3. Filter Job Card Crew = CF CREW D and that date.
 4. Click Test File and save the file.
 5. Reverse the transfer afterwards.","- The file name follows legacy 'ExportToAccFamous120-PPE<stamp>-<stamp>.txt' (su's format is Famous 120.03, extension .txt).
-- Every line ends with CRLF, the last one included, and each line is 240 characters.
-- Rows are grouped by employee; one line per record written.","CF CREW D, CF D ONE and CF D TWO (D -19); CF JOB and CF PIECE JOB; create: job cards by Transfer (deleted after)",Feasible - full,"QA passed 2026-11-05 (web-pet #1559). su is Famous 120, not DataTech, so the #1559 DataTech split-job order is not asserted. 11-11 run found CF PIECE JOB had no piece earning code (fixture fixed).",Spec written; 11-11 dev run blocked by the su JobCard reference wrap (Transfer refused); rerun 11-12,
+- Every line ends with CRLF, the last one included, and each line is 240 characters; one line per record written.","CF CREW D, CF D ONE and CF D TWO (D -19); CF JOB and CF PIECE JOB; create: job cards by Transfer (deleted after)",Feasible - full,"QA passed 2026-11-05 (web-pet #1559). su is Famous 120, not DataTech: the #1559 legacy row-order fix is DataTech-only, so row order is not asserted (dev 2026-11-12 wrote ONE, TWO, ONE, TWO). 11-11 run found CF PIECE JOB had no piece earning code (fixture fixed).","Automated 2026-11-12, green on dev (new shell): pet-12958-eta-test-file-legacy-format.spec.ts (branch feat/cf-remaining-1111, PR not opened yet)",
 PET-12959,On Transfer to Job Cards the Work Crew and Employee filters stay visible and work on the Job Cards tab.,"1. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards).
 2. Pick the past date that has time cards for CF A ONE and CF A TWO, Time Card Crew = CF CREW A, click Analyze Transfer Candidates.
 3. Click the Job Cards tab.
@@ -546,3 +545,165 @@ WEBPET-3945,After Analyze on a 7-day range the Transfer to Job Cards totals bar 
 4. Read the totals bar under the Time Cards grid.","- The totals bar shows Gross, Net, Meals, Pieces and Employees numbers.
 - It does not show 'Totals couldn't be loaded. Try again' or dashes.","su time cards over the last 7 days (read only, no transfer)",Feasible - smoke,"Ready for Test with no QA run yet; the TC follows the dev's description. The 23k-row range is not on su, so this is a smoke run.",,
 PET-12946,An iPhone piece-out sent by Internet Import (one DateTime field) imports without 'no DateTime could be derived'.,Covered by journey B06b: tests/web/journey-b-field/b06b-iphone-piece-out.spec.ts.,- The piece-out imports and shows on Input > Time In with its date and time.,Journey B06b data,Covered by journey B06b,"Automated in journey B06b (PR #134, merged 2026-10-29).",Automated 2026-10-29 (journey B06b),
+PET-12951,Report > Load on View > Time Cards lists the screen's saved filter scripts and loads the picked one into Report Selection.,"1. Open View > Time Cards (classic: left menu; new UI: View hub > Time Cards).
+2. Filter to a past day that has CF CREW A time cards, All crews (a Time Card Crew criterion hides Report Load/Save on this screen).
+3. Click Report, choose a report, set one parameter and click Save; name the script 'CF 12951 <run tag>'.
+4. Close Report Selection, click Report again and click Load.
+5. Pick 'CF 12951 <run tag>' and click Load.
+6. Delete the script (cleanup).","- Load lists the screen's saved scripts, including 'CF 12951 <run tag>'; it does not say 'There are no saved filter scripts for this screen yet.'
+- The Load button is enabled once a script is picked.
+- Report Selection shows the script's report, the saved parameter value and its filter chips.",CF CREW A time cards on a past day (read only); create: one run-named filter script (deleted after),Feasible - full,"QA passed 2026-11-16 (Amy). Same fix as PET-12985 (Transfer to Job Cards) and WEBPET-3805 (Job Card report). A script saved in legacy needs a customer DB, so the TC saves its own in web.","Automated 2026-11-20, green on dev (new shell): pet-12951-vtc-report-load-script.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-12985,Report > Load on Transfer to Job Cards lists the screen's saved filter scripts and loads the picked one.,"1. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards).
+2. Pick a past day, Search by = Time Card Crew, choose CF CREW B and click Analyze Transfer Candidates.
+3. Click Report, choose a report and click Save; name the script 'CF 12985 <run tag>'.
+4. Close Report Selection, click Report again and click Load.
+5. Pick 'CF 12985 <run tag>' and click Load.
+6. Delete the script (cleanup).","- Load lists the saved scripts for this screen, including 'CF 12985 <run tag>' (the list is not empty).
+- Report Selection shows the script's report, parameters and filter chips after Load.","CF CREW B time cards on a past day (read only, no transfer); create: one run-named filter script (deleted after)",Feasible - full,"QA passed 2026-11-16 (Amy) on Transfer to Job Cards, View > Job Cards and Setup > Employee. Duplicate of PET-12951 on another screen.","Automated 2026-11-20, green on dev (new shell): pet-12985-tjc-report-load-script.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-12950,Report Selection keeps the last-run report and its parameters when it is opened again on the same screen.,"1. Open View > Time Cards (classic: left menu; new UI: View hub > Time Cards).
+2. Filter to Crew = CF CREW A on a past day that has time cards.
+3. Click Report, choose 'Piece Summary by Packing Types', set Show Details = Yes and run the report (PDF).
+4. Close the report viewer and Report Selection.
+5. Click Report again.","- Report Selection opens on 'Piece Summary by Packing Types', not on the default 'All Data'.
+- Show Details is still Yes.",CF CREW A time cards on a past day (read only),Feasible - full,QA passed 2026-11-16 (Amy). Checked within one page visit; the ticket does not say the choice must survive a page reload.,"Automated 2026-11-20, green on dev (new shell): pet-12950-vtc-report-keeps-last-run.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-13153,Transfer to Job Cards offers Search by Department and filters the grid to the picked department.,"1. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards).
+2. Pick a past day that has CF time cards and open Search by.
+3. Choose Department, Match = Selected, and pick the department of the CF crew's employees.
+4. Click Analyze Transfer Candidates.","- Search by lists Employee, Department, Employee Home Crew and Time Card Crew.
+- The filter chip reads 'Department is one of: <department>'.
+- Every grid row belongs to an employee in that department; the totals line counts only those time cards.","A department with CF time cards on the day (read only, no transfer)",Feasible - full,"Gukan passed it on dev 2026-11-17, then Amy 2026-11-17. The option is licence-gated (PriyamSri 11-17: 'a licensing issue not a code bug'); su needs the Department option on.","Automated 2026-11-20, green on dev (new shell): pet-13153-tjc-search-by-department.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-13154,Transfer to Job Cards offers Search by Employee Home Crew and filters the grid to employees of that home crew.,"1. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards).
+2. Pick a past day that has CF CREW C time cards, 12:00 AM to 11:59 PM.
+3. Search by = Employee Home Crew, Match = Selected, pick CF CREW C.
+4. Click Analyze Transfer Candidates.","- Employee Home Crew is offered in Search by.
+- The filter chip reads 'Employee Home Crew is one of: CF CREW C'.
+- Every grid row is an employee whose home crew is CF CREW C; the footer reads 'Includes N Time Cards of N initial selection'.","CF CREW C employees (home crew CF CREW C) with time cards on a past day (read only, no transfer)",Feasible - full,"Gukan passed it on dev 2026-11-17, then Amy 2026-11-17. Licence-gated like PET-13153.","Automated 2026-11-20, green on dev (new shell): pet-13154-tjc-search-by-home-crew.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-12987,"Scan Devices & Boards list filters on Multi Update fields (Selected, Exclude, Empty, combined) and Multi Update changes only the filtered rows.","1. Create five run-named scratch devices 'CF 12987 A..E' with mixed Device Type (Pocket PDA, Finger Scanner) and Supervisor (set / empty).
+2. Open Scan Devices & Boards (classic: left menu; new UI: Devices hub > Scan Devices & Boards).
+3. Filter Device Type > Selected > Pocket PDA.
+4. Switch the condition to Exclude.
+5. Filter Supervisor > Empty, note the count; switch to Exclude and note the count.
+6. Combine Device Type = Pocket PDA and Supervisor = Empty.
+7. Filter to the scratch devices, tick two rows, Multi Update Use Job Alias = Yes and click Update Records (2); then click Undo.
+8. Click Clear All.
+9. Delete the scratch devices (cleanup).","- Step 3: only Pocket PDA rows; the condition reads 'Device Type is one of: Pocket PDA'.
+- Step 4: the condition reads 'is not one of' and the Pocket PDA rows drop out.
+- Step 5: the Empty and Exclude counts add up to the unfiltered total.
+- Step 6: only rows matching both conditions (AND).
+- Step 7: the toast says '2 records updated' and only those two rows change; Undo shows 'Update undone' and restores them.
+- Step 8: the full list returns.",Create: 5 run-named scratch devices (deleted after). Never touch device 43 or a real phone: a preference change is pushed to the phone.,Feasible - full,Amy closed it 2026-11-17 ('Filtering - PASSED'). Gukan's 11-17 run found ticked rows stay selected after a filter hides them; that case is split out to PET-13160..13162 and is not in this TC.,"Automated 2026-11-20, green on dev (new shell): pet-12987-scan-devices-filter-multi-update.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+WEBPET-3824,Piece Summary with Rank runs from the Time In list with the screen's selection and prints the legacy layout.,"1. Open the Time In list (classic: left menu Input > Time In; new UI: Input hub > Time In).
+2. Set the selection to Date In between two past dates that cover CF crew piece-outs.
+3. Click Report, choose 'Piece Summary with Rank' and run it (PDF).","- No 422 'This report cannot be narrowed by the selection criteria' error.
+- The PDF opens with the selection described in the header, Crew, Ranch/Field and Job groups, ranked employees, an Average line and a Grand Total.",CF crew time-ins and piece-outs in the date range (read only),Feasible - smoke,"Amy failed it 2026-10-29 (report did not load); fixed in web-pet PR 1692, Cesar passed it 2026-11-17. The ticket's totals are WCB data; layout vs legacy stays manual.","Automated 2026-11-20, green on dev (new shell): webpet-3824-time-in-piece-summary-rank.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+WEBPET-3825,Job Card: Daily Hours prints hours at the Time Decimal Accuracy setting and does not cut off large totals.,"1. Open Job Card Preferences (classic: File > Administration > Job Card Preferences; new UI: Admin hub > Job Card Preferences) and read Time Decimal Accuracy (N). Do not change it.
+2. Open View > Job Cards (classic: left menu; new UI: View hub > Job Cards) and filter to CF CREW A on a past day with job cards.
+3. Click Report, choose 'Job Card: Daily Hours' and run it (PDF).","- Every hour cell and the Total Hours row show exactly N decimals.
+- Total Hours values are printed in full (not cut off).",CF CREW A job cards on a past day (read only); the preference is read only,Feasible - smoke,"Cesar failed it 3 times (10-16, 10-29, 11-05); passed 2026-11-19 (devin.herzig) after PRs 1437, 1557, 1570, 1721. Spacing and alignment stay manual.","Automated 2026-11-20, green on dev (new shell): webpet-3825-vjc-daily-hours-decimals.spec.ts (branch feat/cf-new-1120, PR not opened yet). From View Job Cards the same report prints as 'Job Card Grid: Daily Hours'.",
+WEBPET-3826,Consecutive Missing Work Days runs from Time In with the Alias Set parameter and the legacy layout.,"1. Open the Time In list (classic: left menu Input > Time In; new UI: Input hub > Time In).
+2. Click Report and choose 'Consecutive Missing Work Days'.
+3. Set Last Work Date to a past day, Allowed Missing Days = 2, leave the Date range blank.
+4. Check the Alias Set parameter, keep '(none)' and run the report (PDF).
+5. Run it again with an alias set picked.","- The Alias Set parameter is shown with default '(none)'.
+- The PDF shows the title, the 'Allowed Number of Missing Work Days' line and the dated columns with an Attendence row.
+- With an alias set picked, the Crew, Employee and ID headings use that set's captions.",CF crew time-ins in the 14 days before Last Work Date (read only); an existing alias set,Feasible - smoke,Amy failed it 2026-10-29 (missing Alias Set parameter); PR 1694 added Alias Set to every report; Cesar passed it 2026-11-17. The ticket's employee counts are WCB data.,"Manual fail 2026-11-20 (automated run on dev): Alias Set parameter present and the title + Allowed line print, but no employee row prints for CF D TWO absent 3 consecutive crew work days (Allowed 2, hired 11-01) - nor for anyone in the tenant. Spec kept as draft (webpet-3826-time-in-missing-work-days.spec.ts).",
+WEBPET-3828,Job Card: Payroll Summary by Crew runs and prints crew groups with payroll totals.,"1. Open View > Job Cards (classic: left menu; new UI: View hub > Job Cards).
+2. Filter to CF CREW A over a past week that has job cards.
+3. Click Report, choose 'Payroll Summary by Crew' and run it (PDF).","- The report opens without an error.
+- The PDF has a CF CREW A group with its payroll lines and totals.",CF CREW A job cards in a past week (read only),Feasible - smoke,Passed 2026-11-19 (Cesar). The ticket's only criterion is 'matches legacy' (legacy and dev PDFs attached); field-by-field parity stays manual.,"Automated 2026-11-20, green on dev (new shell): webpet-3828-vjc-payroll-summary-by-crew.spec.ts (branch feat/cf-new-1120, PR not opened yet)",
+PET-12974,"Connectivity > Export matches legacy: no Data page, Setup and Time-cards export only to the scan devices picked.","1. Open Connectivity > Export (classic: left menu; new UI: Connectivity hub > Export).
+2. Open Setup to Scan Devices without picking a device.
+3. Pick one CF scan device and click Trigger Export.
+4. Open the Internet Export Log.
+5. Open Time-cards to Scan Devices.
+6. Pick the same device, set a past date range and export.","- There is no 'Data' item under Export.
+- Step 2: Trigger Export is disabled until a device is picked.
+- Step 4: the log lists only the picked device for that run.
+- Step 5: the page is Time-cards to Scan Devices (not 'Personal Devices') with a searchable device picker, a date range and Include transferred.
+- Step 6: only the picked device gets the time-card export.",A CF scan device the automation user can see (never device 43 or a real phone),Feasible - full,"Ready for QA; fix described by Raghu 2026-11-19 (PET-13035 picker, PET-13135/13136 time-cards page, PET-13177 Data page removed). Whether the phone receives the file is checked only through the Export Log.",Not run: Ready for QA,
+PET-12983,A device Time-In with an unknown badge code imports as 'Undefined Employee' with the missing code in Memo.,"1. Make sure the Undefined Employee preference points at a valid employee (Help > Administration > Add Standard Records to Database).
+2. Import a device file with a Time-In scanned with a badge code that no employee has.
+3. Open Transfer to Job Cards for that day and crew and open the record.
+4. Filter the grid to Employee is not one of 'Undefined Employee'.","- Employee is 'Undefined Employee'.
+- Memo reads 'Assigning to Undefined Employee - Missing Code: <code>'.
+- With the filter the row is excluded and is not counted as Blocking.","A device import file with an unknown badge; Undefined Employee preference set (unset on su, WEBPET-2843)",Feasible - smoke,"Ready for QA. Venkatesh 2026-11-17: a data problem (the preference held a name, not an ID), fixed on dev Sycamore; already-imported records stay blank until re-imported.",Not run: Ready for QA,
+PET-13149,Two Break records at different times for one employee are not flagged 'Duplicate Time-In' and do not block the transfer.,"1. For CF CREW D on a past day add, for one CF employee: Time In 7:00, Break 8:45, Break 13:15, Time Out 14:30.
+2. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards), pick that day, Time Card Crew = CF CREW D, click Analyze Transfer Candidates.
+3. Read the Issues panel and the Blocking count.
+4. Transfer the day.","- Neither Break row has 'Duplicate Time-In: Two identical Time-Ins, Missing a Time-Out'.
+- Blocking is 0 for that employee.
+- The transfer creates job cards for the day.","CF CREW D, one CF employee, a paid-break job; create: the 4 time cards (job cards deleted after)",Feasible - full,"Ready for QA, no dev comment; the TC follows the description (legacy makes 8 job cards, Gross/Net 8.37 for the customer's day). Hand-entered cards hit the transfer-side duplicate check, so this is the right repro.",Not run: Ready for QA,
+PET-13150,Time In: Daily Piece Summary Extended shows Net Time (gross minus meals) and a Total Pieces column.,"1. For CF CREW A on a past day add a Time In, a 30-minute meal and piece-outs.
+2. Open View > Time Cards (classic: left menu; new UI: View hub > Time Cards), filter to that day and CF CREW A.
+3. Click Report, choose 'Daily Piece Summary Extended' and run it (PDF).","- The time column is 'Net Time', not 'Gross Time', and equals gross minus the 30-minute meal.
+- A 'Total Pieces' column sits before the numbered piece columns and equals their sum.","CF CREW A day with a meal and piece-outs (created, deleted after)",Feasible - smoke,"Ready for QA, no dev comment; expected values from the description and the attached legacy PDF.",Not run: Ready for QA,
+PET-13199,Export to Accounting saves a Famous payroll file with a .txt extension.,"1. Transfer a CF CREW B past day to job cards.
+2. Open Export to Accounting (classic: left menu; new UI: Export hub > Export to Accounting), pick that date range and click Refresh.
+3. Click Export N JobCards; keep the suggested name.
+4. Repeat, typing a name without an extension.","- The suggested file name ends in .txt.
+- The Save As picker is offered a .txt (text/plain) file type.
+- A name typed without an extension is saved as .txt.","CF CREW B job cards (created by transfer, deleted after); su export destination Famous",Feasible - smoke,"Ready for QA; Raghu 2026-11-19, web-pet PR #1753 declares the file type on the Save As picker. The real OS Save As window can't be driven, and the Famous import itself is outside the app.",Not run: Ready for QA,
+PET-13206,"Double-clicking a row in a list opens the record, the same as Edit.","1. Open Scan Devices & Boards (classic: left menu; new UI: Devices hub > Scan Devices & Boards).
+2. Double-click a CF scan device row.
+3. Go back and click Edit on the same row.
+4. Repeat steps 2-3 on Setup > Crew with CF CREW A.","- Double-click opens that record's edit form with the same URL and values as Edit.
+- The Edit button still works.",Existing CF scan device and CF CREW A (read only),Feasible - full,"Ready for QA, no dev comment. The ticket does not list the screens in scope; the TC uses Scan Devices and Crew.",Not run: Ready for QA,
+PET-13208,"View > Time Cards highlights rows with an exception in red, and the Exceptions panel names and jumps to them.","1. For CF CREW C on a past day add a Time In with no Time Out for one CF employee, and a closed Time In/Time Out for another.
+2. Open View > Time Cards (classic: left menu; new UI: View hub > Time Cards), filter to that day and CF CREW C.
+3. Look at the grid and the Exceptions panel.
+4. Click the exception entry.","- The unpaired Time In row is red; the closed rows are not.
+- The panel entry reads '<export id> : <employee name>' with 'No corresponding Time-Out ... was found'.
+- Clicking it selects and scrolls to that row.","CF CREW C, two CF employees; create: the time cards (deleted after)",Feasible - full,"Ready for QA, no dev comment; the TC follows the acceptance criteria and screenshot.",Not run: Ready for QA,
+PET-13131,Employee Count by Crew opens within seconds instead of about 2 minutes.,"1. Open Reports > Input > Time In (classic: left menu; new UI: Reports hub > Input > Time In).
+2. Set Date In = This week and Work Crew = CF CREW A (or load a saved script with those filters), then Execute.
+3. In the Report dialog choose 'Employee Count by Crew', Group Crew = Supervisor, Run in background off, and click PDF.","- The viewer opens within a few seconds and does not stay on 'Printing...'.
+- The title is 'Time In Employee Count by Crew'.",CF CREW A time-ins this week (read only),Feasible - smoke,"Gukan's QA passed 2026-11-16 on dev (Sycamore, build 13e1fbe): rendered in 178 ms vs about 1 min 50 s. su data is small, so only a time budget is checked.",Not run: Ready to Deploy,
+PET-13047,"A cloud notification applies its saved filter script, so the emailed report matches a manual run with the same filters.","1. Open Notifications (classic: File > Administration > Setup > Notifications; new UI: Admin hub > Notifications).
+2. Create a notification for Job Card > Cost by Field (Pieces) with filter Date In = Yesterday AND Crew = CF CREW A.
+3. Click Notify Now and open the email.
+4. Run the same report manually with the same filters.","- The emailed PDF header shows both filters.
+- It contains only CF CREW A.
+- Its total equals the manual run.",CF CREW A job cards yesterday; a run-named notification (deleted after); test mailbox,Feasible - full,"Not fixed yet (Jira Development 11-20). Cost by Job and Employee Count by Crew passed QA (Amy 11-16); the Burden 'starts with' filter (PR #1696) awaits a Notify Now. Open: email wording parked, Notify log and delay to be filed separately.",Not run: not fixed,
+PET-13129,Crew Cost Analysis With Burden runs from Reports > Input > Time In without an error or a timeout.,"1. Open Reports > Input > Time In (classic: left menu; new UI: Reports hub > Input > Time In).
+2. Load 'Crew Cost Analysis With Burden Hourly' (or set Work Crew = CF CREW A and Date In = a past day).
+3. Execute and run the report (PDF).","- No 'Cannot be narrowed by the selection criteria' error and no timeout.
+- The PDF opens with the filter in the header.
+- Columns other than Burden, Total and Piece Rate match legacy for the same data.",CF CREW A job cards on a past day with burden rates (read only); legacy PDF for parity,Feasible - smoke,"Not fixed yet (Amy FAILED QA 2026-11-19: totals differ). Kishore 11-18: burden uses the 5-level rate order, an approved difference from legacy. Issue 1 moved to PET-13142. Open: the 1.5x hours gap.",Not run: not fixed,
+PET-13152,Add Time-In on Transfer to Job Cards lists every active employee and its search finds by name and number.,"1. Open Transfer to Job Cards (classic: left menu; new UI: Transfer & Reconcile hub > Transfer to Job Cards).
+2. Click New record > Add Time-In and set Date/Time, Ranch, Field and Phase.
+3. Open Employee; type a CF employee name, then a CF employee number.
+4. Pick one and save.","- Employee lists more than one active employee.
+- Typing the name and the number each find that employee.
+- Saving adds the Time In row.",CF employees; create: one Time In (deleted after),Feasible - full,"Not fixed yet (Jira Development 11-20). Open: root cause (user permission, crew scope or field order) and whether inactive employees are excluded (PET-13202).",Not run: not fixed,
+PET-13205,"Clicking or tabbing into a field selects its existing text, so typing replaces it (like desktop).","1. Open Transfer to Job Cards and open a CF Time In row's panel.
+2. Click into Field, which already has a value.
+3. Type 'M'.
+4. Tab to Phase.","- On focus the whole value of Field is selected.
+- Typing 'M' replaces it and filters the options to M.
+- Tabbing into Phase selects its whole value.","One CF Time In with Field and Phase set (created, deleted after)",Feasible - full,"Not fixed yet (Jira Development 11-20). Open: Transfer to Job Cards only or every form, and plain text inputs as well as dropdowns.",Not run: not fixed,
+PET-13176,"Report Excel exports are spreadsheet-friendly: one header row, no blank rows, one value per cell.","1. Open View > Job Cards and filter to CF CREW A on a past day.
+2. Click Report, choose 'Payroll Summary by Job' and click Excel.
+3. Open the .xlsx.","- Row 1 holds the column headers.
+- There are no empty or spacer rows.
+- Each value is in its own typed cell, and the data can be filtered and sorted.",CF CREW A job cards on a past day (read only),Feasible - smoke,"Not fixed yet (Jira To Do 11-20). Not a legacy-parity fix (legacy has the same issue). Open: which reports are in scope, whether subtotal rows stay. A full check needs a spreadsheet reader in the suite.",Not run: not fixed,
+PET-13202,Inactive records are not offered in dropdowns and selection lists.,"1. In Setup > Crew set a run-named crew to inactive and save.
+2. Open Transfer to Job Cards, Search by = Time Card Crew, and search for that crew.
+3. Search for CF CREW A.
+4. Set the crew back to active, or delete it (cleanup).","- The inactive crew is not offered.
+- The active CF CREW A is offered.",Create: one run-named crew (deleted after),Feasible - full,"Not fixed yet (Jira To Do 11-20). Open: the full list of lists in scope, whether a record already pointing at an inactive value still shows it, and whether there is a 'show inactive' toggle.",Not run: not fixed,
+PET-13203,Employee Name and Hire Date can be turned off in Setup > Employee 'Add fields' like any other column.,"1. Open Setup > Employee (classic: left menu; new UI: Setup hub > Employee) and click Add fields.
+2. Untick Hire Date and close the picker.
+3. Reload the page.
+4. Tick Hire Date again (cleanup).","- Hire Date (and Employee Name) can be unticked.
+- The Hire Date column disappears and stays hidden after the reload.",None (the column layout is restored after),Feasible - full,"Not fixed yet (Jira To Do 11-20). The ticket states only the problem. Open: should any column stay locked (Export Identifier), and do other setup screens lock columns too.",Not run: not fixed,
+PET-13204,The Clear button stays visible when the selected employees overflow the field.,"1. Open Transfer to Job Cards and pick a past day.
+2. Search by = Employee and select 8 or more CF employees, until the field overflows.
+3. Click Clear.","- Clear stays visible inside the field however many employees are picked.
+- Clicking it removes every chip.",8+ CF employees (read only),Feasible - full,"Not fixed yet (Jira To Do 11-20). Open: which control (Search by chip picker or the grid's Employee filter), and whether the field should wrap, show '+N more' or pin Clear.",Not run: not fixed,
+PET-13207,Duplicate creates a pre-filled new record from an existing one without changing the original.,"1. Open Setup > Crew (classic: left menu; new UI: Setup hub > Crew) and open CF CREW A.
+2. Click Duplicate.
+3. Save without changes.
+4. Enter a run-named name and code and save.
+5. Delete the copy (cleanup).","- Duplicate opens an unsaved new form with CF CREW A's values; name and code are blank or 'Copy of...'.
+- Saving unchanged shows the duplicate-code error.
+- Saving with a unique name and code creates the new crew; CF CREW A is unchanged.",CF CREW A (read only); create: one run-named crew (deleted after),Feasible - full,"Not fixed yet (Jira To Do 11-20). Open: per-screen fields to exclude (product to supply), rules for time and job cards, and where the audit trail shows the original. web-pet setup forms already have Duplicate Record (WEBPET-2612/2617).",Not run: not fixed,

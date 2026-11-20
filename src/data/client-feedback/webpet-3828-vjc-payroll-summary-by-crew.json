@@ -1,0 +1,22 @@
+{
+  "_notes": [
+    "CF CREW C owns day -16 (two employees 07:00-11:00 on CF JOB, 2 job cards). The report week -19..-13 is scoped to CF CREW C by the Crews chip, so other crews' cards are excluded; other CF C specs' job cards on days -15 / -14 / -13 fall inside the week but only the crew group, both employees and the totals are asserted.",
+    "Payroll Summary by Crew is a monetary report (hidden without rates.view). Layout JobCardPayrollSummaryByCrew.json prints 'Total Time' and 'Grand Totals:'; Group by Crew defaults to Work Crew."
+  ],
+  "ticket": "WEBPET-3828",
+  "screen": { "menuPath": ["View", "Job Cards"], "url": "/view/job-cards" },
+  "fixtureCrew": "C",
+  "dayOffset": -16,
+  "seed": {
+    "employees": ["one", "two"],
+    "job": "hourly",
+    "timeIn": { "hour": 7, "minute": 0 },
+    "timeOut": { "hour": 11, "minute": 0 }
+  },
+  "jobCards": 2,
+  "range": { "fromOffset": -19, "toOffset": -13 },
+  "report": "Payroll Summary by Crew",
+  "expected": { "status": 200, "totals": ["Total Time", "Grand Totals:"] },
+  "annotations": [],
+  "cleanup": []
+}

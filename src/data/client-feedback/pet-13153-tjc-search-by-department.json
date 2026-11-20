@@ -1,0 +1,29 @@
+{
+  "_notes": [
+    "Bucket B: CF CREW D owns day -13 (moved from -16: WEBPET-3826 holds D -16). Analyze only; nothing committed.",
+    "CF fixture employees have no Department and WEBPET-3577 needs CF D ONE's to stay empty, so the spec mints two employees (home crew CF CREW D) and puts them in the fixed CF DEPARTMENT on screen. No fixture row is changed.",
+    "seed = control: CF D ONE/TWO punch 08:00-10:00 (4 cards, no department). departmentSeed = the two minted employees 07:00-15:00 (4 cards). Search by Department must analyze only the minted pair: 4 cards, 2 employees, Gross 16 (8 h x 2 x hourly rate 1; unfiltered it would be 20). Gross must be measured on dev; fix the number here, never the check.",
+    "Server: non-Oracle Department filters on Employee.DepartmentCounter (candidates.go:932-937)."
+  ],
+  "ticket": "PET-13153",
+  "screen": { "menuPath": ["Transfer to Job Cards"], "url": "/transfer-to-job-cards", "tab": "Time Cards" },
+  "fixtureCrew": "D",
+  "dayOffset": -13,
+  "employees": {
+    "one": { "firstName": "DEPT", "exportIdentifier": "131531" },
+    "two": { "firstName": "DEPT", "exportIdentifier": "131532" }
+  },
+  "seed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 8, "minute": 0 }, "timeOut": { "hour": 10, "minute": 0 } },
+  "departmentSeed": { "employees": ["one", "two"], "job": "hourly", "timeIn": { "hour": 7, "minute": 0 }, "timeOut": { "hour": 15, "minute": 0 } },
+  "expected": {
+    "searchByOptions": ["Employee", "Department", "Employee Home Crew", "Time Card Crew"],
+    "match": "Selected",
+    "sentenceTemplate": "Department is one of: {department}",
+    "analyzed": 4,
+    "caption": "Includes 4 Time Cards of 4 initial selection",
+    "labelTemplate": "{exportId} : {name}",
+    "totals": { "Employees": 2, "Gross": 16 }
+  },
+  "annotations": [],
+  "cleanup": []
+}

@@ -1506,6 +1506,50 @@ export class TransferToJobCardsPage extends BasePage {
         await expect(chip(), `Time Card Crew scope shows "${name}"`).toBeVisible({ timeout: 10_000 });
     }
 
+    // ── Search by Department / Employee Home Crew (PET-13153 / PET-13154) ──
+
+    /** The Match select of the open Search by criterion; reads "Selected" for the inList choice. */
+    get searchMatch(): Locator {
+        return this.page.getByTestId('transfer-search-op');
+    }
+
+    /** The criterion line's sentence button, e.g. "Department is one of: X". */
+    criterionSentence(dimension: 'department' | 'homeCrew'): Locator {
+        return this.page.getByTestId(`transfer-search-criterion-edit-${dimension}`);
+    }
+
+    /** The Search by dimensions on offer, in list order; the listbox is closed again before returning. */
+    async searchByOptions(): Promise<string[]> {
+        await this.page.getByTestId('transfer-search-by-trigger').click();
+        const options = this.page.getByRole('listbox').getByRole('option');
+        await expect(options.first()).toBeVisible({ timeout: 10_000 });
+        const labels = (await options.allInnerTexts()).map((t) => t.trim());
+        await this.page.keyboard.press('Escape');
+        await expect(options.first()).toBeHidden({ timeout: 10_000 });
+        return labels;
+    }
+
+    /** Search by Department / Employee Home Crew, Match Selected, one name picked; the chip proves the scope. Mirrors scopeToTimeCardCrew. */
+    async scopeBySearch(dimension: 'department' | 'homeCrew', name: string): Promise<void> {
+        const pickers = { department: 'transfer-filter-departments', homeCrew: 'transfer-filter-home-crews' } as const;
+        const picker = this.page.getByTestId(pickers[dimension]);
+        await this.page.getByTestId('transfer-search-by-trigger').click();
+        await this.page.getByTestId(`transfer-search-by-${dimension}`).click();
+        await expect(this.searchMatch).toBeVisible({ timeout: 10_000 });
+        if (!/Selected/.test((await this.searchMatch.textContent()) ?? '')) {
+            await this.searchMatch.click();
+            await this.page.getByTestId('transfer-search-op-inList').click();
+        }
+        await expect(picker).toBeVisible({ timeout: 10_000 });
+        await picker.click();
+        const dialog = this.page.getByRole('dialog');
+        await dialog.getByRole('searchbox').fill(name);
+        await dialog.getByRole('button', { name, exact: true }).click();
+        await this.page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden({ timeout: 10_000 });
+        await expect(this.timeCardCrewChip(name), `${dimension} scope shows "${name}"`).toBeVisible({ timeout: 10_000 });
+    }
+
     async clearCrewFilter(): Promise<void> {
         await this.crewFilter.click();
         await this.page.getByRole('button', { name: /^Clear \(\d+\)$/ }).click();

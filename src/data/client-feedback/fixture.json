@@ -13,6 +13,7 @@
   "field": { "code": "9002", "name": "CF FIELD" },
   "inactiveField": { "code": "9005", "name": "CF INACTIVE FIELD" },
   "allEmployeesCrew": { "code": "9061", "name": "CF ALL EMPLOYEES" },
+  "department": { "name": "CF DEPARTMENT" },
   "jobs": {
     "hourly": { "code": "9003", "name": "CF JOB", "paymentType": "Time", "hourlyRate": 1, "earningCodes": "RH,,OT,,DT,,RDP,,ODT,,DDT" },
     "piece": { "code": "9004", "name": "CF PIECE JOB", "paymentType": "Piece", "pieceRate": 1, "earningCodes": "RH,RP,OT,OP,DT,DP,RDP,,ODT,,DDT" },

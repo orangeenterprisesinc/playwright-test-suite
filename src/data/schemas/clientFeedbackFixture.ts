@@ -13,6 +13,8 @@ export const ClientFeedbackFixtureSchema = z.object({
     inactiveField: Entity,
     /** WEBPET-3893: the crew Preferences ▸ Defaults points at for the run; no members, never deleted. */
     allEmployeesCrew: Entity,
+    /** PET-13153: the department the run-minted employees are put in; departments carry no code, so it is keyed by name. Created on screen only when missing, never deleted. */
+    department: z.object({ name: z.string().regex(/^CF /) }).strict(),
     jobs: z.object({
         hourly: Entity.extend({ paymentType: z.literal('Time'), hourlyRate: z.number().positive(), earningCodes: z.string().min(1).optional() }).strict(),
         piece: Entity.extend({ paymentType: z.literal('Piece'), pieceRate: z.number().positive(), earningCodes: z.string().min(1).optional() }).strict(),
