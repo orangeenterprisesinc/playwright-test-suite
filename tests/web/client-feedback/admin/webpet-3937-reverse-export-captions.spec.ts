@@ -1,32 +1,24 @@
 /**
- * WEBPET-3937 — File ▸ Restore or Reverse: the reverse export items use the legacy captions.
+ * WEBPET-3937 — Reverse Export to Accounting keeps the legacy caption (new shell: one card on the Export hub).
  * Data: src/data/client-feedback/webpet-3937-reverse-export-captions.json · Plan: test-plans/client-feedback/webpet-3937-reverse-export-captions.md
  */
 import { expect, test } from '@fixtures/base.fixture';
 import { RestoreReverseCaptionsCaseSchema } from '@data/schemas/clientFeedbackScenario';
 import { loadScenario } from '@utils/data/scenarioLoader';
 
-test.describe('WEBPET-3937 · File ▸ Restore or Reverse: legacy reverse-export captions', { tag: ['@ClientFeedback', '@WEBPET-3937'] }, () => {
-    test("The reverse export items read 'Reverse Export to Accounting (Cost Accounting)' and '(Payroll)'", {
+test.describe('WEBPET-3937 · Export hub: legacy reverse-export caption', { tag: ['@ClientFeedback', '@WEBPET-3937'] }, () => {
+    test("The reverse export card reads 'Reverse Export to Accounting (Payroll / Cost Accounting)'", {
         tag: ['@Regression'],
         annotation: [{ type: 'testCaseId', description: 'WEBPET-3937' }],
-    }, async ({ pages }, testInfo) => {
-        // The new shell (web-pet #1569) has no File ▸ Restore or Reverse group: its entries are cards on the View and
-        // Export hubs, so there is no menu to list. The classic-shell suite on main still covers this.
-        test.skip(true, 'File ▸ Restore or Reverse group has no new-shell equivalent (web-pet #1569)');
+    }, async ({ pages, page }, testInfo) => {
         const s = await loadScenario(RestoreReverseCaptionsCaseSchema, testInfo);
         for (const a of s.annotations) testInfo.annotations.push(a);
 
-        // 1. Fresh app load, then File ▸ Restore or Reverse.
-        const items = await pages.fileMenu.restoreOrReverseItems();
+        // 1. Export hub: the reverse card carries the legacy caption.
+        await pages.leftNav.openHub(s.hub);
+        await expect(pages.leftNav.hubCard(s.card.route), `the '${s.card.title}' card`).toContainText(s.card.title);
 
-        // 2. The new captions are there, as menu entries.
-        for (const caption of s.expected.captions) {
-            expect(items, `'${caption}' is listed`).toContain(caption);
-            await expect(pages.fileMenu.restoreOrReverseLink(caption), `'${caption}' is a menu entry`).toBeVisible();
-        }
-
-        // 3. The old captions are gone.
-        for (const old of s.expected.oldCaptions) expect(items, `'${old}' is gone`).not.toContain(old);
+        // 2. The old captions are gone from the hub.
+        for (const old of s.expected.oldCaptions) await expect(page.getByText(old), `'${old}' is gone`).toHaveCount(0);
     });
 });
