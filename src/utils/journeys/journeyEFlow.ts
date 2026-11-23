@@ -522,7 +522,12 @@ export async function confirmCrewExport(
     // body carries the real reason, so the failure names it.
     expect(outcome.nothingToExport, `${label}: the export wrote nothing — "${scenario.export.nothingToExport}" on screen, server said ${runBody}`).toBe(false);
     expect(sent.filter((r) => r.status < 200 || r.status >= 300), `${label}: every export request answers 2xx`).toEqual([]);
-    expect(outcome.toasts.filter((t) => !/nothing|fail|error/i.test(t)), `${label}: a success toast (toasts: ${JSON.stringify(outcome.toasts)})`).not.toHaveLength(0);
+    if (outcome.status) {
+        expect(outcome.status.exported, `${label}: the Export status dialog counts every card ("${outcome.status.message}")`).toBe(expected.jobCards);
+        expect(outcome.status.notExported, `${label}: no card is reported Not Exported ("${outcome.status.message}")`).toBe(0);
+    } else {
+        expect(outcome.toasts.filter((t) => !/nothing|fail|error/i.test(t)), `${label}: a success toast (toasts: ${JSON.stringify(outcome.toasts)})`).not.toHaveLength(0);
+    }
 
     // Ready drops, with or without a Refresh; a Refresh upserts another draft, which teardown drops.
     const dropped = await expect
