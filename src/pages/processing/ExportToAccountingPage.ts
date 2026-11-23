@@ -31,8 +31,16 @@ export interface ExportOutcome {
     toasts: string[];
     confirmText: string;
     download: { path: string; bytes: number } | null;
+    /** The "Export status" dialog a finished run opens (web-pet #1756); null when the run only toasted. */
+    status: ExportStatus | null;
     /** `POST …/run`'s body: `summary` and per-card `failures` (reason codes). */
     runBody: unknown;
+}
+
+export interface ExportStatus {
+    message: string;
+    exported: number;
+    notExported: number;
 }
 
 const CONFIRM_TEXT = /^Export (\d+) JobCard(?:\(s\)|s)? to (.+) via (.+)\?$/;
@@ -402,6 +410,20 @@ export class ExportToAccountingPage extends BasePage {
         const saveDialog = this.page.getByRole('alertdialog', { name: /Save export file/i });
         const savedToast = this.page.getByText(/Export complete — the JobCards are now marked exported/);
         const saveFailed = this.page.getByText(/The file could not be saved/);
+        const statusDialog = this.page.getByTestId('export-status-dialog');
+        let status: ExportStatus | null = null;
+        // Reads the dialog and answers No: it blocks the page, and Yes would open the log in a new tab.
+        const readStatus = async (): Promise<ExportStatus> => {
+            const message = (await statusDialog.getByTestId('export-status-message').innerText()).trim();
+            const count = /(?<!Not )Exported job-cards?: (\d+)/.exec(message)?.[1];
+            if (count === undefined) throw new Error(`The Export status dialog names no exported count: "${message}"`);
+            const exported = Number(count);
+            const notExported = Number(/Not Exported job-cards?: (\d+)/.exec(message)?.[1] ?? 0);
+            await statusDialog.getByTestId('export-status-no').click();
+            await statusDialog.waitFor({ state: 'hidden', timeout: 10_000 });
+            seenToasts.push(message);
+            return { message, exported, notExported };
+        };
 
         await this.page.route('**/export-to-accounting/**', guard);
         this.page.on('response', onResponse);
@@ -427,22 +449,35 @@ export class ExportToAccountingPage extends BasePage {
                 .catch(() => undefined);
             // Nothing is marked exported until Save: the "Save export file" dialog holds the file and blocks the page.
             let saved: ExportOutcome['download'] = null;
-            if (!sawNothing && (await saveDialog.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true, () => false))) {
+            // A run that needs no file (nothing exported, or all refused) opens the status dialog with no Save dialog first.
+            const afterRun = sawNothing
+                ? ('none' as const)
+                : await Promise.race([
+                      saveDialog.waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'save' as const),
+                      statusDialog.waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'status' as const),
+                  ]).catch(() => 'none' as const);
+            if (afterRun === 'status') {
+                status = await readStatus();
+                if (status.exported === 0) sawNothing = true;
+            }
+            if (afterRun === 'save') {
                 const downloading = this.page.waitForEvent('download', { timeout: 30_000 });
                 downloading.catch(() => undefined);
                 await saveDialog.getByRole('button', { name: 'Save', exact: true }).click({ timeout: 10_000 });
                 const file: Download | null = await downloading.catch(() => null);
                 const outcomeToast = await Promise.race([
+                    statusDialog.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'status' as const),
                     savedToast.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'saved' as const),
                     saveFailed.first().waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'failed' as const),
                 ]).catch(() => 'none' as const);
+                if (outcomeToast === 'status') status = await readStatus();
                 // The toast is short-lived: read it now, while it is known to be on screen, not 10 s later (E10, 2026-10-29).
                 if (outcomeToast === 'saved') {
                     const text = ((await savedToast.first().innerText({ timeout: 2_000 }).catch(() => '')) ?? '').trim();
                     seenToasts.push(text || 'Export complete — the JobCards are now marked exported.');
                 }
                 if (outcomeToast === 'failed') throw new Error('The file could not be saved — the Save export file dialog answered failure; nothing is marked exported.');
-                if (outcomeToast === 'none') throw new Error('Save was clicked but neither "Export complete — the JobCards are now marked exported." nor a save failure appeared within 30s.');
+                if (outcomeToast === 'none') throw new Error('Save was clicked but neither the "Export status" dialog, the "Export complete" toast nor a save failure appeared within 30s.');
                 if (!file) throw new Error('Save completed but the browser raised no download event for the export file.');
                 if (opts.saveDownloadTo) {
                     await file.saveAs(opts.saveDownloadTo);
@@ -460,6 +495,7 @@ export class ExportToAccountingPage extends BasePage {
                 toasts,
                 confirmText,
                 download: saved,
+                status,
                 runBody: await runBody,
             };
         } finally {
